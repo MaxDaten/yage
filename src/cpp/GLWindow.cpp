@@ -28,7 +28,6 @@ yage::GLWindow::GLWindow(QScreen *screen)
 
 yage::GLWindow::~GLWindow(void)
 {
-    qDebug() << "destr window";
     delete m_context;
 }
 

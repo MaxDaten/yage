@@ -18,7 +18,6 @@ Application::Application(int & argc, char ** argv) : QGuiApplication(argc, argv)
 
 Application::~Application(void)
 {
-	qDebug() << "destr App";
 }
 
 int Application::exec(void)
@@ -35,7 +34,6 @@ void Application::processEvents( void )
 // C-Bindings
 GRAPHICSCORE_API yage::Application* createApplication( int argc, char** argv )
 {
-	// QApplication::setGraphicsSystem("native");
     return new yage::Application(argc, argv);
 }
 
