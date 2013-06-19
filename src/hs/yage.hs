@@ -1,7 +1,6 @@
-{-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UnicodeSyntax, RecordWildCards, GeneralizedNewtypeDeriving, DeriveDataTypeable, DeriveFunctor #-}
 module Main where
  
-import FFI
 import Foreign
 import Foreign.Marshal.Array
 import Foreign.Marshal.Alloc
@@ -10,100 +9,115 @@ import Foreign.C.String
 import Data.Bits
 import Control.Concurrent
 import Control.Monad
+import Control.Exception
+import Control.Monad.Reader
+import Control.Monad.State
+import Data.Typeable
 
 import System.Mem
 import System.Exit
 
 
 --import Graphics.Rendering.OpenGL.Raw as GL
-import Graphics.Rendering.OpenGL.Raw.Core.Core43 as GL
+--import Core.OpenGL as GL
+import Graphics.Rendering.OpenGL.GL
+import Core.Raw.FFI
+
+
+data YageEnvironment = YageEnvironment
+    { application   :: !YApplication
+    , window        :: !YGLWindow
+    }
+
+data YageState = YageState
+
+newtype Yage a = Yage (ReaderT YageEnvironment (StateT YageState IO) a)
+    deriving (Functor, Monad, MonadIO, MonadState YageState, MonadReader YageEnvironment, Typeable)
+
+initState :: YageState
+initState = YageState
 
 main :: IO ()
 main = appMain
 
+runYage :: YageEnvironment -> YageState -> Yage a -> IO (a, YageState)
+runYage env st (Yage a) = runStateT (runReaderT a env) st
+
+
 appMain :: IO ()
 appMain = do
+    _ <- bracket 
+        (initialization) 
+        (finalization)
+        (mainLoop)
+    return ()
+
+
+initialization :: IO YageEnvironment
+initialization = do
     app <- mkApplication []
-    --print app
-    
-    window <- mkGLWindow
-    resizeWindow window 800 600
-    showWindow window 
 
-    loop app window 0
+    win <- mkGLWindow
+    resizeWindow win 800 600
+    showWindow win 
 
+    return $ YageEnvironment app win
 
-loop :: YApplication -> YGLWindow -> Int -> IO ()
-loop app window i = do
-    beginDraw window
+finalization :: YageEnvironment -> IO ()
+finalization _ = return ()
 
-    let c = abs(sin $ fromIntegral i / 100.0)
-    --print $ show c
-    glClearColor c c c 0.0
+mainLoop :: YageEnvironment -> IO (a, YageState)
+mainLoop env = runYage env initState $ forever processFrame
 
-    w <- width window
-    h <- height window
-    r <- return . floor =<< pixelRatio window
-    setViewport 0 0 (r * w) (r * h)
-    --printDebug
+processFrame :: Yage ()
+processFrame = processInput >>= renderFrame >> afterFrame
 
-    GL.glClear $ GL.gl_COLOR_BUFFER_BIT .|. GL.gl_DEPTH_BUFFER_BIT .|. GL.gl_STENCIL_BUFFER_BIT
-    
-    endDraw window    
-    processEvents app
+processInput = withApplication $ io . processEvents
+
+afterFrame :: Yage ()
+afterFrame = io $ do
     performGC
     threadDelay (16666)
 
-    loop app window (i+1)
+renderFrame :: () -> Yage ()
+renderFrame _ = do
+    beforeRender
+    render
+    afterRender
+
+render :: Yage ()
+render = do
+    let c = abs(sin $ fromIntegral 3 / 100.0)
+    io $ clearColor $= Color4 1 c c 0
+
+    withWindow $ io . \win -> do
+        w <- width win
+        h <- height win
+        r <- return . floor =<< pixelRatio win
+        viewport $= ((Position 0 0), (Size (fromIntegral (r * w)) (fromIntegral (r * h))) )
 
 
-printDebug :: IO ()
-printDebug = do
-    vp <- getViewport
-    print $ show vp
-    printGLError
+beforeRender :: Yage ()
+beforeRender = do
+    beginRender
+    io (clear [ColorBuffer])
 
-    cc <- getClearColor
-    print $ show cc
+afterRender :: Yage ()
+afterRender = endRender
 
-    v <- getGLVersion
-    print $ show v
+beginRender :: Yage ()
+beginRender = withWindow $ \w -> io . beginDraw $ w
 
-printGLError :: IO ()
-printGLError = do
-    err <- GL.glGetError
-    when (err /= 0) $ do
-        print . show $ err
-        exitWith $ ExitFailure . fromIntegral $ err
+endRender :: Yage ()
+endRender = withWindow $ \w -> io . endDraw $ w
 
-setViewport :: Int -> Int -> Int -> Int -> IO ()
-setViewport x y w h = GL.glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
 
-getViewport :: IO ([Int])
-getViewport = withArray inArr $ \arr -> do
-    GL.glGetIntegerv GL.gl_VIEWPORT arr
-    outArr <- peekArray (length inArr) arr
-    return $ map fromIntegral outArr
-    where inArr = (map fromIntegral [0, 0, 0, 0]) :: [GLint]
+withWindow :: (YGLWindow -> Yage a) -> Yage a
+withWindow f = asks window >>= f
 
-getClearColor :: IO ([Double])
-getClearColor = withArray inArr $ \arr -> do
-    GL.glGetDoublev GL.gl_COLOR_CLEAR_VALUE arr
-    outArr <- peekArray (length inArr) arr
-    return $ map realToFrac outArr
-    where inArr = (map realToFrac [0, 0, 0, 0]) :: [GLdouble]
+withApplication :: (YApplication -> Yage a) -> Yage a
+withApplication f = asks application >>= f
 
--- subject to code optimization
-getGLVersion :: IO ((Int, Int))
-getGLVersion = do
-    major <- major'
-    minor <- minor'
-    return (major, minor)
-    where 
-        major' = alloca $ \i -> do
-                GL.glGetIntegerv GL.gl_MAJOR_VERSION i
-                return . fromIntegral =<< peek i
-        minor' = alloca $ \i -> do
-                GL.glGetIntegerv GL.gl_MINOR_VERSION i
-                return . fromIntegral =<< peek i
+io :: MonadIO m => IO a -> m a
+io = liftIO
 

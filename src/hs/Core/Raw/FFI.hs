@@ -1,4 +1,10 @@
-module FFI where
+{-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
+module Core.Raw.FFI (
+	  YApplication
+	  , mkApplication, exec, processEvents
+	, YGLWindow
+	  , mkGLWindow, showWindow, beginDraw, endDraw, resizeWindow, height, width, pixelRatio
+	) where
 
 import Foreign
 import Foreign.C.Types

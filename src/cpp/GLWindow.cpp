@@ -18,8 +18,8 @@ yage::GLWindow::GLWindow(QScreen *screen)
 
     QSurfaceFormat format;
     format.setDepthBufferSize( 24 );
-    format.setMajorVersion( 4 );
-    format.setMinorVersion( 3 );
+    format.setMajorVersion( 3 );
+    format.setMinorVersion( 2 );
     format.setSamples( 4 );
     format.setProfile( QSurfaceFormat::CoreProfile );
     setFormat( format );
@@ -73,8 +73,9 @@ void yage::GLWindow::beginDraw ( void )
         m_context->setFormat( requestedFormat() );
         m_context->create();
 
-        if (!m_context->isValid())
+        if (!m_context->isValid()) {
             qCritical() << "invalid context";
+        }
 
         // Make the context current on this window
 
