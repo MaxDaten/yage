@@ -1,4 +1,4 @@
-module Core.OpenGL (
+module Yage.Core.OpenGL (
 	module GL
 	) where
 

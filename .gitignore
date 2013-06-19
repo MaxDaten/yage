@@ -7,5 +7,5 @@ build/
 Makefile
 Makefile-lib
 *.app/
-yage
+./yage
 dist/

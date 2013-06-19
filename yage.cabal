@@ -15,10 +15,11 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable yage
-  main-is:             yage.hs
+  main-is:             Main.hs
   hs-source-dirs:      src/hs
-  other-modules:       Core.Raw.FFI
-                       Core.OpenGL
+  other-modules:       Yage
+                       Yage.Core.Raw.FFI
+                       Yage.Core.OpenGL
   --ghc-options: -Wall -O2
   extra-libraries:     yage
   extra-lib-dirs:      ./

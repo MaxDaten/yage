@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
-module Core.Raw.FFI (
+module Yage.Core.Raw.FFI (
 	  YApplication
 	  , mkApplication, exec, processEvents
 	, YGLWindow
