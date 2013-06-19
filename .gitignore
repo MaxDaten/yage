@@ -8,3 +8,4 @@ Makefile
 Makefile-lib
 *.app/
 yage
+dist/
