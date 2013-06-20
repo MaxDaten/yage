@@ -27,3 +27,4 @@ executable yage
                        --, OpenGLRawTest  == 0.1.*
                        , OpenGL         == 2.8.*
                        , mtl            == 2.1.*
+                       , containers     == 0.5.*

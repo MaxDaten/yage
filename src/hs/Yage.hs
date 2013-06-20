@@ -15,8 +15,8 @@ import Control.Monad.State
 import Data.Typeable
 
 import System.Mem
-import System.Exit
 
+import Data.Set as Set
 
 --import Graphics.Rendering.OpenGL.Raw as GL
 --import Core.OpenGL as GL
@@ -33,6 +33,9 @@ data YageState = YageState
 
 newtype Yage a = Yage (ReaderT YageEnvironment (StateT YageState IO) a)
     deriving (Functor, Monad, MonadIO, MonadState YageState, MonadReader YageEnvironment, Typeable)
+
+data Input = Input
+type Inputs = Set.Set Input
 
 initState :: YageState
 initState = YageState
@@ -69,14 +72,17 @@ mainLoop env = runYage env initState $ forever processFrame
 processFrame :: Yage ()
 processFrame = processInput >>= renderFrame >> afterFrame
 
-processInput = withApplication $ io . processEvents
+processInput :: Yage (Inputs)
+processInput = do
+    withApplication $ io . processEvents
+    return Set.empty
 
 afterFrame :: Yage ()
 afterFrame = io $ do
     performGC
     threadDelay (16666)
 
-renderFrame :: () -> Yage ()
+renderFrame :: Inputs -> Yage ()
 renderFrame _ = do
     beforeRender
     render
