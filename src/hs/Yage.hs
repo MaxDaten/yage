@@ -24,22 +24,26 @@ import qualified Graphics.Rendering.OpenGL.GL as GL
 import Graphics.Rendering.OpenGL.GL (($=)) 
 import Yage.Core.Raw.FFI
 
+data YRenderConfig = YRenderConfig
+    { clearColor    :: GL.Color4 Double
+    }
 
-data YageEnvironment = YageEnvironment
+data YageRenderEnv = YageRenderEnv
     { application   :: !YApplication
     , window        :: !YGLWindow
+    , renderConfig  :: !YRenderConfig
     }
 
 data YageState = YageState
     { inputs     :: Set.Set Input
-    , clearColor :: GL.Color4 Double
+    , renderEnv  :: YageRenderEnv
     }
 
-newtype YageReader a = YageReader (ReaderT YageEnvironment IO a)
-    deriving (Functor, Monad, MonadIO, MonadReader YageEnvironment, Typeable)
+newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv IO a)
+    deriving (Functor, Monad, MonadIO, MonadReader YageRenderEnv, Typeable)
 
-newtype Yage a = Yage (ReaderT YageEnvironment (StateT YageState IO) a)
-    deriving (Functor, Monad, MonadIO, MonadState YageState, MonadReader YageEnvironment, Typeable)
+newtype Yage a = Yage (StateT YageState IO a)
+    deriving (Functor, Monad, MonadIO, MonadState YageState, Typeable)
 
 data Input = Input
 type Inputs = Set.Set Input
@@ -49,16 +53,14 @@ data Scene = Scene
 
 type YageWire = WireM Yage
 
-initState :: YageState
-initState = YageState Set.empty (GL.Color4 0 0 0 0)
+---------------------------------------------------------------------------------------------------
+
+runYage :: YageState -> Yage a -> IO (a, YageState)
+runYage st (Yage a) = runStateT a st
 
 
-runYage :: YageEnvironment -> YageState -> Yage a -> IO (a, YageState)
-runYage env st (Yage a) = runStateT (runReaderT a env) st
-
-
-runYageEnvironment :: YageReader a -> YageEnvironment -> IO (a)
-runYageEnvironment (YageReader a) env = runReaderT a env
+runYageRenderer :: YageRenderer a -> YageRenderEnv -> IO (a)
+runYageRenderer (YageRenderer a) env = runReaderT a env
 
 
 yageMain :: YageWire () Scene -> Session IO -> IO ()
@@ -66,109 +68,113 @@ yageMain wire session = do
     _ <- bracket 
         (initialization) 
         (finalization)
-        (\env -> yageLoop env initState wire session)
+        (\st -> yageLoop st wire session)
     return ()
 
 
-initialization :: IO (YageEnvironment)
+initialization :: IO (YageState)
 initialization = do
     app <- mkApplication []
-
     win <- mkGLWindow
+    
     resizeWindow win 800 600
-    showWindow win 
+    showWindow win
 
-    return $ YageEnvironment app win
+    let rEnv = YageRenderEnv app win (YRenderConfig (GL.Color4 0.3 0.3 0.3 0))
+    return $ YageState Set.empty rEnv
 
 
-finalization :: YageEnvironment -> IO ()
+finalization :: YageState -> IO ()
 finalization _ = return ()
 
 
-yageLoop :: YageEnvironment -> YageState -> YageWire () Scene -> Session IO -> IO ()
-yageLoop env state wire session = do
+yageLoop :: YageState -> YageWire () Scene -> Session IO -> IO ()
+yageLoop state wire session = do
     (dt, s') <- sessionUpdate session
 
-    ins <- processInput env
-    let state = state { inputs = ins }
+    ins <- processInput (application $ renderEnv $ state)
+    let st = state { inputs = ins }
 
-    ((mx, w'), st') <- runYage env state $ stepWire wire dt ()
-    print $ show mx
-    either handleError drawScene' mx
-    yageLoop env st' w' s'
+    ((mx, w'), st') <- runYage st $ stepWire wire dt ()
+    either handleError (drawScene' $ renderEnv st') mx
+
+    yageLoop st' w' s'
     where
         handleError e = print $ "err:" ++ show e
-        drawScene' scene = runYageEnvironment (drawScene scene) env
+        drawScene' env scene = runYageRenderer (drawScene scene) env
 
+---------------------------------------------------------------------------------------------------
 
-drawScene :: Scene -> YageReader ()
+drawScene :: Scene -> YageRenderer ()
 drawScene scene = (renderFrame scene) >> afterFrame
-{--
-mainLoop :: YageEnvironment -> IO (a, YageState)
-mainLoop env = runYage env initState $ forever processFrame
 
 
-processFrame :: Yage ()
-processFrame = processInput >>= renderFrame >> afterFrame
---}
-
-processInput :: YageEnvironment -> IO (Inputs)
-processInput env = do
-    processEvents $ application env
-    return Set.empty
+processInput :: YApplication -> IO (Inputs)
+processInput app = do
+    processEvents app
+    return (Set.empty) -- dummy
 
 
-
-afterFrame :: YageReader ()
+afterFrame :: YageRenderer ()
 afterFrame = io $ do
     performGC
-    threadDelay (16666)
+    --threadDelay (16666)
 
 
-renderFrame :: Scene -> YageReader ()
-renderFrame _ = do
+renderFrame :: Scene -> YageRenderer ()
+renderFrame scene = do
     beforeRender
-    render
+    doRender scene
     afterRender
 
 
-render :: YageReader ()
-render = do
+doRender :: Scene -> YageRenderer ()
+doRender scene = return ()
+
+
+beforeRender :: YageRenderer ()
+beforeRender = do
+    clearC <- asks $ clearColor . renderConfig
     withWindow $ io . \win -> do
+        beginDraw $ win
+
+        GL.clearColor $= fmap realToFrac clearC
+        GL.clear [GL.ColorBuffer]
+
         w <- width win
         h <- height win
         r <- return . floor =<< pixelRatio win
         GL.viewport $= ((GL.Position 0 0), (GL.Size (fromIntegral (r * w)) (fromIntegral (r * h))) )
 
 
-beforeRender :: YageReader ()
-beforeRender = do
-    beginRender
-    --cc <- gets clearColor
-    --io $ GL.clearColor $= fmap realToFrac cc
-    io $ GL.clear [GL.ColorBuffer]
+afterRender :: YageRenderer ()
+afterRender = withWindow $ \win -> io . endDraw $ win
 
+---------------------------------------------------------------------------------------------------
 
-afterRender :: YageReader ()
-afterRender = endRender
-
-
-beginRender :: YageReader ()
-beginRender = withWindow $ \w -> io . beginDraw $ w
-
-
-endRender :: YageReader ()
-endRender = withWindow $ \w -> io . endDraw $ w
-
-
-withWindow :: (YGLWindow -> YageReader a) -> YageReader a
+withWindow :: (YGLWindow -> YageRenderer a) -> YageRenderer a
 withWindow f = asks window >>= f
 
 
-withApplication :: (YApplication -> YageReader a) -> YageReader a
+withApplication :: (YApplication -> YageRenderer a) -> YageRenderer a
 withApplication f = asks application >>= f
 
 
 io :: MonadIO m => IO a -> m a
 io = liftIO
 
+---------------------------------------------------------------------------------------------------
+
+getRenderEnv :: Yage (YageRenderEnv)
+getRenderEnv = gets renderEnv
+
+
+putRenderEnv :: YageRenderEnv -> Yage ()
+putRenderEnv env = get >>= \yst -> put yst{ renderEnv = env }
+
+
+getRenderConfig :: Yage (YRenderConfig)
+getRenderConfig = renderConfig `liftM` getRenderEnv
+
+putRenderConfig :: YRenderConfig -> Yage ()
+putRenderConfig conf = getRenderEnv >>= \env -> putRenderEnv env{ renderConfig = conf }

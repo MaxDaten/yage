@@ -29,5 +29,6 @@ executable yage
                        , OpenGL         == 2.8.*
                        , mtl            == 2.1.*
                        , containers     == 0.5.*
+                       , transformers   == 0.3.*
 
                        , netwire        == 4.0.*

@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE Arrows, RecordWildCards #-}
 
 module Main where
 
@@ -17,7 +17,9 @@ main :: IO ()
 main = yageMain mainWire clockSession
 
 mainWire :: YageWire a Scene
-mainWire = frameStat . pure Scene . clearColorW . time
+mainWire = --frameStat .
+        pure Scene 
+        . clearColorW . arr (abs . sin) . integral_ (0, 0, 0, 0) . arr (*0.6) . pure (0.33, 0.28, 0.41, 0) 
 
 
 frameStat :: YageWire a a
@@ -25,19 +27,9 @@ frameStat = proc i -> do
   frameStat <- countFrame &&& avgFps 100 -< ()
   returnA -< traceShow (frameStat) i
 
-{--
-clearColor :: YageWire Time b
-clearColor = proc t -> do
-	let c = abs(sin $ fromIntegral 3 / 100.0)
-    io $ clearColor $= Color4 1 c c 0
+clearColorW :: YageWire (Double, Double, Double, Double) ()
+clearColorW = mkFixM $ \_ (cR, cG, cB, cA) -> do
+    rConf <- getRenderConfig
+    putRenderConfig rConf{ clearColor = Color4 cR cG cB cA }
 
-anim
---}
-
-clearColorW :: YageWire Time ()
-clearColorW = mkFixM $ \_ t -> do
-	let c = realToFrac $ abs(sin t)
-	yst <- get
-	put $ yst { clearColor = Color4 c c c 0 }
-	--io $ clearColor $= Color4 c c c 0
-	return $ Right ()
+    return $ Right ()
