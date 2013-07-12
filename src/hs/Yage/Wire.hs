@@ -12,7 +12,7 @@ import Text.Printf
 import Debug.Trace
 
 import Yage
-import Yage.Rendering
+import Yage.Rendering.Types
 import Yage.Types
 
 

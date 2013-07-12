@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards #-}
-module Yage.Rendering.Scene where
+module Yage.Rendering.WorldState where
 
 ---------------------------------------------------------------------------------------------------
 import              Graphics.GLUtil.Camera3D    (Camera, fpsCamera)
@@ -8,7 +8,7 @@ import              Yage.World
 
 ---------------------------------------------------------------------------------------------------
 
-data Scene = Scene 
+data WorldState = WorldState 
     { camera    :: Camera Double
     , world     :: YageWorld            -- ^ the simulation world
     }
@@ -18,7 +18,7 @@ data Scene = Scene
 
 ---------------------------------------------------------------------------------------------------
 
-emptyScene :: Scene
-emptyScene = Scene fpsCamera emptyWorld
+emptyWorldState :: WorldState
+emptyWorldState = WorldState fpsCamera emptyWorld
 
 

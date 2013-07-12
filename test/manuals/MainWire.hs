@@ -4,7 +4,7 @@ module Main where
 
 
 import Prelude hiding (id, (.)) -- reimported by Control.Wire
-import Yage.Rendering.Scene
+import Yage.Rendering.WorldState
 import Control.Wire
 import Control.Wire.Wire (never, constant)
 import Control.Monad.State
@@ -22,7 +22,7 @@ import Yage.Rendering.Primitives
 main :: IO ()
 main = yageMain mainWire clockSession
 
-mainWire :: YageWire a Scene
+mainWire :: YageWire a WorldState
 mainWire = --frameStat . frameStat .
         scenWithCube <<<
         renderSetupW
@@ -32,7 +32,7 @@ frameStat :: YageWire a (Int, Double)
 frameStat = countFrame &&& avgFps 100
 
 
-scenWithCube :: YageWire a Scene
+scenWithCube :: YageWire a WorldState
 scenWithCube = baseScene
 
     --combine <<< cube &&& baseScene
@@ -41,8 +41,8 @@ scenWithCube = baseScene
     --    combine =  arr snd
 
 
-baseScene :: YageWire a Scene
-baseScene = pure emptyScene
+baseScene :: YageWire a WorldState
+baseScene = pure emptyWorldState
 
 
 --cube :: YageWire a SomeRenderable

@@ -32,8 +32,10 @@ library
                         Yage.Core.OpenGL
                         Yage.World
                         Yage.Resources
+                        Yage.Resources.Loader
                         Yage.Rendering
-                        Yage.Rendering.Scene
+                        Yage.Rendering.Types
+                        Yage.Rendering.WorldState
                         Yage.Rendering.Primitives
   other-modules:
                         Yage.Core.Raw.FFI
@@ -79,6 +81,8 @@ executable main-wireless
 
     hs-source-dirs:     test/manuals
     main-is:            MainWireless.hs
+    extra-lib-dirs:       .
+    extra-libraries:      yage
 
     build-depends:        base
                         , yage

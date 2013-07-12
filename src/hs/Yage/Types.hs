@@ -22,7 +22,7 @@ import             Graphics.Rendering.OpenGL.GL (($=))
 import qualified   Data.Set                     as Set
 import             Yage.Core.Raw.FFI
 import			   Yage.Resources
-import 			   Yage.Rendering
+import 			   Yage.Rendering.Types
 ---------------------------------------------------------------------------------------------------
 
 

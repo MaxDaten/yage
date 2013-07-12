@@ -26,13 +26,14 @@ import             Yage.Import
 import             Yage.Types
 import             Yage.Core.Raw.FFI
 import             Yage.Rendering
-import             Yage.Rendering.Scene
+import             Yage.Rendering.Types
+import             Yage.Rendering.WorldState
 ---------------------------------------------------------------------------------------------------
 
 
 
 
-yageMain :: YageWire () Scene -> Session IO -> IO ()
+yageMain :: YageWire () WorldState -> Session IO -> IO ()
 yageMain wire session = do
     _ <- bracket 
             (initialization) 
@@ -61,7 +62,7 @@ finalization :: YageState -> IO ()
 finalization _ = return ()
 
 
-yageLoop :: YageState -> YageWire () Scene -> Session IO -> IO ()
+yageLoop :: YageState -> YageWire () WorldState -> Session IO -> IO ()
 yageLoop state wire session = do
     (dt, s') <- sessionUpdate session
 
@@ -75,8 +76,11 @@ yageLoop state wire session = do
     yageLoop st' w' s'
     where
         handleError e = print $ "err:" ++ show e
-        drawScene' :: YageRenderEnv -> Scene -> IO ()
-        drawScene' env scene = runYageRenderer (drawScene $ extractRenderScene scene) env
+        drawScene' :: YageRenderEnv -> WorldState -> IO ()
+        drawScene' env scene = do
+            -- postProcessScene :: Scene -> RenderScene
+            let rS = RenderScene []
+            runYageRenderer (drawScene rS) env
 
 ---------------------------------------------------------------------------------------------------
 

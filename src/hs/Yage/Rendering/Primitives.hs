@@ -1,8 +1,7 @@
 module Yage.Rendering.Primitives where
 
 import Yage.Import
-import Yage.Rendering
-import Yage.Rendering.Scene
+import Yage.Rendering.Types
 import Yage.Types
 
 import Linear (V3(..))
