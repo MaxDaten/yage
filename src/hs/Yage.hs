@@ -19,9 +19,6 @@ import             Data.Typeable
 import             System.Mem
 import qualified   Data.Set                     as Set
 ---------------------------------------------------------------------------------------------------
-import qualified   Graphics.Rendering.OpenGL.GL as GL
-import             Graphics.Rendering.OpenGL.GL (($=))
-
 import             Yage.Import
 import             Yage.Types
 import             Yage.Core.Raw.FFI
@@ -50,12 +47,8 @@ initialization = do
     resizeWindow win 800 600
     showWindow win
 
-    let rEnv = YageRenderEnv app win (YRenderConfig (GL.Color4 0.3 0.3 0.3 0)) emptyYRenderResources
-    -- this kicks the first frame, qt init its opengl context now
-    -- neccessary to enable gl calls
-    -- TODO: find a better solution
-    runYageRenderer (beforeRender >> afterRender) rEnv
-    return $ YageState Set.empty rEnv []
+    let rEnv = YageRenderEnv app win (YRenderConfig (Color4 0.3 0.3 0.3 0))
+    return $ YageState Set.empty rEnv initialRenderState []
 
 
 finalization :: YageState -> IO ()
@@ -63,24 +56,29 @@ finalization _ = return ()
 
 
 yageLoop :: YageState -> YageWire () WorldState -> Session IO -> IO ()
-yageLoop state wire session = do
+yageLoop ystate' wire session = do
     (dt, s') <- sessionUpdate session
 
-    ins <- processInput (application $ renderEnv $ state)
-    let st = state { inputs = ins }
+    ins <- processInput (application $ renderEnv $ ystate')
+    let yst' = ystate' { inputs = ins }
 
-    ((mx, w'), st') <- runYage st $ stepWire wire dt ()
+    ((mx, w'), yst) <- runYage yst' $ stepWire wire dt ()
+    
+    either 
+        (\e -> handleError e >> return (renderState yst))
+        (\s -> drawScene' s (renderState yst) (renderEnv yst))
+        mx
 
-    either handleError (drawScene' $ renderEnv st') mx
-
-    yageLoop st' w' s'
+    yageLoop yst w' s'
     where
+        handleError :: Show e => e -> IO ()
         handleError e = print $ "err:" ++ show e
-        drawScene' :: YageRenderEnv -> WorldState -> IO ()
-        drawScene' env scene = do
+        drawScene' :: WorldState -> RenderState -> YageRenderEnv -> IO (RenderState)
+        drawScene' _ st env = do
             -- postProcessScene :: Scene -> RenderScene
-            let rS = RenderScene []
-            runYageRenderer (drawScene rS) env
+            let scene = RenderScene []
+            (_, rSt) <- runYageRenderer (drawScene scene) st env
+            return rSt
 
 ---------------------------------------------------------------------------------------------------
 

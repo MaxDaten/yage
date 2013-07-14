@@ -16,9 +16,6 @@ import             Control.Monad.State
 import             Control.Wire                 hiding (Position, window)
 import             Data.Typeable
 ---------------------------------------------------------------------------------------------------
-import qualified   Graphics.Rendering.OpenGL.GL as GL
-import             Graphics.Rendering.OpenGL.GL (($=))
----------------------------------------------------------------------------------------------------
 import qualified   Data.Set                     as Set
 import             Yage.Core.Raw.FFI
 import			   Yage.Resources
@@ -27,9 +24,10 @@ import 			   Yage.Rendering.Types
 
 
 data YageState = YageState
-    { inputs     :: Set.Set Input
-    , renderEnv  :: YageRenderEnv
-    , resources  :: [YageResource]		-- ^ should use a res-manager later on
+    { inputs      :: Set.Set Input
+    , renderEnv   :: YageRenderEnv
+    , renderState :: RenderState
+    , resources   :: [YageResource]		-- ^ should use a res-manager later on
     --, resources  :: YageResources
     }
 

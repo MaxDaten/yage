@@ -1,5 +1,11 @@
 {-# LANGUAGE RecordWildCards, ExistentialQuantification, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
-module Yage.Rendering where
+module Yage.Rendering (
+      module GLReExports
+    , runYageRenderer
+    , drawScene
+
+    --, mkRenderEntity
+    ) where
 
 
 import qualified   Data.Map                        as Map
@@ -7,10 +13,13 @@ import             Foreign.Storable                (sizeOf)
 
 import             Data.Typeable
 import             Control.Monad.Reader
+import             Control.Monad.State
 
 import             Graphics.GLUtil
 import             Graphics.GLUtil.Camera3D
 import qualified   Graphics.Rendering.OpenGL       as GL
+import             Graphics.Rendering.OpenGL.GL    (($=))
+import             Graphics.Rendering.OpenGL.GL    as GLReExports (Color4(..))
 ---------------------------------------------------------------------------------------------------
 import             Linear                          (V3(..), zero)
 import             Linear.Quaternion               (Quaternion)
@@ -38,13 +47,23 @@ renderFrame scene = do
 
 
 doRender :: RenderScene -> YageRenderer ()
-doRender = render
+doRender scene@RenderScene{..} = mapM_ (renderWithData) entities
+    where
+        renderWithData :: SomeRenderable -> YageRenderer ()
+        renderWithData = let renderData = undefined -- get renderdata
+                         in  render renderData
 
 
 beforeRender :: YageRenderer ()
 beforeRender = do
+    setupFrame
+    prepareResources
+
+
+setupFrame :: YageRenderer ()
+setupFrame = withWindow $ \win -> do
     clearC <- asks $ clearColor . renderConfig
-    withWindow $ io . \win -> do
+    io $ do
         beginDraw $ win
 
         GL.clearColor $= fmap realToFrac clearC
@@ -54,6 +73,11 @@ beforeRender = do
         h <- height win
         r <- return . floor =<< pixelRatio win
         GL.viewport $= ((GL.Position 0 0), (GL.Size (fromIntegral (r * w)) (fromIntegral (r * h))) )
+
+
+-- | Unloads unneeded render-resources and loads needed resources
+prepareResources :: YageRenderer ()
+prepareResources = return ()
 
 
 afterRender :: YageRenderer ()
@@ -72,27 +96,27 @@ withApplication f = asks application >>= f
 
 ---------------------------------------------------------------------------------------------------
 
-mkRenderEntity :: TriMesh -> ShaderProgram -> IO RenderEntity
-mkRenderEntity TriMesh{..} sprog = do
-    vao <- io $ makeVAO $ do
-        vbo <- makeBuffer GL.ArrayBuffer vertices
-        GL.bindBuffer GL.ArrayBuffer $= Just vbo
+--mkRenderEntity :: TriMesh -> ShaderProgram -> YageRenderer RenderEntity
+--mkRenderEntity TriMesh{..} sprog = do
+--    vao <- io $ makeVAO $ do
+--        vbo <- makeBuffer GL.ArrayBuffer vertices
+--        GL.bindBuffer GL.ArrayBuffer $= Just vbo
 
-        --enableAttrib sprog positionAttrib
-        --let stride = fromIntegral $ sizeOf (undefined::Vertex) * 3
-        --    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
-        --setAttrib sprog positionAttrib GL.ToFloat vad
+--        --enableAttrib sprog positionAttrib
+--        --let stride = fromIntegral $ sizeOf (undefined::Vertex) * 3
+--        --    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
+--        --setAttrib sprog positionAttrib GL.ToFloat vad
         
-        ebo <- bufferIndices $ map fromIntegral indices
-        GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
-        print $ "renderable " ++ show vbo
-    return $ RenderEntity zero (RenderData vao sprog triCount)
+--        ebo <- bufferIndices $ map fromIntegral indices
+--        GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
+--        print $ "renderable " ++ show vbo
+--    return $ RenderEntity zero (RenderData vao sprog triCount)
 
 ---------------------------------------------------------------------------------------------------
 
-runYageRenderer :: YageRenderer a -> YageRenderEnv -> IO (a)
-runYageRenderer (YageRenderer a) env = runReaderT a env
 
---addRenderable :: SomeRenderable -> Yage ()
---addRenderable r = modify $ \s@YageState{..} -> s{ resources = YageResources (r : (renderables resources)) }
+-- | runs the renderer in the given environment to render one frame.
+-- TODO :: combine this with the scene setup
+runYageRenderer :: YageRenderer a -> RenderState -> YageRenderEnv -> IO (a, RenderState)
+runYageRenderer (YageRenderer a) state env = runStateT (runReaderT a env) state
 

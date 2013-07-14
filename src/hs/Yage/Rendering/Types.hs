@@ -6,6 +6,7 @@ import             Foreign.Storable                (sizeOf)
 
 import             Data.Typeable
 import             Control.Monad.Reader
+import             Control.Monad.State
 
 import             Graphics.GLUtil
 import             Graphics.GLUtil.Camera3D
@@ -16,20 +17,20 @@ import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
 import             Yage.Core.Raw.FFI
-import 			   Yage.Rendering.WorldState
+import             Yage.Rendering.WorldState
+import             Yage.Resources
 -- =================================================================================================
 
 
-newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv IO a)
-    deriving (Functor, Monad, MonadIO, MonadReader YageRenderEnv, Typeable)
+newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv (StateT RenderState IO) a)
+    deriving (Functor, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
 
 -- | The context for the 'YageRenderer' reader monad
 --   contains all needed data to render a frame
 data YageRenderEnv = YageRenderEnv
-    { application     :: !YApplication		-- ^ The application to render the frame for
-    , window          :: !YGLWindow			-- ^ The window context to render into
-    , renderConfig    :: !YRenderConfig 	-- ^ The current settings for the frame 
-    , renderResources :: !YRenderResources	-- ^ The needed resources to perform a rendering
+    { application     :: !YApplication      -- ^ The application to render the frame for
+    , window          :: !YGLWindow         -- ^ The window context to render into
+    , renderConfig    :: !YRenderConfig     -- ^ The current settings for the frame 
     }
 
 
@@ -38,38 +39,55 @@ data YRenderConfig = YRenderConfig
     }
 
 
--- | Resources for the rendering of a frame
+data RenderState = RenderState
+    { resources :: YRenderResources 
+    }
+
+-- | Loaded resources
 data YRenderResources = YRenderResources
-	{ toLoad :: ![IO RenderEntity]			-- ^ loading actions which results in a RenderEntity
-	, active :: ![RenderEntity]				-- ^ current loaded an ready to be rendered entities
-	, toFree :: ![RenderEntity]				-- ^ ready to be freed in context
-	}
+    { loadedShaders   :: ![Int] -- dummy
+    , linkedPrograms  :: ![ShaderProgram]
+    , vaos            :: ![GL.VertexArrayObject]
+    }
+
 
 emptyYRenderResources = YRenderResources [] [] []
+
+initialRenderState = RenderState emptyYRenderResources
 
 
 ---------------------------------------------------------------------------------------------------
 
+class Typeable r => Renderable r where
+    render             :: RenderData -> r -> YageRenderer ()
 
-class Renderable r where
-    render :: r -> YageRenderer ()
+    -- | resources required by the 'Renderable'
+    --   this definition will be used to generate the resources for a
+    --   'render'-call. If the 'Renderable' leaves the 'RenderScene'
+    --   the resources will be freed
+    renderModel :: r -> TriMesh
+    renderShaders :: r -> [YageShader]
 
 
 data SomeRenderable = forall r. Renderable r => SomeRenderable r
+    deriving (Typeable)
+
+
+fromRenderable :: Renderable r => SomeRenderable -> Maybe r
+fromRenderable (SomeRenderable r) = cast r
+
 
 instance Renderable SomeRenderable where
-	render (SomeRenderable r) = render r
+    render res (SomeRenderable r) = render res r
 
 ---------------------------------------------------------------------------------------------------
 
 data RenderScene = RenderScene
-    { -- view :: RenderView
-     entities :: [SomeRenderable]
-    --, lights   :: [Light]
-    }
+    { entities :: [SomeRenderable]
+    } deriving (Typeable)
 
-instance Renderable RenderScene where
-    render w = mapM_ render (entities w)
+--instance Renderable RenderScene where
+--    render res scene = mapM_ (render res) (entities scene)
 
 
 emptyRenderScene :: RenderScene
@@ -79,9 +97,9 @@ emptyRenderScene = RenderScene []
 ---------------------------------------------------------------------------------------------------
 
 data RenderEntity = RenderEntity 
-    { ePosition   :: Position -- orientation and so on
-    , renderData  :: RenderData
-    }
+    { ePosition   :: Position -- and orientation and so on
+    --, renderData  :: RenderData
+    } deriving (Typeable)
 
 --data ShaderData = ShaderData
 --    { program :: ShaderProgram
@@ -94,7 +112,7 @@ data RenderData = RenderData
     }
 
 instance Renderable RenderEntity where
-    render entity@RenderEntity{..} = io $ do
+    render renderData entity@RenderEntity{..} = io $ do
         --GL.linkProgram . program . shaderProgram $ renderData
         withVAO (vao renderData) (drawIndexedTris . fromIntegral . triangleCount $ renderData)
 
@@ -104,20 +122,3 @@ instance Renderable RenderEntity where
 --    } deriving (Show)
 
 
-type Position = V3 Double
-type Orientation = Quaternion Double
-
-type Vertex = V3 Float
-type Index = Int
-
-data TriMesh = TriMesh
-    { vertices :: ![Vertex]
-    , indices  :: ![Index]
-    , triCount :: !Int
-    }
-
-mkTriMesh :: [Vertex] -> [Index] -> TriMesh
--- some assertions for invalid meshes
-mkTriMesh vs ixs = TriMesh vs ixs ((length ixs) `quot` 3)
-
-positionAttrib = "position"

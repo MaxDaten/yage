@@ -4,7 +4,6 @@ module Main where
 
 import qualified Yage as Y
 import Yage.Rendering
-import Yage.World
 import Yage.Types (YageState(..))
 import Yage.Rendering.Types
 import Yage.Rendering.WorldState
@@ -14,14 +13,14 @@ main = do
     state <- Y.initialization
 
     let scene = testScene
-    loop scene (renderEnv state)
+    loop scene (renderEnv state) (renderState state)
 
     Y.finalization state
     where 
-        loop scene env = do
+        loop scene env st = do
             _ <- Y.processInput (application env)
-            runYageRenderer (drawScene scene) env
-            loop scene env
+            (_, st) <- runYageRenderer (drawScene scene) st env
+            loop scene env st
 
 testScene :: RenderScene
 testScene = fill (emptyRenderScene)

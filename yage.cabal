@@ -30,7 +30,6 @@ library
                         Yage.Types
                         Yage.Wire
                         Yage.Core.OpenGL
-                        Yage.World
                         Yage.Resources
                         Yage.Resources.Loader
                         Yage.Rendering
