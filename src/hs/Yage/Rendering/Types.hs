@@ -112,7 +112,7 @@ data RenderData = RenderData
     }
 
 instance Renderable RenderEntity where
-    render renderData entity@RenderEntity{..} = io $ do
+    render renderData _{- entity@RenderEntity{..} -} = io $ do
         --GL.linkProgram . program . shaderProgram $ renderData
         withVAO (vao renderData) (drawIndexedTris . fromIntegral . triangleCount $ renderData)
 
