@@ -66,18 +66,19 @@ yageLoop ystate' wire session = do
     
     either 
         (\e -> handleError e >> return (renderState yst))
-        (\s -> drawScene' s (renderState yst) (renderEnv yst))
+        (\s -> renderScene' s (renderState yst) (renderEnv yst))
         mx
 
     yageLoop yst w' s'
     where
         handleError :: Show e => e -> IO ()
         handleError e = print $ "err:" ++ show e
-        drawScene' :: WorldState -> RenderState -> YageRenderEnv -> IO (RenderState)
-        drawScene' _ st env = do
+        
+        renderScene' :: WorldState -> RenderState -> YageRenderEnv -> IO (RenderState)
+        renderScene' _ st env = do
             -- postProcessScene :: Scene -> RenderScene
             let scene = RenderScene []
-            (_, rSt) <- runYageRenderer (drawScene scene) st env
+            (_, rSt) <- runYageRenderer (renderScene scene) st env
             return rSt
 
 ---------------------------------------------------------------------------------------------------

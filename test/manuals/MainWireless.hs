@@ -19,7 +19,7 @@ main = do
     where 
         loop scene env st = do
             _ <- Y.processInput (application env)
-            (_, st) <- runYageRenderer (drawScene scene) st env
+            (_, st) <- runYageRenderer (renderScene scene) st env
             loop scene env st
 
 testScene :: RenderScene

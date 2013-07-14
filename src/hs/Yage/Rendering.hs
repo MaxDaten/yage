@@ -2,7 +2,7 @@
 module Yage.Rendering (
       module GLReExports
     , runYageRenderer
-    , drawScene
+    , renderScene
 
     --, mkRenderEntity
     ) where
@@ -30,8 +30,8 @@ import 			   Yage.Rendering.Types
 import 			   Yage.Rendering.WorldState
 -- =================================================================================================
 
-drawScene :: RenderScene -> YageRenderer ()
-drawScene scene = renderFrame scene >> afterFrame
+renderScene :: RenderScene -> YageRenderer ()
+renderScene scene = renderFrame scene >> afterFrame
 
 
 
