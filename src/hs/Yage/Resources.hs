@@ -47,8 +47,8 @@ isTexture _ = False
 
 ---------------------------------------------------------------------------------------------------
 
-type Position = V3 Double
-type Orientation = Quaternion Double
+type Position = V3 Float
+type Orientation = Quaternion Float
 
 type Vertex = V3 Float
 type Index = Int
@@ -61,7 +61,7 @@ data TriMesh = TriMesh
 
 mkTriMesh :: [Vertex] -> [Index] -> TriMesh
 -- some assertions for invalid meshes
-mkTriMesh vs ixs = TriMesh vs ixs ((length ixs) `quot` 3)
+mkTriMesh vs ixs = TriMesh vs ixs $ (length ixs) `quot` 3
 
 combine :: TriMesh -> TriMesh -> TriMesh
 combine a b =

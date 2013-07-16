@@ -4,7 +4,6 @@ module Yage.Rendering (
     , runYageRenderer
     , renderScene
 
-    --, mkRenderEntity
     ) where
 
 import Debug.Trace
@@ -31,7 +30,7 @@ import             Yage.Core.Raw.FFI
 import 			   Yage.Rendering.Types
 import             Yage.Rendering.WorldState
 import 			   Yage.Resources
--- =================================================================================================
+{-=================================================================================================-}
 
 renderScene :: RenderScene -> YageRenderer ()
 renderScene scene = renderFrame scene >> afterFrame
@@ -118,9 +117,9 @@ requestRenderResource :: Eq a
                   -> ((a,b) -> YageRenderer ())                 -- ^ function to add loaded resource to state
                   -> a                                          -- ^ the value to load resource from
                   -> YageRenderer b                             -- ^ the loaded resource
-requestRenderResource accessor loader addResource a = do
+requestRenderResource accessor loadResource addResource a = do
     rs <- gets accessor
-    maybe (loader a >>= \r -> addResource (a, r) >> return r)
+    maybe (loadResource a >>= \r -> addResource (a, r) >> return r)
         return
         (lookup a rs)
 
@@ -137,12 +136,10 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                 GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
 
                 -- shader stuff... TODO enrich
-                let stride = fromIntegral $ sizeOf (undefined::Vertex) * 3
+                let stride = fromIntegral $ sizeOf (undefined::Vertex)
                     vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
                 enableAttrib sProg sh_positionA
                 setAttrib sProg sh_positionA GL.ToFloat vad
-                
-                print $ "renderable " ++ show vbo
 
         addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }

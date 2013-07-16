@@ -115,7 +115,7 @@ data RenderData = RenderData
 instance Renderable RenderEntity where
     render renderData _ = io $ do
         GL.currentProgram $= Just (program . shaderProgram $ renderData)
-        withVAO (vao renderData) (drawIndexedTris . fromIntegral . triangleCount $ renderData)
+        withVAO (vao renderData) $ drawIndexedTris . fromIntegral . triangleCount $ renderData
     
     renderDefinition = renderDef
 
