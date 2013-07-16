@@ -1,4 +1,4 @@
-#version 150
+#version 330
 
 in vec3 position;
 // uniform vec3 initialUniform = vec3(1.0, 0.0, 0.0);
