@@ -30,6 +30,6 @@ testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill s@RenderScene{..} = 
-            let shader = YageShader "src/glsl/base.vert" "src/glsl/base.frag"
+            let shader = YageShader "src/glsl/base.vert" "src/glsl/frag.frag"
                 def = RenderDefinition (cubeMesh, shader)
             in s{entities = [SomeRenderable $ RenderEntity (V3 0.0 0.0 0.0) def]}
