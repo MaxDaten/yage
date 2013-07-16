@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, ExistentialQuantification, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE RecordWildCards, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
 module Yage.Rendering (
       module GLReExports
     , runYageRenderer
@@ -7,11 +7,13 @@ module Yage.Rendering (
     --, mkRenderEntity
     ) where
 
+import Debug.Trace
 
 import qualified   Data.Map                        as Map
 import             Foreign.Storable                (sizeOf)
 
 import             Data.Typeable
+import             Control.Applicative
 import             Control.Monad.Reader
 import             Control.Monad.State
 
@@ -27,7 +29,8 @@ import             Linear.Quaternion               (Quaternion)
 import             Yage.Import
 import             Yage.Core.Raw.FFI
 import 			   Yage.Rendering.Types
-import 			   Yage.Rendering.WorldState
+import             Yage.Rendering.WorldState
+import 			   Yage.Resources
 -- =================================================================================================
 
 renderScene :: RenderScene -> YageRenderer ()
@@ -47,11 +50,10 @@ renderFrame scene = do
 
 
 doRender :: RenderScene -> YageRenderer ()
-doRender scene@RenderScene{..} = mapM_ (renderWithData) entities
+doRender RenderScene{..} = mapM_ (renderWithData) entities
     where
         renderWithData :: SomeRenderable -> YageRenderer ()
-        renderWithData = let renderData = undefined -- get renderdata
-                         in  render renderData
+        renderWithData r = requestRenderData r >>= \res -> render res r
 
 
 beforeRender :: YageRenderer ()
@@ -96,27 +98,77 @@ withApplication f = asks application >>= f
 
 ---------------------------------------------------------------------------------------------------
 
---mkRenderEntity :: TriMesh -> ShaderProgram -> YageRenderer RenderEntity
---mkRenderEntity TriMesh{..} sprog = do
---    vao <- io $ makeVAO $ do
---        vbo <- makeBuffer GL.ArrayBuffer vertices
---        GL.bindBuffer GL.ArrayBuffer $= Just vbo
-
---        --enableAttrib sprog positionAttrib
---        --let stride = fromIntegral $ sizeOf (undefined::Vertex) * 3
---        --    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
---        --setAttrib sprog positionAttrib GL.ToFloat vad
-        
---        ebo <- bufferIndices $ map fromIntegral indices
---        GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
---        print $ "renderable " ++ show vbo
---    return $ RenderEntity zero (RenderData vao sprog triCount)
-
----------------------------------------------------------------------------------------------------
-
 
 -- | runs the renderer in the given environment to render one frame.
 -- TODO :: combine this with the scene setup
 runYageRenderer :: YageRenderer a -> RenderState -> YageRenderEnv -> IO (a, RenderState)
 runYageRenderer (YageRenderer a) state env = runStateT (runReaderT a env) state
 
+---------------------------------------------------------------------------------------------------
+
+requestRenderData :: SomeRenderable -> YageRenderer RenderData
+requestRenderData r = do
+    sh  <- requestShader $ shader r
+    vao <- requestVAO $ renderDefinition r
+    return $ RenderData vao sh (triCount $ model r)
+
+requestRenderResource :: Eq a 
+                  => (RenderState -> [(a, b)])                  -- ^ accassor function for state
+                  -> (a -> YageRenderer b)                      -- ^ load function for resource
+                  -> ((a,b) -> YageRenderer ())                 -- ^ function to add loaded resource to state
+                  -> a                                          -- ^ the value to load resource from
+                  -> YageRenderer b                             -- ^ the loaded resource
+requestRenderResource accessor loader addResource a = do
+    rs <- gets accessor
+    maybe (loader a >>= \r -> addResource (a, r) >> return r)
+        return
+        (lookup a rs)
+
+requestVAO :: RenderDefinition -> YageRenderer (VAO)
+requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinition
+    where
+        loadDefinition :: RenderDefinition -> YageRenderer (VAO)
+        loadDefinition (RenderDefinition (mesh, shader)) = do
+            (vbo, ebo) <- requestMesh mesh
+            sProg      <- requestShader shader
+
+            io $ makeVAO $ do
+                GL.bindBuffer GL.ArrayBuffer $= Just vbo
+                GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
+
+                -- shader stuff... TODO enrich
+                let stride = fromIntegral $ sizeOf (undefined::Vertex) * 3
+                    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
+                enableAttrib sProg sh_positionA
+                setAttrib sProg sh_positionA GL.ToFloat vad
+                
+                print $ "renderable " ++ show vbo
+
+        addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
+        addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
+
+
+requestShader :: YageShader -> YageRenderer (ShaderProgram)
+requestShader = requestRenderResource loadedShaders loadShaders addShader
+    where
+        loadShaders :: YageShader -> YageRenderer (ShaderProgram)
+        loadShaders shader = do
+            sProg <- io $ loadShaderProgram (vert shader) (frag shader)
+            return sProg
+
+        addShader :: (YageShader, ShaderProgram) -> YageRenderer ()
+        addShader s = modify $ \st -> st{ loadedShaders = s:(loadedShaders st) }
+
+
+
+requestMesh :: TriMesh -> YageRenderer (VBO, EBO)
+requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
+    where
+        loadMesh :: TriMesh -> YageRenderer (VBO, EBO)
+        loadMesh mesh = do
+            vbo <- io $ makeBuffer GL.ArrayBuffer $ vertices mesh
+            ebo <- io $ bufferIndices $ map fromIntegral $ indices mesh
+            return (vbo, ebo)
+
+        addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
+        addMesh m = modify $ \st -> st{ loadedMeshes = m:(loadedMeshes st) }

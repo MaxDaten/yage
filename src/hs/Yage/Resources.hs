@@ -57,23 +57,30 @@ data TriMesh = TriMesh
     { vertices :: ![Vertex]
     , indices  :: ![Index]
     , triCount :: !Int
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Ord)
 
 mkTriMesh :: [Vertex] -> [Index] -> TriMesh
 -- some assertions for invalid meshes
 mkTriMesh vs ixs = TriMesh vs ixs ((length ixs) `quot` 3)
 
+combine :: TriMesh -> TriMesh -> TriMesh
+combine a b =
+    TriMesh
+    { vertices  = vertices a ++ vertices b
+    , indices   = indices a  ++ map (+(length $ indices b)) (indices b)
+    , triCount  = triCount a + triCount b
+    }
+
 ---------------------------------------------------------------------------------------------------
 
 data YageShader = YageShader
-    { shaderType :: YageShaderType
-    , src        :: String
-    } deriving (Show, Eq)
+    { vert  :: FilePath
+    , frag  :: FilePath
+    } deriving (Show, Eq, Ord)
 
-data YageShaderType = YageVertexShader
-                    | YageFragmentShader
-                    deriving (Show, Eq)
+data RenderDefinition = RenderDefinition
+    { defs :: (TriMesh, YageShader)
+    } deriving (Show, Eq, Ord)
 
---type YageShaderSource = String
+sh_positionA = "position"
 
-positionAttrib = "position"

@@ -36,10 +36,10 @@ library
                         Yage.Rendering.Types
                         Yage.Rendering.WorldState
                         Yage.Rendering.Primitives
-  other-modules:
                         Yage.Core.Raw.FFI
+  other-modules:
 
-  ghc-options:          -Wall -O2 -rtsopts
+  -- ghc-options:          -Wall -O2 -rtsopts
   default-language:     Haskell2010
   default-extensions:   StandaloneDeriving
                         UnicodeSyntax
@@ -47,7 +47,7 @@ library
   build-depends:          base           == 4.6.*
                         , OpenGLRawTest  == 0.1.*
                         , OpenGL         == 2.8.*
-                        , GLUtil         == 0.6.3
+                        , GLUtil         == 0.6.5
                         , mtl            == 2.1.*
                         , containers     == 0.5.*
                         , transformers   == 0.3.*
@@ -69,7 +69,7 @@ executable yage
 
   build-depends:          base
                         , yage
-                        , GLUtil         == 0.6.3
+                        , GLUtil         == 0.6.5
                         , OpenGL         == 2.8.*
                         , netwire        == 4.0.*
                         , mtl            == 2.1.*
@@ -86,7 +86,26 @@ executable main-wireless
     build-depends:        base
                         , yage
                         , OpenGL         == 2.8.*
-                        , GLUtil         == 0.6.3
+                        , GLUtil         == 0.6.5
+                        , linear         == 1.1.4
 
-    ghc-options:       -threaded -O2
+    ghc-options:       -threaded -O2  -rtsopts
+    default-language:     Haskell2010
+
+executable libless
+    if flag(library-only)
+      Buildable: False
+
+    hs-source-dirs:     test/manuals
+    main-is:            Libless.hs
+    extra-lib-dirs:       .
+    extra-libraries:      yage
+
+    build-depends:        base
+                        , yage
+                        , OpenGL         == 2.8.*
+                        , GLUtil         == 0.6.5
+                        , linear         == 1.1.4
+
+    ghc-options:       -threaded -O2  -rtsopts
     default-language:     Haskell2010

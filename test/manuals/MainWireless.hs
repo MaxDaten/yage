@@ -7,6 +7,10 @@ import Yage.Rendering
 import Yage.Types (YageState(..))
 import Yage.Rendering.Types
 import Yage.Rendering.WorldState
+import Yage.Resources
+import Yage.Rendering.Primitives
+import Linear (V3(..))
+
 
 main :: IO ()
 main = do
@@ -26,5 +30,6 @@ testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill s@RenderScene{..} = 
-            --let entity = YageWorldEntity 0
-            s{entities = []}
+            let shader = YageShader "src/glsl/base.vert" "src/glsl/base.frag"
+                def = RenderDefinition (cubeMesh, shader)
+            in s{entities = [SomeRenderable $ RenderEntity (V3 0.0 0.0 0.0) def]}

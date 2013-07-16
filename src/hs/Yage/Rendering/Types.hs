@@ -5,12 +5,14 @@ import qualified   Data.Map                        as Map
 import             Foreign.Storable                (sizeOf)
 
 import             Data.Typeable
+import             Control.Applicative
 import             Control.Monad.Reader
 import             Control.Monad.State
 
 import             Graphics.GLUtil
 import             Graphics.GLUtil.Camera3D
 import qualified   Graphics.Rendering.OpenGL       as GL
+import             Graphics.Rendering.OpenGL       (($=))
 ---------------------------------------------------------------------------------------------------
 import             Linear                          (V3(..), zero)
 import             Linear.Quaternion               (Quaternion)
@@ -19,11 +21,12 @@ import             Yage.Import
 import             Yage.Core.Raw.FFI
 import             Yage.Rendering.WorldState
 import             Yage.Resources
+import             Yage.Rendering.Primitives
 -- =================================================================================================
 
 
 newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv (StateT RenderState IO) a)
-    deriving (Functor, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
 
 -- | The context for the 'YageRenderer' reader monad
 --   contains all needed data to render a frame
@@ -40,20 +43,15 @@ data YRenderConfig = YRenderConfig
 
 
 data RenderState = RenderState
-    { resources :: YRenderResources 
+    { loadedShaders       :: ![(YageShader, ShaderProgram)]
+    , loadedMeshes        :: ![(TriMesh, (VBO, EBO))] -- TODO better Key
+    , loadedDefinitions   :: ![(RenderDefinition, VAO)] -- BETTER KEY!!
     }
 
--- | Loaded resources
-data YRenderResources = YRenderResources
-    { loadedShaders   :: ![Int] -- dummy
-    , linkedPrograms  :: ![ShaderProgram]
-    , vaos            :: ![GL.VertexArrayObject]
-    }
+initialRenderState = RenderState [] [] []
 
-
-emptyYRenderResources = YRenderResources [] [] []
-
-initialRenderState = RenderState emptyYRenderResources
+type VBO = GL.BufferObject
+type EBO = GL.BufferObject
 
 
 ---------------------------------------------------------------------------------------------------
@@ -65,8 +63,13 @@ class Typeable r => Renderable r where
     --   this definition will be used to generate the resources for a
     --   'render'-call. If the 'Renderable' leaves the 'RenderScene'
     --   the resources will be freed
-    renderModel :: r -> TriMesh
-    renderShaders :: r -> [YageShader]
+    renderDefinition :: r -> RenderDefinition
+    
+    model :: r -> TriMesh
+    model = fst . defs . renderDefinition
+
+    shader :: r -> YageShader
+    shader = snd . defs . renderDefinition
 
 
 data SomeRenderable = forall r. Renderable r => SomeRenderable r
@@ -79,6 +82,7 @@ fromRenderable (SomeRenderable r) = cast r
 
 instance Renderable SomeRenderable where
     render res (SomeRenderable r) = render res r
+    renderDefinition (SomeRenderable r) = renderDefinition r
 
 ---------------------------------------------------------------------------------------------------
 
@@ -98,12 +102,9 @@ emptyRenderScene = RenderScene []
 
 data RenderEntity = RenderEntity 
     { ePosition   :: Position -- and orientation and so on
-    --, renderData  :: RenderData
+    , renderDef   :: RenderDefinition
     } deriving (Typeable)
 
---data ShaderData = ShaderData
---    { program :: ShaderProgram
---    } deriving (Show)
 
 data RenderData = RenderData
     { vao           :: GL.VertexArrayObject
@@ -112,13 +113,11 @@ data RenderData = RenderData
     }
 
 instance Renderable RenderEntity where
-    render renderData _{- entity@RenderEntity{..} -} = io $ do
-        --GL.linkProgram . program . shaderProgram $ renderData
+    render renderData _ = io $ do
+        GL.currentProgram $= Just (program . shaderProgram $ renderData)
         withVAO (vao renderData) (drawIndexedTris . fromIntegral . triangleCount $ renderData)
+    
+    renderDefinition = renderDef
 
-
---data Light = Light
---    { lPosition :: Position
---    } deriving (Show)
 
 
