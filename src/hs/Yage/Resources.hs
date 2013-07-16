@@ -2,6 +2,8 @@ module Yage.Resources where
 
 import             Linear                          (V3(..), zero)
 import             Linear.Quaternion               (Quaternion)
+import             Graphics.Rendering.OpenGL       (GLfloat)
+
 
 
 -- | A 'YageResource' is loaded into a 'RenderEntity'
@@ -47,10 +49,10 @@ isTexture _ = False
 
 ---------------------------------------------------------------------------------------------------
 
-type Position = V3 Float
-type Orientation = Quaternion Float
+type Position = V3 GLfloat
+type Orientation = Quaternion GLfloat
 
-type Vertex = V3 Float
+type Vertex = V3 GLfloat
 type Index = Int
 
 data TriMesh = TriMesh
@@ -83,4 +85,5 @@ data RenderDefinition = RenderDefinition
     } deriving (Show, Eq, Ord)
 
 sh_positionA = "position"
+sh_offsetU = "offset"
 

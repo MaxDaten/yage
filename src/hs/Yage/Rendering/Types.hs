@@ -113,11 +113,15 @@ data RenderData = RenderData
     }
 
 instance Renderable RenderEntity where
-    render renderData _ = io $ do
-        GL.currentProgram $= Just (program . shaderProgram $ renderData)
-        withVAO (vao renderData) $ drawIndexedTris . fromIntegral . triangleCount $ renderData
-    
     renderDefinition = renderDef
+
+    render renderData entity = io $ do
+        GL.currentProgram $= Just (program . shaderProgram $ renderData)
+        
+        withVAO (vao renderData) $ do
+            let offsetLoc = getUniform (shaderProgram renderData) sh_offsetU
+            asUniform (ePosition $ entity) offsetLoc
+            drawIndexedTris . fromIntegral . triangleCount $ renderData
 
 
 
