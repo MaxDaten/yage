@@ -84,6 +84,10 @@ data RenderDefinition = RenderDefinition
     { defs :: (TriMesh, YageShader)
     } deriving (Show, Eq, Ord)
 
-sh_positionA = "position"
-sh_offsetU = "offset"
+sh_positionA         = "vert_position"
+sh_offsetU           = "pos_offset"
+sh_globalTimeU       = "global_time"
+sh_projectionMatrixU = "projection_matrix"
+sh_viewMatrixU       = "view_matrix"
+sh_modelMatrixU      = "model_matrix"
 

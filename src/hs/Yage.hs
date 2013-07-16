@@ -77,7 +77,7 @@ yageLoop ystate' wire session = do
         renderScene' :: WorldState -> RenderState -> YageRenderEnv -> IO (RenderState)
         renderScene' _ st env = do
             -- postProcessScene :: Scene -> RenderScene
-            let scene = RenderScene []
+            let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
             (_, rSt) <- runYageRenderer (renderScene scene) st env
             return rSt
 

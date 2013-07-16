@@ -13,10 +13,15 @@ cubeMesh =
                 ]
         frontFace = [0, 3, 2, 0, 2, 1] :: [Int]
         leftFace  = [0, 4, 7, 0, 7, 3] :: [Int]
+        rightFace = [1, 2, 6, 1, 6, 5] :: [Int]
+        topFace   = [0, 1, 4, 4, 1, 5] :: [Int]
+        bottomFace= [7, 2, 3, 7, 6, 2] :: [Int]
         ixs       = frontFace
-                  ++ reverse (map (+4) frontFace) -- back
                   ++ leftFace
-                  ++ reverse (map (+1) leftFace) -- right
+                  ++ topFace
+                  ++ reverse (map (+4) frontFace) -- back
+                  ++ rightFace
+                  ++ bottomFace
     in mkTriMesh verts ixs
 
 quadMesh :: TriMesh

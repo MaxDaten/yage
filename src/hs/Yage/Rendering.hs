@@ -49,10 +49,12 @@ renderFrame scene = do
 
 
 doRender :: RenderScene -> YageRenderer ()
-doRender RenderScene{..} = mapM_ (renderWithData) entities
+doRender scene@RenderScene{..} = do
+    mapM_ (renderWithData scene) entities
     where
-        renderWithData :: SomeRenderable -> YageRenderer ()
-        renderWithData r = requestRenderData r >>= \res -> render res r
+        renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
+        renderWithData scene r = requestRenderData r >>= \res -> render scene res r
+
 
 
 beforeRender :: YageRenderer ()
@@ -68,7 +70,9 @@ setupFrame = withWindow $ \win -> do
         beginDraw $ win
 
         GL.clearColor $= fmap realToFrac clearC
-        GL.clear [GL.ColorBuffer]
+        GL.clear [GL.ColorBuffer, GL.DepthBuffer]
+
+        GL.depthFunc $= Just GL.Less
 
         w <- width win
         h <- height win
