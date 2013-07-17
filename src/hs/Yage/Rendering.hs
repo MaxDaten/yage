@@ -10,6 +10,8 @@ import Debug.Trace
 
 import qualified   Data.Map                        as Map
 import             Foreign.Storable                (sizeOf)
+import             Control.Concurrent              (threadDelay)
+import             System.Mem                      (performGC)
 
 import             Data.Typeable
 import             Control.Applicative
@@ -17,7 +19,6 @@ import             Control.Monad.Reader
 import             Control.Monad.State
 
 import             Graphics.GLUtil
-import             Graphics.GLUtil.Camera3D
 import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL.GL    (($=))
 import             Graphics.Rendering.OpenGL.GL    as GLReExports (Color4(..))
@@ -38,7 +39,11 @@ renderScene scene = renderFrame scene >> afterFrame
 
 
 afterFrame :: YageRenderer ()
-afterFrame = return ()
+afterFrame = io $ do
+    -- this should not be part of the rendering, indeed
+    --performGC
+    --threadDelay (16*1000) -- 60fps
+    return ()
 
 
 renderFrame :: RenderScene -> YageRenderer ()
@@ -70,9 +75,11 @@ setupFrame = withWindow $ \win -> do
         beginDraw $ win
 
         GL.clearColor $= fmap realToFrac clearC
+        GL.depthFunc $= Just GL.Less -- to init
+        GL.depthMask $= GL.Enabled      -- to init
+        
         GL.clear [GL.ColorBuffer, GL.DepthBuffer]
 
-        GL.depthFunc $= Just GL.Less
 
         w <- width win
         h <- height win
@@ -84,9 +91,31 @@ setupFrame = withWindow $ \win -> do
 prepareResources :: YageRenderer ()
 prepareResources = return ()
 
+---------------------------------------------------------------------------------------------------
+
 
 afterRender :: YageRenderer ()
 afterRender = withWindow $ \win -> io . endDraw $ win
+
+---------------------------------------------------------------------------------------------------
+
+render :: RenderScene -> RenderData -> SomeRenderable -> YageRenderer ()
+render scene renderData r = io $ do
+        GL.currentProgram $= Just (program . shaderProgram $ renderData)
+        --print $ show $ uniforms $ shaderProgram renderData
+
+        (sceneTime scene)        `asUniform` (getUniform (shaderProgram renderData) sh_globalTimeU)
+        
+        (projectionMatrix scene) `asUniform` (getUniform (shaderProgram renderData) sh_projectionMatrixU)
+        (viewMatrix scene)       `asUniform` (getUniform (shaderProgram renderData) sh_viewMatrixU)
+        (modelMatrix r)  `asUniform` (getUniform (shaderProgram renderData) sh_modelMatrixU)
+
+        --(ePosition entity) `asUniform` getUniform (shaderProgram renderData) sh_offsetU
+
+        --print $ show $ modelviewMatrix scene
+        --print $ show $ projectionMatrix scene
+        
+        withVAO (vao renderData) $ drawIndexedTris . fromIntegral . triangleCount $ renderData
 
 ---------------------------------------------------------------------------------------------------
 
@@ -113,7 +142,7 @@ requestRenderData :: SomeRenderable -> YageRenderer RenderData
 requestRenderData r = do
     sh  <- requestShader $ shader r
     vao <- requestVAO $ renderDefinition r
-    return $ RenderData vao sh (triCount $ model r)
+    return $ RenderData vao sh (triCount . model $ r)
 
 requestRenderResource :: Eq a 
                   => (RenderState -> [(a, b)])                  -- ^ accassor function for state
@@ -166,9 +195,10 @@ requestMesh :: TriMesh -> YageRenderer (VBO, EBO)
 requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
     where
         loadMesh :: TriMesh -> YageRenderer (VBO, EBO)
-        loadMesh mesh = do
-            vbo <- io $ makeBuffer GL.ArrayBuffer $ vertices mesh
-            ebo <- io $ bufferIndices $ map fromIntegral $ indices mesh
+        loadMesh mesh = io $ do
+            vbo <- makeBuffer GL.ArrayBuffer $ vertices mesh
+            ebo <- bufferIndices $ map fromIntegral $ indices mesh
+            print "mesh loaded"
             return (vbo, ebo)
 
         addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()

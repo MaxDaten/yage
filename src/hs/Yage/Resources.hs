@@ -51,6 +51,7 @@ isTexture _ = False
 
 type Position = V3 GLfloat
 type Orientation = Quaternion GLfloat
+type Scale = V3 GLfloat
 
 type Vertex = V3 GLfloat
 type Index = Int
@@ -85,7 +86,6 @@ data RenderDefinition = RenderDefinition
     } deriving (Show, Eq, Ord)
 
 sh_positionA         = "vert_position"
-sh_offsetU           = "pos_offset"
 sh_globalTimeU       = "global_time"
 sh_projectionMatrixU = "projection_matrix"
 sh_viewMatrixU       = "view_matrix"

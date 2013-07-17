@@ -16,7 +16,7 @@ import qualified   Graphics.GLUtil.Camera3D        as Cam
 import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL       (($=), Uniform(..), UniformComponent(..))
 ---------------------------------------------------------------------------------------------------
-import             Linear                          (V3(..), M44(..), zero, mkTransformation, axisAngle)
+import             Linear                          (V3(..), M44(..), (!*!), zero, m33_to_m44, kronecker, mkTransformation, axisAngle)
 import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
@@ -58,19 +58,21 @@ type EBO = GL.BufferObject
 ---------------------------------------------------------------------------------------------------
 
 class Typeable r => Renderable r where
-    render             :: RenderScene -> RenderData -> r -> YageRenderer ()
+    --render             :: RenderScene -> RenderData -> r -> YageRenderer ()
 
     -- | resources required by the 'Renderable'
     --   this definition will be used to generate the resources for a
     --   'render'-call. If the 'Renderable' leaves the 'RenderScene'
     --   the resources will be freed
     renderDefinition :: r -> RenderDefinition
+    modelMatrix :: r -> M44 GL.GLfloat
     
-    model :: r -> TriMesh
-    model = fst . defs . renderDefinition
-
     shader :: r -> YageShader
     shader = snd . defs . renderDefinition
+
+    model :: r -> TriMesh
+    model = fst . defs . renderDefinition
+            
 
 
 data SomeRenderable = forall r. Renderable r => SomeRenderable r
@@ -82,8 +84,9 @@ fromRenderable (SomeRenderable r) = cast r
 
 
 instance Renderable SomeRenderable where
-    render scene res (SomeRenderable r) = render scene res r
+    --render scene res (SomeRenderable r) = render scene res r
     renderDefinition (SomeRenderable r) = renderDefinition r
+    modelMatrix (SomeRenderable r) = modelMatrix r
 
 ---------------------------------------------------------------------------------------------------
 
@@ -107,9 +110,17 @@ emptyRenderScene = RenderScene [] 0.0 (camMatrix fpsCamera) (Cam.projectionMatri
 data RenderEntity = RenderEntity 
     { ePosition    :: Position
     , eOrientation :: Orientation
+    , eScale       :: Scale
     , renderDef    :: RenderDefinition
     } deriving (Typeable)
 
+mkRenderEntity :: RenderDefinition -> RenderEntity
+mkRenderEntity def = RenderEntity
+    { ePosition = zero
+    , eOrientation = axisAngle (V3 0 1 0) (Cam.deg2rad 0)
+    , eScale = V3 1 1 1
+    , renderDef = def
+    }
 
 data RenderData = RenderData
     { vao           :: GL.VertexArrayObject
@@ -119,23 +130,9 @@ data RenderData = RenderData
 
 instance Renderable RenderEntity where
     renderDefinition = renderDef
-
-    render scene renderData entity = io $ do
-        GL.currentProgram $= Just (program . shaderProgram $ renderData)
-        --print $ show $ uniforms $ shaderProgram renderData
-
-        (sceneTime scene)        `asUniform` (getUniform (shaderProgram renderData) sh_globalTimeU)
-        
-        (projectionMatrix scene) `asUniform` (getUniform (shaderProgram renderData) sh_projectionMatrixU)
-        (viewMatrix scene)       `asUniform` (getUniform (shaderProgram renderData) sh_viewMatrixU)
-        (mkTransformation (eOrientation entity) (ePosition entity))  `asUniform` (getUniform (shaderProgram renderData) sh_modelMatrixU)
-
-        (ePosition entity) `asUniform` getUniform (shaderProgram renderData) sh_offsetU
-
-        --print $ show $ modelviewMatrix scene
-        --print $ show $ projectionMatrix scene
-        
-        withVAO (vao renderData) $ drawIndexedTris . fromIntegral . triangleCount $ renderData
+    modelMatrix r = let  scaleM = m33_to_m44 . kronecker $ eScale r
+                         transformM = mkTransformation (eOrientation r) (ePosition r)
+                    in transformM !*! scaleM
 
 from1 :: UniformComponent a => a -> GL.Index1 a
 from1 = GL.Index1

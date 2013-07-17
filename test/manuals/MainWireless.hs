@@ -3,6 +3,8 @@ module Main where
 
 
 import qualified Yage as Y
+
+import Control.Monad (replicateM)
 import Yage.Rendering
 import Yage.Types (YageState(..))
 import Yage.Rendering.Types
@@ -31,11 +33,9 @@ testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill s@RenderScene{..} = 
-            let shader = YageShader "src/glsl/base.vert" "src/glsl/frag.frag"
-                def = RenderDefinition (cubeMesh, shader)
-                ent = RenderEntity 
-                        { ePosition = V3 1 (-1.0) (-5.0)
-                        , eOrientation = axisAngle (V3 0 1 0) (deg2rad 45)
-                        , renderDef = def
+            let shader = YageShader "src/glsl/base.vert" "src/glsl/base.frag"
+                ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
+                        { eScale = V3 0.1 0.1 0.1
                         }
-            in s{entities = [SomeRenderable ent]}
+                tileFloor = [ent {ePosition = V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [0..10]]
+            in s{entities = map SomeRenderable tileFloor}
