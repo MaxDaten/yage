@@ -12,12 +12,13 @@ import             Linear
 
 import qualified   Graphics.Rendering.OpenGL       as GL
 
+---------------------------------------------------------------------------------------------------
 
 -- | sdf = shader def
 -- sp = shader program
 -- m the inside monad
 class Monad m => MonadShader sdf sp m | m -> sdf, m -> sp where
-    (.=) :: AsUniform u => (sdf -> UniformDef u m) -> u -> m ()
+    setUniform :: AsUniform u => (sdf -> UniformDef u m) -> u -> m ()
 
 newtype Shader d p m a = Shader { runShader :: d -> p -> m a }
 
@@ -40,27 +41,30 @@ instance MonadIO m => MonadIO (Shader d p m) where
 --type ShaderP d p a m = Shader d p m a
 -- abstract ShaderProgram
 instance (Monad m, p ~ Program) => MonadShader d p (Shader d p m) where
-    loc .= uni = Shader $ \d p -> runShader ((snd . loc $ d) p uni) d p -- weierdo
+    setUniform loc value = Shader $ \d p -> runShader ((snd . loc $ d) p value) d p -- weierdo
 
 
-data ShaderAttributes = VertexPos String
+data ShaderAttributes s = VertexPos s
 
-data ShaderUniforms = 
-      GlobalTime String
-    | ProjectionMatrix String
-    | ViewMatrix String
-    | ModelMatrix String
+data ShaderUniforms s = 
+      GlobalTime s
+    | ProjectionMatrix s
+    | ViewMatrix s
+    | ModelMatrix s
 
 type Program = ShaderProgram
 type SetAction u m = ShaderProgram -> u -> m ()
-type UniformDef u m = (ShaderUniforms, SetAction u m)
+type UniformDef u m = (ShaderUniforms String, SetAction u m)
 
 -- move to a generic def format
 data ShaderDefs m = ShaderDefs
-    { sGlobalTime         :: UniformDef GL.GLfloat m
-    , sProjectionMatrix   :: UniformDef (M44 GL.GLfloat) m
-    , sViewMatrix         :: UniformDef (M44 GL.GLfloat) m
-    , sModelMatrix        :: UniformDef (M44 GL.GLfloat) m
+    { sGlobalTime         :: (AsUniform u) => UniformDef u m
+    , sProjectionMatrix   :: (AsUniform u) => UniformDef u m
+    , sViewMatrix         :: (AsUniform u) => UniformDef u m
+    , sModelMatrix        :: (AsUniform u) => UniformDef u m
     }
 
+---------------------------------------------------------------------------------------------------
 
+(.=) :: (AsUniform u, Monad m, MonadShader sdf sp m) => (sdf -> UniformDef u m) -> u -> m ()
+(.=) = setUniform
