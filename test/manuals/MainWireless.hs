@@ -33,7 +33,7 @@ testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill s@RenderScene{..} = 
-            let shader = YageShader "src/glsl/base.vert" "src/glsl/base.frag"
+            let shader = YageShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
                 ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
                         { eScale = V3 0.1 0.1 0.1
                         }

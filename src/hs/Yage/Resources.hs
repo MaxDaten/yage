@@ -5,7 +5,7 @@ import             Linear.Quaternion               (Quaternion)
 import             Graphics.Rendering.OpenGL       (GLfloat)
 
 
-
+{--
 -- | A 'YageResource' is loaded into a 'RenderEntity'
 data YageResource = YageResource
     { resourceId         :: ResourceId
@@ -46,7 +46,7 @@ isShader _ = False
 isTexture :: ResourceDefinition -> Bool
 isTexture (YageTextureResource) = True
 isTexture _ = False
-
+--}
 ---------------------------------------------------------------------------------------------------
 
 type Position = V3 GLfloat
@@ -76,18 +76,13 @@ combine a b =
 
 ---------------------------------------------------------------------------------------------------
 
-data YageShader = YageShader
+data YageShaderResource = YageShaderResource
     { vert  :: FilePath
     , frag  :: FilePath
     } deriving (Show, Eq, Ord)
 
 data RenderDefinition = RenderDefinition
-    { defs :: (TriMesh, YageShader)
+    { defs :: (TriMesh, YageShaderResource)
     } deriving (Show, Eq, Ord)
 
-sh_positionA         = "vert_position"
-sh_globalTimeU       = "global_time"
-sh_projectionMatrixU = "projection_matrix"
-sh_viewMatrixU       = "view_matrix"
-sh_modelMatrixU      = "model_matrix"
 

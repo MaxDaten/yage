@@ -30,6 +30,8 @@ import             Yage.Import
 import             Yage.Core.Raw.FFI
 import 			   Yage.Rendering.Types
 import             Yage.Rendering.WorldState
+import             Yage.Rendering.Shader           ((.=))
+import qualified   Yage.Rendering.Shader           as Shader
 import 			   Yage.Resources
 {-=================================================================================================-}
 
@@ -100,23 +102,17 @@ afterRender = withWindow $ \win -> io . endDraw $ win
 ---------------------------------------------------------------------------------------------------
 
 render :: RenderScene -> RenderData -> SomeRenderable -> YageRenderer ()
-render scene renderData r = io $ do
-        GL.currentProgram $= Just (program . shaderProgram $ renderData)
-        --print $ show $ uniforms $ shaderProgram renderData
+render scene rd@RenderData{..} r = do
+    shadeItem shaderProgram scene r
+    io $ withVAO vao $ drawIndexedTris . fromIntegral $ triangleCount
 
-        (sceneTime scene)        `asUniform` (getUniform (shaderProgram renderData) sh_globalTimeU)
-        
-        (projectionMatrix scene) `asUniform` (getUniform (shaderProgram renderData) sh_projectionMatrixU)
-        (viewMatrix scene)       `asUniform` (getUniform (shaderProgram renderData) sh_viewMatrixU)
-        (modelMatrix r)  `asUniform` (getUniform (shaderProgram renderData) sh_modelMatrixU)
-
-        --(ePosition entity) `asUniform` getUniform (shaderProgram renderData) sh_offsetU
-
-        --print $ show $ modelviewMatrix scene
-        --print $ show $ projectionMatrix scene
-        
-        withVAO (vao renderData) $ drawIndexedTris . fromIntegral . triangleCount $ renderData
-
+shadeItem :: YageShaderProgram -> RenderScene  -> SomeRenderable -> YageRenderer ()
+shadeItem sProg scene r = shade sProg $ do
+    io $ GL.currentProgram $= Just (program sProg)
+    Shader.sGlobalTime       .= sceneTime scene
+    Shader.sProjectionMatrix .= projectionMatrix scene
+    Shader.sViewMatrix       .= viewMatrix scene
+    Shader.sModelMatrix      .= modelMatrix r
 ---------------------------------------------------------------------------------------------------
 
 
@@ -171,22 +167,22 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                 -- shader stuff... TODO enrich
                 let stride = fromIntegral $ sizeOf (undefined::Vertex)
                     vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
-                enableAttrib sProg sh_positionA
-                setAttrib sProg sh_positionA GL.ToFloat vad
+                enableAttrib sProg "vert_position"
+                setAttrib sProg "vert_position" GL.ToFloat vad
 
         addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
 
 
-requestShader :: YageShader -> YageRenderer (ShaderProgram)
+requestShader :: YageShaderResource -> YageRenderer (ShaderProgram)
 requestShader = requestRenderResource loadedShaders loadShaders addShader
     where
-        loadShaders :: YageShader -> YageRenderer (ShaderProgram)
+        loadShaders :: YageShaderResource -> YageRenderer (ShaderProgram)
         loadShaders shader = do
             sProg <- io $ loadShaderProgram (vert shader) (frag shader)
             return sProg
 
-        addShader :: (YageShader, ShaderProgram) -> YageRenderer ()
+        addShader :: (YageShaderResource, ShaderProgram) -> YageRenderer ()
         addShader s = modify $ \st -> st{ loadedShaders = s:(loadedShaders st) }
 
 

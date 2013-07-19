@@ -24,10 +24,13 @@ import             Yage.Core.Raw.FFI
 --import             Yage.Rendering.WorldState
 import             Yage.Resources
 import             Yage.Rendering.Primitives
+import             Yage.Rendering.Shader
 -- =================================================================================================
 
 
-newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv (StateT RenderState IO) a)
+type RReader m a = ReaderT YageRenderEnv m a
+type RState = StateT RenderState IO
+newtype YageRenderer a = YageRenderer (RReader RState a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
 
 -- | The context for the 'YageRenderer' reader monad
@@ -35,7 +38,8 @@ newtype YageRenderer a = YageRenderer (ReaderT YageRenderEnv (StateT RenderState
 data YageRenderEnv = YageRenderEnv
     { application     :: !YApplication      -- ^ The application to render the frame for
     , window          :: !YGLWindow         -- ^ The window context to render into
-    , renderConfig    :: !YRenderConfig     -- ^ The current settings for the frame 
+    , renderConfig    :: !YRenderConfig     -- ^ The current settings for the frame
+    --, shaderDefs      :: 
     }
 
 
@@ -45,7 +49,7 @@ data YRenderConfig = YRenderConfig
 
 
 data RenderState = RenderState
-    { loadedShaders       :: ![(YageShader, ShaderProgram)]
+    { loadedShaders       :: ![(YageShaderResource, ShaderProgram)]
     , loadedMeshes        :: ![(TriMesh, (VBO, EBO))] -- TODO better Key
     , loadedDefinitions   :: ![(RenderDefinition, VAO)] -- BETTER KEY!!
     }
@@ -54,6 +58,25 @@ initialRenderState = RenderState [] [] []
 
 type VBO = GL.BufferObject
 type EBO = GL.BufferObject
+
+
+type YageShaderDef = ShaderDefs YageShader
+type YageShaderProgram = ShaderProgram
+newtype YageShader a = YageShader (Shader YageShaderDef YageShaderProgram YageRenderer a) -- isolate YageRenderer to one
+    deriving (Monad, MonadIO, MonadShader YageShaderDef YageShaderProgram)
+
+
+shade :: ShaderProgram -> YageShader a -> YageRenderer a
+shade sh (YageShader x) = runShader x globShaderDef sh
+
+
+globShaderDef :: ShaderDefs YageShader
+globShaderDef = ShaderDefs
+    { sGlobalTime         = (\s -> (GlobalTime s,        \p v -> io $ v `asUniform` getUniform p s)) "global_time"
+    , sProjectionMatrix   = (\s -> (ProjectionMatrix s,  \p v -> io $ v `asUniform` getUniform p s)) "projection_matrix"
+    , sViewMatrix         = (\s -> (ViewMatrix s,        \p v -> io $ v `asUniform` getUniform p s)) "view_matrix"
+    , sModelMatrix        = (\s -> (ModelMatrix s,       \p v -> io $ v `asUniform` getUniform p s)) "model_matrix"
+    }
 
 ---------------------------------------------------------------------------------------------------
 
@@ -67,7 +90,7 @@ class Typeable r => Renderable r where
     renderDefinition :: r -> RenderDefinition
     modelMatrix :: r -> M44 GL.GLfloat
     
-    shader :: r -> YageShader
+    shader :: r -> YageShaderResource
     shader = snd . defs . renderDefinition
 
     model :: r -> TriMesh
@@ -136,9 +159,4 @@ instance Renderable RenderEntity where
 
 from1 :: UniformComponent a => a -> GL.Index1 a
 from1 = GL.Index1
---instance UniformComponent a => Uniform a where
---    -- uniform :: UniformLocation -> StateVar a
---    uniform = undefined
---    -- uniformv :: UniformLocation -> GLsizei -> Ptr a -> IO ()
---    uniformv = undefined
 

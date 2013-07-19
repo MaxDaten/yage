@@ -33,6 +33,7 @@ library
                         Yage.Resources
                         Yage.Resources.Loader
                         Yage.Rendering
+                        Yage.Rendering.Shader
                         Yage.Rendering.Types
                         Yage.Rendering.WorldState
                         Yage.Rendering.Primitives

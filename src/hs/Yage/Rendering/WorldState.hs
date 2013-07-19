@@ -27,7 +27,7 @@ data YageWorld = YageWorld
 -- cons: unwanted behavior, changes to this resource, the id doesn't correspond
 -- discuss it later 
 data YageWorldEntity = YageWorldEntity
-    { resourceId :: Res.ResourceId }            -- ^ resource id to ref the definition
+    { resourceId :: Int }--Res.ResourceId }            -- ^ resource id to ref the definition
 
 ---------------------------------------------------------------------------------------------------
 

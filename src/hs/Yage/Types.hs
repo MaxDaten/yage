@@ -27,7 +27,7 @@ data YageState = YageState
     { inputs      :: Set.Set Input
     , renderEnv   :: YageRenderEnv
     , renderState :: RenderState
-    , resources   :: [YageResource]		-- ^ should use a res-manager later on
+    , resources   :: [String{--YageResource--}]		-- ^ should use a res-manager later on
     --, resources  :: YageResources
     }
 
