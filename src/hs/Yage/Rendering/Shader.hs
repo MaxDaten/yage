@@ -10,7 +10,7 @@ import             Graphics.GLUtil               (ShaderProgram, asUniform, getU
 import             Graphics.GLUtil.Linear        (AsUniform)
 import             Linear
 
-import qualified   Graphics.Rendering.OpenGL       as GL
+--import qualified   Graphics.Rendering.OpenGL       as GL
 
 ---------------------------------------------------------------------------------------------------
 
@@ -18,11 +18,11 @@ import qualified   Graphics.Rendering.OpenGL       as GL
 -- sp = shader program
 -- m the inside monad
 class Monad m => MonadShader sdf sp m | m -> sdf, m -> sp where
+    -- | set (.=) for an infix
     setUniform :: AsUniform u => (sdf -> UniformDef u m) -> u -> m ()
+    enableAttrib :: (sdf -> AttributeDef vad m) -> m ()
 
 newtype Shader d p m a = Shader { runShader :: d -> p -> m a }
-
---deriving instance Monad (Shader d p m a)
 
 instance Monad m => Monad (Shader d p m) where
     return a = Shader $ \d p -> return a
@@ -38,13 +38,17 @@ instance MonadIO m => MonadIO (Shader d p m) where
     liftIO = lift . liftIO
 
 
---type ShaderP d p a m = Shader d p m a
--- abstract ShaderProgram
+-- TODO: abstract p Program
 instance (Monad m, p ~ Program) => MonadShader d p (Shader d p m) where
-    setUniform loc value = Shader $ \d p -> runShader ((snd . loc $ d) p value) d p -- weierdo
+    setUniform loc value = Shader $ \d p -> let (_, action) = loc d in runShader (action p value) d p
+    enableAttrib loc = Shader $ \d p -> let (attr, action) = loc d in runShader (action p attr) d p
 
+type Program = ShaderProgram
 
-data ShaderAttributes s = VertexPos s
+data ShaderAttributes s vad = VertexPos s vad
+
+type EnableAction vad m = ShaderProgram -> ShaderAttributes String vad -> m ()
+type AttributeDef vad m = (ShaderAttributes String vad, EnableAction vad m)
 
 data ShaderUniforms s = 
       GlobalTime s
@@ -52,13 +56,12 @@ data ShaderUniforms s =
     | ViewMatrix s
     | ModelMatrix s
 
-type Program = ShaderProgram
 type SetAction u m = ShaderProgram -> u -> m ()
 type UniformDef u m = (ShaderUniforms String, SetAction u m)
 
--- move to a generic def format
-data ShaderDefs m = ShaderDefs
-    { sGlobalTime         :: (AsUniform u) => UniformDef u m
+data ShaderDefs vad m = ShaderDefs
+    { sVertexPosition     :: AttributeDef vad m
+    , sGlobalTime         :: (AsUniform u) => UniformDef u m
     , sProjectionMatrix   :: (AsUniform u) => UniformDef u m
     , sViewMatrix         :: (AsUniform u) => UniformDef u m
     , sModelMatrix        :: (AsUniform u) => UniformDef u m

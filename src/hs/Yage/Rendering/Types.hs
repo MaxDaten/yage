@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification, RecordWildCards, DeriveFunctor, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification, RecordWildCards, DeriveFunctor, GeneralizedNewtypeDeriving, DeriveDataTypeable, TypeFamilies #-}
 module Yage.Rendering.Types where
 
 import qualified   Data.Map                        as Map
@@ -11,6 +11,7 @@ import             Control.Monad.Reader
 import             Control.Monad.State
 
 import             Graphics.GLUtil
+import qualified   Graphics.GLUtil                 as GL
 import             Graphics.GLUtil.Camera3D        (Camera(..), fpsCamera, camMatrix)
 import qualified   Graphics.GLUtil.Camera3D        as Cam
 import qualified   Graphics.Rendering.OpenGL       as GL
@@ -21,10 +22,11 @@ import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
 import             Yage.Core.Raw.FFI
---import             Yage.Rendering.WorldState
 import             Yage.Resources
 import             Yage.Rendering.Primitives
 import             Yage.Rendering.Shader
+
+import Debug.Trace
 -- =================================================================================================
 
 
@@ -60,7 +62,7 @@ type VBO = GL.BufferObject
 type EBO = GL.BufferObject
 
 
-type YageShaderDef = ShaderDefs YageShader
+type YageShaderDef = ShaderDefs (GL.VertexArrayDescriptor Int) YageShader
 type YageShaderProgram = ShaderProgram
 newtype YageShader a = YageShader (Shader YageShaderDef YageShaderProgram YageRenderer a) -- isolate YageRenderer to one
     deriving (Monad, MonadIO, MonadShader YageShaderDef YageShaderProgram)
@@ -70,14 +72,22 @@ shade :: ShaderProgram -> YageShader a -> YageRenderer a
 shade sh (YageShader x) = runShader x globShaderDef sh
 
 
-globShaderDef :: ShaderDefs YageShader
+globShaderDef :: YageShaderDef
 globShaderDef = ShaderDefs
-    { sGlobalTime         = (\s -> (GlobalTime s,        \p v -> io $ v `asUniform` getUniform p s)) "global_time"
-    , sProjectionMatrix   = (\s -> (ProjectionMatrix s,  \p v -> io $ v `asUniform` getUniform p s)) "projection_matrix"
-    , sViewMatrix         = (\s -> (ViewMatrix s,        \p v -> io $ v `asUniform` getUniform p s)) "view_matrix"
-    , sModelMatrix        = (\s -> (ModelMatrix s,       \p v -> io $ v `asUniform` getUniform p s)) "model_matrix"
+    { sVertexPosition     = mkAttrDef    VertexPos        "vert_position" vertexVad
+    , sGlobalTime         = mkUniformDef GlobalTime       "global_time"
+    , sProjectionMatrix   = mkUniformDef ProjectionMatrix "projection_matrix"
+    , sViewMatrix         = mkUniformDef ViewMatrix       "view_matrix"
+    , sModelMatrix        = mkUniformDef ModelMatrix      "model_matrix"
     }
+    where vertexVad = let stride = fromIntegral $ sizeOf (undefined::Vertex)
+                      in GL.VertexArrayDescriptor 3 GL.Float stride offset0
 
+mkUniformDef :: AsUniform u => (String -> ShaderUniforms String) -> String -> UniformDef u YageShader
+mkUniformDef uni s = (uni s, \p v -> io $ v `asUniform` getUniform p s)
+
+mkAttrDef :: vad ~ GL.VertexArrayDescriptor a => (String -> vad -> ShaderAttributes String vad) -> String -> vad -> AttributeDef vad YageShader
+mkAttrDef attr s vad = (attr s vad, \p v' -> io $ traceShow (show s) $ GL.enableAttrib p s >> GL.setAttrib p s GL.ToFloat vad)
 ---------------------------------------------------------------------------------------------------
 
 class Typeable r => Renderable r where

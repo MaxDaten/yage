@@ -163,12 +163,10 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
             io $ makeVAO $ do
                 GL.bindBuffer GL.ArrayBuffer $= Just vbo
                 GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
-
+                
+                (YageRenderer a) <- return $ shade sProg $ Shader.enableAttrib Shader.sVertexPosition :: IO (YageRenderer ()) -- !!!
+                a `seq` return ()
                 -- shader stuff... TODO enrich
-                let stride = fromIntegral $ sizeOf (undefined::Vertex)
-                    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
-                enableAttrib sProg "vert_position"
-                setAttrib sProg "vert_position" GL.ToFloat vad
 
         addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
@@ -199,3 +197,6 @@ requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
 
         addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
         addMesh m = modify $ \st -> st{ loadedMeshes = m:(loadedMeshes st) }
+
+inIO :: m a -> IO ()
+inIO a = return a >> return ()
