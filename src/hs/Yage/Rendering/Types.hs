@@ -87,7 +87,13 @@ mkUniformDef :: AsUniform u => (String -> ShaderUniforms String) -> String -> Un
 mkUniformDef uni s = (uni s, \p v -> io $ v `asUniform` getUniform p s)
 
 mkAttrDef :: vad ~ GL.VertexArrayDescriptor a => (String -> vad -> ShaderAttributes String vad) -> String -> vad -> AttributeDef vad YageShader
-mkAttrDef attr s vad = (attr s vad, \p v' -> io $ traceShow (show s) $ GL.enableAttrib p s >> GL.setAttrib p s GL.ToFloat vad)
+mkAttrDef attr s vad = 
+    ( attr s vad,
+      \p v' -> io $ do
+        print "shade"
+        GL.enableAttrib p s
+        GL.setAttrib p s GL.ToFloat vad
+    )
 ---------------------------------------------------------------------------------------------------
 
 class Typeable r => Renderable r where

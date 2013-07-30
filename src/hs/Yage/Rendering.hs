@@ -106,7 +106,7 @@ render scene rd@RenderData{..} r = do
     shadeItem shaderProgram scene r
     io $ withVAO vao $ drawIndexedTris . fromIntegral $ triangleCount
 
-shadeItem :: YageShaderProgram -> RenderScene  -> SomeRenderable -> YageRenderer ()
+shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
 shadeItem sProg scene r = shade sProg $ do
     io $ GL.currentProgram $= Just (program sProg)
     Shader.sGlobalTime       .= sceneTime scene
@@ -164,9 +164,13 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                 GL.bindBuffer GL.ArrayBuffer $= Just vbo
                 GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
                 
-                (YageRenderer a) <- return $ shade sProg $ Shader.enableAttrib Shader.sVertexPosition :: IO (YageRenderer ()) -- !!!
-                a `seq` return ()
+                shade sProg $ Shader.enableAttrib Shader.sVertexPosition
+
                 -- shader stuff... TODO enrich
+                --let stride = fromIntegral $ sizeOf (undefined::Vertex)
+                --    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
+                --enableAttrib sProg "vert_position"
+                --setAttrib sProg "vert_position" GL.ToFloat vad
 
         addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
