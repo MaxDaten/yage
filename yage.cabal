@@ -12,7 +12,7 @@ maintainer:          maxdaten@gmail.com
 
 category:            Graphics
 build-type:          Simple
-cabal-version:       >=1.10
+cabal-version:       >=1.16
 
 
 Flag dev
@@ -22,6 +22,8 @@ Flag dev
 Flag library-only
     Description:   Build only the yage-lib
     Default:       False
+
+-------------------------------------------------------------------------------
 
 library
   hs-source-dirs:       src/hs
@@ -41,7 +43,8 @@ library
   other-modules:
                         Yage.Rendering.Utils
 
-  ghc-options:          -O2 -rtsopts
+  ghc-options:          -threaded -O2
+  ghc-prof-options:     -rtsopts -prof -auto-all
   default-language:     Haskell2010
   default-extensions:   StandaloneDeriving
                         UnicodeSyntax
@@ -56,6 +59,8 @@ library
                         , tuple          == 0.2.0.*
                         , netwire        == 4.0.*
                         , linear         == 1.1.4
+
+-------------------------------------------------------------------------------
 
 executable yage
   if flag(library-only)
@@ -76,6 +81,8 @@ executable yage
                         , netwire        == 4.0.*
                         , mtl            == 2.1.*
 
+-------------------------------------------------------------------------------
+
 executable main-wireless
     if flag(library-only)
       Buildable: False
@@ -91,9 +98,13 @@ executable main-wireless
                         , GLUtil         == 0.6.5
                         , linear         == 1.1.4
 
-    ghc-options:       -threaded -O2  -rtsopts 
+    ghc-options:        -threaded -O2
+    ghc-prof-options:   -rtsopts -prof -auto-all
+
     -- -prof -auto-all
     default-language:     Haskell2010
+
+-------------------------------------------------------------------------------
 
 executable libless
     if flag(library-only)

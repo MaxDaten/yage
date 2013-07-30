@@ -22,10 +22,10 @@ cubeMesh =
                   ++ reverse (map (+4) frontFace) -- back
                   ++ rightFace
                   ++ bottomFace
-    in mkTriMesh verts ixs
+    in mkTriMesh "cube" verts ixs
 
 quadMesh :: TriMesh
 quadMesh = 
     let verts = [ V3 (-0.5) 0.5 0.0, V3 (-0.5) (-0.5) 0.0, V3 0.5 (-0.5) 0.0, V3 0.5 0.5 0.0 ]
         ixs   = [0, 1, 2, 0, 2, 3]
-    in mkTriMesh verts ixs
+    in mkTriMesh "quad" verts ixs

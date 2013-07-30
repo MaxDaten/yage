@@ -44,7 +44,7 @@ renderScene scene = renderFrame scene >> afterFrame
 afterFrame :: YageRenderer ()
 afterFrame = io $ do
     -- this should not be part of the rendering, indeed
-    --performGC
+    performGC
     --threadDelay (16*1000) -- 60fps
     return ()
 
@@ -149,7 +149,7 @@ requestRenderResource :: Eq a
                   -> YageRenderer b                             -- ^ the loaded resource
 requestRenderResource accessor loadResource addResource a = do
     rs <- gets accessor
-    maybe (loadResource a >>= \r -> addResource (a, r) >> return r)
+    maybe (loadResource a >>= \r -> addResource (a, r) >> (return $! r))
         return
         (lookup a rs)
 
@@ -175,11 +175,11 @@ requestShader = requestRenderResource loadedShaders loadShaders addShader
     where
         loadShaders :: YageShaderResource -> YageRenderer (ShaderProgram)
         loadShaders shader = do
-            sProg <- io $ loadShaderProgram (vert shader) (frag shader)
+            sProg <- io $! loadShaderProgram (vert shader) (frag shader)
             return sProg
 
         addShader :: (YageShaderResource, ShaderProgram) -> YageRenderer ()
-        addShader s = modify $ \st -> st{ loadedShaders = s:(loadedShaders st) }
+        addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
 
 
 
@@ -194,7 +194,5 @@ requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
             return (vbo, ebo)
 
         addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
-        addMesh m = modify $ \st -> st{ loadedMeshes = m:(loadedMeshes st) }
+        addMesh m = modify $! \st -> st{ loadedMeshes = m:(loadedMeshes st) }
 
-inIO :: m a -> IO ()
-inIO a = return a >> return ()

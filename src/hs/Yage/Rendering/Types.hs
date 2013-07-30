@@ -130,9 +130,9 @@ instance Renderable SomeRenderable where
 
 data RenderScene = RenderScene
     { entities            :: [SomeRenderable]
-    , sceneTime           :: GL.GLfloat
-    , viewMatrix          :: M44 GL.GLfloat
-    , projectionMatrix    :: M44 GL.GLfloat
+    , sceneTime           :: !GL.GLfloat
+    , viewMatrix          :: !(M44 GL.GLfloat)
+    , projectionMatrix    :: !(M44 GL.GLfloat)
     } deriving (Typeable)
 
 --instance Renderable RenderScene where
@@ -146,24 +146,24 @@ emptyRenderScene = RenderScene [] 0.0 (camMatrix fpsCamera) (Cam.projectionMatri
 ---------------------------------------------------------------------------------------------------
 
 data RenderEntity = RenderEntity 
-    { ePosition    :: Position
-    , eOrientation :: Orientation
-    , eScale       :: Scale
+    { ePosition    :: !Position
+    , eOrientation :: !Orientation
+    , eScale       :: !Scale
     , renderDef    :: RenderDefinition
     } deriving (Typeable)
 
 mkRenderEntity :: RenderDefinition -> RenderEntity
 mkRenderEntity def = RenderEntity
-    { ePosition = zero
-    , eOrientation = axisAngle (V3 0 1 0) (Cam.deg2rad 0)
-    , eScale = V3 1 1 1
-    , renderDef = def
+    { ePosition     = zero
+    , eOrientation  = axisAngle (V3 0 1 0) (Cam.deg2rad 0)
+    , eScale        = (V3 1 1 1)
+    , renderDef     = def
     }
 
 data RenderData = RenderData
     { vao           :: GL.VertexArrayObject
     , shaderProgram :: ShaderProgram
-    , triangleCount :: Int
+    , triangleCount :: !Int
     }
 
 instance Renderable RenderEntity where

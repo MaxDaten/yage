@@ -57,22 +57,29 @@ type Vertex = V3 GLfloat
 type Index = Int
 
 data TriMesh = TriMesh
-    { vertices :: ![Vertex]
+    { meshId   :: !String
+    , vertices :: ![Vertex]
     , indices  :: ![Index]
     , triCount :: !Int
-    } deriving (Show, Eq, Ord)
+    } deriving (Show)
 
-mkTriMesh :: [Vertex] -> [Index] -> TriMesh
+instance Eq TriMesh where
+    a == b = meshId a == meshId b
+
+instance Ord TriMesh where
+    compare a b = compare (meshId a) (meshId b)
+
+mkTriMesh :: String -> [Vertex] -> [Index] -> TriMesh
 -- some assertions for invalid meshes
-mkTriMesh vs ixs = TriMesh vs ixs $ (length ixs) `quot` 3
+mkTriMesh id vs ixs = TriMesh id vs ixs $ (length ixs) `quot` 3
 
-combine :: TriMesh -> TriMesh -> TriMesh
-combine a b =
-    TriMesh
-    { vertices  = vertices a ++ vertices b
-    , indices   = indices a  ++ map (+(length $ indices b)) (indices b)
-    , triCount  = triCount a + triCount b
-    }
+--combine :: TriMesh -> TriMesh -> TriMesh
+--combine a b =
+--    TriMesh
+--    { vertices  = vertices a ++ vertices b
+--    , indices   = indices a  ++ map (+(length $ indices b)) (indices b)
+--    , triCount  = triCount a + triCount b
+--    }
 
 ---------------------------------------------------------------------------------------------------
 
