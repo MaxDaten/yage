@@ -90,7 +90,6 @@ mkAttrDef :: vad ~ GL.VertexArrayDescriptor a => (String -> vad -> ShaderAttribu
 mkAttrDef attr s vad = 
     ( attr s vad,
       \p v' -> io $ do
-        print "shade"
         GL.enableAttrib p s
         GL.setAttrib p s GL.ToFloat vad
     )

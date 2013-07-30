@@ -18,7 +18,7 @@ import             Control.Applicative
 import             Control.Monad.Reader
 import             Control.Monad.State
 
-import             Graphics.GLUtil
+import             Graphics.GLUtil                 hiding (makeVAO)
 import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL.GL    (($=))
 import             Graphics.Rendering.OpenGL.GL    as GLReExports (Color4(..))
@@ -32,6 +32,7 @@ import 			   Yage.Rendering.Types
 import             Yage.Rendering.WorldState
 import             Yage.Rendering.Shader           ((.=))
 import qualified   Yage.Rendering.Shader           as Shader
+import             Yage.Rendering.Utils
 import 			   Yage.Resources
 {-=================================================================================================-}
 
@@ -159,18 +160,13 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
         loadDefinition (RenderDefinition (mesh, shader)) = do
             (vbo, ebo) <- requestMesh mesh
             sProg      <- requestShader shader
+            state <- get
+            env <- ask
 
-            io $ makeVAO $ do
-                GL.bindBuffer GL.ArrayBuffer $= Just vbo
-                GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
-                
+            makeVAO $ do
+                io $ GL.bindBuffer GL.ArrayBuffer $= Just vbo
+                io $ GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
                 shade sProg $ Shader.enableAttrib Shader.sVertexPosition
-
-                -- shader stuff... TODO enrich
-                --let stride = fromIntegral $ sizeOf (undefined::Vertex)
-                --    vad = GL.VertexArrayDescriptor 3 GL.Float stride offset0
-                --enableAttrib sProg "vert_position"
-                --setAttrib sProg "vert_position" GL.ToFloat vad
 
         addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
