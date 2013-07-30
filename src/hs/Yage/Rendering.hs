@@ -160,8 +160,6 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
         loadDefinition (RenderDefinition (mesh, shader)) = do
             (vbo, ebo) <- requestMesh mesh
             sProg      <- requestShader shader
-            state <- get
-            env <- ask
 
             makeVAO $ do
                 io $ GL.bindBuffer GL.ArrayBuffer $= Just vbo
