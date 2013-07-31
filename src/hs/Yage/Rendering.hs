@@ -85,7 +85,7 @@ createShaderBatches scene rs =
             in RenderBatch
                 { preBatch = do
                     shader <- requestShader batchShader 
-                    io $ GL.currentProgram $= Just (program shader)
+                    io $! GL.currentProgram $= Just (program shader)
                     setSceneGlobals scene shader
                 , perItem = renderWithData scene
                 , batch = rs
@@ -102,7 +102,7 @@ beforeRender = do
 setupFrame :: YageRenderer ()
 setupFrame = withWindow $ \win -> do
     clearC <- asks $ clearColor . renderConfig
-    io $ do
+    io $! do
         beginDraw $ win
 
         GL.clearColor $= fmap realToFrac clearC
@@ -133,7 +133,7 @@ afterRender = withWindow $ \win -> io . endDraw $ win
 render :: RenderScene -> RenderData -> SomeRenderable -> YageRenderer ()
 render scene rd@RenderData{..} r = do
     shadeItem shaderProgram scene r
-    io $ withVAO vao $ drawIndexedTris . fromIntegral $ triangleCount
+    io $! withVAO vao $! drawIndexedTris . fromIntegral $ triangleCount
 
 
 setSceneGlobals :: RenderScene -> YageShaderProgram -> YageRenderer ()
@@ -144,7 +144,7 @@ setSceneGlobals scene sProg = shade sProg $ do
 
 
 shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
-shadeItem sProg scene r = shade sProg $ do
+shadeItem sProg scene r = shade sProg $! do
     Shader.sModelMatrix      .= (modelMatrix $! r)
 ---------------------------------------------------------------------------------------------------
 
