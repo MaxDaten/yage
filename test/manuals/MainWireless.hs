@@ -20,6 +20,7 @@ main = do
     state <- Y.initialization
 
     let scene = testScene
+    print $ show $ length $ entities scene
     loop scene (renderEnv state) (renderState state)
 
     Y.finalization state

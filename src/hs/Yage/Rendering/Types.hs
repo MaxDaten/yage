@@ -51,12 +51,28 @@ data YRenderConfig = YRenderConfig
 
 
 data RenderState = RenderState
-    { loadedShaders       :: ![(YageShaderResource, ShaderProgram)]
-    , loadedMeshes        :: ![(TriMesh, (VBO, EBO))] -- TODO better Key
-    , loadedDefinitions   :: ![(RenderDefinition, VAO)] -- BETTER KEY!!
+    { loadedShaders         :: ![(YageShaderResource, ShaderProgram)]
+    , loadedMeshes          :: ![(TriMesh, (VBO, EBO))] -- TODO better Key
+    , loadedDefinitions     :: ![(RenderDefinition, VAO)] -- BETTER KEY!!
+    , renderStatistics      :: !RenderStatistics
     }
 
-initialRenderState = RenderState [] [] []
+data RenderStatistics = RenderStatistics
+    { lastTriangeCount      :: !Int
+    , lastRenderDuration    :: !Float
+    }
+
+initRenderStatistics = RenderStatistics
+    { lastTriangeCount      = 0
+    , lastRenderDuration    = 0.0
+    }
+
+initialRenderState = RenderState 
+    { loadedShaders         = []
+    , loadedMeshes          = []
+    , loadedDefinitions     = []
+    , renderStatistics      = initRenderStatistics
+    }
 
 type VBO = GL.BufferObject
 type EBO = GL.BufferObject
@@ -150,6 +166,9 @@ camV = V3 0 0 10
 emptyRenderScene :: RenderScene
 emptyRenderScene = RenderScene [] 0.0 (camMatrix fpsCamera) (Cam.projectionMatrix (Cam.deg2rad 60) 1 1 45)
 
+
+entitiesCount :: RenderScene -> Int
+entitiesCount = length . entities
 
 ---------------------------------------------------------------------------------------------------
 
