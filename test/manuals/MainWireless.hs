@@ -28,6 +28,7 @@ main = do
         loop scene env st = do
             _ <- Y.processInput (application env)
             (_, st) <- runYageRenderer (renderScene scene) st env
+            --print $ show $ renderStatistics st
             loop scene{sceneTime = (sceneTime scene) + 0.001} env st
 
 testScene :: RenderScene
@@ -38,5 +39,5 @@ testScene = fill (emptyRenderScene)
                 ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
                         { eScale = V3 0.1 0.1 0.1
                         }
-                tileFloor = [ent {ePosition = V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [0..10]]
+                tileFloor = [ent {ePosition = V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [0..20]]
             in s{entities = map SomeRenderable tileFloor}

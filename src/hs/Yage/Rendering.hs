@@ -54,20 +54,30 @@ afterFrame = io $ do
 renderFrame :: RenderScene -> YageRenderer ()
 renderFrame scene = do
     beforeRender
-    doRender scene
-    afterRender
+    
+    (objCount, renderTime) <- ioTime $ doRender scene
+
+    let stats = RenderStatistics
+            { lastObjectCount    = objCount
+            , lastRenderDuration = renderTime
+            , lastTriangleCount  = sum $ map (triCount . model) $ entities scene
+            }
+
+    afterRender stats
 
 
-doRender :: RenderScene -> YageRenderer ()
-doRender scene@RenderScene{..} = mapM_ renderBatch $! createShaderBatches scene entities
+doRender :: RenderScene -> YageRenderer Int
+doRender scene@RenderScene{..} =
+    let batches = createShaderBatches scene entities
+    in sum `liftM` mapM renderBatch batches
 
 
 renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
 renderWithData scene r = requestRenderData r >>= \res -> render scene res r
 
 
-renderBatch :: RenderBatch SomeRenderable -> YageRenderer ()
-renderBatch b@RenderBatch{..} = preBatch >> mapM_ perItem batch
+renderBatch :: RenderBatch SomeRenderable -> YageRenderer Int
+renderBatch b@RenderBatch{..} = preBatch >> length `liftM` mapM perItem batch
 
 
 createShaderBatches :: RenderScene -> [SomeRenderable] -> [RenderBatch SomeRenderable]
@@ -123,8 +133,11 @@ prepareResources = return ()
 ---------------------------------------------------------------------------------------------------
 
 
-afterRender :: YageRenderer ()
-afterRender = withWindow $ \win -> io . endDraw $ win
+afterRender :: RenderStatistics -> YageRenderer ()
+afterRender stats = do
+    withWindow $ \win -> io . endDraw $ win
+    updateStatistics stats
+            
 
 ---------------------------------------------------------------------------------------------------
 
@@ -196,9 +209,6 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                 io $ GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
                 shade sProg $ Shader.enableAttrib Shader.sVertexPosition
 
-        addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
-        addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
-
 
 requestShader :: YageShaderResource -> YageRenderer (YageShaderProgram)
 requestShader = requestRenderResource loadedShaders loadShaders addShader
@@ -207,10 +217,6 @@ requestShader = requestRenderResource loadedShaders loadShaders addShader
         loadShaders shader = do
             sProg <- io $! loadShaderProgram (vert shader) (frag shader)
             return $! sProg
-
-        addShader :: (YageShaderResource, YageShaderProgram) -> YageRenderer ()
-        addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
-
 
 
 requestMesh :: TriMesh -> YageRenderer (VBO, EBO)
@@ -223,6 +229,20 @@ requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
             print "mesh loaded"
             return $! (vbo, ebo)
 
-        addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
-        addMesh m = modify $! \st -> st{ loadedMeshes = m:(loadedMeshes st) }
+---------------------------------------------------------------------------------------------------
+
+addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
+addMesh m = modify $! \st -> st{ loadedMeshes = m:(loadedMeshes st) }
+
+
+addShader :: (YageShaderResource, YageShaderProgram) -> YageRenderer ()
+addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
+
+
+addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
+addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
+
+
+updateStatistics :: RenderStatistics -> YageRenderer ()
+updateStatistics stats = modify $ \st -> st{ renderStatistics = stats }
 

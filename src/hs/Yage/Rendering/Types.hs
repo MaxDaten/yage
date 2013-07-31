@@ -52,18 +52,20 @@ data YRenderConfig = YRenderConfig
 
 data RenderState = RenderState
     { loadedShaders         :: ![(YageShaderResource, ShaderProgram)]
-    , loadedMeshes          :: ![(TriMesh, (VBO, EBO))] -- TODO better Key
+    , loadedMeshes          :: ![(TriMesh, (VBO, EBO))] -- TODO better Key, better structure
     , loadedDefinitions     :: ![(RenderDefinition, VAO)] -- BETTER KEY!!
     , renderStatistics      :: !RenderStatistics
     }
 
 data RenderStatistics = RenderStatistics
-    { lastTriangeCount      :: !Int
-    , lastRenderDuration    :: !Float
-    }
+    { lastObjectCount       :: !Int
+    , lastTriangleCount     :: !Int
+    , lastRenderDuration    :: !Double
+    } deriving Show
 
 initRenderStatistics = RenderStatistics
-    { lastTriangeCount      = 0
+    { lastObjectCount       = 0
+    , lastTriangleCount     = 0
     , lastRenderDuration    = 0.0
     }
 

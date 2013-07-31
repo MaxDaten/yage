@@ -1,7 +1,7 @@
 module Yage.Import (
 	-- module Import,
 	io
-    , timeIO
+    , printIOTime, ioTime
 	) where
 
 import Control.Monad.IO.Class
@@ -15,11 +15,18 @@ io :: MonadIO m => IO a -> m a
 io = liftIO
 
 
-timeIO :: MonadIO m => m a -> m a
-timeIO f = do
+ioTime :: MonadIO m => m a -> m (a, Double)
+ioTime op = do
     start <- io $! getCPUTime
-    v <- f
+    v <- op
     end <- io $! getCPUTime
     let diff = (fromIntegral (end - start)) / (10^12)
-    io $! printf "Computation time: %0.5f sec\n" (diff :: Double)
-    return $! v
+    return $! (v, diff)
+
+
+printIOTime :: MonadIO m => m a -> m a
+printIOTime f = do
+    (res, t) <- ioTime f
+    io $! printf "Computation time: %0.5f sec\n" t
+    return res
+
