@@ -28,7 +28,7 @@ main = do
         loop scene env st = do
             _ <- Y.processInput (application env)
             (_, st) <- runYageRenderer (renderScene scene) st env
-            --print $ show $ renderStatistics st
+            print $ show $ renderStatistics st
             loop scene{sceneTime = (sceneTime scene) + 0.001} env st
 
 testScene :: RenderScene

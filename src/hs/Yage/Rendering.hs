@@ -57,10 +57,14 @@ renderFrame scene = do
     
     (objCount, renderTime) <- ioTime $ doRender scene
 
+    shCount <- gets $! length . loadedShaders
+    mshCount <- gets $! length . loadedMeshes
     let stats = RenderStatistics
             { lastObjectCount    = objCount
             , lastRenderDuration = renderTime
-            , lastTriangleCount  = sum $ map (triCount . model) $ entities scene
+            , lastTriangleCount  = sum $! map (triCount . model) $ entities scene
+            , loadedShadersCount = shCount
+            , loadedMeshesCount  = mshCount
             }
 
     afterRender stats

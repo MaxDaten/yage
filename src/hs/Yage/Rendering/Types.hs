@@ -61,12 +61,16 @@ data RenderStatistics = RenderStatistics
     { lastObjectCount       :: !Int
     , lastTriangleCount     :: !Int
     , lastRenderDuration    :: !Double
+    , loadedShadersCount    :: !Int
+    , loadedMeshesCount     :: !Int
     } deriving Show
 
 initRenderStatistics = RenderStatistics
     { lastObjectCount       = 0
     , lastTriangleCount     = 0
     , lastRenderDuration    = 0.0
+    , loadedShadersCount    = 0
+    , loadedMeshesCount     = 0
     }
 
 initialRenderState = RenderState 
