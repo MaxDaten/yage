@@ -9,6 +9,7 @@ module Yage.Rendering (
 import Debug.Trace
 
 import qualified   Data.Map                        as Map
+import             Data.List                       (groupBy)
 import             Foreign.Storable                (sizeOf)
 import             Control.Concurrent              (threadDelay)
 import             System.Mem                      (performGC)
@@ -36,6 +37,7 @@ import             Yage.Rendering.Utils
 import 			   Yage.Resources
 {-=================================================================================================-}
 
+
 renderScene :: RenderScene -> YageRenderer ()
 renderScene scene = renderFrame scene >> afterFrame
 
@@ -58,10 +60,36 @@ renderFrame scene = do
 
 doRender :: RenderScene -> YageRenderer ()
 doRender scene@RenderScene{..} = do
-    mapM_ (renderWithData scene) entities
+    let batches = createShaderBatches scene entities
+    mapM_ renderBatch batches --- insert batch rendering here
+
+
+renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
+renderWithData scene r = requestRenderData r >>= \res -> render scene res r
+
+
+renderBatch :: RenderBatch SomeRenderable -> YageRenderer ()
+renderBatch b@RenderBatch{..} = preBatch >> mapM_ perItem batch
+
+
+createShaderBatches :: RenderScene -> [SomeRenderable] -> [RenderBatch SomeRenderable]
+createShaderBatches scene rs = 
+    let shaderGroups = groupBy sameShader rs
+    in map mkShaderBatch shaderGroups
     where
-        renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
-        renderWithData scene r = requestRenderData r >>= \res -> render scene res r
+        sameShader :: SomeRenderable -> SomeRenderable -> Bool
+        sameShader a b = shader a == shader b
+        mkShaderBatch :: [SomeRenderable] -> RenderBatch SomeRenderable
+        mkShaderBatch rs =
+            let batchShader = shader . head $ rs
+            in RenderBatch
+                { preBatch = do
+                    shader <- requestShader batchShader 
+                    io $ GL.currentProgram $= Just (program shader)
+                    setSceneGlobals scene shader
+                , perItem = renderWithData scene
+                , batch = rs
+                }
 
 
 
@@ -107,13 +135,17 @@ render scene rd@RenderData{..} r = do
     shadeItem shaderProgram scene r
     io $ withVAO vao $ drawIndexedTris . fromIntegral $ triangleCount
 
-shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
-shadeItem sProg scene r = shade sProg $ do
-    io $ GL.currentProgram $= Just (program sProg)
+
+setSceneGlobals :: RenderScene -> YageShaderProgram -> YageRenderer ()
+setSceneGlobals scene sProg = shade sProg $ do
     Shader.sGlobalTime       .= sceneTime scene
     Shader.sProjectionMatrix .= projectionMatrix scene
     Shader.sViewMatrix       .= viewMatrix scene
-    Shader.sModelMatrix      .= modelMatrix r
+
+
+shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
+shadeItem sProg scene r = shade sProg $ do
+    Shader.sModelMatrix      .= (modelMatrix $! r)
 ---------------------------------------------------------------------------------------------------
 
 
@@ -170,15 +202,15 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
         addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
 
 
-requestShader :: YageShaderResource -> YageRenderer (ShaderProgram)
+requestShader :: YageShaderResource -> YageRenderer (YageShaderProgram)
 requestShader = requestRenderResource loadedShaders loadShaders addShader
     where
-        loadShaders :: YageShaderResource -> YageRenderer (ShaderProgram)
+        loadShaders :: YageShaderResource -> YageRenderer (YageShaderProgram)
         loadShaders shader = do
             sProg <- io $! loadShaderProgram (vert shader) (frag shader)
             return sProg
 
-        addShader :: (YageShaderResource, ShaderProgram) -> YageRenderer ()
+        addShader :: (YageShaderResource, YageShaderProgram) -> YageRenderer ()
         addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
 
 

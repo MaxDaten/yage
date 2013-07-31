@@ -45,16 +45,16 @@ instance (Monad m, p ~ Program) => MonadShader d p (Shader d p m) where
 
 type Program = ShaderProgram
 
-data ShaderAttributes s vad = VertexPos s vad
+data ShaderAttributes s vad = VertexPos !s !vad
 
 type EnableAction vad m = ShaderProgram -> ShaderAttributes String vad -> m ()
 type AttributeDef vad m = (ShaderAttributes String vad, EnableAction vad m)
 
 data ShaderUniforms s = 
-      GlobalTime s
-    | ProjectionMatrix s
-    | ViewMatrix s
-    | ModelMatrix s
+      GlobalTime !s
+    | ProjectionMatrix !s
+    | ViewMatrix !s
+    | ModelMatrix !s
 
 type SetAction u m = ShaderProgram -> u -> m ()
 type UniformDef u m = (ShaderUniforms String, SetAction u m)

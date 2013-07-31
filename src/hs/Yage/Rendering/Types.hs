@@ -84,12 +84,12 @@ globShaderDef = ShaderDefs
                       in GL.VertexArrayDescriptor 3 GL.Float stride offset0
 
 mkUniformDef :: AsUniform u => (String -> ShaderUniforms String) -> String -> UniformDef u YageShader
-mkUniformDef uni s = (uni s, \p v -> io $ v `asUniform` getUniform p s)
+mkUniformDef uni s = (uni s, \p v -> io $! v `asUniform` getUniform p s)
 
 mkAttrDef :: vad ~ GL.VertexArrayDescriptor a => (String -> vad -> ShaderAttributes String vad) -> String -> vad -> AttributeDef vad YageShader
 mkAttrDef attr s vad = 
     ( attr s vad,
-      \p v' -> io $ do
+      \p v' -> io $! do
         GL.enableAttrib p s
         GL.setAttrib p s GL.ToFloat vad
     )
@@ -125,6 +125,14 @@ instance Renderable SomeRenderable where
     --render scene res (SomeRenderable r) = render scene res r
     renderDefinition (SomeRenderable r) = renderDefinition r
     modelMatrix (SomeRenderable r) = modelMatrix r
+
+
+data Renderable r => RenderBatch r = RenderBatch
+    { preBatch    :: YageRenderer ()
+    , perItem     :: r -> YageRenderer ()
+    , batch       :: [r]
+    }
+    
 
 ---------------------------------------------------------------------------------------------------
 
