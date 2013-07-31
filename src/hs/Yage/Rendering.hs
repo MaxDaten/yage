@@ -59,9 +59,7 @@ renderFrame scene = do
 
 
 doRender :: RenderScene -> YageRenderer ()
-doRender scene@RenderScene{..} = do
-    let batches = createShaderBatches scene entities
-    mapM_ renderBatch batches --- insert batch rendering here
+doRender scene@RenderScene{..} = mapM_ renderBatch $! createShaderBatches scene entities
 
 
 renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
@@ -137,7 +135,7 @@ render scene rd@RenderData{..} r = do
 
 
 setSceneGlobals :: RenderScene -> YageShaderProgram -> YageRenderer ()
-setSceneGlobals scene sProg = shade sProg $ do
+setSceneGlobals scene sProg = shade sProg $! do
     Shader.sGlobalTime       .= sceneTime scene
     Shader.sProjectionMatrix .= projectionMatrix scene
     Shader.sViewMatrix       .= viewMatrix scene
@@ -208,7 +206,7 @@ requestShader = requestRenderResource loadedShaders loadShaders addShader
         loadShaders :: YageShaderResource -> YageRenderer (YageShaderProgram)
         loadShaders shader = do
             sProg <- io $! loadShaderProgram (vert shader) (frag shader)
-            return sProg
+            return $! sProg
 
         addShader :: (YageShaderResource, YageShaderProgram) -> YageRenderer ()
         addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
@@ -223,7 +221,7 @@ requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
             vbo <- makeBuffer GL.ArrayBuffer $ vertices mesh
             ebo <- bufferIndices $ map fromIntegral $ indices mesh
             print "mesh loaded"
-            return (vbo, ebo)
+            return $! (vbo, ebo)
 
         addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
         addMesh m = modify $! \st -> st{ loadedMeshes = m:(loadedMeshes st) }
