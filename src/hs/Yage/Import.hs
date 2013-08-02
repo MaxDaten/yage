@@ -1,7 +1,8 @@
 module Yage.Import (
 	-- module Import,
-	io
+	  io
     , printIOTime, ioTime
+    , traceShow'
 	) where
 
 import Control.Monad.IO.Class
@@ -9,6 +10,7 @@ import Control.Monad.IO.Class
 import Text.Printf
 import Control.Exception
 import System.CPUTime
+import Debug.Trace
 
 
 io :: MonadIO m => IO a -> m a
@@ -30,3 +32,5 @@ printIOTime f = do
     io $! printf "Computation time: %0.5f sec\n" t
     return res
 
+traceShow' :: Show a => a -> a
+traceShow' a = traceShow a a

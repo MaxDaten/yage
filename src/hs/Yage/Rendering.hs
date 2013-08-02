@@ -160,7 +160,9 @@ setSceneGlobals scene sProg = shade sProg $! do
 
 shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
 shadeItem sProg scene r = shade sProg $! do
-    Shader.sModelMatrix      .= (modelMatrix $! r)
+    let (modelM, normalM) = modelAndNormalMatrix $! r
+    Shader.sModelMatrix      .= modelM
+    Shader.sNormalMatrix     .= normalM
 ---------------------------------------------------------------------------------------------------
 
 

@@ -31,6 +31,7 @@ library
                         Yage.Import
                         Yage.Types
                         Yage.Wire
+                        Yage.Math
                         Yage.Core.OpenGL
                         Yage.Resources
                         Yage.Resources.Loader

@@ -55,6 +55,7 @@ data ShaderUniforms s =
     | ProjectionMatrix !s
     | ViewMatrix !s
     | ModelMatrix !s
+    | NormalMatrix !s
 
 type SetAction u m = ShaderProgram -> u -> m ()
 type UniformDef u m = (ShaderUniforms String, SetAction u m)
@@ -65,6 +66,7 @@ data ShaderDefs vad m = ShaderDefs
     , sProjectionMatrix   :: (AsUniform u) => UniformDef u m
     , sViewMatrix         :: (AsUniform u) => UniformDef u m
     , sModelMatrix        :: (AsUniform u) => UniformDef u m
+    , sNormalMatrix       :: (AsUniform u) => UniformDef u m
     }
 
 ---------------------------------------------------------------------------------------------------
