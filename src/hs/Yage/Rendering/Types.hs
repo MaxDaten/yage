@@ -107,9 +107,9 @@ globShaderDef = ShaderDefs
     , sModelMatrix        = mkUniformDef ModelMatrix      "model_matrix"
     , sNormalMatrix       = mkUniformDef NormalMatrix     "normal_matrix"
     }
-    where positionVad   = let stride = fromIntegral $ sizeOf (undefined::Position)
+    where positionVad   = let stride = fromIntegral $ sizeOf (undefined::Vertex)
                           in GL.VertexArrayDescriptor 4 GL.Float stride offset0
-          normalVad     = let stride = fromIntegral $ sizeOf (undefined::Normal)
+          normalVad     = let stride = fromIntegral $ sizeOf (undefined::Vertex)
                           in GL.VertexArrayDescriptor 4 GL.Float stride (offsetPtr $ sizeOf (undefined :: Position))
 
 mkUniformDef :: AsUniform u => (String -> ShaderUniforms String) -> String -> UniformDef u YageShader

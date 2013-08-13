@@ -29,7 +29,7 @@ data Vertex = Vertex
 
 instance Storable Vertex where
     sizeOf _ = sizeOf (undefined::Position) + sizeOf (undefined::Normal)
-    alignment _ = alignment (undefined::Position) + alignment (undefined::Normal)
+    alignment _ = alignment (undefined::Position)
     peek ptr =
         let ptr' = castPtr ptr
         in Vertex 

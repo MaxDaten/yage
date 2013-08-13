@@ -39,5 +39,5 @@ testScene = fill (emptyRenderScene)
                 ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
                         { eScale = V3 0.1 0.1 0.1
                         }
-                tileFloor = take 1 [ent {ePosition = point $ V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [15..20]]
+                tileFloor = [ent {ePosition = point $ V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [15..20]]
             in s{entities = map SomeRenderable tileFloor}
