@@ -1,6 +1,9 @@
 #version 330
 
-in          vec3    vert_position;
+
+in vec4 vert_position;
+in vec3 vert_normal;
+// in vec4 vert_color;
 
 uniform mat4 projection_matrix;
 uniform mat4 view_matrix;
@@ -13,6 +16,7 @@ uniform     float   global_time     = 0.0;
 
 void main()
 {
-    vec4 location = vec4(vert_position, 1.0);
-    gl_Position = projection_matrix * (view_matrix * (model_matrix * vec4(vert_position, 1.0)));
+    mat3 normM = normal_matrix;
+    vec3 normV = vert_normal;
+    gl_Position = projection_matrix * (view_matrix * (model_matrix * vert_position));
 }

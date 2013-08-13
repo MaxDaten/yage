@@ -10,6 +10,7 @@ import             Data.Typeable
 import             Control.Applicative
 import             Control.Monad.Reader
 import             Control.Monad.State
+import             Control.Lens                    ((^.))
 
 import             Graphics.GLUtil
 import qualified   Graphics.GLUtil                 as GL
@@ -18,7 +19,7 @@ import qualified   Graphics.GLUtil.Camera3D        as Cam
 import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL       (($=), Uniform(..), UniformComponent(..))
 ---------------------------------------------------------------------------------------------------
-import             Linear                          (V3(..), V4(..), M44(..), M33(..), (!*!), zero, inv33, m33_to_m44, kronecker, fromQuaternion, mkTransformation, point, axisAngle)
+import             Linear                          (V3(..), V4(..), M44(..), M33(..), R3(_xyz), (!*!), zero, inv33, m33_to_m44, kronecker, fromQuaternion, mkTransformation, point, axisAngle)
 import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
@@ -98,15 +99,18 @@ shade sh (YageShader x) = runShader x globShaderDef sh
 
 globShaderDef :: YageShaderDef
 globShaderDef = ShaderDefs
-    { sVertexPosition     = mkAttrDef    VertexPos        "vert_position" vertexVad
+    { sVertexPosition     = mkAttrDef    VertexPos        "vert_position" positionVad
+    , sVertexNormal       = mkAttrDef    VertexNormal     "vert_normal"   normalVad
     , sGlobalTime         = mkUniformDef GlobalTime       "global_time"
     , sProjectionMatrix   = mkUniformDef ProjectionMatrix "projection_matrix"
     , sViewMatrix         = mkUniformDef ViewMatrix       "view_matrix"
     , sModelMatrix        = mkUniformDef ModelMatrix      "model_matrix"
     , sNormalMatrix       = mkUniformDef NormalMatrix     "normal_matrix"
     }
-    where vertexVad = let stride = fromIntegral $ sizeOf (undefined::Vertex)
-                      in GL.VertexArrayDescriptor 3 GL.Float stride offset0
+    where positionVad   = let stride = fromIntegral $ sizeOf (undefined::Position)
+                          in GL.VertexArrayDescriptor 4 GL.Float stride offset0
+          normalVad     = let stride = fromIntegral $ sizeOf (undefined::Normal)
+                          in GL.VertexArrayDescriptor 4 GL.Float stride (offsetPtr $ sizeOf (undefined :: Position))
 
 mkUniformDef :: AsUniform u => (String -> ShaderUniforms String) -> String -> UniformDef u YageShader
 mkUniformDef uni s = (uni s, \p v -> io $! v `asUniform` getUniform p s)
@@ -205,10 +209,10 @@ data RenderData = RenderData
 instance Renderable RenderEntity where
     renderDefinition = renderDef
     modelAndNormalMatrix r =
-        let scaleM      = mkScale . eScale $ r                                  :: M44 GL.GLfloat
-            transformM  = mkTransformation (eOrientation $ r) (ePosition $ r)   :: M44 GL.GLfloat
-            modelM      = transformM !*! scaleM                                 :: M44 GL.GLfloat
-            normalM     = fromJust . inv33 . fromTransformation $ modelM        :: M33 GL.GLfloat
+        let scaleM      = mkScale . eScale $ r                                         :: M44 GL.GLfloat
+            transformM  = mkTransformation (eOrientation $ r) ((ePosition $ r)^._xyz)   :: M44 GL.GLfloat
+            modelM      = transformM !*! scaleM                                        :: M44 GL.GLfloat
+            normalM     = fromJust . inv33 . fromTransformation $ modelM               :: M33 GL.GLfloat
         in (modelM, normalM)
         where mkScale = kronecker . point
 

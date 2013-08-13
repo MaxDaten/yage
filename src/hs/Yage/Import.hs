@@ -3,6 +3,7 @@ module Yage.Import (
 	  io
     , printIOTime, ioTime
     , traceShow'
+    , splitEvery
 	) where
 
 import Control.Monad.IO.Class
@@ -34,3 +35,11 @@ printIOTime f = do
 
 traceShow' :: Show a => a -> a
 traceShow' a = traceShow a a
+
+
+-- move to own tool box
+splitEvery :: Int -> [a] -> [[a]]
+splitEvery _ [] = []
+splitEvery n list = first : (splitEvery n rest)
+  where
+    (first,rest) = splitAt n list

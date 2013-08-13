@@ -24,7 +24,7 @@ import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL.GL    (($=))
 import             Graphics.Rendering.OpenGL.GL    as GLReExports (Color4(..))
 ---------------------------------------------------------------------------------------------------
-import             Linear                          (V3(..), zero)
+import             Linear                          (V3(..), R3(_xyz), zero)
 import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
@@ -213,7 +213,9 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
             makeVAO $ do
                 io $ GL.bindBuffer GL.ArrayBuffer $= Just vbo
                 io $ GL.bindBuffer GL.ElementArrayBuffer $= Just ebo
-                shade sProg $ Shader.enableAttrib Shader.sVertexPosition
+                shade sProg $ do
+                    Shader.enableAttrib Shader.sVertexPosition
+                    Shader.enableAttrib Shader.sVertexNormal
 
 
 requestShader :: YageShaderResource -> YageRenderer (YageShaderProgram)
@@ -229,11 +231,15 @@ requestMesh :: TriMesh -> YageRenderer (VBO, EBO)
 requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
     where
         loadMesh :: TriMesh -> YageRenderer (VBO, EBO)
-        loadMesh mesh = io $ do
-            vbo <- makeBuffer GL.ArrayBuffer $ vertices mesh
-            ebo <- bufferIndices $ map fromIntegral $ indices mesh
-            print "mesh loaded"
-            return $! (vbo, ebo)
+        loadMesh mesh 
+            | traceShow "start loading mesh" False = undefined
+            | otherwise = io $ do
+                print $ "mesh loaded1" ++ show mesh
+                vbo <- makeBuffer GL.ArrayBuffer $ vertices $ mesh
+                print "mesh loaded2"
+                ebo <- bufferIndices $ map fromIntegral $ indices mesh
+                print "mesh loaded3"
+                return $! (vbo, ebo)
 
 ---------------------------------------------------------------------------------------------------
 

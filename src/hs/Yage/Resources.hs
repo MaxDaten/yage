@@ -1,60 +1,46 @@
+{-# LANGUAGE RecordWildCards #-}
 module Yage.Resources where
 
-import             Linear                          (V3(..), zero)
+import             Linear                          (V3(..), V4(..), zero)
 import             Linear.Quaternion               (Quaternion)
 import             Graphics.Rendering.OpenGL       (GLfloat)
+import             Foreign.Storable
+import             Foreign.Ptr                     (castPtr)
+import             Control.Applicative             ((<$>), (<*>))
 
-
-{--
--- | A 'YageResource' is loaded into a 'RenderEntity'
-data YageResource = YageResource
-    { resourceId         :: ResourceId
-    , resourceDefinition :: ResourceDefinition
-    }
-
-type ResourceId = Int
-data ResourceDefinition = YageResourceDefinition [ResourceDefinition]
-                        | YageModelResource TriMesh
-                        | YageShaderResource YageShader
-                        | YageTextureResource
-                        deriving (Show, Eq)
-
-allShaders :: YageResource -> [ResourceDefinition]
-allShaders (YageResource _ s@(YageShaderResource _))       = [s]
-allShaders (YageResource _ (YageResourceDefinition defs))  = filter isShader defs
-allShaders _ = []
-
-allTextures :: YageResource -> [ResourceDefinition]
-allTextures (YageResource _ YageTextureResource)           = [YageTextureResource]
-allTextures (YageResource _ (YageResourceDefinition defs)) = filter (==YageTextureResource) defs
-allTextures _ = []
-
-allModels :: YageResource -> [ResourceDefinition]
-allModels (YageResource _ m@(YageModelResource _))         = [m]
-allModels (YageResource _ (YageResourceDefinition defs))   = filter isModel defs
-allModels _ = []
-
-
-isModel :: ResourceDefinition -> Bool
-isModel (YageModelResource _) = True
-isModel _ = False
-
-isShader :: ResourceDefinition -> Bool
-isShader (YageShaderResource _) = True
-isShader _ = False
-
-isTexture :: ResourceDefinition -> Bool
-isTexture (YageTextureResource) = True
-isTexture _ = False
---}
+import             Debug.Trace
+import             Yage.Import
 ---------------------------------------------------------------------------------------------------
 
-type Position = V3 GLfloat
 type Orientation = Quaternion GLfloat
 type Scale = V3 GLfloat
 
-type Vertex = V3 GLfloat
+--type Vertex = V4 GLfloat
+type Position = V4 GLfloat
+type Normal = V4 GLfloat
+type Color = V4 GLfloat
 type Index = Int
+
+data Vertex = Vertex 
+    { position :: Position
+    , normal   :: Normal
+    --, color    :: Color
+    } deriving (Show, Eq)
+
+instance Storable Vertex where
+    sizeOf _ = sizeOf (undefined::Position) + sizeOf (undefined::Normal)
+    alignment _ = alignment (undefined::Position) + alignment (undefined::Normal)
+    peek ptr =
+        let ptr' = castPtr ptr
+        in Vertex 
+            <$> peekElemOff ptr' 0
+            <*> peekElemOff ptr' 1
+
+    poke ptr Vertex{..} = 
+        let ptr' = castPtr ptr
+        in do
+            pokeElemOff ptr' 0 position
+            pokeElemOff ptr' 1 normal
 
 data TriMesh = TriMesh
     { meshId   :: !String
@@ -70,16 +56,9 @@ instance Ord TriMesh where
     compare a b = compare (meshId a) (meshId b)
 
 mkTriMesh :: String -> [Vertex] -> [Index] -> TriMesh
--- some assertions for invalid meshes
-mkTriMesh id vs ixs = TriMesh id vs ixs $ (length ixs) `quot` 3
-
---combine :: TriMesh -> TriMesh -> TriMesh
---combine a b =
---    TriMesh
---    { vertices  = vertices a ++ vertices b
---    , indices   = indices a  ++ map (+(length $ indices b)) (indices b)
---    , triCount  = triCount a + triCount b
---    }
+-- TODO some assertions for invalid meshes
+mkTriMesh id vs ixs | traceShow "here" False = undefined
+                    | otherwise = TriMesh id vs ixs $ (length ixs) `quot` 3
 
 ---------------------------------------------------------------------------------------------------
 
