@@ -17,30 +17,29 @@ type Scale = V3 GLfloat
 
 --type Vertex = V4 GLfloat
 type Position = V4 GLfloat
-type Normal = V4 GLfloat
+type Normal = V3 GLfloat
 type Color = V4 GLfloat
 type Index = Int
 
 data Vertex = Vertex 
     { position :: Position
     , normal   :: Normal
-    --, color    :: Color
+    , color    :: Color
     } deriving (Show, Eq)
 
 instance Storable Vertex where
-    sizeOf _ = sizeOf (undefined::Position) + sizeOf (undefined::Normal)
+    sizeOf _ = sizeOf (undefined::Position) + sizeOf (undefined::Normal) + sizeOf (undefined::Color)
     alignment _ = alignment (undefined::Position)
-    peek ptr =
-        let ptr' = castPtr ptr
-        in Vertex 
-            <$> peekElemOff ptr' 0
-            <*> peekElemOff ptr' 1
+    peek ptr = 
+        Vertex 
+            <$> peekByteOff ptr 0
+            <*> peekByteOff ptr (sizeOf (undefined :: Position))
+            <*> peekByteOff ptr (sizeOf (undefined :: Position) + sizeOf (undefined :: Normal))
 
-    poke ptr Vertex{..} = 
-        let ptr' = castPtr ptr
-        in do
-            pokeElemOff ptr' 0 position
-            pokeElemOff ptr' 1 normal
+    poke ptr Vertex{..} = do
+        pokeByteOff ptr 0 position
+        pokeByteOff ptr (sizeOf (undefined :: Position)) normal
+        pokeByteOff ptr (sizeOf (undefined :: Position) + sizeOf (undefined :: Normal)) color
 
 data TriMesh = TriMesh
     { meshId   :: !String

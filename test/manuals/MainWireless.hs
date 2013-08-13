@@ -37,7 +37,7 @@ testScene = fill (emptyRenderScene)
         fill s@RenderScene{..} = 
             let shader = YageShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
                 ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
-                        { eScale = V3 0.1 0.1 0.1
+                        { eScale = V3 0.2 0.2 0.2
                         }
                 tileFloor = [ent {ePosition = point $ V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [15..20]]
             in s{entities = map SomeRenderable tileFloor}

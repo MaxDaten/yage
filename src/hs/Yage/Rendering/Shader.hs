@@ -48,6 +48,7 @@ type Program = ShaderProgram
 data ShaderAttributes s vad = 
       VertexPos !s !vad
     | VertexNormal !s !vad
+    | VertexColor !s !vad
 
 type EnableAction vad m = ShaderProgram -> ShaderAttributes String vad -> m ()
 type AttributeDef vad m = (ShaderAttributes String vad, EnableAction vad m)
@@ -65,6 +66,7 @@ type UniformDef u m = (ShaderUniforms String, SetAction u m)
 data ShaderDefs vad m = ShaderDefs
     { sVertexPosition     :: AttributeDef vad m
     , sVertexNormal       :: AttributeDef vad m
+    , sVertexColor        :: AttributeDef vad m
     , sGlobalTime         :: (AsUniform u) => UniformDef u m
     , sProjectionMatrix   :: (AsUniform u) => UniformDef u m
     , sViewMatrix         :: (AsUniform u) => UniformDef u m

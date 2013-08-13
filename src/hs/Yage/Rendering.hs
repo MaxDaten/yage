@@ -216,6 +216,7 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                 shade sProg $ do
                     Shader.enableAttrib Shader.sVertexPosition
                     Shader.enableAttrib Shader.sVertexNormal
+                    Shader.enableAttrib Shader.sVertexColor
 
 
 requestShader :: YageShaderResource -> YageRenderer (YageShaderProgram)
