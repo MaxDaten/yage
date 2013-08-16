@@ -47,7 +47,11 @@ initialization = do
     resizeWindow win 800 600
     showWindow win
 
-    let rEnv = YageRenderEnv app win (YRenderConfig (Color4 0.3 0.3 0.3 0))
+    let rConf = YRenderConfig
+            { clearColor = (Color4 0.3 0.3 0.3 0)
+            , debugNormals = False
+            }
+        rEnv = YageRenderEnv app win rConf
     return $ YageState Set.empty rEnv initialRenderState []
 
 

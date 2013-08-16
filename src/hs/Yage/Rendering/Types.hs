@@ -52,6 +52,7 @@ data YageRenderEnv = YageRenderEnv
 
 data YRenderConfig = YRenderConfig
     { clearColor    :: !(GL.Color4 Double)
+    , debugNormals  :: !Bool
     }
 
 
@@ -162,9 +163,9 @@ instance Renderable SomeRenderable where
 
 
 data Renderable r => RenderBatch r = RenderBatch
-    { preBatch    :: YageRenderer ()
-    , perItem     :: r -> YageRenderer ()
-    , batch       :: [r]
+    { preBatchAction    :: [r] -> YageRenderer ()
+    , perItemAction     :: r -> YageRenderer ()
+    , batch             :: [r]
     }
     
 

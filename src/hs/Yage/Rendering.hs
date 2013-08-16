@@ -81,7 +81,7 @@ renderWithData scene r = requestRenderData r >>= \res -> render scene res r
 
 
 renderBatch :: RenderBatch SomeRenderable -> YageRenderer Int
-renderBatch b@RenderBatch{..} = preBatch >> length `liftM` mapM perItem batch
+renderBatch b@RenderBatch{..} = preBatchAction batch >> length `liftM` mapM perItemAction batch
 
 
 createShaderBatches :: RenderScene -> [SomeRenderable] -> [RenderBatch SomeRenderable]
@@ -91,15 +91,16 @@ createShaderBatches scene rs =
     where
         sameShader :: SomeRenderable -> SomeRenderable -> Bool
         sameShader a b = shader a == shader b
+
         mkShaderBatch :: [SomeRenderable] -> RenderBatch SomeRenderable
         mkShaderBatch rs =
             let batchShader = shader . head $ rs
             in RenderBatch
-                { preBatch = do
+                { preBatchAction = \_ -> do
                     shader <- requestShader batchShader 
                     io $! GL.currentProgram $= Just (program shader)
                     setSceneGlobals scene shader
-                , perItem = renderWithData scene
+                , perItemAction = renderWithData scene
                 , batch = rs
                 }
 
