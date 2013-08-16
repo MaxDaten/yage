@@ -19,8 +19,10 @@ import qualified   Graphics.GLUtil.Camera3D        as Cam
 import qualified   Graphics.Rendering.OpenGL       as GL
 import             Graphics.Rendering.OpenGL       (($=), Uniform(..), UniformComponent(..))
 ---------------------------------------------------------------------------------------------------
-import             Linear                          (V3(..), V4(..), M44(..), M33(..), R3(_xyz), (!*!), zero, inv33, m33_to_m44, kronecker, fromQuaternion, mkTransformation, point, axisAngle, adjoint)
-import             Linear.Quaternion               (Quaternion)
+import             Linear                          ( V3(..), V4(..), M44(..), M33(..), R3(_xyz), Quaternion
+                                                   , (!*!)
+                                                   , zero, inv33, m33_to_m44, kronecker, fromQuaternion
+                                                   , mkTransformation, point, axisAngle, adjoint)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
 import             Yage.Math
@@ -29,7 +31,7 @@ import             Yage.Resources
 import             Yage.Rendering.Primitives
 import             Yage.Rendering.Shader
 
-import Debug.Trace
+import             Debug.Trace
 -- =================================================================================================
 
 
