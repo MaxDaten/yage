@@ -21,7 +21,6 @@ import qualified   Data.Set                     as Set
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
 import             Yage.Types
-import             Yage.Core.Raw.FFI
 import             Yage.Rendering
 import             Yage.Rendering.Types
 import             Yage.Rendering.WorldState

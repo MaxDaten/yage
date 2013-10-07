@@ -33,6 +33,8 @@ library
                         Yage.Wire
                         Yage.Math
                         Yage.Core.OpenGL
+                        Yage.Core.GLFW
+                        Yage.Core.API
                         Yage.Resources
                         Yage.Resources.Loader
                         Yage.Rendering
@@ -40,7 +42,6 @@ library
                         Yage.Rendering.Types
                         Yage.Rendering.WorldState
                         Yage.Rendering.Primitives
-                        Yage.Core.Raw.FFI
   other-modules:
                         Yage.Rendering.Utils
 
@@ -50,17 +51,21 @@ library
   default-extensions:   StandaloneDeriving
                         UnicodeSyntax
 
-  build-depends:          base           == 4.6.*
-                        , OpenGLRawTest  == 0.1.*
-                        , OpenGL         == 2.8.*
-                        , GLUtil         == 0.6.5
-                        , mtl            == 2.1.*
-                        , containers     == 0.5.*
-                        , transformers   == 0.3.*
-                        , tuple          == 0.2.0.*
-                        , netwire        == 4.0.*
-                        , linear         == 1.1.4
-                        , lens           == 3.9.0.*
+  build-depends:          base            >= 4.6 && <= 4.7
+                        , OpenGLRawTest   == 0.1.*
+                        , OpenGL          == 2.8.*
+                        , GLFW-b          == 1.2.*
+                        , GLUtil          == 0.6.5
+
+                        , mtl             == 2.1.*
+                        , containers      == 0.5.*
+                        , bytestring-trie == 0.2.*
+                        , bytestring      == 0.10.*
+                        , transformers    == 0.3.*
+                        , tuple           == 0.2.0.*
+                        , netwire         == 4.0.*
+                        , linear          == 1.1.4
+                        , lens            == 3.9.0.*
 
 -------------------------------------------------------------------------------
 
@@ -70,8 +75,6 @@ executable yage
 
   hs-source-dirs:       test/manuals
   main-is:              MainWire.hs
-  extra-lib-dirs:       .
-  extra-libraries:      yage
 
   ghc-options:          -threaded -O2
   default-language:     Haskell2010
@@ -80,6 +83,7 @@ executable yage
                         , yage
                         , GLUtil         == 0.6.5
                         , OpenGL         == 2.8.*
+                        , GLFW-b         == 1.2.*
                         , netwire        == 4.0.*
                         , mtl            == 2.1.*
 
@@ -91,12 +95,11 @@ executable main-wireless
 
     hs-source-dirs:     test/manuals
     main-is:            MainWireless.hs
-    extra-lib-dirs:       .
-    extra-libraries:      yage
 
     build-depends:        base
                         , yage
                         , OpenGL         == 2.8.*
+                        , GLFW-b         == 1.2.*
                         , GLUtil         == 0.6.5
                         , linear         == 1.1.4
 
@@ -114,12 +117,11 @@ executable libless
 
     hs-source-dirs:     test/manuals
     main-is:            Libless.hs
-    extra-lib-dirs:       .
-    extra-libraries:      yage
 
     build-depends:        base
                         , yage
                         , OpenGL         == 2.8.*
+                        , GLFW-b         == 1.2.*
                         , GLUtil         == 0.6.5
                         , linear         == 1.1.4
 
@@ -127,14 +129,14 @@ executable libless
     default-language:     Haskell2010
 
 
-----------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 test-suite test
     type:              exitcode-stdio-1.0
     hs-source-dirs:    test/automatons
     main-is:           Main.hs
     ghc-options:       -Wall
-    default-language:     Haskell2010
+    default-language:  Haskell2010
 
 
     build-depends: base

@@ -2,14 +2,15 @@
 module Yage.Rendering.Types where
 
 import qualified   Data.Map                        as Map
+import qualified   Data.Trie                       as T
 import             Data.Maybe                      (fromJust)
 import             Foreign.Storable                (sizeOf)
 import             Foreign.C.Types                 (CDouble(..))
 
 import             Data.Typeable
 import             Control.Applicative
-import             Control.Monad.Reader
-import             Control.Monad.State
+import             Control.Monad.RWS.Strict        (RWST, ask, asks, evalRWST, get, liftIO, modify, put)
+import             Control.Monad.IO.Class
 import             Control.Lens                    ((^.))
 
 import             Graphics.GLUtil
@@ -26,7 +27,6 @@ import             Linear                          ( V3(..), V4(..), M44(..), M3
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
 import             Yage.Math
-import             Yage.Core.Raw.FFI
 import             Yage.Resources
 import             Yage.Rendering.Primitives
 import             Yage.Rendering.Shader
@@ -35,24 +35,18 @@ import             Debug.Trace
 -- =================================================================================================
 
 
-type RReader m a = ReaderT YageRenderEnv m a
-type RState = StateT RenderState IO
-newtype YageRenderer a = YageRenderer (RReader RState a)
-    deriving (Functor, Applicative, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
+type Renderer = RWST RenderEnv () RenderState IO
+    --deriving (Functor, Applicative, Monad, MonadIO, MonadReader YageRenderEnv, MonadState RenderState, Typeable)
 
--- | The context for the 'YageRenderer' reader monad
---   contains all needed data to render a frame
-data YageRenderEnv = YageRenderEnv
-    { application     :: !YApplication      -- ^ The application to render the frame for
-    , window          :: !YGLWindow         -- ^ The window context to render into
-    , renderConfig    :: !YRenderConfig     -- ^ The current settings for the frame
-    --, shaderDefs      :: 
+data RenderEnv = RenderEnv
+    { envApplication    :: !Application      -- ^ The application to render the frame for
+    , envConfig         :: !RenderConfig    -- ^ The current settings for the frame
     }
 
 
-data YRenderConfig = YRenderConfig
-    { clearColor    :: !(GL.Color4 Double)
-    , debugNormals  :: !Bool
+data RenderConfig = RenderConfig
+    { confClearColor        :: !(GL.Color4 Double)
+    , confDebugNormals      :: !Bool
     }
 
 
@@ -92,11 +86,11 @@ type EBO = GL.BufferObject
 
 type YageShaderDef = ShaderDefs (GL.VertexArrayDescriptor Int) YageShader
 type YageShaderProgram = ShaderProgram
-newtype YageShader a = YageShader (Shader YageShaderDef YageShaderProgram YageRenderer a) -- isolate YageRenderer to one
+newtype YageShader a = YageShader (Shader YageShaderDef YageShaderProgram Renderer a) -- isolate YageRenderer to one
     deriving (Monad, MonadIO, MonadShader YageShaderDef YageShaderProgram)
 
 
-shade :: ShaderProgram -> YageShader a -> YageRenderer a
+shade :: ShaderProgram -> YageShader a -> Renderer a
 shade sh (YageShader x) = runShader x globShaderDef sh
 
 
@@ -163,8 +157,8 @@ instance Renderable SomeRenderable where
 
 
 data Renderable r => RenderBatch r = RenderBatch
-    { preBatchAction    :: [r] -> YageRenderer ()
-    , perItemAction     :: r -> YageRenderer ()
+    { preBatchAction    :: [r] -> Renderer ()
+    , perItemAction     :: r -> Renderer ()
     , batch             :: [r]
     }
     

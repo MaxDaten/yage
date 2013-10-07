@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
 module Yage.Rendering (
       module GLReExports
-    , runYageRenderer
+    , runRenderer
     , renderScene
 
     ) where
@@ -9,15 +9,21 @@ module Yage.Rendering (
 import Debug.Trace
 
 import qualified   Data.Map                        as Map
+import qualified   Data.Trie                       as T
 import             Data.List                       (groupBy)
+
+import             Data.ByteString.Char8           (ByteString)
+
+
 import             Foreign.Storable                (sizeOf)
 import             Control.Concurrent              (threadDelay)
 import             System.Mem                      (performGC)
 
 import             Data.Typeable
 import             Control.Applicative
-import             Control.Monad.Reader
-import             Control.Monad.State
+
+import             Control.Monad.RWS.Strict        (ask, asks, runRWST, get, gets, liftIO, modify, put)
+
 
 import             Graphics.GLUtil                 hiding (makeVAO)
 import qualified   Graphics.Rendering.OpenGL       as GL
@@ -28,7 +34,6 @@ import             Linear                          (V3(..), R3(_xyz), zero)
 import             Linear.Quaternion               (Quaternion)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Import
-import             Yage.Core.Raw.FFI
 import 			   Yage.Rendering.Types
 import             Yage.Rendering.WorldState
 import             Yage.Rendering.Shader           ((.=))
@@ -38,12 +43,12 @@ import 			   Yage.Resources
 {-=================================================================================================-}
 
 
-renderScene :: RenderScene -> YageRenderer ()
+renderScene :: RenderScene -> Renderer ()
 renderScene scene = renderFrame scene >> afterFrame
 
 
 
-afterFrame :: YageRenderer ()
+afterFrame :: Renderer ()
 afterFrame = io $ do
     -- this should not be part of the rendering, indeed
     performGC
@@ -51,7 +56,7 @@ afterFrame = io $ do
     return ()
 
 
-renderFrame :: RenderScene -> YageRenderer ()
+renderFrame :: RenderScene -> Renderer ()
 renderFrame scene = do
     beforeRender
     
@@ -70,17 +75,17 @@ renderFrame scene = do
     afterRender stats
 
 
-doRender :: RenderScene -> YageRenderer Int
+doRender :: RenderScene -> Renderer Int
 doRender scene@RenderScene{..} =
     let batches = createShaderBatches scene entities
     in sum `liftM` mapM renderBatch batches
 
 
-renderWithData :: RenderScene -> SomeRenderable -> YageRenderer ()
+renderWithData :: RenderScene -> SomeRenderable -> Renderer ()
 renderWithData scene r = requestRenderData r >>= \res -> render scene res r
 
 
-renderBatch :: RenderBatch SomeRenderable -> YageRenderer Int
+renderBatch :: RenderBatch SomeRenderable -> Renderer Int
 renderBatch b@RenderBatch{..} = preBatchAction batch >> length `liftM` mapM perItemAction batch
 
 
@@ -106,15 +111,15 @@ createShaderBatches scene rs =
 
 
 
-beforeRender :: YageRenderer ()
+beforeRender :: Renderer ()
 beforeRender = do
     setupFrame
     prepareResources
 
 
-setupFrame :: YageRenderer ()
+setupFrame :: Renderer ()
 setupFrame = withWindow $ \win -> do
-    clearC <- asks $ clearColor . renderConfig
+    clearC <- asks $ confClearColor . envConfig
     io $! do
         beginDraw $ win
 
@@ -125,20 +130,20 @@ setupFrame = withWindow $ \win -> do
         GL.clear [GL.ColorBuffer, GL.DepthBuffer]
 
 
-        w <- width win
-        h <- height win
+        w <- winWidth win
+        h <- winHeight win
         r <- return . floor =<< pixelRatio win
         GL.viewport $= ((GL.Position 0 0), (GL.Size (fromIntegral (r * w)) (fromIntegral (r * h))) )
 
 
 -- | Unloads unneeded render-resources and loads needed resources
-prepareResources :: YageRenderer ()
+prepareResources :: Renderer ()
 prepareResources = return ()
 
 ---------------------------------------------------------------------------------------------------
 
 
-afterRender :: RenderStatistics -> YageRenderer ()
+afterRender :: RenderStatistics -> Renderer ()
 afterRender stats = do
     withWindow $ \win -> io . endDraw $ win
     updateStatistics stats
@@ -146,20 +151,20 @@ afterRender stats = do
 
 ---------------------------------------------------------------------------------------------------
 
-render :: RenderScene -> RenderData -> SomeRenderable -> YageRenderer ()
+render :: RenderScene -> RenderData -> SomeRenderable -> Renderer ()
 render scene rd@RenderData{..} r = do
     shadeItem shaderProgram scene r
     io $! withVAO vao $! drawIndexedTris . fromIntegral $ triangleCount
 
 
-setSceneGlobals :: RenderScene -> YageShaderProgram -> YageRenderer ()
+setSceneGlobals :: RenderScene -> YageShaderProgram -> Renderer ()
 setSceneGlobals scene sProg = shade sProg $! do
     Shader.sGlobalTime       .= sceneTime scene
     Shader.sProjectionMatrix .= projectionMatrix scene
     Shader.sViewMatrix       .= viewMatrix scene
 
 
-shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> YageRenderer ()
+shadeItem :: YageShaderProgram -> RenderScene -> SomeRenderable -> Renderer ()
 shadeItem sProg scene r = shade sProg $! do
     let (modelM, normalM) = modelAndNormalMatrix $! r
     Shader.sModelMatrix      .= modelM
@@ -167,12 +172,12 @@ shadeItem sProg scene r = shade sProg $! do
 ---------------------------------------------------------------------------------------------------
 
 
-withWindow :: (YGLWindow -> YageRenderer a) -> YageRenderer a
-withWindow f = asks window >>= f
+withWindow :: ByteString -> (Maybe Window -> Renderer a) -> Renderer a
+withWindow name f = asks (T.lookup name . appWindows) >>= f
 
 
-withApplication :: (YApplication -> YageRenderer a) -> YageRenderer a
-withApplication f = asks application >>= f
+withApplication :: (Application -> Renderer a) -> Renderer a
+withApplication f = asks envApplication >>= f
 
 
 ---------------------------------------------------------------------------------------------------
@@ -180,12 +185,12 @@ withApplication f = asks application >>= f
 
 -- | runs the renderer in the given environment to render one frame.
 -- TODO :: combine this with the scene setup
-runYageRenderer :: YageRenderer a -> RenderState -> YageRenderEnv -> IO (a, RenderState)
-runYageRenderer (YageRenderer a) state env = runStateT (runReaderT a env) state
+runRenderer :: Renderer a -> RenderState -> RenderEnv -> IO (a, RenderState)
+runRenderer renderer state env = runRWST env state
 
 ---------------------------------------------------------------------------------------------------
 
-requestRenderData :: SomeRenderable -> YageRenderer RenderData
+requestRenderData :: SomeRenderable -> Renderer RenderData
 requestRenderData r = do
     sh  <- requestShader $ shader r
     vao <- requestVAO $ renderDefinition r
@@ -193,20 +198,20 @@ requestRenderData r = do
 
 requestRenderResource :: Eq a 
                   => (RenderState -> [(a, b)])                  -- ^ accassor function for state
-                  -> (a -> YageRenderer b)                      -- ^ load function for resource
-                  -> ((a,b) -> YageRenderer ())                 -- ^ function to add loaded resource to state
+                  -> (a -> Renderer b)                      -- ^ load function for resource
+                  -> ((a,b) -> Renderer ())                 -- ^ function to add loaded resource to state
                   -> a                                          -- ^ the value to load resource from
-                  -> YageRenderer b                             -- ^ the loaded resource
+                  -> Renderer b                             -- ^ the loaded resource
 requestRenderResource accessor loadResource addResource a = do
     rs <- gets accessor
     maybe (loadResource a >>= \r -> addResource (a, r) >> (return $! r))
         return
         (lookup a rs)
 
-requestVAO :: RenderDefinition -> YageRenderer (VAO)
+requestVAO :: RenderDefinition -> Renderer (VAO)
 requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinition
     where
-        loadDefinition :: RenderDefinition -> YageRenderer (VAO)
+        loadDefinition :: RenderDefinition -> Renderer (VAO)
         loadDefinition (RenderDefinition (mesh, shader)) = do
             (vbo, ebo) <- requestMesh mesh
             sProg      <- requestShader shader
@@ -220,19 +225,19 @@ requestVAO = requestRenderResource loadedDefinitions loadDefinition addDefinitio
                     Shader.enableAttrib Shader.sVertexColor
 
 
-requestShader :: YageShaderResource -> YageRenderer (YageShaderProgram)
+requestShader :: YageShaderResource -> Renderer (YageShaderProgram)
 requestShader = requestRenderResource loadedShaders loadShaders addShader
     where
-        loadShaders :: YageShaderResource -> YageRenderer (YageShaderProgram)
+        loadShaders :: YageShaderResource -> Renderer (YageShaderProgram)
         loadShaders shader = do
             sProg <- io $! loadShaderProgram (vert shader) (frag shader)
             return $! sProg
 
 
-requestMesh :: TriMesh -> YageRenderer (VBO, EBO)
+requestMesh :: TriMesh -> Renderer (VBO, EBO)
 requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
     where
-        loadMesh :: TriMesh -> YageRenderer (VBO, EBO)
+        loadMesh :: TriMesh -> Renderer (VBO, EBO)
         loadMesh mesh 
             | traceShow "start loading mesh" False = undefined
             | otherwise = io $ do
@@ -245,18 +250,18 @@ requestMesh = requestRenderResource loadedMeshes loadMesh addMesh
 
 ---------------------------------------------------------------------------------------------------
 
-addMesh :: (TriMesh, (VBO, EBO)) -> YageRenderer ()
+addMesh :: (TriMesh, (VBO, EBO)) -> Renderer ()
 addMesh m = modify $! \st -> st{ loadedMeshes = m:(loadedMeshes st) }
 
 
-addShader :: (YageShaderResource, YageShaderProgram) -> YageRenderer ()
+addShader :: (YageShaderResource, YageShaderProgram) -> Renderer ()
 addShader s = modify $! \st -> st{ loadedShaders = s:(loadedShaders st) }
 
 
-addDefinition :: (RenderDefinition, VAO) -> YageRenderer ()
+addDefinition :: (RenderDefinition, VAO) -> Renderer ()
 addDefinition d = modify $ \st -> st{ loadedDefinitions = d:(loadedDefinitions st) }
 
 
-updateStatistics :: RenderStatistics -> YageRenderer ()
+updateStatistics :: RenderStatistics -> Renderer ()
 updateStatistics stats = modify $ \st -> st{ renderStatistics = stats }
 

@@ -17,7 +17,6 @@ import             Control.Wire                 hiding (Position, window)
 import             Data.Typeable
 ---------------------------------------------------------------------------------------------------
 import qualified   Data.Set                     as Set
-import             Yage.Core.Raw.FFI
 import			   Yage.Resources
 import 			   Yage.Rendering.Types
 ---------------------------------------------------------------------------------------------------
@@ -25,7 +24,7 @@ import 			   Yage.Rendering.Types
 
 data YageState = YageState
     { inputs      :: Set.Set Input
-    , renderEnv   :: YageRenderEnv
+    , renderEnv   :: RenderEnv
     , renderState :: RenderState
     , resources   :: [String{--YageResource--}]		-- ^ should use a res-manager later on
     --, resources  :: YageResources
@@ -49,19 +48,19 @@ runYage st (Yage a) = runStateT a st
 
 ---------------------------------------------------------------------------------------------------
 
-putRenderEnv :: YageRenderEnv -> Yage ()
+putRenderEnv :: RenderEnv -> Yage ()
 putRenderEnv env = get >>= \yst -> put yst{ renderEnv = env }
 
 
-getRenderEnv :: Yage (YageRenderEnv)
+getRenderEnv :: Yage (RenderEnv)
 getRenderEnv = gets renderEnv
 
 
-getRenderConfig :: Yage (YRenderConfig)
-getRenderConfig = renderConfig `liftM` getRenderEnv
+getRenderConfig :: Yage (RenderConfig)
+getRenderConfig = envConfig `liftM` getRenderEnv
 
-putRenderConfig :: YRenderConfig -> Yage ()
-putRenderConfig conf = getRenderEnv >>= \env -> putRenderEnv env{ renderConfig = conf }
+putRenderConfig :: RenderConfig -> Yage ()
+putRenderConfig conf = getRenderEnv >>= \env -> putRenderEnv env{ envConfig = conf }
 
 
 --getResources :: Yage (YageResources)
