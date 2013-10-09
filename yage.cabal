@@ -28,44 +28,32 @@ Flag library-only
 library
   hs-source-dirs:       src/hs
   exposed-modules:      Yage
-                        Yage.Import
                         Yage.Types
                         Yage.Wire
-                        Yage.Math
-                        Yage.Core.OpenGL
-                        Yage.Core.GLFW
-                        Yage.Core.API
-                        Yage.Resources
-                        Yage.Resources.Loader
-                        Yage.Rendering
-                        Yage.Rendering.Shader
-                        Yage.Rendering.Types
-                        Yage.Rendering.WorldState
-                        Yage.Rendering.Primitives
-  other-modules:
-                        Yage.Rendering.Utils
+--  other-modules:
 
-  ghc-options:          -threaded -O2
-  ghc-prof-options:     -rtsopts -prof -auto-all
+-- ghc-options:          -threaded -O2
+--  ghc-prof-options:     -rtsopts -prof -auto-all
   default-language:     Haskell2010
   default-extensions:   StandaloneDeriving
                         UnicodeSyntax
+                        NoImplicitPrelude
 
   build-depends:          base            >= 4.6 && <= 4.7
-                        , OpenGLRawTest   == 0.1.*
-                        , OpenGL          == 2.8.*
-                        , GLFW-b          == 1.2.*
-                        , GLUtil          == 0.6.5
+                        , yage-contrib
+                        , yage-core
+                        , yage-rendering
 
-                        , mtl             == 2.1.*
+                        , OpenGL          == 2.9.0.0
+                        , OpenGLRaw       == 1.4.0.0
+                        
                         , containers      == 0.5.*
-                        , bytestring-trie == 0.2.*
-                        , bytestring      == 0.10.*
                         , transformers    == 0.3.*
-                        , tuple           == 0.2.0.*
+                        , tuple           == 0.2.*
+                        , mtl             == 2.1.*
+                        
                         , netwire         == 4.0.*
-                        , linear          == 1.1.4
-                        , lens            == 3.9.0.*
+                        , linear          == 1.3
 
 -------------------------------------------------------------------------------
 
@@ -81,11 +69,8 @@ executable yage
 
   build-depends:          base
                         , yage
-                        , GLUtil         == 0.6.5
-                        , OpenGL         == 2.8.*
-                        , GLFW-b         == 1.2.*
+                        , yage-rendering
                         , netwire        == 4.0.*
-                        , mtl            == 2.1.*
 
 -------------------------------------------------------------------------------
 
@@ -98,10 +83,11 @@ executable main-wireless
 
     build-depends:        base
                         , yage
-                        , OpenGL         == 2.8.*
-                        , GLFW-b         == 1.2.*
-                        , GLUtil         == 0.6.5
-                        , linear         == 1.1.4
+                        , yage-contrib
+                        , yage-core
+                        , yage-rendering
+                        , GLUtil
+                        , linear
 
     ghc-options:        -threaded -O2
     ghc-prof-options:   -rtsopts -prof -auto-all
@@ -111,35 +97,31 @@ executable main-wireless
 
 -------------------------------------------------------------------------------
 
-executable libless
-    if flag(library-only)
-      Buildable: False
+-- executable libless
+--    if flag(library-only)
+--      Buildable: False
 
-    hs-source-dirs:     test/manuals
-    main-is:            Libless.hs
+--    hs-source-dirs:     test/manuals
+--    main-is:            Libless.hs
 
-    build-depends:        base
-                        , yage
-                        , OpenGL         == 2.8.*
-                        , GLFW-b         == 1.2.*
-                        , GLUtil         == 0.6.5
-                        , linear         == 1.1.4
+--    build-depends:        base
+--                        , yage
 
-    ghc-options:       -threaded -O2  -rtsopts
-    default-language:     Haskell2010
+--    ghc-options:       -threaded -O2  -rtsopts
+--    default-language:     Haskell2010
 
 
 -------------------------------------------------------------------------------
 
-test-suite test
-    type:              exitcode-stdio-1.0
-    hs-source-dirs:    test/automatons
-    main-is:           Main.hs
-    ghc-options:       -Wall
-    default-language:  Haskell2010
+--test-suite test
+--    type:              exitcode-stdio-1.0
+--    hs-source-dirs:    test/automatons
+--    main-is:           Main.hs
+--    ghc-options:       -Wall
+--    default-language:  Haskell2010
 
 
-    build-depends: base
-                 , yage
-                 , hspec
-                 , linear         == 1.1.4
+--    build-depends: base
+--                 , yage
+--                 , hspec
+--                 , linear         == 1.1.4

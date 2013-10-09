@@ -6,21 +6,15 @@ module Main where
 import Prelude hiding (id, (.)) -- reimported by Control.Wire
 import Yage.Rendering.WorldState
 import Control.Wire
-import Control.Wire.Wire (never, constant)
-import Control.Monad.State
 
-import Graphics.GLUtil.Camera3D (fpsCamera)
-import Graphics.GLUtil
 
 import Yage
-import Yage.Import
 import Yage.Wire
 import Yage.Types
-import Yage.Rendering.Primitives
 
 
 main :: IO ()
-main = yageMain mainWire clockSession
+main = yageMain "MainWire" mainWire clockSession
 
 mainWire :: YageWire a WorldState
 mainWire = --frameStat . frameStat .

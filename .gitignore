@@ -1,11 +1,8 @@
 .DS_Store
 *.o
 *.hi
-*.dylib
 build/
 *.a
-Makefile
-Makefile-lib
 *.app/
 ./yage
 dist/
@@ -13,3 +10,5 @@ dist/
 *.aux
 *.prof
 *.ps
+.cabal-sandbox
+cabal.sandbox.config

@@ -2,16 +2,12 @@
 
 module Yage.Wire where
 
-import Prelude hiding (id, (.))
+import Yage.Prelude hiding (id, (.))
 import Control.Wire
-import Control.Monad.IO.Class (MonadIO, liftIO)
 import Graphics.Rendering.OpenGL.GL (Color4(..))
 import Data.Tuple.Curry
 import Text.Printf
 
-import Debug.Trace
-
-import Yage
 import Yage.Rendering.Types
 import Yage.Types
 
@@ -29,11 +25,11 @@ impure :: (Monad m, Functor m) => (a -> m b) -> Wire e m a b
 impure f = mkFixM $ \_ x -> Right <$> f x
 
 showW :: (MonadIO m, Functor m, Show a) => Wire e m a a
-showW = impure (\x -> liftIO (putStrLn (show x)) >> return x )
+showW = impure (\x -> liftIO (print x) >> return x )
 
 -- this traces only if value is eval'd
 traceW :: (Show a) => Wire e m a a
-traceW = mkFix $ \dt x -> Right (traceShow x x)
+traceW = mkFix $ \_dt x -> Right (traceShow x x)
 
 
 --initWith = ((produce . once) <|> empty) . keep
@@ -64,6 +60,6 @@ colorW = arr (uncurryN Color4) . integral_ (0, 0, 0, 0)
 clearColorW :: YageWire (Color4 Double) ()
 clearColorW = mkFixM $ \_ c -> do
     rConf <- getRenderConfig
-    putRenderConfig rConf{ clearColor = c }
+    putRenderConfig rConf{ confClearColor = c }
     return $ Right ()
 

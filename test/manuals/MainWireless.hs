@@ -1,39 +1,54 @@
-{-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards #-}
+{-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards, OverloadedStrings #-}
 module Main where
 
+import Yage.Prelude
 
+import Control.Monad (unless)
 import qualified Yage as Y
+import Yage.Core.Application
+import Yage.Core.Application.Logging
 
-import Control.Monad (replicateM)
-import Data.Maybe
 import Yage.Rendering
 import Yage.Types (YageState(..))
 import Yage.Rendering.Types
-import Yage.Rendering.WorldState
 import Yage.Resources
 import Yage.Rendering.Primitives
-import Linear (V3(..), axisAngle, point, signorm, (^+^), (*^), axisAngle)
+import Linear (V3(..), axisAngle, point, signorm, axisAngle)
 import Graphics.GLUtil.Camera3D (deg2rad)
 
+hints = [ WindowHint'ContextVersionMajor 3
+        , WindowHint'ContextVersionMinor 2
+        , WindowHint'OpenGLProfile OpenGLProfile'Core
+        , WindowHint'OpenGLForwardCompat True]
 
 main :: IO ()
 main = do
     state <- Y.initialization
 
     let scene = testScene
+        conf = ApplicationConfig DEBUG
         
     print $ show $ length $ entities scene
-    loop scene (renderEnv state) (renderState state)
+    execApplication "MainWireless" conf $ do
+        win <- createWindowWithHints hints 800 600 "MainWireless Window-0"
+        makeContextCurrent $ Just win
+        print <$> getWindowClientAPI win
+        
+        loop win scene (renderEnv state) (renderState state)
 
     Y.finalization state
     where 
-        loop scene env st = do
-            _ <- Y.processInput (application env)
+        loop win scene env st = do
+            _ <- Y.processEvents
             let scene' = updateScene scene
 
-            (_, st) <- runYageRenderer (renderScene scene') st env
+            swapBuffers win
+            (_, st', _l) <- io $ runRenderer (renderScene scene') st env
+
+            quit <- windowShouldClose win
             --print $ show $ renderStatistics st
-            loop scene' env st
+            unless quit $ loop win scene' env st'
+        
         updateScene :: RenderScene -> RenderScene
         updateScene scene = case (fromRenderable (head $ entities scene)) of
             (Just ent) -> 
@@ -47,7 +62,7 @@ testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill s@RenderScene{..} = 
-            let shader = YageShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
+            let shader = YageShaderResource "src/glsl/simple.vert" "src/glsl/simple.frag"
                 ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
                         { eScale = V3 2 2 2
                         }

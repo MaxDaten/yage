@@ -1,26 +1,24 @@
-{-# LANGUAGE UnicodeSyntax, RecordWildCards, GeneralizedNewtypeDeriving, DeriveDataTypeable, DeriveFunctor #-}
+{-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
+
 module Yage where
- 
-import             Prelude                      hiding (id, (.)) -- reimported by Control.Wire
+
+import             Yage.Prelude 
 ---------------------------------------------------------------------------------------------------
-import             Foreign
-import             Foreign.Marshal.Array
-import             Foreign.Marshal.Alloc
-import             Foreign.Storable
-import             Foreign.C.String
-import             Control.Concurrent
-import             Control.Monad
-import             Control.Exception
-import             Control.Monad.Reader
-import             Control.Monad.State
-import             Control.Wire                 hiding (Position, window)
-import             Data.Typeable
+import             Control.Wire                 hiding (Event, Position, window)
 ---------------------------------------------------------------------------------------------------
-import             System.Mem
 import qualified   Data.Set                     as Set
+import             Data.List                    ((++))
 ---------------------------------------------------------------------------------------------------
-import             Yage.Import
 import             Yage.Types
+import             Yage.Core.Application
+import             Yage.Core.Application.Utils
+import             Yage.Core.Application.Logging
+import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
 import             Yage.Rendering.Types
 import             Yage.Rendering.WorldState
@@ -29,28 +27,24 @@ import             Yage.Rendering.WorldState
 
 
 
-yageMain :: YageWire () WorldState -> Session IO -> IO ()
-yageMain wire session = do
+yageMain :: String -> YageWire () WorldState -> Session IO -> IO ()
+yageMain title wire session = do
+    let conf = ApplicationConfig DEBUG
     _ <- bracket 
             (initialization) 
             (finalization)
-            (\st -> yageLoop st wire session)
+            (\st -> execApplication title conf $ yageLoop st wire session)
     return ()
 
 
 initialization :: IO (YageState)
 initialization = do
-    app <- mkApplication []
-    win <- mkGLWindow
-    
-    resizeWindow win 800 600
-    showWindow win
-
-    let rConf = YRenderConfig
-            { clearColor = (Color4 0.3 0.3 0.3 0)
-            , debugNormals = False
+    let rConf = RenderConfig
+            { confClearColor = (Color4 0.3 0.3 0.3 0)
+            , confDebugNormals = False 
             }
-        rEnv = YageRenderEnv app win rConf
+        renderTarget = RenderTarget (800, 600) 2 -- TODO real target
+        rEnv = RenderEnv rConf renderTarget
     return $ YageState Set.empty rEnv initialRenderState []
 
 
@@ -58,14 +52,14 @@ finalization :: YageState -> IO ()
 finalization _ = return ()
 
 
-yageLoop :: YageState -> YageWire () WorldState -> Session IO -> IO ()
+yageLoop :: YageState -> YageWire () WorldState -> Session IO -> Application AnyException ()
 yageLoop ystate' wire session = do
-    (dt, s') <- sessionUpdate session
 
-    ins <- processInput (application $ renderEnv $ ystate')
+    ins <- processEvents
     let yst' = ystate' { inputs = ins }
 
-    ((mx, w'), yst) <- runYage yst' $ stepWire wire dt ()
+    (dt, s') <- io $ sessionUpdate session
+    ((mx, w'), yst) <- io $ runYage yst' $ stepWire wire dt ()
     
     either 
         (\e -> handleError e >> return (renderState yst))
@@ -74,20 +68,27 @@ yageLoop ystate' wire session = do
 
     yageLoop yst w' s'
     where
-        handleError :: Show e => e -> IO ()
-        handleError e = print $ "err:" ++ show e
+        handleError :: (Throws InternalException l, Show e) => e -> Application l ()
+        handleError e = criticalM $ "err:" ++ show e
         
-        renderScene' :: WorldState -> RenderState -> YageRenderEnv -> IO (RenderState)
+        renderScene' :: (Throws InternalException l) => WorldState -> RenderState -> RenderEnv -> Application l RenderState
         renderScene' _ st env = do
             -- postProcessScene :: Scene -> RenderScene
             let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
-            (_, rSt) <- runYageRenderer (renderScene scene) st env
+            (_, rSt, rLog) <- ioe $ runRenderer (renderScene scene) st env
+            debugM $ show rLog
             return $! rSt
 
 ---------------------------------------------------------------------------------------------------
 
-processInput :: YApplication -> IO (Inputs)
-processInput app = do
-    processEvents app
-    return (Set.empty) -- dummy
+processEvents :: (Throws InternalException l) => Application l (Set.Set Event)
+processEvents = do
+    me <- pollEvent
+    processEvent me
+    return $ maybe Set.empty (flip Set.insert Set.empty) me
+
+processEvent :: (Throws InternalException l) => Maybe Event -> Application l ()
+processEvent Nothing = return ()
+processEvent (Just e) = do
+    debugM $ show e
 
