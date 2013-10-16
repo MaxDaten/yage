@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards, OverloadedStrings #-}
 module Main where
 
+import qualified Prelude
 import Yage.Prelude
 
 import Control.Monad (unless)
@@ -8,13 +9,20 @@ import qualified Yage as Y
 import Yage.Core.Application
 import Yage.Core.Application.Logging
 
-import Yage.Rendering
-import Yage.Types (YageState(..))
-import Yage.Rendering.Types
-import Yage.Resources
-import Yage.Rendering.Primitives
-import Linear (V3(..), axisAngle, point, signorm, axisAngle)
+import Data.List
+import Control.Monad (mapM_)
+import Control.Lens ((&))
+
+import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
+import Graphics.GLUtil (setUniform, getUniform, asUniform)
+import Yage.Types (YageState(..))
+import Yage.Math
+import Yage.Rendering
+import Yage.Rendering.VertexSpec
+import Yage.Rendering.Logging
+import Yage.Rendering.Types
+import Yage.Rendering.Primitives
 
 hints = [ WindowHint'ContextVersionMajor 3
         , WindowHint'ContextVersionMinor 2
@@ -43,7 +51,8 @@ main = do
             let scene' = updateScene scene
 
             swapBuffers win
-            (_, st', _l) <- io $ runRenderer (renderScene scene') st env
+            (_, st', l) <- io $ runRenderer (renderScene scene') st env
+            unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
 
             quit <- windowShouldClose win
             --print $ show $ renderStatistics st
@@ -61,11 +70,33 @@ main = do
 testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
-        fill s@RenderScene{..} = 
-            let shader = YageShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
-                ent = (mkRenderEntity $ RenderDefinition (cubeMesh, shader))
-                        { eScale = V3 2 2 2
-                        }
-                --singleBox = ent {ePosition = point $ V3 x y (-z)} | x <- [-5..5], y <- [-5..5], z <- [15..20]]
-                singleBox = ent {ePosition = point $ V3 0 0 (-10)}
-            in s{entities = [SomeRenderable singleBox]}
+        fill scene = 
+            let shader    = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
+                v         = head $ vertices cubeMesh
+                shdef     = ShaderDefinition
+                                { attrib'def = define v 
+                                    [ "in_vert_position"  ^:= _position
+                                    , "in_vert_normal"    ^:= _normal
+                                    , "in_vert_color"     ^:= _color
+                                    ]
+                                , uniform'def = ShaderUniformDef $ \r RenderScene{..} p -> do
+                                    let Just ent = fromRenderable r :: Maybe RenderEntity
+                                        projectionM   = projectionMatrix
+                                        viewM         = viewMatrix
+                                        modelM        = mkTransformation (eOrientation ent) (ePosition ent)
+                                        Just normalM  = inv33 . fromTransformation $ modelM
+                                    getUniform p "projection_matrix" & asUniform projectionM
+                                    getUniform p "view_matrix"       & asUniform viewM
+                                    getUniform p "model_matrix"      & asUniform modelM
+                                    getUniform p "normal_matrix"     & asUniform normalM
+                                }
+                rdef      = RenderDefinition
+                                { def'ident   = "cube-base"
+                                , def'data    = cubeMesh
+                                , def'program = (shader, shdef)
+                                }
+                box       = (mkRenderEntity rdef)
+                                { eScale    = V3 2 2 2
+                                , ePosition = V3 0 0 (-10)
+                                }
+            in scene{entities = [SomeRenderable box]}
