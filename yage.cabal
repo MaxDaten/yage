@@ -114,17 +114,3 @@ executable main-wireless
 --    default-language:     Haskell2010
 
 
--------------------------------------------------------------------------------
-
---test-suite test
---    type:              exitcode-stdio-1.0
---    hs-source-dirs:    test/automatons
---    main-is:           Main.hs
---    ghc-options:       -Wall
---    default-language:  Haskell2010
-
-
---    build-depends: base
---                 , yage
---                 , hspec
---                 , linear         == 1.1.4

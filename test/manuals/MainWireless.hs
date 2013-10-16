@@ -96,7 +96,7 @@ testScene = fill (emptyRenderScene)
                                 , def'program = (shader, shdef)
                                 }
                 box       = (mkRenderEntity rdef)
-                                { eScale    = V3 2 2 2
-                                , ePosition = V3 0 0 (-10)
+                                { eScale    = V3 1 1 1
+                                , ePosition = V3 0 0 (-20)
                                 }
             in scene{entities = [SomeRenderable box]}
