@@ -23,10 +23,14 @@ import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
-hints = [ WindowHint'ContextVersionMajor 3
-        , WindowHint'ContextVersionMinor 2
-        , WindowHint'OpenGLProfile OpenGLProfile'Core
-        , WindowHint'OpenGLForwardCompat True]
+hints = [ WindowHint'ContextVersionMajor  3
+        , WindowHint'ContextVersionMinor  2
+        , WindowHint'OpenGLProfile        OpenGLProfile'Core
+        , WindowHint'OpenGLForwardCompat  True
+        , WindowHint'RefreshRate          60
+        , WindowHint'Resizable            False
+        , WindowHint'Decorated            False
+        ]
 
 main :: IO ()
 main = do
