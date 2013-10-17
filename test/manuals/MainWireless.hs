@@ -15,7 +15,7 @@ import Control.Lens ((&))
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
-import Graphics.GLUtil (setUniform, getUniform, asUniform)
+import Graphics.GLUtil (getUniform, asUniform)
 import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Rendering
@@ -34,7 +34,7 @@ main = do
     state <- Y.initialization
 
     let scene = testScene
-        conf = ApplicationConfig DEBUG
+        conf = ApplicationConfig WARNING
         
     print $ show $ length $ entities scene
     execApplication "MainWireless" conf $ do
@@ -79,10 +79,12 @@ testScene = fill (emptyRenderScene)
                                     , "in_vert_color"     ^:= _color
                                     ]
                                 , uniform'def = ShaderUniformDef $ \r RenderScene{..} p -> do
-                                    let Just ent = fromRenderable r :: Maybe RenderEntity
+                                    let Just RenderEntity{..} = fromRenderable r :: Maybe RenderEntity
+                                        scaleM        = kronecker . point $ eScale
                                         projectionM   = projectionMatrix
                                         viewM         = viewMatrix
-                                        modelM        = mkTransformation (eOrientation ent) (ePosition ent)
+                                        transM        = mkTransformation eOrientation ePosition
+                                        modelM        = transM !*! scaleM 
                                         Just normalM  = inv33 . fromTransformation $ modelM
                                     getUniform p "projection_matrix" & asUniform projectionM
                                     getUniform p "view_matrix"       & asUniform viewM
@@ -95,7 +97,7 @@ testScene = fill (emptyRenderScene)
                                 , def'program = (shader, shdef)
                                 }
                 box       = (mkRenderEntity rdef)
-                                { eScale    = V3 1 1 1
-                                , ePosition = V3 0 0 (-20)
+                                { eScale    = V3 2 2 2
+                                , ePosition = V3 0 0 (-10)
                                 }
             in scene{entities = [SomeRenderable box]}
