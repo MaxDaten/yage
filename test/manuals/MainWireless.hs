@@ -11,11 +11,10 @@ import Yage.Core.Application.Logging
 
 import Data.List
 import Control.Monad (mapM_)
-import Control.Lens ((&))
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
-import Graphics.GLUtil (getUniform, asUniform)
+import Graphics.GLUtil (getUniform)
 import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Rendering
@@ -86,10 +85,10 @@ testScene = fill (emptyRenderScene)
                                         transM        = mkTransformation eOrientation ePosition
                                         modelM        = transM !*! scaleM 
                                         Just normalM  = inv33 . fromTransformation $ modelM
-                                    getUniform p "projection_matrix" & asUniform projectionM
-                                    getUniform p "view_matrix"       & asUniform viewM
-                                    getUniform p "model_matrix"      & asUniform modelM
-                                    getUniform p "normal_matrix"     & asUniform normalM
+                                    getUniform p "projection_matrix" != projectionM
+                                    getUniform p "view_matrix"       != viewM
+                                    getUniform p "model_matrix"      != modelM
+                                    getUniform p "normal_matrix"     != normalM
                                 }
                 rdef      = RenderDefinition
                                 { def'ident   = "cube-base"
