@@ -72,9 +72,8 @@ testScene = fill (emptyRenderScene)
     where
         fill scene = 
             let shader    = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
-                v         = head $ vertices cubeMesh
                 shdef     = ShaderDefinition
-                                { attrib'def = define v 
+                                { attrib'def = 
                                     [ "in_vert_position"  ^:= _position
                                     , "in_vert_normal"    ^:= _normal
                                     , "in_vert_color"     ^:= _color
