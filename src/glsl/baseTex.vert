@@ -24,7 +24,7 @@ void main()
 {   
     // float tT = global_time*10;
     // vec4 add_pos = vec4(0);// vec4(20 * sin(tT), 20 * sin(tT+10), 20 * cos(tT+20), 0.0);
-    vec4 view_position = view_matrix * model_matrix * (in_vert_position);
+    vec4 view_position = view_matrix * model_matrix * in_vert_position;
     vec4 proj_position = projection_matrix * view_position;
     gl_Position = proj_position;
     
