@@ -103,13 +103,12 @@ testScene = fill (emptyRenderScene)
                                     "view_matrix"       != viewM
                                     "model_matrix"      != modelM
                                     "normal_matrix"     != normalM
-                                    "textures"          != (0 :: GLint)
                                 }
                 rdef      = RenderDefinition
                                 { def'ident    = "cube-base"
                                 , def'data     = cubeMesh
                                 , def'program  = (shader, shdef)
-                                , def'textures = [("res/tex.png", 0)]
+                                , def'textures = [TextureDefinition (0, "textures") "res/tex.png"]
                                 }
                 box       = (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
