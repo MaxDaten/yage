@@ -89,19 +89,21 @@ testScene = fill (emptyRenderScene)
                                     , "in_vert_color"     ^:= _color
                                     , "in_vert_texture"   ^:= _texture
                                     ]
-                                , uniform'def = ShaderUniformDef $ \r RenderScene{..} p -> do
-                                    let Just RenderEntity{..} = fromRenderable r :: Maybe RenderEntity
+                                , uniform'def = do
+                                    ShaderEnv{..} <- shaderEnv
+                                    let RenderScene{..} = shaderEnv'CurrentScene
+                                        Just RenderEntity{..} = fromRenderable shaderEnv'CurrentRenderable :: Maybe RenderEntity
                                         scaleM        = kronecker . point $ eScale
                                         projectionM   = projectionMatrix
                                         viewM         = viewMatrix
                                         transM        = mkTransformation eOrientation ePosition
                                         modelM        = transM !*! scaleM 
                                         Just normalM  = adjoint <$> (inv33 . fromTransformation $ modelM)
-                                    getUniform p "projection_matrix" != projectionM
-                                    getUniform p "view_matrix"       != viewM
-                                    getUniform p "model_matrix"      != modelM
-                                    getUniform p "normal_matrix"     != normalM
-                                    uniform (getUniform p "textures") $= Index1 (0 :: GLint)
+                                    "projection_matrix" != projectionM
+                                    "view_matrix"       != viewM
+                                    "model_matrix"      != modelM
+                                    "normal_matrix"     != normalM
+                                    "textures"          != (0 :: GLint)
                                 }
                 rdef      = RenderDefinition
                                 { def'ident    = "cube-base"
