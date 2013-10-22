@@ -42,7 +42,7 @@ library
   build-depends:          base            >= 4.6 && <= 4.7
                         , yage-contrib    == 0.0.0.3
                         , yage-core       == 0.0.0.1
-                        , yage-rendering  == 0.0.1.7
+                        , yage-rendering  == 0.0.2.0
 
                         , OpenGL          == 2.9.0.0
                         , OpenGLRaw       == 1.4.0.0

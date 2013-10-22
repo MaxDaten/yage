@@ -23,13 +23,18 @@ import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
+import Graphics.Rendering.OpenGL.GL.VertexSpec
+import             Graphics.Rendering.OpenGL.GL    (($=))
+import             Graphics.Rendering.OpenGL.GL.Shaders.Uniform
+
+
 hints = [ WindowHint'ContextVersionMajor  3
         , WindowHint'ContextVersionMinor  2
         , WindowHint'OpenGLProfile        OpenGLProfile'Core
         , WindowHint'OpenGLForwardCompat  True
         , WindowHint'RefreshRate          60
         , WindowHint'Resizable            False
-        , WindowHint'Decorated            False
+        --, WindowHint'Decorated            False
         ]
 
 main :: IO ()
@@ -37,12 +42,11 @@ main = do
     state <- Y.initialization
 
     let scene = testScene
-        conf = ApplicationConfig WARNING
+        conf = ApplicationConfig DEBUG
         
     print $ show $ length $ entities scene
     execApplication "MainWireless" conf $ do
         win <- createWindowWithHints hints 800 600 "MainWireless Window-0"
-        makeContextCurrent $ Just win
         print <$> getWindowClientAPI win
         
         loop win scene (renderEnv state) (renderState state)
@@ -50,36 +54,40 @@ main = do
     Y.finalization state
     where 
         loop win scene env st = do
-            _ <- Y.processEvents
             let scene' = updateScene scene
 
-            swapBuffers win
+            makeContextCurrent $ Just win
             (_, st', l) <- io $ runRenderer (renderScene scene') st env
+            swapBuffers win
+            
             unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
 
+            _ <- Y.processEvents
             quit <- windowShouldClose win
             --print $ show $ renderStatistics st
             unless quit $ loop win scene' env st'
         
         updateScene :: RenderScene -> RenderScene
-        updateScene scene = case (fromRenderable (head $ entities scene)) of
-            (Just ent) -> 
-                let rot = axisAngle (signorm $ V3 1 1 1) (deg2rad 0.5)
-                in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot}]
-                         , sceneTime = 0.001 + sceneTime scene
-                         }
-            Nothing -> scene
+        updateScene scene = 
+            case (fromRenderable (head $ entities scene)) of
+                (Just ent) -> 
+                    let rot = axisAngle (signorm $ V3 0.3 0.1 0.2) (deg2rad 0.33)
+                    in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
+                             , sceneTime = 0.001 + sceneTime scene
+                             }
+                Nothing -> scene
 
 testScene :: RenderScene
 testScene = fill (emptyRenderScene)
     where
         fill scene = 
-            let shader    = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
+            let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"
                 shdef     = ShaderDefinition
                                 { attrib'def = 
                                     [ "in_vert_position"  ^:= _position
                                     , "in_vert_normal"    ^:= _normal
                                     , "in_vert_color"     ^:= _color
+                                    , "in_vert_texture"   ^:= _texture
                                     ]
                                 , uniform'def = ShaderUniformDef $ \r RenderScene{..} p -> do
                                     let Just RenderEntity{..} = fromRenderable r :: Maybe RenderEntity
@@ -93,11 +101,13 @@ testScene = fill (emptyRenderScene)
                                     getUniform p "view_matrix"       != viewM
                                     getUniform p "model_matrix"      != modelM
                                     getUniform p "normal_matrix"     != normalM
+                                    uniform (getUniform p "textures") $= Index1 (0 :: GLint)
                                 }
                 rdef      = RenderDefinition
-                                { def'ident   = "cube-base"
-                                , def'data    = cubeMesh
-                                , def'program = (shader, shdef)
+                                { def'ident    = "cube-base"
+                                , def'data     = cubeMesh
+                                , def'program  = (shader, shdef)
+                                , def'textures = ["res/tex.png"]
                                 }
                 box       = (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
