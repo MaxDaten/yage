@@ -71,7 +71,7 @@ main = do
         updateScene scene = 
             case (fromRenderable (head $ entities scene)) of
                 (Just ent) -> 
-                    let rot = axisAngle (signorm $ V3 0.3 0.1 0.2) (deg2rad 0.33)
+                    let rot = axisAngle (signorm $ V3 1 1 1) (deg2rad 0.33)
                     in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
                              , sceneTime = 0.001 + sceneTime scene
                              }
@@ -96,7 +96,7 @@ testScene = fill (emptyRenderScene)
                                         viewM         = viewMatrix
                                         transM        = mkTransformation eOrientation ePosition
                                         modelM        = transM !*! scaleM 
-                                        Just normalM  = inv33 . fromTransformation $ modelM
+                                        Just normalM  = adjoint <$> (inv33 . fromTransformation $ modelM)
                                     getUniform p "projection_matrix" != projectionM
                                     getUniform p "view_matrix"       != viewM
                                     getUniform p "model_matrix"      != modelM
