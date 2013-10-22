@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.0.1
+version:             0.0.2
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -41,7 +41,7 @@ library
 
   build-depends:          base            >= 4.6 && <= 4.7
                         , yage-contrib    == 0.0.0.3
-                        , yage-core       == 0.0.0.1
+                        , yage-core       == 0.0.1.0
                         , yage-rendering  == 0.0.3.0
 
                         , OpenGL          == 2.9.0.0

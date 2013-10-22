@@ -81,13 +81,27 @@ yageLoop ystate' wire session = do
 ---------------------------------------------------------------------------------------------------
 
 processEvents :: (Throws InternalException l) => Application l (Set.Set Event)
-processEvents = do
-    me <- pollEvent
-    processEvent me
-    return $ maybe Set.empty (flip Set.insert Set.empty) me
+processEvents = pollEvent >>= processEvent' Set.empty
+    where 
+        processEvent' ::  (Throws InternalException l) => Set.Set Event -> Maybe Event -> Application l (Set.Set Event)
+        processEvent' set Nothing = return set
+        processEvent' set (Just e) = do
+            me <- pollEvent
+            internalProcessEvent me
+            processEvent' (Set.insert e set) me
 
-processEvent :: (Throws InternalException l) => Maybe Event -> Application l ()
-processEvent Nothing = return ()
-processEvent (Just e) = do
+
+keyWasPressed :: Key -> Set.Set Event -> Bool
+keyWasPressed key keySet = not . Set.null $ keyPressed `Set.filter` keySet
+    where 
+        keyPressed (Event'Key _w key' _n _st _mod) | key' == key = True
+                                                   | otherwise = False
+        keyPressed _ = False
+
+
+
+internalProcessEvent :: (Throws InternalException l) => Maybe Event -> Application l ()
+internalProcessEvent Nothing = return ()
+internalProcessEvent (Just e) = do
     debugM $ show e
 

@@ -5,16 +5,15 @@ import qualified Prelude
 import Yage.Prelude
 
 import Control.Monad (unless)
-import qualified Yage as Y
+import Yage 
 import Yage.Core.Application
 import Yage.Core.Application.Logging
 
 import Data.List
-import Control.Monad (mapM_)
+import Control.Monad (mapM_, when)
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
-import Graphics.GLUtil (getUniform)
 import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Rendering
@@ -23,11 +22,8 @@ import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
-import Graphics.Rendering.OpenGL.GL.VertexSpec
-import             Graphics.Rendering.OpenGL.GL    (($=))
-import             Graphics.Rendering.OpenGL.GL.Shaders.Uniform
 
-
+hints :: [WindowHint]
 hints = [ WindowHint'ContextVersionMajor  3
         , WindowHint'ContextVersionMinor  2
         , WindowHint'OpenGLProfile        OpenGLProfile'Core
@@ -39,10 +35,10 @@ hints = [ WindowHint'ContextVersionMajor  3
 
 main :: IO ()
 main = do
-    state <- Y.initialization
+    state <- initialization
 
     let scene = testScene
-        conf = ApplicationConfig DEBUG
+        conf = ApplicationConfig WARNING
         
     print $ show $ length $ entities scene
     execApplication "MainWireless" conf $ do
@@ -51,31 +47,28 @@ main = do
         
         loop win scene (renderEnv state) (renderState state)
 
-    Y.finalization state
+    finalization state
     where 
         loop win scene env st = do
-            let scene' = updateScene scene
-
             makeContextCurrent $ Just win
-            (_, st', l) <- io $ runRenderer (renderScene scene') st env
+            (_, st', l) <- io $ runRenderer (renderScene scene) st env
             swapBuffers win
             
             unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
 
-            _ <- Y.processEvents
+            events <- processEvents
             quit <- windowShouldClose win
-            --print $ show $ renderStatistics st
+
+            let scene' = updateScene scene events
             unless quit $ loop win scene' env st'
         
-        updateScene :: RenderScene -> RenderScene
-        updateScene scene = 
-            case (fromRenderable (head $ entities scene)) of
-                (Just ent) -> 
-                    let rot = axisAngle (signorm $ V3 1 1 1) (deg2rad 0.33)
-                    in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
-                             , sceneTime = 0.001 + sceneTime scene
-                             }
-                Nothing -> scene
+        updateScene :: RenderScene -> Set Event -> RenderScene
+        updateScene scene events = 
+            let Just ent = fromRenderable $ head $ entities scene
+                rot      = axisAngle (signorm $ V3 0 1 0) $ if keyWasPressed Key'Right events then (deg2rad 1.0) else (deg2rad 0)
+            in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
+                     , sceneTime = 0.001 + sceneTime scene
+                     }
 
 testScene :: RenderScene
 testScene = fill (emptyRenderScene)
