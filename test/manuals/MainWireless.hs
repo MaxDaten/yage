@@ -1,16 +1,16 @@
-{-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+--{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import qualified Prelude
 import Yage.Prelude
 
-import Control.Monad (unless)
+import Control.Monad (mapM_, unless)
 import Yage 
-import Yage.Core.Application
-import Yage.Core.Application.Logging
 
 import Data.List
-import Control.Monad (mapM_, when)
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
@@ -22,6 +22,8 @@ import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
+import Yage.Core.Application
+import Yage.Core.Application.Logging
 
 hints :: [WindowHint]
 hints = [ WindowHint'ContextVersionMajor  3
@@ -65,13 +67,13 @@ main = do
         updateScene :: RenderScene -> Set Event -> RenderScene
         updateScene scene events = 
             let Just ent = fromRenderable $ head $ entities scene
-                rot      = axisAngle (signorm $ V3 0 1 0) $ if keyWasPressed Key'Right events then (deg2rad 1.0) else (deg2rad 0)
-            in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
+                rot      = axisAngle (signorm $ V3 0 1 0) $ deg2rad (if keyWasPressed Key'Right events then 1.0 else 0)
+            in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ eOrientation ent * rot }]
                      , sceneTime = 0.001 + sceneTime scene
                      }
 
 testScene :: RenderScene
-testScene = fill (emptyRenderScene)
+testScene = fill emptyRenderScene
     where
         fill scene = 
             let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"

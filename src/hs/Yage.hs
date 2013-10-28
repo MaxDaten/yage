@@ -1,9 +1,6 @@
-{-# LANGUAGE UnicodeSyntax #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE UnicodeSyntax      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE NamedFieldPuns     #-}
 
 module Yage where
 
@@ -22,6 +19,7 @@ import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
 import             Yage.Rendering.Types
 import             Yage.Rendering.WorldState
+import             Control.Lens
 ---------------------------------------------------------------------------------------------------
 
 
@@ -31,16 +29,16 @@ yageMain :: String -> YageWire () WorldState -> Session IO -> IO ()
 yageMain title wire session = do
     let conf = ApplicationConfig DEBUG
     _ <- bracket 
-            (initialization) 
-            (finalization)
+            initialization
+            finalization
             (\st -> execApplication title conf $ yageLoop st wire session)
     return ()
 
 
-initialization :: IO (YageState)
+initialization :: IO YageState
 initialization = do
     let rConf = RenderConfig
-            { confClearColor = (Color4 0.3 0.3 0.3 0)
+            { confClearColor = Color4 0.3 0.3 0.3 0
             , confDebugNormals = False 
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
@@ -84,24 +82,24 @@ processEvents :: (Throws InternalException l) => Application l (Set.Set Event)
 processEvents = pollEvent >>= processEvent' Set.empty
     where 
         processEvent' ::  (Throws InternalException l) => Set.Set Event -> Maybe Event -> Application l (Set.Set Event)
-        processEvent' set Nothing = return set
-        processEvent' set (Just e) = do
+        processEvent' es Nothing = return es
+        processEvent' es (Just e) = do
             me <- pollEvent
             internalProcessEvent me
-            processEvent' (Set.insert e set) me
+            processEvent' (Set.insert e es) me
 
 
 keyWasPressed :: Key -> Set.Set Event -> Bool
 keyWasPressed key keySet = not . Set.null $ keyPressed `Set.filter` keySet
     where 
-        keyPressed (Event'Key _w key' _n _st _mod) | key' == key = True
-                                                   | otherwise = False
+        keyPressed (EventKey _winHandle ekey) 
+            | ekey^._key == key = True
+            | otherwise = False
         keyPressed _ = False
 
 
 
 internalProcessEvent :: (Throws InternalException l) => Maybe Event -> Application l ()
 internalProcessEvent Nothing = return ()
-internalProcessEvent (Just e) = do
-    debugM $ show e
+internalProcessEvent (Just e) = debugM $ show e
 
