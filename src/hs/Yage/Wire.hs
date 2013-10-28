@@ -1,5 +1,3 @@
-{-# LANGUAGE Arrows #-}
-
 module Yage.Wire where
 
 import Yage.Prelude hiding (id, (.))

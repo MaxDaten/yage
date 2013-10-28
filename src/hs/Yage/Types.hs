@@ -1,4 +1,7 @@
-{-# LANGUAGE RecordWildCards, GeneralizedNewtypeDeriving, DeriveDataTypeable, DeriveFunctor, ExistentialQuantification #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Yage.Types where
 
 import Prelude hiding (id, (.)) -- reimported by Control.Wire
@@ -44,11 +47,11 @@ putRenderEnv :: RenderEnv -> Yage ()
 putRenderEnv env = get >>= \yst -> put yst{ renderEnv = env }
 
 
-getRenderEnv :: Yage (RenderEnv)
+getRenderEnv :: Yage RenderEnv
 getRenderEnv = gets renderEnv
 
 
-getRenderConfig :: Yage (RenderConfig)
+getRenderConfig :: Yage RenderConfig
 getRenderConfig = envConfig `liftM` getRenderEnv
 
 putRenderConfig :: RenderConfig -> Yage ()
