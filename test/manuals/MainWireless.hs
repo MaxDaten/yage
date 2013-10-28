@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes #-}
---{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
