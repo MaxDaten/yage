@@ -19,7 +19,6 @@ import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
 import             Yage.Rendering.Types
 import             Yage.Rendering.WorldState
-import             Control.Lens
 ---------------------------------------------------------------------------------------------------
 
 
@@ -38,7 +37,7 @@ yageMain title wire session = do
 initialization :: IO YageState
 initialization = do
     let rConf = RenderConfig
-            { confClearColor = Color4 0.3 0.3 0.3 0
+            { confClearColor = Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
             , confDebugNormals = False 
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
@@ -52,7 +51,7 @@ finalization _ = return ()
 
 yageLoop :: YageState -> YageWire () WorldState -> Session IO -> Application AnyException ()
 yageLoop ystate' wire session = do
-    ins <- processEvents
+    ins <- collectEvents
     let yst' = ystate' { inputs = ins }
 
     (dt, s') <- io $ sessionUpdate session
@@ -77,29 +76,4 @@ yageLoop ystate' wire session = do
             return $! rSt
 
 ---------------------------------------------------------------------------------------------------
-
-processEvents :: (Throws InternalException l) => Application l (Set.Set Event)
-processEvents = pollEvent >>= processEvent' Set.empty
-    where 
-        processEvent' ::  (Throws InternalException l) => Set.Set Event -> Maybe Event -> Application l (Set.Set Event)
-        processEvent' es Nothing = return es
-        processEvent' es (Just e) = do
-            me <- pollEvent
-            internalProcessEvent me
-            processEvent' (Set.insert e es) me
-
-
-keyWasPressed :: Key -> Set.Set Event -> Bool
-keyWasPressed key keySet = not . Set.null $ keyPressed `Set.filter` keySet
-    where 
-        keyPressed (EventKey _winHandle ekey) 
-            | ekey^._key == key = True
-            | otherwise = False
-        keyPressed _ = False
-
-
-
-internalProcessEvent :: (Throws InternalException l) => Maybe Event -> Application l ()
-internalProcessEvent Nothing = return ()
-internalProcessEvent (Just e) = debugM $ show e
 

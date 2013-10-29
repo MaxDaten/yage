@@ -15,6 +15,7 @@ import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
 import Yage.Math
+import Yage.Events
 import Yage.Rendering
 import Yage.Rendering.VertexSpec
 import Yage.Rendering.Logging
@@ -39,7 +40,7 @@ main = do
     state <- initialization
 
     let scene = testScene
-        conf = ApplicationConfig WARNING
+        conf = ApplicationConfig DEBUG
         
     print $ show $ length $ entities scene
     execApplication "MainWireless" conf $ do
@@ -57,7 +58,7 @@ main = do
             
             unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
 
-            events <- processEvents
+            events <- collectEvents
             quit <- windowShouldClose win
 
             let scene' = updateScene scene events
@@ -66,7 +67,7 @@ main = do
         updateScene :: RenderScene -> Set Event -> RenderScene
         updateScene scene events = 
             let Just ent = fromRenderable $ head $ entities scene
-                rot      = axisAngle (signorm $ V3 0 1 0) $ deg2rad (if keyWasPressed Key'Right events then 1.0 else 0)
+                rot      = axisAngle (signorm $ V3 0 1 0) $ deg2rad (if keyPressed Key'Right events then 1.0 else 0)
             in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ eOrientation ent * rot }]
                      , sceneTime = 0.001 + sceneTime scene
                      }
