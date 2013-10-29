@@ -57,12 +57,11 @@ instance Renderable Box where
 
 instance IsUpdateable (Set Event) Box where
     update events (Box ent@RenderEntity{..}) =
-        let axisV k v = if keyPressed k events then v else V3 0.0 0.0 0.0 
-            axis       =  axisV Key'Right (V3   0.0   0.0 (-1.0))
-                        + axisV Key'Left  (V3   0.0   0.0   1.0)
-                        + axisV Key'Down  (V3   1.0   0.0   0.0)
-                        + axisV Key'Up    (V3 (-1.0)  0.0   0.0)
-            rot     = axisAngle axis $ deg2rad 1.0
+        let rotV k a d = axisAngle a $ deg2rad (if keyPressed k events then d else 0.0)
+            rot        =  rotV Key'Right zAxis (-1.0)
+                        * rotV Key'Left  zAxis   1.0
+                        * rotV Key'Down  xAxis   1.0
+                        * rotV Key'Up    xAxis (-1.0)
         in  Box ent{ eOrientation = signorm $ eOrientation * rot }
 
 
