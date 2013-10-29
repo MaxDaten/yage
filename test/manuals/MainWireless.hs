@@ -1,6 +1,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
 module Main where
 
 import qualified Prelude
@@ -9,6 +15,7 @@ import Yage.Prelude
 import Control.Monad (mapM_, unless)
 import Yage 
 
+import Data.Typeable
 import Data.List
 
 import Linear
@@ -35,14 +42,41 @@ hints = [ WindowHint'ContextVersionMajor  3
         --, WindowHint'Decorated            False
         ]
 
+
+class (Typeable i, Typeable a) => IsUpdateable i a where
+    update :: i -> a -> a
+    toUpdateable :: (Typeable u) => u -> Maybe a
+    toUpdateable = cast
+
+
+newtype Box = Box RenderEntity
+    deriving (Typeable, Show)
+
+instance Renderable Box where
+    renderDefinition (Box b) = renderDefinition b
+
+instance IsUpdateable (Set Event) Box where
+    update events (Box ent@RenderEntity{..}) =
+        let axisV k v = if keyPressed k events then v else V3 0.0 0.0 0.0 
+            axis       =  axisV Key'Right (V3   0.0   0.0 (-1.0))
+                        + axisV Key'Left  (V3   0.0   0.0   1.0)
+                        + axisV Key'Down  (V3   1.0   0.0   0.0)
+                        + axisV Key'Up    (V3 (-1.0)  0.0   0.0)
+            rot     = axisAngle axis $ deg2rad 1.0
+        in  Box ent{ eOrientation = signorm $ eOrientation * rot }
+
+
+tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
+tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
+
+
 main :: IO ()
-main = do
+main = 
+    let scene = testScene
+        conf = ApplicationConfig WARNING
+    in do
     state <- initialization
 
-    let scene = testScene
-        conf = ApplicationConfig DEBUG
-        
-    print $ show $ length $ entities scene
     execApplication "MainWireless" conf $ do
         win <- createWindowWithHints hints 800 600 "MainWireless Window-0"
         print <$> getWindowClientAPI win
@@ -65,10 +99,10 @@ main = do
             unless quit $ loop win scene' env st'
         
         updateScene :: RenderScene -> Set Event -> RenderScene
-        updateScene scene events = 
-            let Just ent = fromRenderable $ head $ entities scene
-                rot      = axisAngle (signorm $ V3 0 1 0) $ deg2rad (if keyPressed Key'Right events then 1.0 else 0)
-            in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ eOrientation ent * rot }]
+        updateScene scene events =
+            let ents    = entities scene
+                updateF = tryWithSomeRenderable (update events :: Box -> Box)
+            in scene { entities = map updateF ents
                      , sceneTime = 0.001 + sceneTime scene
                      }
 
@@ -86,8 +120,10 @@ testScene = fill emptyRenderScene
                                     ]
                                 , uniform'def = do
                                     ShaderEnv{..} <- shaderEnv
+                                    -- io . print . show $ renderableType shaderEnv'CurrentRenderable
+                                    -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
                                     let RenderScene{..} = shaderEnv'CurrentScene
-                                        Just RenderEntity{..} = fromRenderable shaderEnv'CurrentRenderable :: Maybe RenderEntity
+                                        Just (Box RenderEntity{..}) = (fromRenderable shaderEnv'CurrentRenderable) :: Maybe Box
                                         scaleM        = kronecker . point $ eScale
                                         projectionM   = projectionMatrix
                                         viewM         = viewMatrix
@@ -105,8 +141,9 @@ testScene = fill emptyRenderScene
                                 , def'program  = (shader, shdef)
                                 , def'textures = [TextureDefinition (0, "textures") "res/tex.png"]
                                 }
-                box       = (mkRenderEntity rdef)
+                box       = Box (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
                                 , ePosition = V3 0 0 (-10)
                                 }
             in scene{entities = [SomeRenderable box]}
+
