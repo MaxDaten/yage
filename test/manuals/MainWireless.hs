@@ -69,6 +69,7 @@ tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderabl
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
 
+
 main :: IO ()
 main = 
     let scene = testScene
@@ -105,6 +106,8 @@ main =
                      , sceneTime = 0.001 + sceneTime scene
                      }
 
+
+
 testScene :: RenderScene
 testScene = fill emptyRenderScene
     where
@@ -138,7 +141,7 @@ testScene = fill emptyRenderScene
                                 { def'ident    = "cube-base"
                                 , def'data     = cubeMesh
                                 , def'program  = (shader, shdef)
-                                , def'textures = [TextureDefinition (0, "textures") "res/tex.png"]
+                                , def'textures = [TextureDefinition (0, "textures") ("res" </> "Brown_Leather_Texture.png")]
                                 }
                 box       = Box (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
