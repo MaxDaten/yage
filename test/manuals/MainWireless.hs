@@ -73,7 +73,7 @@ tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable som
 main :: IO ()
 main = 
     let scene = testScene
-        conf = ApplicationConfig WARNING
+        conf = defaultAppConfig{ logPriority = DEBUG }
     in do
     state <- initialization
 

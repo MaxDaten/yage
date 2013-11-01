@@ -26,11 +26,10 @@ import             Yage.Rendering.WorldState
 
 yageMain :: String -> YageWire () WorldState -> Session IO -> IO ()
 yageMain title wire session = do
-    let conf = ApplicationConfig DEBUG
     _ <- bracket 
             initialization
             finalization
-            (\st -> execApplication title conf $ yageLoop st wire session)
+            (\st -> execApplication title defaultAppConfig $ yageLoop st wire session)
     return ()
 
 
