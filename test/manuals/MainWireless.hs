@@ -17,6 +17,7 @@ import Yage
 
 import Data.Typeable
 import Data.List
+import Data.Set hiding (map)
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
@@ -73,7 +74,7 @@ tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable som
 main :: IO ()
 main = 
     let scene = testScene
-        conf = defaultAppConfig{ logPriority = DEBUG }
+        conf = defaultAppConfig{ logPriority = WARNING }
     in do
     state <- initialization
 
@@ -92,8 +93,8 @@ main =
             
             unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
 
-            events <- collectEvents
-            quit <- windowShouldClose win
+            events <- fromList <$> collectEvents
+            quit   <- windowShouldClose win
 
             let scene' = updateScene scene events
             unless quit $ loop win scene' env st'

@@ -98,6 +98,7 @@ executable main-wireless
                         , OpenGL
                         , linear
                         , lens
+                        , containers
 
     if flag(perf)
       ghc-options:        -threaded -O2

@@ -50,7 +50,7 @@ finalization _ = return ()
 
 yageLoop :: YageState -> YageWire () WorldState -> Session IO -> Application AnyException ()
 yageLoop ystate' wire session = do
-    ins <- collectEvents
+    ins <- Set.fromList <$> collectEvents
     let yst' = ystate' { inputs = ins }
 
     (dt, s') <- io $ sessionUpdate session
