@@ -1,27 +1,38 @@
-{-# LANGUAGE RankNTypes, StandaloneDeriving, RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
 module Main where
 
 import qualified Prelude
 import Yage.Prelude
 
-import Control.Monad (unless)
+import Control.Monad (mapM_, unless)
 import Yage 
-import Yage.Core.Application
-import Yage.Core.Application.Logging
 
+import Data.Typeable
 import Data.List
-import Control.Monad (mapM_, when)
+import Data.Set hiding (map)
 
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
 import Yage.Math
+import Yage.Events
 import Yage.Rendering
 import Yage.Rendering.VertexSpec
 import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
+import Yage.Core.Application
+import Yage.Core.Application.Loops
+import Yage.Core.Application.Logging
 
 hints :: [WindowHint]
 hints = [ WindowHint'ContextVersionMajor  3
@@ -33,45 +44,67 @@ hints = [ WindowHint'ContextVersionMajor  3
         --, WindowHint'Decorated            False
         ]
 
+
+class (Typeable i, Typeable a) => IsUpdateable i a where
+    update :: i -> a -> a
+    toUpdateable :: (Typeable u) => u -> Maybe a
+    toUpdateable = cast
+
+
+newtype Box = Box RenderEntity
+    deriving (Typeable, Show)
+
+instance Renderable Box where
+    renderDefinition (Box b) = renderDefinition b
+
+instance IsUpdateable InputState Box where
+    update input (Box ent@RenderEntity{..}) =
+        let rotV k a d = axisAngle a $ deg2rad (if input `isPressed` k then d else 0.0)
+            rot        =  rotV Key'Right zAxis (-1.0)
+                        * rotV Key'Left  zAxis   1.0
+                        * rotV Key'Down  xAxis   1.0
+                        * rotV Key'Up    xAxis (-1.0)
+        in  Box ent{ eOrientation = signorm $ eOrientation * rot }
+
+
+tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
+tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
+
+
+
 main :: IO ()
-main = do
+main = 
+    let scene = testScene
+        conf  = defaultAppConfig{ logPriority = WARNING }
+        size  = (800,600)
+    in do
     state <- initialization
 
-    let scene = testScene
-        conf = ApplicationConfig WARNING
-        
-    print $ show $ length $ entities scene
-    execApplication "MainWireless" conf $ do
-        win <- createWindowWithHints hints 800 600 "MainWireless Window-0"
-        print <$> getWindowClientAPI win
-        
-        loop win scene (renderEnv state) (renderState state)
+    (_, st, sc) <- execApplication "MainWireless" conf 
+        $ basicWindowLoop size hints (renderEnv state, renderState state, scene) loop
 
     finalization state
     where 
-        loop win scene env st = do
-            makeContextCurrent $ Just win
-            (_, st', l) <- io $ runRenderer (renderScene scene) st env
-            swapBuffers win
-            
-            unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
-
-            events <- processEvents
-            quit <- windowShouldClose win
-
-            let scene' = updateScene scene events
-            unless quit $ loop win scene' env st'
+    loop win (env, st, scene) inputState = do
+        let scene' = scene `updateScene` inputState
+        (_, st', l) <- io $ runRenderer (renderScene scene') st env
         
-        updateScene :: RenderScene -> Set Event -> RenderScene
-        updateScene scene events = 
-            let Just ent = fromRenderable $ head $ entities scene
-                rot      = axisAngle (signorm $ V3 0 1 0) $ if keyWasPressed Key'Right events then (deg2rad 1.0) else (deg2rad 0)
-            in scene { entities = [SomeRenderable $ ent{ eOrientation = signorm $ (eOrientation ent) * rot }]
-                     , sceneTime = 0.001 + sceneTime scene
-                     }
+        return (env, st', scene')
+            --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
+
+
+updateScene :: RenderScene -> InputState -> RenderScene
+updateScene scene input =
+    let ents    = entities scene
+        updateF = tryWithSomeRenderable (update input :: Box -> Box)
+    in scene { entities = map updateF ents
+             , sceneTime = 0.001 + sceneTime scene
+             }
+
+
 
 testScene :: RenderScene
-testScene = fill (emptyRenderScene)
+testScene = fill emptyRenderScene
     where
         fill scene = 
             let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"
@@ -84,8 +117,10 @@ testScene = fill (emptyRenderScene)
                                     ]
                                 , uniform'def = do
                                     ShaderEnv{..} <- shaderEnv
+                                    -- io . print . show $ renderableType shaderEnv'CurrentRenderable
+                                    -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
                                     let RenderScene{..} = shaderEnv'CurrentScene
-                                        Just RenderEntity{..} = fromRenderable shaderEnv'CurrentRenderable :: Maybe RenderEntity
+                                        Just (Box RenderEntity{..}) = (fromRenderable shaderEnv'CurrentRenderable) :: Maybe Box
                                         scaleM        = kronecker . point $ eScale
                                         projectionM   = projectionMatrix
                                         viewM         = viewMatrix
@@ -101,10 +136,11 @@ testScene = fill (emptyRenderScene)
                                 { def'ident    = "cube-base"
                                 , def'data     = cubeMesh
                                 , def'program  = (shader, shdef)
-                                , def'textures = [TextureDefinition (0, "textures") "res/tex.png"]
+                                , def'textures = [TextureDefinition (0, "textures") ("res" </> "Brown_Leather_Texture.png")]
                                 }
-                box       = (mkRenderEntity rdef)
+                box       = Box (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
                                 , ePosition = V3 0 0 (-10)
                                 }
             in scene{entities = [SomeRenderable box]}
+
