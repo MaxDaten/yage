@@ -31,6 +31,7 @@ import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 
 import Yage.Core.Application
+import Yage.Core.Application.Loops
 import Yage.Core.Application.Logging
 
 hints :: [WindowHint]
@@ -56,9 +57,9 @@ newtype Box = Box RenderEntity
 instance Renderable Box where
     renderDefinition (Box b) = renderDefinition b
 
-instance IsUpdateable (Set Event) Box where
-    update events (Box ent@RenderEntity{..}) =
-        let rotV k a d = axisAngle a $ deg2rad (if keyPressed k events then d else 0.0)
+instance IsUpdateable InputState Box where
+    update input (Box ent@RenderEntity{..}) =
+        let rotV k a d = axisAngle a $ deg2rad (if input `isPressed` k then d else 0.0)
             rot        =  rotV Key'Right zAxis (-1.0)
                         * rotV Key'Left  zAxis   1.0
                         * rotV Key'Down  xAxis   1.0
@@ -74,38 +75,31 @@ tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable som
 main :: IO ()
 main = 
     let scene = testScene
-        conf = defaultAppConfig{ logPriority = WARNING }
+        conf  = defaultAppConfig{ logPriority = WARNING }
+        size  = (800,600)
     in do
     state <- initialization
 
-    execApplication "MainWireless" conf $ do
-        win <- createWindowWithHints hints 800 600 "MainWireless Window-0"
-        print <$> getWindowClientAPI win
-        
-        loop win scene (renderEnv state) (renderState state)
+    (_, st, sc) <- execApplication "MainWireless" conf 
+        $ basicWindowLoop size hints (renderEnv state, renderState state, scene) loop
 
     finalization state
     where 
-        loop win scene env st = do
-            makeContextCurrent $ Just win
-            (_, st', l) <- io $ runRenderer (renderScene scene) st env
-            swapBuffers win
-            
-            unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
-
-            events <- fromList <$> collectEvents
-            quit   <- windowShouldClose win
-
-            let scene' = updateScene scene events
-            unless quit $ loop win scene' env st'
+    loop win (env, st, scene) inputState = do
+        let scene' = scene `updateScene` inputState
+        (_, st', l) <- io $ runRenderer (renderScene scene') st env
         
-        updateScene :: RenderScene -> Set Event -> RenderScene
-        updateScene scene events =
-            let ents    = entities scene
-                updateF = tryWithSomeRenderable (update events :: Box -> Box)
-            in scene { entities = map updateF ents
-                     , sceneTime = 0.001 + sceneTime scene
-                     }
+        return (env, st', scene')
+            --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
+
+
+updateScene :: RenderScene -> InputState -> RenderScene
+updateScene scene input =
+    let ents    = entities scene
+        updateF = tryWithSomeRenderable (update input :: Box -> Box)
+    in scene { entities = map updateF ents
+             , sceneTime = 0.001 + sceneTime scene
+             }
 
 
 

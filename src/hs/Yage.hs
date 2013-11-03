@@ -40,7 +40,7 @@ initialization = do
             , confDebugNormals = False 
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
-        rEnv = RenderEnv rConf renderTarget
+        rEnv         = RenderEnv rConf renderTarget
     return $ YageState Set.empty rEnv initialRenderState []
 
 
