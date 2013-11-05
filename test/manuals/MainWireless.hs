@@ -120,7 +120,7 @@ testScene = fill emptyRenderScene
                                     -- io . print . show $ renderableType shaderEnv'CurrentRenderable
                                     -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
                                     let RenderScene{..} = shaderEnv'CurrentScene
-                                        Just (Box RenderEntity{..}) = (fromRenderable shaderEnv'CurrentRenderable) :: Maybe Box
+                                        Just (Box RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
                                         scaleM        = kronecker . point $ eScale
                                         projectionM   = projectionMatrix
                                         viewM         = viewMatrix
