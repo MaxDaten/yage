@@ -27,9 +27,9 @@ main =
 
 main :: IO ()
 main = do
-    randImgs <- generateRandomImages 40
+    randImgs <- generateRandomImages 60
     let bgrnd          = PixelRGB8 0 0 0
-        atlas'         = emptyAtlas 1024 1024 bgrnd 5
+        atlas'         = emptyAtlas 1024 1024 bgrnd 1
         texs           = sortBy imageByAreaCompare randImgs `piz` ([0..] :: [Int])
         (errs, atlas)  = insertImages texs atlas'
 
