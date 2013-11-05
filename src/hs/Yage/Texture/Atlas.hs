@@ -64,6 +64,7 @@ data TextureAtlas i a = TextureAtlas
     { _atlasSize    :: (Int, Int)
     , _atlasRegions :: AtlasTree i a
     , _regionIds    :: Set i
+    , _background   :: a
     }
 makeLenses ''TextureAtlas
 
@@ -76,14 +77,15 @@ filledLeaf ident img =
     in Filled (AtlasRegion rect ident img)
 
 
-emptyAtlas :: Int -> Int -> TextureAtlas i a
-emptyAtlas width height = 
+emptyAtlas :: Int -> Int -> a -> TextureAtlas i a
+emptyAtlas width height background' = 
     let root = Node rect Nil Nil
         rect = Rectangle 0 0 width height
     in TextureAtlas
     { _atlasSize    = (width, height)
     , _atlasRegions = root
     , _regionIds    = empty
+    , _background   = background'
     }
 
 insertImage :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (AtlasError i) (TextureAtlas i a)
@@ -106,19 +108,19 @@ insertNode filled@(Filled ~a) tree@(Node ~nodeRegion Nil Nil)
     -- insert rect to big
     | not $ (a^.regionRect) `fits` nodeRegion             = traceShow "to big" $ Left tree
     -- perfectly fits
-    | (a^.regionRect) `dimMatches` nodeRegion             = traceShow "fits" $ Right filled
+    | (a^.regionRect) `dimMatches` nodeRegion             = traceShow "fits" $ Right $ Filled (a & regionRect .~ nodeRegion)
     -- split region in one half fitting and retaining region, then insert into the half fitting one
     | otherwise = 
         let (leftRegion, rightRegion) = emptyNode <$$> (traceShow' $ splitRect (nodeRegion) (a^.regionRect))
-        in traceShow "split" 
+        in traceShow "split"
             $ insertNode filled $ Node nodeRegion leftRegion rightRegion
-insertNode _ (Filled a) = Left $ Filled a
-insertNode _ Nil        = Left Nil
-insertNode node tree@(Node _ l r) = 
+insertNode _ (Filled a)             = Left $ Filled a
+insertNode _ Nil                    = Left Nil
+insertNode node tree@(Node _ l r)   = 
     case (insertNode node l) of 
         Right l' -> Right $ setLeft l' tree
-        Left _ -> flip setRight tree <$> insertNode node r
-insertNode _ _          = error "invalid insertion"
+        Left _   -> flip setRight tree <$> insertNode node r
+insertNode _ _                      = error "invalid insertion"
 
 {--
 insertLeft, insertRight :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTree i a)
@@ -158,7 +160,7 @@ insertImages ((ident, img):imgs) atlas =
         joinResults e (errs, atlas) = (e:errs, atlas)
 
 regionMap :: (Ord i) => TextureAtlas i a -> Map i Rectangle
-regionMap atlas = Foldable.foldr collectFilled Map.empty $ atlas^.atlasRegions
+regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
     where
         collectFilled :: (Ord i) => AtlasRegion i a -> Map i Rectangle -> Map i Rectangle
         collectFilled region = 
@@ -166,8 +168,45 @@ regionMap atlas = Foldable.foldr collectFilled Map.empty $ atlas^.atlasRegions
                     rect  = region^.regionRect
                 in at ident ?~ rect
 
-atlasToImage :: TextureAtlas i a -> Image a
-atlasToImage = undefined
+
+isInNode :: AtlasTree i a -> Int -> Int -> Bool
+isInNode (Node region _ _) x y  = inRectangle x y region
+isInNode (Filled a) x y         = inRectangle x y (a^.regionRect)
+isInNode _ _ _                  = False
+
+
+getFilledAt :: AtlasTree i a -> Int -> Int -> Maybe (AtlasTree i a)
+getFilledAt root@(Node region l r) x y 
+    | inRectangle x y region    = getNodeIn root
+    | otherwise                 = error "out of bounds"
+    where
+        getNodeIn (Node _ Nil Nil)            = Nothing
+        getNodeIn (Filled a)
+            | inRectangle x y (a^.regionRect) = Just $ Filled a
+            | otherwise                       = Nothing
+        getNodeIn Nil                         = Nothing
+        getNodeIn (Node _ l r)                = getNodeIn (if isInNode l x y then l else r)
+getFilledAt _ _ _ = error "not a valid root" 
+
+
+getRegionAt :: TextureAtlas i a -> Int -> Int -> Maybe (AtlasRegion i a)
+getRegionAt atlas x y = toRegion <$> getFilledAt (atlas^.atlasRegions) x y
+    where
+        toRegion (Filled a) = a
+        toRegion _          = error "invalid node"
+
+
+getAtlasPixel :: (Pixel a) => TextureAtlas i a -> Int -> Int -> a
+getAtlasPixel atlas x y =
+    let mReg = getRegionAt atlas x y
+    in get mReg
+    where 
+        get (Just region) = pixelAt (region^.regionData) (x - region^.regionRect.x0) (y - region^.regionRect.y0)
+        get _             = atlas^.background
+
+
+atlasToImage :: (Pixel a) => TextureAtlas i a -> Image a
+atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSize._1) (atlas^.atlasSize._2) 
 
 
 subImage :: (Pixel a) => Image a -> Rectangle -> Image a -> Image a
@@ -177,6 +216,7 @@ subImage sub region target
         includeRegionImg sub region target x y 
             | inRectangle x y region = pixelAt sub (x - region^.x0) (y - region^.y0) 
             | otherwise              = pixelAt target x y
+        
         check
             | imageWidth sub  /= region^.to width ||
               imageHeight sub /= region^.to height 
@@ -254,18 +294,24 @@ f <$$> (x,y) = (f x, f y)
 
 main :: IO ()
 main =
-    let target = generateImage (const . const $ PixelRGB8 0 0 0) 1024 1024
+    let --target = generateImage (const . const $ PixelRGB8 0 0 0) 512 512
+        bgrnd  = PixelRGB8 0 0 0
         texs   = (sortBy imageByAreaCompare $
                          [ generateImage (const . const $ PixelRGB8 255 0 0) 20 20
-                         , generateImage (const . const $ PixelRGB8 0 255 0) 60 60
-                         , generateImage (const . const $ PixelRGB8 0 0 255) 80 80
-                         , generateImage (const . const $ PixelRGB8 255 255 0) 512 512
+                         , generateImage (const . const $ PixelRGB8 0 255 0) 60 128
+                         , generateImage (const . const $ PixelRGB8 0 0 255) 70 44
+                         , generateImage (const . const $ PixelRGB8 255 255 0) 128 128
+                         , generateImage (const . const $ PixelRGB8 255 255 0) 52 52
+                         , generateImage (const . const $ PixelRGB8 255 255 255) 256 256
+                         , generateImage (const . const $ PixelRGB8 0 255 255) 64 64
+                         , generateImage (const . const $ PixelRGB8 255 0 255) 64 64
+                         , generateImage (const . const $ PixelRGB8 255 124 0) 128 64
                          ]) `piz` ([0..] :: [Int])
-        (errs, atlas)  = insertImages texs (emptyAtlas 1024 1024)
+        (errs, atlas)  = insertImages texs (emptyAtlas 512 512 bgrnd)
     in do
-        -- when (null errs) $ writePng "atlas.png" $ atlasToImage atlas
         print $ show (errs)
         print $ show (regionMap atlas)
+        when (null errs) $ writePng "atlas.png" $ atlasToImage atlas
 
 imageByAreaCompare :: Image a -> Image a -> Ordering
 imageByAreaCompare a b =
