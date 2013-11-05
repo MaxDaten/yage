@@ -32,8 +32,8 @@ data Rectangle = Rectangle
     deriving (Show)
 makeLenses ''Rectangle
 
-width rect = rect^.x1 - rect^.x0
-height rect = rect^.y1 - rect^.y0
+width rect  = rect^.x1 - rect^.x0 + 1
+height rect = rect^.y1 - rect^.y0 + 1
 
 instance Eq Rectangle where
     r1 == r2 = 
@@ -45,17 +45,19 @@ instance Eq Rectangle where
 
 instance Ord Rectangle where
     compare r1 r2 = 
-        let w1 = r1^.x1 - r1^.x0
-            h1 = r1^.y1 - r1^.y0
-            w2 = r2^.x1 - r2^.x0
-            h2 = r2^.y1 - r2^.y0
+        let w1 = r1^.to width
+            h1 = r1^.to height
+            w2 = r2^.to width
+            h2 = r2^.to height
         in compare (w1*h1) (w2*h2)
 
 data AtlasRegion i a = AtlasRegion
-    { _regionRect  :: !Rectangle
-    , _regionId    :: !i
-    , _regionData  :: !(Image a)
+    { _regionRect    :: !Rectangle
+    , _regionPadding :: !Int
+    , _regionId      :: !i
+    , _regionData    :: !(Image a)
     }
+
 makeLenses ''AtlasRegion
 
 
@@ -65,27 +67,33 @@ data TextureAtlas i a = TextureAtlas
     , _atlasRegions :: AtlasTree i a
     , _regionIds    :: Set i
     , _background   :: a
+    , _padding      :: Int
     }
 makeLenses ''TextureAtlas
+
 
 emptyNode :: Rectangle -> AtlasTree i a
 emptyNode rect = Node rect Nil Nil
 
-filledLeaf :: i -> Image a -> AtlasTree i a
-filledLeaf ident img =
-    let rect = Rectangle 0 0 (imageWidth img) (imageHeight img)
-    in Filled (AtlasRegion rect ident img)
+
+filledLeaf :: i -> Image a -> Int -> AtlasTree i a
+filledLeaf ident img padding =
+    let rect = x1 +~ 2*padding $
+               y1 +~ 2*padding $ 
+               img^.to imgRectangle
+    in Filled (AtlasRegion rect padding ident img)
 
 
-emptyAtlas :: Int -> Int -> a -> TextureAtlas i a
-emptyAtlas width height background' = 
+emptyAtlas :: Int -> Int -> a -> Int -> TextureAtlas i a
+emptyAtlas width height background padding = 
     let root = Node rect Nil Nil
         rect = Rectangle 0 0 width height
     in TextureAtlas
     { _atlasSize    = (width, height)
     , _atlasRegions = root
     , _regionIds    = empty
-    , _background   = background'
+    , _background   = background
+    , _padding      = padding
     }
 
 insertImage :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (AtlasError i) (TextureAtlas i a)
@@ -96,7 +104,7 @@ insertImage ident img atlas = traceShow "==insert==" $
     where
         insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
         insert ident img atlas =
-            let regions  = insertNode (filledLeaf ident img) (atlas^.atlasRegions)
+            let regions  = insertNode (filledLeaf ident img (atlas^.padding)) (atlas^.atlasRegions)
                 newAtlas =  atlasRegions .~ regions^.chosen $
                             regionIds    %~ (contains ident .~ isRight regions) $ atlas 
             in either (const $ Left atlas) (const $ Right newAtlas) regions
@@ -108,7 +116,10 @@ insertNode filled@(Filled ~a) tree@(Node ~nodeRegion Nil Nil)
     -- insert rect to big
     | not $ (a^.regionRect) `fits` nodeRegion             = traceShow "to big" $ Left tree
     -- perfectly fits
-    | (a^.regionRect) `dimMatches` nodeRegion             = traceShow "fits" $ Right $ Filled (a & regionRect .~ nodeRegion)
+    | (a^.regionRect) `dimMatches` nodeRegion             = let padding = a^.regionPadding
+                                                                rect    = x0 +~ padding $ y0 +~ padding $ 
+                                                                          x1 -~ padding $ y1 -~ padding $ nodeRegion
+                                                            in Right $ Filled (a & regionRect .~ rect)
     -- split region in one half fitting and retaining region, then insert into the half fitting one
     | otherwise = 
         let (leftRegion, rightRegion) = emptyNode <$$> (traceShow' $ splitRect (nodeRegion) (a^.regionRect))
@@ -116,17 +127,11 @@ insertNode filled@(Filled ~a) tree@(Node ~nodeRegion Nil Nil)
             $ insertNode filled $ Node nodeRegion leftRegion rightRegion
 insertNode _ (Filled a)             = Left $ Filled a
 insertNode _ Nil                    = Left Nil
-insertNode node tree@(Node _ l r)   = 
-    case (insertNode node l) of 
-        Right l' -> Right $ setLeft l' tree
-        Left _   -> flip setRight tree <$> insertNode node r
+insertNode node tree@(Node _ l r)   = case (insertNode node l) of 
+                                        Right l' -> Right $ setLeft l' tree
+                                        Left _   -> flip setRight tree <$> insertNode node r
 insertNode _ _                      = error "invalid insertion"
 
-{--
-insertLeft, insertRight :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTree i a)
-insertLeft node tree@(Node _ ~l _)  = traceShow "left" $ flip setLeft tree $ (insertNode node l)
-insertRight node tree@(Node _ _ ~r) = traceShow "right" $ flip setRight tree $ (insertNode node r)
---}
 
 setLeft :: Tree a b -> Tree a b -> Tree a b
 setLeft node (Node ~a _ ~r) = Node a node r
@@ -152,11 +157,8 @@ insertImages [] atlas = ([], atlas)
 insertImages ((ident, img):imgs) atlas = 
     either err success $ insertImage ident img atlas
     where
-        -- err :: (Ord i) => AtlasError i -> ([(i, AtlasError i)], TextureAtlas i a)
-        err e = joinResults (ident, e) (insertImages imgs atlas)
-        -- success :: (Ord i) => TextureAtlas i a -> ([(i, AtlasError i)], TextureAtlas i a)
+        err e            = joinResults (ident, e) (insertImages imgs atlas)
         success newAtlas = insertImages imgs newAtlas
-        joinResults :: (Ord i) => (i, AtlasError i) -> AtlasResult i a -> AtlasResult i a
         joinResults e (errs, atlas) = (e:errs, atlas)
 
 regionMap :: (Ord i) => TextureAtlas i a -> Map i Rectangle
@@ -243,14 +245,14 @@ dimMatches a b =
 
 inBound :: Rectangle -> Rectangle -> Bool
 inBound inner outer = 
-    inner^.x0 < outer^.x1 && inner^.y0 < outer^.y1 &&
-    inner^.x1 < outer^.x1 && inner^.y1 < outer^.y1
+    inner^.x1 <= outer^.x1 && inner^.x0 >= outer^.x0 &&
+    inner^.y1 <= outer^.y1 && inner^.y0 >= outer^.y0
 
 
 inRectangle :: Int -> Int -> Rectangle -> Bool
 inRectangle x y rect =
-    x >= rect^.x0 && x < rect^.x1 &&
-    y >= rect^.y0 && y < rect^.y1
+    x >= rect^.x0 && x <= rect^.x1 &&
+    y >= rect^.y0 && y <= rect^.y1
 
 
 
@@ -261,14 +263,14 @@ splitRect toSplit toFit =
         direction = if dw > dh then SplitVertical else SplitHorizontal
     in split direction
     where     
-        split SplitVertical     = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x0 + toFit^.to width) (toSplit^.y1)
+        split SplitVertical     = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x0 + toFit^.to width - 1) (toSplit^.y1)
                                   , Rectangle (toSplit^.x0 + toFit^.to width) (toSplit^.y0) (toSplit^.x1) (toSplit^.y1))
-        split SplitHorizontal   = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x1) (toSplit^.y0 + toFit^.to height) 
+        split SplitHorizontal   = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x1) (toSplit^.y0 + toFit^.to height - 1) 
                                   , Rectangle (toSplit^.x0) (toSplit^.y0 + toFit^.to height) (toSplit^.x1) (toSplit^.y1))  
 
 
 imgRectangle :: Image a -> Rectangle
-imgRectangle img = Rectangle 0 0 (imageWidth img) (imageHeight img)
+imgRectangle img = Rectangle 0 0 (imageWidth img - 1) (imageHeight img - 1)
 
 
 instance Foldable.Foldable (Tree region) where
