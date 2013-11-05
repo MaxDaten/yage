@@ -84,7 +84,7 @@ executable yage
 
 -------------------------------------------------------------------------------
 
-executable main-wireless
+executable wireless
     if flag(library-only)
       Buildable: False
 
@@ -101,6 +101,31 @@ executable main-wireless
                         , linear
                         , lens
                         , containers
+
+    if flag(perf)
+      ghc-options:        -threaded -O2
+    -- ghc-prof-options:   -rtsopts -prof -auto-all
+
+    -- -prof -auto-all
+    default-language:     Haskell2010
+
+-------------------------------------------------------------------------------
+
+executable textureAtlas
+    if flag(library-only)
+      Buildable: False
+
+    hs-source-dirs:     test/manuals
+    main-is:            RndTextureAtlas.hs
+
+    build-depends:        base
+                        , yage
+                        , yage-contrib
+                        , lens
+                        , JuicyPixels
+                        , containers
+
+                        , random      >= 1
 
     if flag(perf)
       ghc-options:        -threaded -O2

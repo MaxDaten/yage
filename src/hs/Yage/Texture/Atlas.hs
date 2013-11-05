@@ -270,51 +270,6 @@ splitRect toSplit toFit =
 imgRectangle :: Image a -> Rectangle
 imgRectangle img = Rectangle 0 0 (imageWidth img) (imageHeight img)
 
-{--
-main :: IO ()
-main =
-    let target = generateImage (\x y -> PixelRGB8 (fromIntegral x) (fromIntegral y) 128) 512 512
-        sub    = generateImage (\x y -> PixelRGB8 (fromIntegral y) (fromIntegral x) 128) 128 128
-        region = Rectangle 50 50 (50+128) (50+128)
-        subbed = subImage sub region target
-    in do
-        writePng "target.png" target
-        writePng "sub.png" sub
-        writePng "subbed.png" subbed
---}
-
 
 instance Foldable.Foldable (Tree region) where
     foldr = foldrWithFilled
-
-piz = flip zip
-
-(<$$>) :: (a -> b) -> (a, a) -> (b, b)
-f <$$> (x,y) = (f x, f y) 
-
-main :: IO ()
-main =
-    let --target = generateImage (const . const $ PixelRGB8 0 0 0) 512 512
-        bgrnd  = PixelRGB8 0 0 0
-        texs   = (sortBy imageByAreaCompare $
-                         [ generateImage (const . const $ PixelRGB8 255 0 0) 20 20
-                         , generateImage (const . const $ PixelRGB8 0 255 0) 60 128
-                         , generateImage (const . const $ PixelRGB8 0 0 255) 70 44
-                         , generateImage (const . const $ PixelRGB8 255 255 0) 128 128
-                         , generateImage (const . const $ PixelRGB8 255 255 0) 52 52
-                         , generateImage (const . const $ PixelRGB8 255 255 255) 256 256
-                         , generateImage (const . const $ PixelRGB8 0 255 255) 64 64
-                         , generateImage (const . const $ PixelRGB8 255 0 255) 64 64
-                         , generateImage (const . const $ PixelRGB8 255 124 0) 128 64
-                         ]) `piz` ([0..] :: [Int])
-        (errs, atlas)  = insertImages texs (emptyAtlas 512 512 bgrnd)
-    in do
-        print $ show (errs)
-        print $ show (regionMap atlas)
-        when (null errs) $ writePng "atlas.png" $ atlasToImage atlas
-
-imageByAreaCompare :: Image a -> Image a -> Ordering
-imageByAreaCompare a b =
-    let rA = imgRectangle a
-        rB = imgRectangle b
-    in compare rB rA -- flipped to sort descending
