@@ -2,6 +2,7 @@
 module Main where
 
 import Yage.Prelude
+import Yage.Images
 
 import Data.List (sortBy)
 import Control.Monad (when)
