@@ -34,9 +34,3 @@ main = do
     --forM_ (toList imgs) $ \(c, img) -> do
     --    writePng (charFolder </> "char" ++ (show $ ord c) ++ ".png") img
 
-
-imageByAreaCompare :: Image a -> Image a -> Ordering
-imageByAreaCompare a b =
-    let rA = imgRectangle a
-        rB = imgRectangle b
-    in compare rB rA -- flipped to sort descending
