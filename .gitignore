@@ -12,3 +12,4 @@ dist/
 *.ps
 .cabal-sandbox
 cabal.sandbox.config
+cabal.config
