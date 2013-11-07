@@ -1,4 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
+
+import Yage.Prelude
 
 import Yage.Texture.Atlas
 import Yage.Images
@@ -6,31 +9,29 @@ import Yage.Images
 import Graphics.Font
 import Control.Monad
 
-import System.FilePath
 import Data.List
 import Data.Map (toList)
 import Codec.Picture
 
 
-fontPath = "res" </> "font" </> "SourceCodePro-Regular.otf"
+fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
+atlasFile = encodeString $ "atlas" <.> "png"
 main = do
     let descr = FontDescriptor
             { charSize = (0, 16*64)
             , deviceRes = (600, 600)
             }
     font <- loadFont fontPath descr
-    let imgs = toList $ generateAllCharImgs font
+    let imgs = toList $ generateAllCharImgs font Monochrome
 
     let bgrnd          = 0 :: Pixel8
         atlasSize      = 2^11
         atlas'         = emptyAtlas atlasSize atlasSize bgrnd 1
-        texs           = sortBy (\(_,img1) (_,img2) -> imageByAreaCompare img1 img2) imgs
+        texs           = sortBy (\(_,img1) (_,img2) -> descending imageByAreaCompare img1 img2) imgs
         (errs, atlas)  = insertImages texs atlas'
 
     print $ show (errs)
-    print $ show (regionMap atlas)
-    writePng "atlas.png" $ atlasToImage atlas
+    -- print $ show (regionMap atlas)
+    writePng atlasFile $ atlasToImage atlas
 
-    --forM_ (toList imgs) $ \(c, img) -> do
-    --    writePng (charFolder </> "char" ++ (show $ ord c) ++ ".png") img
 
