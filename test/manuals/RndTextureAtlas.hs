@@ -12,26 +12,12 @@ import System.Random
 
 
 
-{--
-main :: IO ()
-main =
-    let target = generateImage (\x y -> PixelRGB8 (fromIntegral x) (fromIntegral y) 128) 512 512
-        sub    = generateImage (\x y -> PixelRGB8 (fromIntegral y) (fromIntegral x) 128) 128 128
-        region = Rectangle 50 50 (50+128) (50+128)
-        subbed = subImage sub region target
-    in do
-        writePng "target.png" target
-        writePng "sub.png" sub
-        writePng "subbed.png" subbed
---}
-
-
 main :: IO ()
 main = do
     randImgs <- generateRandomImages 60
     let bgrnd          = PixelRGB8 0 0 0
         atlas'         = emptyAtlas 1024 1024 bgrnd 1
-        texs           = sortBy imageByAreaCompare randImgs `piz` ([0..] :: [Int])
+        texs           = sortBy (descending imageByAreaCompare) randImgs `piz` ([0..] :: [Int])
         (errs, atlas)  = insertImages texs atlas'
 
     print $ show (errs)
@@ -52,9 +38,3 @@ generateRandomImages count = do
 
 randomlist :: Random a => a -> a -> IO [a]
 randomlist a b = fmap (randomRs (a,b)) newStdGen
-
-imageByAreaCompare :: Image a -> Image a -> Ordering
-imageByAreaCompare a b =
-    let rA = imgRectangle a
-        rB = imgRectangle b
-    in compare rB rA -- flipped to sort descending
