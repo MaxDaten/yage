@@ -26,7 +26,7 @@ main = do
 
     let bgrnd          = 0 :: Pixel8
         atlasSize      = 2^11
-        atlas'         = emptyAtlas atlasSize atlasSize bgrnd 1
+        atlas'         = emptyAtlas atlasSize atlasSize bgrnd 5
         texs           = sortBy (\(_,img1) (_,img2) -> descending imageByAreaCompare img1 img2) imgs
         (errs, atlas)  = insertImages texs atlas'
 

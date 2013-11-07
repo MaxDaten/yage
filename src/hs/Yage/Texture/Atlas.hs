@@ -49,6 +49,8 @@ data TextureAtlas i a = TextureAtlas
     }
 makeLenses ''TextureAtlas
 
+type RegionMap i = Map i Rectangle
+
 ---------------------------------------------------------------------------------------------------
 
 emptyNode :: Rectangle -> AtlasTree i a
@@ -142,7 +144,7 @@ insertImages ((ident, img):imgs) atlas =
         joinResults e (errs, atlas) = (e:errs, atlas)
 
 
-regionMap :: (Ord i) => TextureAtlas i a -> Map i Rectangle
+regionMap :: (Ord i) => TextureAtlas i a -> RegionMap i
 regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
     where
         collectFilled :: (Ord i) => AtlasRegion i a -> Map i Rectangle -> Map i Rectangle
@@ -184,7 +186,9 @@ getAtlasPixel atlas x y =
     let mReg = getRegionAt atlas x y
     in get mReg
     where 
-        get (Just region) = pixelAt (region^.regionData) (x - region^.regionRect.x0) (y - region^.regionRect.y0)
+        get (Just region) = pixelAt (region^.regionData) 
+                                    (x - region^.regionRect.x0) 
+                                    (y - region^.regionRect.y0)
         get _             = atlas^.background
 
 
@@ -199,10 +203,23 @@ splitRect toSplit toFit =
         direction = if dw > dh then SplitVertical else SplitHorizontal
     in split direction
     where     
-        split SplitVertical     = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x0 + toFit^.to width - 1) (toSplit^.y1)
-                                  , Rectangle (toSplit^.x0 + toFit^.to width) (toSplit^.y0) (toSplit^.x1) (toSplit^.y1))
-        split SplitHorizontal   = ( Rectangle (toSplit^.x0) (toSplit^.y0) (toSplit^.x1) (toSplit^.y0 + toFit^.to height - 1) 
-                                  , Rectangle (toSplit^.x0) (toSplit^.y0 + toFit^.to height) (toSplit^.x1) (toSplit^.y1))  
+        split SplitVertical     = ( Rectangle (toSplit^.x0) 
+                                              (toSplit^.y0)
+                                              (toSplit^.x0 + toFit^.to width - 1)
+                                              (toSplit^.y1)
+                                  , Rectangle (toSplit^.x0 + toFit^.to width) 
+                                              (toSplit^.y0)
+                                              (toSplit^.x1)
+                                              (toSplit^.y1))
+
+        split SplitHorizontal   = ( Rectangle (toSplit^.x0)
+                                              (toSplit^.y0)
+                                              (toSplit^.x1)
+                                              (toSplit^.y0 + toFit^.to height - 1) 
+                                  , Rectangle (toSplit^.x0) 
+                                              (toSplit^.y0 + toFit^.to height)
+                                              (toSplit^.x1)
+                                              (toSplit^.y1))  
 
 
 instance Foldable.Foldable (Tree region) where

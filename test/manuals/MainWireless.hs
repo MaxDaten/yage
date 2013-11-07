@@ -136,7 +136,9 @@ testScene = fill emptyRenderScene
                                 { def'ident    = "cube-base"
                                 , def'data     = cubeMesh
                                 , def'program  = (shader, shdef)
-                                , def'textures = [TextureDefinition (0, "textures") ("res" </> "Brown_Leather_Texture.png")]
+                                , def'textures = [TextureDefinition (0, "textures") 
+                                                  (TextureFile ("res" </> "Brown_Leather_Texture.png"))
+                                                 ]
                                 }
                 box       = Box (mkRenderEntity rdef)
                                 { eScale    = V3 2 2 2
