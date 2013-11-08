@@ -19,12 +19,17 @@ import Data.Typeable
 import Data.List
 import Data.Set hiding (map)
 
+import Control.Lens
+
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Events
+import Yage.Font
+import Yage.Texture.Atlas
 import Yage.Rendering
+import Yage.Rendering.Texture
 import Yage.Rendering.VertexSpec
 import Yage.Rendering.Logging
 import Yage.Rendering.Types
@@ -44,6 +49,14 @@ hints = [ WindowHint'ContextVersionMajor  3
         --, WindowHint'Decorated            False
         ]
 
+
+fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
+            "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
+            "`abcdefghijklmnopqrstuvwxyz{|}~"
+
+fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
+
+fontAtlas = emptyAtlas 1024 1024 (0 :: Pixel8) 5
 
 class (Typeable i, Typeable a) => IsUpdateable i a where
     update :: i -> a -> a
@@ -78,19 +91,27 @@ main =
         conf  = defaultAppConfig{ logPriority = WARNING }
         size  = (800,600)
     in do
-    state <- initialization
+        state <- initialization
 
-    (_, st, sc) <- execApplication "MainWireless" conf 
-        $ basicWindowLoop size hints (renderEnv state, renderState state, scene) loop
+        font <- loadFont'
+        let textE  = (textEntity font "Hallo Welt!"){ ePosition = V3 (-3) (-3) (-10), eScale = V3 (1/100) (1/100) (1/100) }
+            scene' = addEntity textE scene
 
-    finalization state
-    where 
-    loop win (env, st, scene) inputState = do
-        let scene' = scene `updateScene` inputState
-        (_, st', l) <- io $ runRenderer (renderScene scene') st env
-        
-        return (env, st', scene')
-            --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
+        (_, st, sc) <- execApplication "MainWireless" conf 
+            $ basicWindowLoop size hints (renderEnv state, renderState state, scene') loop
+
+        finalization state
+        where 
+            loop win (env, st, scene) inputState = do
+                let scene' = scene `updateScene` inputState
+                (_, st', l) <- io $ runRenderer (renderScene scene') st env
+                
+                return (env, st', scene')
+                --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
+            loadFont' = 
+                let descr = FontDescriptor (16*64) (800,600)
+                in loadFont fontPath descr
+            
 
 
 updateScene :: RenderScene -> InputState -> RenderScene
@@ -106,43 +127,88 @@ updateScene scene input =
 testScene :: RenderScene
 testScene = fill emptyRenderScene
     where
-        fill scene = 
-            let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"
-                shdef     = ShaderDefinition
-                                { attrib'def = 
-                                    [ "in_vert_position"  ^:= _position
-                                    , "in_vert_normal"    ^:= _normal
-                                    , "in_vert_color"     ^:= _color
-                                    , "in_vert_texture"   ^:= _texture
-                                    ]
-                                , uniform'def = do
-                                    ShaderEnv{..} <- shaderEnv
-                                    -- io . print . show $ renderableType shaderEnv'CurrentRenderable
-                                    -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
-                                    let RenderScene{..} = shaderEnv'CurrentScene
-                                        Just (Box RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
-                                        scaleM        = kronecker . point $ eScale
-                                        projectionM   = projectionMatrix
-                                        viewM         = viewMatrix
-                                        transM        = mkTransformation eOrientation ePosition
-                                        modelM        = transM !*! scaleM 
-                                        Just normalM  = adjoint <$> (inv33 . fromTransformation $ modelM)
-                                    "projection_matrix" != projectionM
-                                    "view_matrix"       != viewM
-                                    "model_matrix"      != modelM
-                                    "normal_matrix"     != normalM
-                                }
-                rdef      = RenderDefinition
-                                { def'ident    = "cube-base"
-                                , def'data     = cubeMesh
-                                , def'program  = (shader, shdef)
-                                , def'textures = [TextureDefinition (0, "textures") 
-                                                  (TextureFile ("res" </> "Brown_Leather_Texture.png"))
-                                                 ]
-                                }
-                box       = Box (mkRenderEntity rdef)
-                                { eScale    = V3 2 2 2
-                                , ePosition = V3 0 0 (-10)
-                                }
-            in scene{entities = [SomeRenderable box]}
+    fill scene = 
+        let box1     = Box $ boxEntity 
+                            { eScale    = V3 1 1 1
+                            , ePosition = V3 (-3) 0 (-10)
+                            }
+            box2     = Box $ boxEntity 
+                            { eScale    = V3 1 1 1
+                            , ePosition = V3 (3) 0 (-10)
+                            }
+        in scene{entities = [SomeRenderable box1, SomeRenderable box2]}
+
+
+boxEntity = 
+    let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
+        shdef     = ShaderDefinition globalAttribDef perspectiveUniformDef
+
+        rdef      = RenderDefinition
+            { def'ident    = "cube-base"
+            , def'data     = cubeMesh
+            , def'program  = (shader, shdef)
+            , def'textures = [ TextureDefinition (0, "textures") 
+                              (TextureFile ("res" </> "Brown_Leather_Texture.png"))
+                             ]
+            }
+    in mkRenderEntity rdef
+
+
+textEntity font text =
+    let Right fontTexture = generateFontTexture font Monochrome fontchars fontAtlas
+        fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
+        fontShaderDef     = ShaderDefinition globalAttribDef screenSpaceDef
+        program           = (fontShader, fontShaderDef)
+    in mkRenderEntity $ ((simpleTextBuffer fontTexture program text)^.fbufRenderDef)--{def'data = cubeMesh}
+
+
+---------------------------------------------------------------------------------------------------
+
+globalAttribDef = 
+    [ "in_vert_position"  ^:= _position
+    , "in_vert_normal"    ^:= _normal
+    , "in_vert_color"     ^:= _color
+    , "in_vert_texture"   ^:= _texture
+    ]
+{--
+textAttribDef = 
+    [ "in_vert_position"  ^:= _position
+    , "in_vert_texture"   ^:= _texture
+    ]
+--}
+
+perspectiveUniformDef = do
+    ShaderEnv{..} <- shaderEnv
+    -- io . print . show $ renderableType shaderEnv'CurrentRenderable
+    -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
+    let RenderScene{..} = shaderEnv'CurrentScene
+        Just (Box RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
+        scaleM        = kronecker . point $ eScale
+        projectionM   = projectionMatrix
+        viewM         = viewMatrix
+        transM        = mkTransformation eOrientation ePosition
+        modelM        = transM !*! scaleM 
+        Just normalM  = adjoint <$> (inv33 . fromTransformation $ modelM)
+    "projection_matrix" != projectionM
+    "view_matrix"       != viewM
+    "model_matrix"      != modelM
+    "normal_matrix"     != normalM
+
+screenSpaceDef = do
+    ShaderEnv{..} <- shaderEnv
+    let RenderScene{..} = shaderEnv'CurrentScene
+        Just (RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
+        scaleM        = kronecker . point $ eScale
+        projectionM   = projectionMatrix
+        viewM         = viewMatrix
+        transM        = mkTransformation eOrientation ePosition
+        modelM        = transM !*! scaleM 
+        normalM  = fromTransformation modelM -- adjoint <$> (inv33 . fromTransformation $ modelM)
+    --io $ print ePosition
+    --io $ print eScale
+    "projection_matrix" != projectionM
+    "view_matrix"       != viewM
+    "model_matrix"      != modelM
+    "normal_matrix"     != normalM
+    -- "normal_matrix"      != normalM
 
