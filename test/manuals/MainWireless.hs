@@ -27,6 +27,7 @@ import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Events
 import Yage.Font
+import Yage.Font.Buffer
 import Yage.Texture.Atlas
 import Yage.Rendering
 import Yage.Rendering.Texture
@@ -109,7 +110,7 @@ main =
                 return (env, st', scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
-                let descr = FontDescriptor (14*64) (800,600)
+                let descr = FontDescriptor (12*64) (1024,1024)
                 in loadFont fontPath descr
             
 
