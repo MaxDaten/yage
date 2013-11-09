@@ -3,7 +3,7 @@
 out vec4 fragColor;
 // in vec4 interpolated_color;
 in vec2 tex_coord;
-uniform vec3 glyph_color = vec3(1);
+uniform vec3 glyph_color = vec3(1, 0, 0);
 
 uniform sampler2D textures;
 
@@ -11,5 +11,5 @@ uniform sampler2D textures;
 void main()
 {
     vec4 color = texture(textures, tex_coord);
-    fragColor = color.rrrr;
+    fragColor = vec4(glyph_color, color.r);
 }

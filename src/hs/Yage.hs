@@ -36,8 +36,9 @@ yageMain title wire session = do
 initialization :: IO YageState
 initialization = do
     let rConf = RenderConfig
-            { confClearColor = Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
-            , confDebugNormals = False 
+            { confClearColor    = Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
+            , confDebugNormals  = False 
+            , confWireframe     = False
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
         rEnv         = RenderEnv rConf renderTarget

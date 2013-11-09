@@ -104,8 +104,8 @@ main =
         finalization state
         where 
             loop win (env, st, scene) inputState = do
-                let scene' = scene `updateScene` inputState
-                (_, st', l) <- io $ runRenderer (renderScene scene') st env
+                let (scene', env') = (scene, env) `updateScene` inputState
+                (_, st', l) <- io $ runRenderer (renderScene scene') st env'
                 
                 return (env, st', scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
@@ -115,13 +115,15 @@ main =
             
 
 
-updateScene :: RenderScene -> InputState -> RenderScene
-updateScene scene input =
+updateScene :: (RenderScene, RenderEnv) -> InputState -> (RenderScene, RenderEnv)
+updateScene (scene, env) input =
     let ents    = entities scene
         updateF = tryWithSomeRenderable (update input :: Box -> Box)
-    in scene { entities = map updateF ents
-             , sceneTime = 0.001 + sceneTime scene
-             }
+        scene'  = scene { entities = map updateF ents
+                        , sceneTime = 0.001 + sceneTime scene
+                        }
+        env'  = env{ envConfig = (envConfig env){confWireframe = input `isPressed` Key'W }}
+    in (scene', env')        
 
 
 
