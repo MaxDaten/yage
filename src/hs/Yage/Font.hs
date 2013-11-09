@@ -74,7 +74,7 @@ simpleTextBuffer fTex prog text = TextBuffer fTex makeTextDef
             let i = showDigest . sha1 $ T.encodeUtf8 text
             in RenderDefinition
             { def'ident     = i
-            , def'data      = traceShow' $ (textToMesh fTex text){ ident = i }
+            , def'data      = (textToMesh fTex text){ ident = i }
             , def'program   = prog
             , def'textures  = [TextureDefinition (0, "textures") (TextureImage (fTex^.fontName) (fTex^.textureData))]
             }
