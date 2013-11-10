@@ -53,7 +53,7 @@ hints = [ WindowHint'ContextVersionMajor  3
 
 fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
             "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
-            "`abcdefghijklmnopqrstuvwxyz{|}~Ω"
+            "`abcdefghijklmnopqrstuvwxyz{|}~"
 
 fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Light.otf"
 
@@ -95,7 +95,7 @@ main =
         state <- initialization
 
         font <- loadFont'
-        let textE  = (textEntity font "Hallo Welt! :) Ω"){ ePosition = V3 (-5) (-5) (-10), eScale = V3 (1/200) (1/200) (1/200) }
+        let textE  = (textEntity font "Hallo Welt! :) Ω \n#now with line breaks"){ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
             scene' = addEntity textE scene
 
         (_, st, sc) <- execApplication "MainWireless" conf 
@@ -162,7 +162,8 @@ textEntity font text =
         fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
         fontShaderDef     = ShaderDefinition globalAttribDef screenSpaceDef
         program           = (fontShader, fontShaderDef)
-    in mkRenderEntity $ (fixedTextBuffer fontTexture program text)^.fbufRenderDef
+        emptyTB             = emptyTextBuffer fontTexture program
+    in mkRenderEntity $ (emptyTB  `writeText` text)^.tbufRenderDef
 
 
 ---------------------------------------------------------------------------------------------------

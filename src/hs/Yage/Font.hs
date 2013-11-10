@@ -35,6 +35,7 @@ data FontTexture = FontTexture
     { _fontName          :: String
     , _charRegionMap     :: Map Char FontData
     , _textureData       :: DynamicImage
+    , _fontDescriptor    :: FontDescriptor
     }
 
 makeLenses ''FontTexture
@@ -44,9 +45,10 @@ makeFontTexture font filedAtlas =
     let glyphM = charMap font
         regionM  = regionMap filedAtlas
     in FontTexture
-        { _fontName      = fontname font
-        , _charRegionMap = unionRegionsWithGlyphs regionM glyphM
-        , _textureData   = ImageY8 $ atlasToImage filedAtlas
+        { _fontName       = fontname font
+        , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
+        , _textureData    = ImageY8 $ atlasToImage filedAtlas
+        , _fontDescriptor = fontDescr font 
         }
     where
         unionRegionsWithGlyphs = intersectionWith (flip (,))

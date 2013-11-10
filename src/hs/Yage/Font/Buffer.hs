@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yage.Font.Buffer where
 
 import Yage.Prelude hiding (Text)
@@ -31,51 +32,68 @@ import Codec.Picture.Types
 import Yage.Font
 
 
-
+type Caret = V2 Double
 data TextBuffer = TextBuffer
-    { _fbufTexture     :: FontTexture
-    , _fbufRenderDef   :: RenderDefinition
+    { _tbufTexture     :: FontTexture
+    , _tbufRenderDef   :: RenderDefinition
+    , _tbufCaret       :: Caret
+    , _tbufText        :: Text
     }
 
 makeLenses ''TextBuffer
 
+            --let i = showDigest . sha1 $ T.encodeUtf8 text
 
-fixedTextBuffer :: FontTexture -> Program -> Text -> TextBuffer
-fixedTextBuffer fTex prog text = TextBuffer fTex makeTextDef
+emptyTextBuffer :: FontTexture -> Program -> TextBuffer
+emptyTextBuffer fTex prog = TextBuffer fTex makeDef (V2 0 0) ""
     where
-        makeTextDef = 
-            let i = showDigest . sha1 $ T.encodeUtf8 text
-            in RenderDefinition
-            { def'ident     = i
-            , def'data      = (textToMesh fTex text){ ident = i }
+        makeDef = RenderDefinition
+            { def'ident     = "textbuffer-"
+            , def'data      = emptyMesh "textbuffer-" -- (textToMesh fTex text){ ident = i }
             , def'program   = prog
             , def'textures  = [TextureDefinition (0, "textures") (TextureImage (fTex^.fontName) (fTex^.textureData))]
             }
 
+pushChar :: TextBuffer -> Char -> TextBuffer
+pushChar tbuf c = 
+    let mesh            = def'data $ tbuf^.tbufRenderDef
+        (caret', mesh') = aux mesh (getFontDataFor c)
+    in tbufRenderDef %~  (\rd -> rd{def'data = mesh'}) $
+       tbufCaret     .~  caret' $
+       tbufText      <>~ T.singleton c
+       $ tbuf
+    where
+        getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c 
+        aux mesh (Just fdata@(glyph, region)) =
+            let fTex          = tbuf^.tbufTexture
+                caret         = tbuf^.tbufCaret
+                metric        = glyphMetrics glyph
+                advance       = fromI (glyHoriAdvance metric) / 64.0
+                (texW, texH)  = (dynamicMap imageWidth (fTex^.textureData), dynamicMap imageHeight (fTex^.textureData)) 
+                (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
+                mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)
+            in (caret & _x +~ advance, mesh')
+        aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
+
+
+writeText :: TextBuffer -> Text -> TextBuffer
+writeText tbuf = T.foldl pushChar tbuf
+{--
 
 textToMesh :: FontTexture -> Text -> Mesh Vertex4342
 textToMesh fTex = snd . T.foldl (flip pushCharToMesh) (0, emptyMesh "")
-    where
-        pushCharToMesh :: Char -> (Double, Mesh Vertex4342) -> (Double, Mesh Vertex4342)
-        pushCharToMesh c (caret, mesh) = aux  $ fTex^.charRegionMap.at c  
-            where
-                aux (Just fdata@(glyph, region)) =
-                    let metric        = glyphMetrics glyph
-                        advance       = fromI (glyHoriAdvance metric) / 64.0
-                        (texW, texH)  = (dynamicMap imageWidth (fTex^.textureData), dynamicMap imageHeight (fTex^.textureData)) 
-                        (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-                        mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)
-                    in (caret + advance, mesh')
-                aux Nothing = pushCharToMesh '_' (caret, mesh) -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
+
+--}
 
 
-makeGlypMesh :: Double -> FontData -> Int -> Int -> Mesh Vertex4342
+
+makeGlypMesh :: Caret -> FontData -> Int -> Int -> Mesh Vertex4342
 makeGlypMesh caret (gly, r) tw th =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI (glyHoriBearingX) / 64.0
             bearingY = fromI (glyHoriBearingY) / 64.0
             
-            leftX    = caret + bearingX
+            leftX    = caret^._x + bearingX
             topY     = h - (h - bearingY)
             
             w        = fromI $ r^.to width
