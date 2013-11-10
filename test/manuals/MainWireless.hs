@@ -162,7 +162,7 @@ textEntity font text =
         fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
         fontShaderDef     = ShaderDefinition globalAttribDef screenSpaceDef
         program           = (fontShader, fontShaderDef)
-    in mkRenderEntity $ ((simpleTextBuffer fontTexture program text)^.fbufRenderDef)--{def'data = cubeMesh}
+    in mkRenderEntity $ (fixedTextBuffer fontTexture program text)^.fbufRenderDef
 
 
 ---------------------------------------------------------------------------------------------------

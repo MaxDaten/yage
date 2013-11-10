@@ -40,8 +40,8 @@ data TextBuffer = TextBuffer
 makeLenses ''TextBuffer
 
 
-simpleTextBuffer :: FontTexture -> Program -> Text -> TextBuffer
-simpleTextBuffer fTex prog text = TextBuffer fTex makeTextDef
+fixedTextBuffer :: FontTexture -> Program -> Text -> TextBuffer
+fixedTextBuffer fTex prog text = TextBuffer fTex makeTextDef
     where
         makeTextDef = 
             let i = showDigest . sha1 $ T.encodeUtf8 text
