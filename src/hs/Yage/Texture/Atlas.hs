@@ -29,8 +29,9 @@ data AtlasError i =
 
 data SplitDirection = SplitHorizontal | SplitVertical
 
+type TextureRegion = Rectangle
 data AtlasRegion i a = AtlasRegion
-    { _regionRect    :: !Rectangle
+    { _regionRect    :: !TextureRegion
     , _regionPadding :: !Int
     , _regionId      :: !i
     , _regionData    :: !(Image a)
@@ -39,7 +40,7 @@ data AtlasRegion i a = AtlasRegion
 makeLenses ''AtlasRegion
 
 
-type AtlasTree i a = Tree Rectangle (AtlasRegion i a)
+type AtlasTree i a = Tree TextureRegion (AtlasRegion i a)
 data TextureAtlas i a = TextureAtlas
     { _atlasSize    :: (Int, Int)
     , _atlasRegions :: AtlasTree i a
@@ -49,11 +50,11 @@ data TextureAtlas i a = TextureAtlas
     }
 makeLenses ''TextureAtlas
 
-type RegionMap i = Map i Rectangle
+type RegionMap i = Map i TextureRegion
 
 ---------------------------------------------------------------------------------------------------
 
-emptyNode :: Rectangle -> AtlasTree i a
+emptyNode :: TextureRegion -> AtlasTree i a
 emptyNode rect = Node rect Nil Nil
 
 
@@ -147,7 +148,7 @@ insertImages ((ident, img):imgs) atlas =
 regionMap :: (Ord i) => TextureAtlas i a -> RegionMap i
 regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
     where
-        collectFilled :: (Ord i) => AtlasRegion i a -> Map i Rectangle -> Map i Rectangle
+        collectFilled :: (Ord i) => AtlasRegion i a -> Map i TextureRegion -> Map i TextureRegion
         collectFilled region = 
                 let ident = region^.regionId
                     rect  = region^.regionRect
@@ -196,7 +197,7 @@ atlasToImage :: (Pixel a) => TextureAtlas i a -> Image a
 atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSize._1) (atlas^.atlasSize._2) 
 
 
-splitRect :: Rectangle -> Rectangle -> (Rectangle, Rectangle)
+splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)
 splitRect toSplit toFit = 
     let dw        = toSplit^.to width - toFit^.to width
         dh        = toSplit^.to height - toFit^.to height

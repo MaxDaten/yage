@@ -29,28 +29,33 @@ import Codec.Picture.Types
 
 ---------------------------------------------------------------------------------------------------
 
+type FontData = (FontGlyph, TextureRegion)
 
-data FontTexture a = FontTexture
+data FontTexture = FontTexture
     { _fontName          :: String
-    , _charRegionMap     :: RegionMap Char
+    , _charRegionMap     :: Map Char FontData
     , _textureData       :: DynamicImage
     }
 
 makeLenses ''FontTexture
 
-makeFontTexture :: String -> TextureAtlas Char Pixel8 -> FontTexture a
-makeFontTexture fontname filedAtlas = FontTexture
-    { _fontName      = fontname
-    , _charRegionMap = regionMap filedAtlas
-    , _textureData   = ImageY8 $ atlasToImage filedAtlas
-    }
+makeFontTexture :: Font -> TextureAtlas Char Pixel8 -> FontTexture
+makeFontTexture font filedAtlas =
+    let glyphM = charMap font
+        regionM  = regionMap filedAtlas
+    in FontTexture
+        { _fontName      = fontname font
+        , _charRegionMap = unionRegionsWithGlyphs regionM glyphM
+        , _textureData   = ImageY8 $ atlasToImage filedAtlas
+        }
+    where
+        unionRegionsWithGlyphs = intersectionWith (flip (,))
 
-generateFontTexture :: Font -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] (FontTexture Pixel8)
+generateFontTexture :: Font -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
 generateFontTexture font mode chars emptyAtlas =
     let imgs          = sortBy descArea $ (map (generateCharImg font mode) chars) `piz` chars
         (err, atlas)  = insertImages imgs emptyAtlas
-        name          = fontname font
-    in if null err then Right $ makeFontTexture name atlas else Left err 
+    in if null err then Right $ makeFontTexture font atlas else error $ show err 
     where
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 

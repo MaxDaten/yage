@@ -53,9 +53,9 @@ hints = [ WindowHint'ContextVersionMajor  3
 
 fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
             "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
-            "`abcdefghijklmnopqrstuvwxyz{|}~"
+            "`abcdefghijklmnopqrstuvwxyz{|}~Ω"
 
-fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
+fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Light.otf"
 
 fontAtlas = emptyAtlas 1024 1024 (0 :: Pixel8) 5
 
@@ -95,7 +95,7 @@ main =
         state <- initialization
 
         font <- loadFont'
-        let textE  = (textEntity font "Hallo Welt! gypq&%~^"){ ePosition = V3 (-5) (-5) (-10), eScale = V3 (1/200) (1/200) (1/200) }
+        let textE  = (textEntity font "Hallo Welt! :) Ω"){ ePosition = V3 (-5) (-5) (-10), eScale = V3 (1/200) (1/200) (1/200) }
             scene' = addEntity textE scene
 
         (_, st, sc) <- execApplication "MainWireless" conf 
@@ -110,7 +110,7 @@ main =
                 return (env, st', scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
-                let descr = FontDescriptor (12*64) (1024,1024)
+                let descr = FontDescriptor (9*64) (1024,1024)
                 in loadFont fontPath descr
             
 
@@ -132,11 +132,11 @@ testScene = fill emptyRenderScene
     where
     fill scene = 
         let box1     = Box $ boxEntity 
-                            { eScale    = V3 1 1 1
+                            { eScale    = (*1.5) <$> V3 1 1 1
                             , ePosition = V3 (-3) 0 (-10)
                             }
             box2     = Box $ boxEntity 
-                            { eScale    = V3 1 1 1
+                            { eScale    = (*1.5) <$> V3 1 1 1
                             , ePosition = V3 (3) 0 (-10)
                             }
         in scene{entities = [SomeRenderable box1, SomeRenderable box2]}
