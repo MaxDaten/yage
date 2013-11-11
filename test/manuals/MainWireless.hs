@@ -95,7 +95,7 @@ main =
         state <- initialization
 
         font <- loadFont'
-        let textE  = (textEntity font "Hallo Welt! :) Ω \n#now with line breaks"){ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
+        let textE  = (textEntity font "Hallo Welt! :) \nline breaks"){ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
             scene' = addEntity textE scene
 
         (_, st, sc) <- execApplication "MainWireless" conf 
@@ -110,7 +110,7 @@ main =
                 return (env, st', scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
-                let descr = FontDescriptor (9*64) (1024,1024)
+                let descr = FontDescriptor (12*64) (1024,1024)
                 in loadFont fontPath descr
             
 

@@ -42,19 +42,32 @@ data TextBuffer = TextBuffer
 
 makeLenses ''TextBuffer
 
+pixelFormat = 64.0
             --let i = showDigest . sha1 $ T.encodeUtf8 text
 
 emptyTextBuffer :: FontTexture -> Program -> TextBuffer
 emptyTextBuffer fTex prog = TextBuffer fTex makeDef (V2 0 0) ""
     where
-        makeDef = RenderDefinition
-            { def'ident     = "textbuffer-"
-            , def'data      = emptyMesh "textbuffer-" -- (textToMesh fTex text){ ident = i }
-            , def'program   = prog
-            , def'textures  = [TextureDefinition (0, "textures") (TextureImage (fTex^.fontName) (fTex^.textureData))]
-            }
+        makeDef = 
+            let fname = fontname $ fTex^.font
+            in RenderDefinition
+                { def'ident     = "textbuffer-"-- TODO 
+                , def'data      = emptyMesh "textbuffer-" -- (textToMesh fTex text){ ident = i }
+                , def'program   = prog
+                , def'textures  = [TextureDefinition (0, "textures") (TextureImage fname (fTex^.textureData))]
+                }
+
 
 pushChar :: TextBuffer -> Char -> TextBuffer
+pushChar tbuf '\n' =
+    let face    = fontFace theFont
+        theFont = tbuf^.tbufTexture.font
+        fsize   = fromI ((charSize $ fontDescr theFont)^._2) / pixelFormat
+        lineH   = fsize * fromI (lineHeight face)
+    in tbufCaret._y -~ lineH / pixelFormat $
+       tbufCaret._x .~ 0
+       $ tbuf
+
 pushChar tbuf c = 
     let mesh            = def'data $ tbuf^.tbufRenderDef
         (caret', mesh') = aux mesh (getFontDataFor c)
@@ -68,7 +81,7 @@ pushChar tbuf c =
             let fTex          = tbuf^.tbufTexture
                 caret         = tbuf^.tbufCaret
                 metric        = glyphMetrics glyph
-                advance       = fromI (glyHoriAdvance metric) / 64.0
+                advance       = fromI (glyHoriAdvance metric) / pixelFormat
                 (texW, texH)  = (dynamicMap imageWidth (fTex^.textureData), dynamicMap imageHeight (fTex^.textureData)) 
                 (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
                 mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)
@@ -78,23 +91,16 @@ pushChar tbuf c =
 
 writeText :: TextBuffer -> Text -> TextBuffer
 writeText tbuf = T.foldl pushChar tbuf
-{--
-
-textToMesh :: FontTexture -> Text -> Mesh Vertex4342
-textToMesh fTex = snd . T.foldl (flip pushCharToMesh) (0, emptyMesh "")
-
---}
-
 
 
 makeGlypMesh :: Caret -> FontData -> Int -> Int -> Mesh Vertex4342
 makeGlypMesh caret (gly, r) tw th =
-        let GlyphMetrics{..}   = glyphMetrics gly
-            bearingX = fromI (glyHoriBearingX) / 64.0
-            bearingY = fromI (glyHoriBearingY) / 64.0
+        let GlyphMetrics{..}   = traceShow' $ glyphMetrics gly
+            bearingX = fromI (glyHoriBearingX) / pixelFormat
+            bearingY = fromI (glyHoriBearingY) / pixelFormat
             
             leftX    = caret^._x + bearingX
-            topY     = h - (h - bearingY)
+            topY     = caret^._y + bearingY
             
             w        = fromI $ r^.to width
             h        = fromI $ r^.to height

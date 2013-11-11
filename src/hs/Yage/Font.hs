@@ -32,7 +32,7 @@ import Codec.Picture.Types
 type FontData = (FontGlyph, TextureRegion)
 
 data FontTexture = FontTexture
-    { _fontName          :: String
+    { _font              :: Font
     , _charRegionMap     :: Map Char FontData
     , _textureData       :: DynamicImage
     , _fontDescriptor    :: FontDescriptor
@@ -45,7 +45,7 @@ makeFontTexture font filedAtlas =
     let glyphM = charMap font
         regionM  = regionMap filedAtlas
     in FontTexture
-        { _fontName       = fontname font
+        { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
         , _textureData    = ImageY8 $ atlasToImage filedAtlas
         , _fontDescriptor = fontDescr font 
