@@ -29,7 +29,7 @@ import Linear
 
 import Codec.Picture.Types
 
-import Yage.Font
+import Yage.Font.FontTexture
 
 
 type Caret = V2 Double

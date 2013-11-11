@@ -36,9 +36,10 @@ library
                         Yage.Events
                         Yage.Wire
                         Yage.Font
-                        Yage.Font.TextBuffer
                         Yage.Texture.Atlas
   other-modules:        Paths_yage
+                        Yage.Font.TextBuffer
+                        Yage.Font.FontTexture
 
   if flag(perf)
     ghc-options:          -threaded -O2

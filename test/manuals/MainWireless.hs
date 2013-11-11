@@ -27,7 +27,6 @@ import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Events
 import Yage.Font
-import Yage.Font.TextBuffer
 import Yage.Texture.Atlas
 import Yage.Rendering
 import Yage.Rendering.Texture
@@ -158,7 +157,7 @@ boxEntity =
 
 
 textEntity font text =
-    let markup            = FontMarkup 0.8 0.8
+    let markup            = FontMarkup 0.9 0.8
         Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
         fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
         fontShaderDef     = ShaderDefinition globalAttribDef screenSpaceDef
