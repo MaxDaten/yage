@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Yage.Font.Buffer where
+module Yage.Font.TextBuffer where
 
 import Yage.Prelude hiding (Text)
 import Yage.Images
@@ -63,7 +63,8 @@ pushChar tbuf '\n' =
     let face    = fontFace theFont
         theFont = tbuf^.tbufTexture.font
         fsize   = fromI ((charSize $ fontDescr theFont)^._2) / pixelFormat
-        lineH   = fsize * fromI (lineHeight face)
+        hSpace  = tbuf^.tbufTexture.fontMarkup.verticalSpacing
+        lineH   = hSpace * fsize * fromI (lineHeight face)
     in tbufCaret._y -~ lineH / pixelFormat $
        tbufCaret._x .~ 0
        $ tbuf
@@ -81,7 +82,8 @@ pushChar tbuf c =
             let fTex          = tbuf^.tbufTexture
                 caret         = tbuf^.tbufCaret
                 metric        = glyphMetrics glyph
-                advance       = fromI (glyHoriAdvance metric) / pixelFormat
+                vSpace        = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
+                advance       = vSpace * fromI (glyHoriAdvance metric) / pixelFormat
                 (texW, texH)  = (dynamicMap imageWidth (fTex^.textureData), dynamicMap imageHeight (fTex^.textureData)) 
                 (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
                 mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)

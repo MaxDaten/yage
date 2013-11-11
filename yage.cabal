@@ -36,7 +36,7 @@ library
                         Yage.Events
                         Yage.Wire
                         Yage.Font
-                        Yage.Font.Buffer
+                        Yage.Font.TextBuffer
                         Yage.Texture.Atlas
   other-modules:        Paths_yage
 
