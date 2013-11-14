@@ -65,7 +65,7 @@ class (Typeable i, Typeable a) => IsUpdateable i a where
 
 
 newtype Box = Box RenderEntity
-    deriving (Typeable, Show)
+    deriving (Typeable)
 
 instance Renderable Box where
     renderDefinition (Box b) = renderDefinition b
@@ -84,7 +84,7 @@ tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderabl
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
 
-
+string = "Hallo Welt! :) \nline breaks"
 main :: IO ()
 main = 
     let scene = testScene
@@ -94,19 +94,19 @@ main =
         state <- initialization
 
         font <- loadFont'
-        let textE  = (textEntity font "Hallo Welt! :) \nline breaks"){ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
+        let textE  = (textEntity font string)--{ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
             scene' = addEntity textE scene
 
-        (_, st, sc) <- execApplication "MainWireless" conf 
-            $ basicWindowLoop size hints (renderEnv state, renderState state, scene') loop
+        (env, sc) <- execApplication "MainWireless" conf 
+            $ basicWindowLoop size hints (renderEnv state, scene') loop
 
         finalization state
         where 
-            loop win (env, st, scene) inputState = do
+            loop win (env, scene) inputState = do
                 let (scene', env') = (scene, env) `updateScene` inputState
-                (_, st', l) <- io $ runRenderer (renderScene scene') st env'
+                (_, _, l) <- io $ runRenderer (undefined {--renderScene scene'--}) env'
                 
-                return (env, st', scene')
+                return (env, scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
                 let descr = FontDescriptor (12*64) (1024,1024)
@@ -143,11 +143,9 @@ testScene = fill emptyRenderScene
 
 boxEntity = 
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
-        shdef     = ShaderDefinition globalAttribDef perspectiveUniformDef
-
+        shdef     = ShaderDefinition perspectiveUniformDef
         rdef      = RenderDefinition
-            { def'ident    = "cube-base"
-            , def'data     = cubeMesh
+            { def'data     = makeMesh 4711 "cube" cubeMesh
             , def'program  = (shader, shdef)
             , def'textures = [ TextureDefinition (0, "textures") 
                               (TextureFile ("res" </> "Brown_Leather_Texture.png"))
@@ -160,26 +158,18 @@ textEntity font text =
     let markup            = FontMarkup 0.9 0.8
         Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
         fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
-        fontShaderDef     = ShaderDefinition globalAttribDef screenSpaceDef
+        fontShaderDef     = ShaderDefinition screenSpaceDef
+        
         program           = (fontShader, fontShaderDef)
-        emptyTB             = emptyTextBuffer fontTexture program
-    in mkRenderEntity $ (emptyTB  `writeText` text)^.tbufRenderDef
+        texDef            = [TextureDefinition (0, "textures") (TextureImage "some-font" (fontTexture^.textureData))]
+        
+        textBuff          = emptyTextBuffer fontTexture `writeText` text
+        textMesh          = makeMesh 66 "fontyfont" $ textBuff^.tbufMesh
+        renderDef         = RenderDefinition textMesh program texDef
+    in mkRenderEntity renderDef
 
 
 ---------------------------------------------------------------------------------------------------
-
-globalAttribDef = 
-    [ "in_vert_position"  ^:= _position
-    , "in_vert_normal"    ^:= _normal
-    , "in_vert_color"     ^:= _color
-    , "in_vert_texture"   ^:= _texture
-    ]
-{--
-textAttribDef = 
-    [ "in_vert_position"  ^:= _position
-    , "in_vert_texture"   ^:= _texture
-    ]
---}
 
 perspectiveUniformDef = do
     ShaderEnv{..} <- shaderEnv

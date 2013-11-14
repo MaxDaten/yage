@@ -18,9 +18,9 @@ import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
 import             Yage.Rendering.Types
-import             Yage.Rendering.WorldState
 ---------------------------------------------------------------------------------------------------
 
+type WorldState = ()-- dummy
 
 
 
@@ -42,7 +42,7 @@ initialization = do
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
         rEnv         = RenderEnv rConf renderTarget
-    return $ YageState Set.empty rEnv initialRenderState []
+    return $ YageState Set.empty rEnv []
 
 
 finalization :: YageState -> IO ()
@@ -58,8 +58,8 @@ yageLoop ystate' wire session = do
     ((mx, w'), yst) <- io $ runYage yst' $ stepWire wire dt ()
     
     either 
-        (\e -> handleError e >> return (renderState yst))
-        (\s -> renderScene' s (renderState yst) (renderEnv yst))
+        (\e -> handleError e)
+        (\s -> renderScene' (renderEnv yst))
         mx
 
     yageLoop yst w' s'
@@ -67,11 +67,11 @@ yageLoop ystate' wire session = do
         handleError :: (Throws InternalException l, Show e) => e -> Application l ()
         handleError e = criticalM $ "err:" ++ show e
         
-        renderScene' :: (Throws InternalException l) => WorldState -> RenderState -> RenderEnv -> Application l RenderState
-        renderScene' _ st env = do
+        renderScene' :: (Throws InternalException l) => RenderEnv -> Application l ()
+        renderScene' env = do
             -- postProcessScene :: Scene -> RenderScene
-            let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
-            (_, rSt, rLog) <- ioe $ runRenderer (renderScene scene) st env
+            --let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
+            (_, rSt, rLog) <- ioe $ runRenderer (undefined) env
             debugM $ show rLog
             return $! rSt
 

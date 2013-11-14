@@ -20,9 +20,7 @@ import             Yage.Rendering.Types
 data YageState = YageState
     { inputs      :: Set.Set Event
     , renderEnv   :: RenderEnv
-    , renderState :: RenderState
-    , resources   :: [String{--YageResource--}]     -- ^ should use a res-manager later on
-    --, resources  :: YageResources
+    , resources   :: [String]     -- ^ should use a res-manager later on
     }
 
 ---------------------------------------------------------------------------------------------------
