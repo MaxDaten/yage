@@ -144,8 +144,14 @@ testScene = fill emptyRenderScene
 boxEntity = 
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
         shdef     = ShaderDefinition perspectiveUniformDef
+        mesh      = cubeMesh
+        attribs   = [ "in_vert_position" @= (vertices mesh)^..traverse.vPosition
+                    , "in_vert_normal"   @= (vertices mesh)^..traverse.vNormal
+                    , "in_vert_color"    @= (vertices mesh)^..traverse.vColor
+                    , "in_vert_texture"  @= (vertices mesh)^..traverse.vTexture
+                    ]
         rdef      = RenderDefinition
-            { def'data     = makeMesh 4711 "cube" cubeMesh
+            { def'data     = makeMesh 4711 "cube" mesh attribs
             , def'program  = (shader, shdef)
             , def'textures = [ TextureDefinition (0, "textures") 
                               (TextureFile ("res" </> "Brown_Leather_Texture.png"))
@@ -164,7 +170,12 @@ textEntity font text =
         texDef            = [TextureDefinition (0, "textures") (TextureImage "some-font" (fontTexture^.textureData))]
         
         textBuff          = emptyTextBuffer fontTexture `writeText` text
-        textMesh          = makeMesh 66 "fontyfont" $ textBuff^.tbufMesh
+        mesh              = textBuff^.tbufMesh
+        textMesh          = makeMesh 66 "fontyfont" mesh attribs
+        attribs           = [ "in_vert_position" @= (vertices mesh)^..traverse.vPosition
+                            , "in_vert_color"    @= (vertices mesh)^..traverse.vColor
+                            , "in_vert_texture"  @= (vertices mesh)^..traverse.vTexture
+                            ]
         renderDef         = RenderDefinition textMesh program texDef
     in mkRenderEntity renderDef
 

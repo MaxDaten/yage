@@ -2,7 +2,6 @@
 
 
 in vec4 in_vert_position;
-in vec3 in_vert_normal;
 in vec4 in_vert_color;
 in vec2 in_vert_texture;
 
@@ -20,8 +19,7 @@ void main()
     vec4 proj_position = projection_matrix * view_position;
     gl_Position = proj_position;
     
-    vec3 normV = normalize( normal_matrix * in_vert_normal );
-    vec3 norm = in_vert_normal;
+
     vec4 interpolated_color = in_vert_color;
     tex_coord = in_vert_texture;
 }
