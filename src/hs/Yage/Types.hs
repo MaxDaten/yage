@@ -9,18 +9,19 @@ import Prelude hiding (id, (.)) -- reimported by Control.Wire
 import             Control.Monad.Reader
 import             Control.Monad.State
 import             Control.Wire                 hiding (Event, Position, window)
+import             Control.Lens
 import             Data.Typeable
 ---------------------------------------------------------------------------------------------------
 import qualified   Data.Set                     as Set
 import             Yage.Core.Application        (Event)
-import             Yage.Rendering.Types
+import             Yage.Rendering
 ---------------------------------------------------------------------------------------------------
 
 
 data YageState = YageState
     { inputs      :: Set.Set Event
-    , renderEnv   :: RenderEnv
-    , resources   :: [String]     -- ^ should use a res-manager later on
+    , renderUnit  :: RenderUnit
+    -- , resources   :: [String]     -- ^ should use a res-manager later on
     }
 
 ---------------------------------------------------------------------------------------------------
@@ -41,12 +42,13 @@ runYage st (Yage a) = runStateT a st
 
 ---------------------------------------------------------------------------------------------------
 
+--{--
 putRenderEnv :: RenderEnv -> Yage ()
-putRenderEnv env = get >>= \yst -> put yst{ renderEnv = env }
+putRenderEnv env = get >>= \yst -> put yst{ renderUnit = (renderUnit yst){ _renderSettings = env } }
 
 
 getRenderEnv :: Yage RenderEnv
-getRenderEnv = gets renderEnv
+getRenderEnv = gets $ _renderSettings . renderUnit
 
 
 getRenderConfig :: Yage RenderConfig
@@ -55,6 +57,7 @@ getRenderConfig = envConfig `liftM` getRenderEnv
 putRenderConfig :: RenderConfig -> Yage ()
 putRenderConfig conf = getRenderEnv >>= \env -> putRenderEnv env{ envConfig = conf }
 
+--}
 
 --getResources :: Yage (YageResources)
 --getResources = gets resources

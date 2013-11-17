@@ -1,43 +1,48 @@
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Yage.Font.TextBuffer where
 
-import Yage.Prelude hiding (Text)
-import Yage.Images
-import Yage.Math
-import GHC.Float
-import Foreign.C.Types
+import           Foreign.C.Types
+import           GHC.Float
+import           Yage.Images
+import           Yage.Math
+import           Yage.Prelude              hiding (Text)
+-----------------------------------------------------------------------------------------
+import           Control.Lens              hiding (indices)
+import           Data.Digest.Pure.SHA
+import           Data.List                 (map, null, sortBy)
+import           Data.Map                  hiding (map, null)
+import           Data.Text.Lazy            (Text)
+import qualified Data.Text.Lazy            as T
+import qualified Data.Text.Lazy.Encoding   as T
+-----------------------------------------------------------------------------------------
+import           Graphics.Font             as FT hiding (height, width)
+import           Graphics.Font             as FTExport (Font,
+                                                        FontDescriptor (..),
+                                                        FontLoadMode (..),
+                                                        loadFont)
+-----------------------------------------------------------------------------------------
+import           Linear
+import           Codec.Picture.Types
+-----------------------------------------------------------------------------------------
+import           Yage.Rendering
+import           Yage.Rendering.Primitives
+import           Yage.Rendering.VertexSpec
+import           Yage.Texture.Atlas
+-----------------------------------------------------------------------------------------
+import           Yage.Font.FontTexture
+-----------------------------------------------------------------------------------------
 
 
-import Data.Map hiding (map, null)
-import Data.List (map, sortBy, null)
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Lazy.Encoding as T
-import Data.Digest.Pure.SHA
-import Control.Lens hiding (indices)
-
-import Graphics.Font as FT hiding (width, height)
-import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)
-
-import Yage.Texture.Atlas
-import Yage.Rendering
-import Yage.Rendering.VertexSpec
-import Yage.Rendering.Primitives
-import Linear
-
-import Codec.Picture.Types
-
-import Yage.Font.FontTexture
 
 
 type Caret = V2 Double
 data TextBuffer = TextBuffer
-    { _tbufTexture     :: FontTexture
-    , _tbufMesh        :: MeshData Vertex2P2T4C
-    , _tbufCaret       :: Caret
-    , _tbufText        :: Text
+    { _tbufTexture :: FontTexture
+    , _tbufMesh    :: MeshData Vertex2P2T4C
+    , _tbufCaret   :: Caret
+    , _tbufText    :: Text
     }
 
 makeLenses ''TextBuffer
@@ -60,7 +65,7 @@ pushChar tbuf '\n' =
        tbufCaret._x .~ 0
        $ tbuf
 
-pushChar tbuf c = 
+pushChar tbuf c =
     let mesh            = tbuf^.tbufMesh
         (caret', mesh') = aux mesh (getFontDataFor c)
     in tbufMesh      .~  mesh' $
@@ -68,18 +73,20 @@ pushChar tbuf c =
        tbufText      <>~ T.singleton c
        $ tbuf
     where
-        getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c 
+        getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c
         aux mesh (Just fdata@(glyph, region)) =
             let fTex          = tbuf^.tbufTexture
                 caret         = tbuf^.tbufCaret
                 metric        = glyphMetrics glyph
                 vSpace        = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
-                
+
                 advance       = vSpace * fromI (glyHoriAdvance metric) / pixelFormat
-                
-                (texW, texH)  = (dynamicMap imageWidth (fTex^.textureData), dynamicMap imageHeight (fTex^.textureData)) 
+
+                (texW, texH)  = ( dynamicMap imageWidth (fTex^.textureData)
+                                , dynamicMap imageHeight (fTex^.textureData)
+                                )
                 (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-                
+
                 mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)
             in (caret & _x +~ advance, mesh')
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
@@ -94,10 +101,10 @@ makeGlypMesh caret (gly, r) tw th =
         let GlyphMetrics{..}   = traceShow' $ glyphMetrics gly
             bearingX = fromI (glyHoriBearingX) / pixelFormat
             bearingY = fromI (glyHoriBearingY) / pixelFormat
-            
+
             leftX    = caret^._x + bearingX
             topY     = caret^._y + bearingY
-            
+
             w        = fromI $ r^.to width
             h        = fromI $ r^.to height
 
@@ -105,7 +112,7 @@ makeGlypMesh caret (gly, r) tw th =
             u1       = fromI (r^.x1) / fromI tw
             v0       = fromI (r^.y1) / fromI th
             v1       = fromI (r^.y0) / fromI th
-        in MeshData 
+        in MeshData
              { vertices = [ vert leftX     topY       u0 v1
                           , vert leftX     (topY - h) u0 v0
                           , vert (leftX+w) (topY - h) u1 v0
@@ -117,7 +124,7 @@ makeGlypMesh caret (gly, r) tw th =
         where
             vert :: Double -> Double -> Double -> Double -> Vertex2P2T4C
             vert x y u v =
-                Vertex (V2 (CFloat $ double2Float x) (CFloat $ double2Float y)) 
+                Vertex (V2 (CFloat $ double2Float x) (CFloat $ double2Float y))
                        ()
                        (V4 0 0 0 0)
                        (V2 (CFloat $ double2Float u) (CFloat $ double2Float v))

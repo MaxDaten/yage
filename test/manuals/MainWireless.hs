@@ -92,21 +92,23 @@ main =
         size  = (800,600)
     in do
         state <- initialization
-
-        font <- loadFont'
+        font  <- loadFont'
         let textE  = (textEntity font string)--{ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
             scene' = addEntity textE scene
 
-        (env, sc) <- execApplication "MainWireless" conf 
-            $ basicWindowLoop size hints (renderEnv state, scene') loop
+        (state', sc) <- execApplication "MainWireless" conf 
+            $ basicWindowLoop size hints (state, scene') loop
 
-        finalization state
+        finalization state'
         where 
-            loop win (env, scene) inputState = do
-                let (scene', env') = (scene, env) `updateScene` inputState
-                (_, _, l) <- io $ runRenderer (undefined {--renderScene scene'--}) env'
+            loop win (state@YageState{..}, scene) inputState = do
+                -- this is a mess
+                let env            = renderUnit^.renderSettings
+                    (scene', env') = (scene, env) `updateScene` inputState
+                    unit           = renderSettings .~ env' $ renderUnit
+                unit' <- renderScene scene' unit
                 
-                return (env, scene')
+                return (state{ renderUnit = unit' }, scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
                 let descr = FontDescriptor (12*64) (1024,1024)

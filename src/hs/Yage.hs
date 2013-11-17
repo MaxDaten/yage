@@ -17,7 +17,7 @@ import             Yage.Core.Application.Utils
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
-import             Yage.Rendering.Types
+import qualified   Graphics.Rendering.OpenGL       as GL
 ---------------------------------------------------------------------------------------------------
 
 type WorldState = ()-- dummy
@@ -36,13 +36,13 @@ yageMain title wire session = do
 initialization :: IO YageState
 initialization = do
     let rConf = RenderConfig
-            { confClearColor    = Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
+            { confClearColor    = GL.Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
             , confDebugNormals  = False 
             , confWireframe     = False
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
-        rEnv         = RenderEnv rConf renderTarget
-    return $ YageState Set.empty rEnv []
+        renderUnit   = initialRenderUnit $ RenderEnv rConf renderTarget
+    return $ YageState Set.empty renderUnit
 
 
 finalization :: YageState -> IO ()
@@ -54,26 +54,26 @@ yageLoop ystate' wire session = do
     ins <- Set.fromList <$> collectEvents
     let yst' = ystate' { inputs = ins }
 
-    (dt, s') <- io $ sessionUpdate session
+    (dt, s')        <- io $ sessionUpdate session
     ((mx, w'), yst) <- io $ runYage yst' $ stepWire wire dt ()
     
-    either 
-        (\e -> handleError e)
-        (\s -> renderScene' (renderEnv yst))
+    unit' <- either 
+        (\e -> handleError e >> return (renderUnit yst))
+        (\s -> renderScene' (renderUnit yst))
         mx
+    
 
-    yageLoop yst w' s'
+    yageLoop yst{ renderUnit = unit' } w' s'
     where
         handleError :: (Throws InternalException l, Show e) => e -> Application l ()
         handleError e = criticalM $ "err:" ++ show e
         
-        renderScene' :: (Throws InternalException l) => RenderEnv -> Application l ()
-        renderScene' env = do
-            -- postProcessScene :: Scene -> RenderScene
-            --let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
-            (_, rSt, rLog) <- ioe $ runRenderer (undefined) env
-            debugM $ show rLog
-            return $! rSt
+        renderScene' :: (Throws InternalException l) => RenderUnit -> Application l RenderUnit
+        renderScene' unit = do
+            let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
+            unit' <- ioe $ renderScene scene unit
+            --debugM $ show rLog
+            return $! unit'
 
 ---------------------------------------------------------------------------------------------------
 
