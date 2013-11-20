@@ -109,6 +109,8 @@ executable wireless
                         , linear
                         , lens
                         , containers
+                        , mtl
+
 
     if flag(perf)
       ghc-options:        -threaded -O2
