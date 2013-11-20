@@ -55,9 +55,7 @@ hints = [ WindowHint'ContextVersionMajor  3
 fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
             "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
             "`abcdefghijklmnopqrstuvwxyz{|}~"
-
 fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Light.otf"
-
 fontAtlas = emptyAtlas 1024 1024 (0 :: Pixel8) 5
 
 class (Typeable i, Typeable a) => IsUpdateable i a where
@@ -93,7 +91,8 @@ main =
     in do
         state <- initialization
         font  <- loadFont'
-        let textE  = (textEntity font string)--{ ePosition = V3 (-5) (-3) (-10), eScale = (1/300) <$> V3 1 1 1 }
+        print $ show $ viewMatrix scene
+        let textE  = (textEntity font string){ ePosition = V3 (-5) (-3) (-10), eScale = (V3 1 1 1) / 300 }
             scene' = addEntity textE scene
 
         (state', sc) <- execApplication "MainWireless" conf 
@@ -133,11 +132,11 @@ testScene = fill emptyRenderScene
     where
     fill scene = 
         let box1     = Box $ boxEntity 
-                            { eScale    = (*1.5) <$> V3 1 1 1
+                            { eScale    = 1.5 * V3 1 1 1
                             , ePosition = V3 (-3) 0 (-10)
                             }
             box2     = Box $ boxEntity 
-                            { eScale    = (*1.5) <$> V3 1 1 1
+                            { eScale    = 1.5 * V3 1 1 1
                             , ePosition = V3 (3) 0 (-10)
                             }
         in scene{entities = [SomeRenderable box1, SomeRenderable box2]}
@@ -188,10 +187,9 @@ perspectiveUniformDef :: UniShader ()
 perspectiveUniformDef = do
     ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
     RenderView{..}     <- asks shaderEnv'CurrentScene
-    "projection_matrix" != _rvProjectionMatrix
-    "view_matrix"       != _rvViewMatrix
-    "model_matrix"      != _vdModelMatrix
-    "normal_matrix"     != _vdNormalMatrix
+    "mvp_matrix"      != _vdMVPMatrix
+    "normal_matrix"   != _vdNormalMatrix
+
 
 screenSpaceDef :: UniShader ()
 screenSpaceDef = do

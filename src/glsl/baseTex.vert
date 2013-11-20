@@ -6,9 +6,7 @@ in vec3 in_vert_normal;
 in vec4 in_vert_color;
 in vec2 in_vert_texture;
 
-uniform mat4 projection_matrix;
-uniform mat4 view_matrix;
-uniform mat4 model_matrix;
+uniform mat4 mvp_matrix;
 uniform mat3 normal_matrix;
 
 uniform vec3 global_light_direction = normalize(vec3(0.0, -1.0, -1.0));
@@ -21,9 +19,7 @@ out vec2 tex_coord;
 
 void main()
 {   
-    vec4 view_position = view_matrix * model_matrix * in_vert_position;
-    vec4 proj_position = projection_matrix * view_position;
-    gl_Position = proj_position;
+    gl_Position = mvp_matrix * in_vert_position;
     
     vec3 normV = normalize( normal_matrix * in_vert_normal );
 
