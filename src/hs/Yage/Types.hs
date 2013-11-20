@@ -42,7 +42,7 @@ runYage st (Yage a) = runStateT a st
 
 ---------------------------------------------------------------------------------------------------
 
---{--
+{--
 putRenderEnv :: RenderEnv -> Yage ()
 putRenderEnv env = get >>= \yst -> put yst{ renderUnit = (renderUnit yst){ _renderSettings = env } }
 

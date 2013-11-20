@@ -34,7 +34,7 @@ library
   exposed-modules:      Yage
                         Yage.Types
                         Yage.Events
-                        Yage.Wire
+                        -- Yage.Wire
                         Yage.Font
                         Yage.Texture.Atlas
   other-modules:        Paths_yage

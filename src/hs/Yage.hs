@@ -41,7 +41,7 @@ initialization = do
             , confWireframe     = False
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
-        renderUnit   = initialRenderUnit $ RenderEnv rConf renderTarget
+        renderUnit   = initialRenderUnit rConf renderTarget
     return $ YageState Set.empty renderUnit
 
 

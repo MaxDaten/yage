@@ -23,12 +23,13 @@ import           Graphics.Font             as FTExport (Font,
                                                         FontLoadMode (..),
                                                         loadFont)
 -----------------------------------------------------------------------------------------
-import           Linear
 import           Codec.Picture.Types
+import           Linear
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
 import           Yage.Rendering.Primitives
 import           Yage.Rendering.VertexSpec
+import           Yage.Rendering.Mesh
 import           Yage.Texture.Atlas
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture

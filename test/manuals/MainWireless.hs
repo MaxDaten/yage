@@ -33,9 +33,10 @@ import Yage.Texture.Atlas
 import Yage.Rendering
 import Yage.Rendering.Texture
 import Yage.Rendering.VertexSpec
-import Yage.Rendering.Logging
 import Yage.Rendering.Types
 import Yage.Rendering.Primitives
+import Yage.Rendering.Backend.Renderer
+import Yage.Rendering.Mesh
 
 import Yage.Core.Application
 import Yage.Core.Application.Loops
@@ -144,7 +145,7 @@ testScene = fill emptyRenderScene
 
 boxEntity = 
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
-        shdef     = ShaderDefinition perspectiveUniformDef
+        shdef     = perspectiveUniformDef
         mesh      = cubeMesh
         attribs   = [ "in_vert_position" @= (vertices mesh)^..traverse.vPosition
                     , "in_vert_normal"   @= (vertices mesh)^..traverse.vNormal
@@ -164,8 +165,9 @@ boxEntity =
 textEntity font text =
     let markup            = FontMarkup 0.9 0.8
         Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
+        
         fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
-        fontShaderDef     = ShaderDefinition screenSpaceDef
+        fontShaderDef     = screenSpaceDef
         
         program           = (fontShader, fontShaderDef)
         texDef            = [TextureDefinition (0, "textures") (TextureImage "some-font" (fontTexture^.textureData))]
@@ -183,7 +185,7 @@ textEntity font text =
 
 ---------------------------------------------------------------------------------------------------
 
-perspectiveUniformDef :: UniShader ()
+perspectiveUniformDef :: ShaderDefinition ()
 perspectiveUniformDef = do
     ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
     RenderView{..}     <- asks shaderEnv'CurrentScene
@@ -191,7 +193,7 @@ perspectiveUniformDef = do
     "normal_matrix"   != _vdNormalMatrix
 
 
-screenSpaceDef :: UniShader ()
+screenSpaceDef :: ShaderDefinition ()
 screenSpaceDef = do
     ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
     RenderView{..}     <- asks shaderEnv'CurrentScene
