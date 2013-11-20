@@ -98,7 +98,7 @@ writeText tbuf = T.foldl pushChar tbuf
 
 makeGlypMesh :: Caret -> FontData -> Int -> Int -> MeshData Vertex2P2T4C
 makeGlypMesh caret (gly, r) tw th =
-        let GlyphMetrics{..}   = traceShow' $ glyphMetrics gly
+        let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI (glyHoriBearingX) / pixelFormat
             bearingY = fromI (glyHoriBearingY) / pixelFormat
 
