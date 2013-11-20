@@ -19,6 +19,8 @@ import Data.Typeable
 import Data.List
 import Data.Set hiding (map)
 
+import Control.Monad.Reader            (asks)
+
 import Control.Lens
 
 import Linear
@@ -65,10 +67,8 @@ class (Typeable i, Typeable a) => IsUpdateable i a where
 
 
 newtype Box = Box RenderEntity
-    deriving (Typeable)
+    deriving (Typeable, Renderable)
 
-instance Renderable Box where
-    renderDefinition (Box b) = renderDefinition b
 
 instance IsUpdateable InputState Box where
     update input (Box ent@RenderEntity{..}) =
@@ -184,38 +184,21 @@ textEntity font text =
 
 ---------------------------------------------------------------------------------------------------
 
+perspectiveUniformDef :: UniShader ()
 perspectiveUniformDef = do
-    ShaderEnv{..} <- shaderEnv
-    -- io . print . show $ renderableType shaderEnv'CurrentRenderable
-    -- io . print . show $ (fromRenderable shaderEnv'CurrentRenderable :: Maybe Box)
-    let RenderScene{..} = shaderEnv'CurrentScene
-        Just (Box RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
-        scaleM        = kronecker . point $ eScale
-        projectionM   = projectionMatrix
-        viewM         = viewMatrix
-        transM        = mkTransformation eOrientation ePosition
-        modelM        = transM !*! scaleM 
-        Just normalM  = adjoint <$> (inv33 . fromTransformation $ modelM)
-    "projection_matrix" != projectionM
-    "view_matrix"       != viewM
-    "model_matrix"      != modelM
-    "normal_matrix"     != normalM
+    ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
+    RenderView{..}     <- asks shaderEnv'CurrentScene
+    "projection_matrix" != _rvProjectionMatrix
+    "view_matrix"       != _rvViewMatrix
+    "model_matrix"      != _vdModelMatrix
+    "normal_matrix"     != _vdNormalMatrix
 
+screenSpaceDef :: UniShader ()
 screenSpaceDef = do
-    ShaderEnv{..} <- shaderEnv
-    let RenderScene{..} = shaderEnv'CurrentScene
-        Just (RenderEntity{..}) = fromRenderable shaderEnv'CurrentRenderable
-        scaleM        = kronecker . point $ eScale
-        projectionM   = projectionMatrix
-        viewM         = viewMatrix
-        transM        = mkTransformation eOrientation ePosition
-        modelM        = transM !*! scaleM 
-        normalM  = fromTransformation modelM -- adjoint <$> (inv33 . fromTransformation $ modelM)
-    --io $ print ePosition
-    --io $ print eScale
-    "projection_matrix" != projectionM
-    "view_matrix"       != viewM
-    "model_matrix"      != modelM
-    "normal_matrix"     != normalM
-    -- "normal_matrix"      != normalM
+    ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
+    RenderView{..}     <- asks shaderEnv'CurrentScene
+    "projection_matrix" != _rvProjectionMatrix
+    "view_matrix"       != _rvViewMatrix
+    "model_matrix"      != _vdModelMatrix
+    -- "normal_matrix"     != _vdNormalMatrix
 
