@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -10,27 +11,18 @@ import           Yage.Math
 import           Yage.Prelude              hiding (Text)
 -----------------------------------------------------------------------------------------
 import           Control.Lens              hiding (indices)
-import           Data.Digest.Pure.SHA
-import           Data.List                 (map, null, sortBy)
-import           Data.Map                  hiding (map, null)
-import           Data.Text.Lazy            (Text)
-import qualified Data.Text.Lazy            as T
-import qualified Data.Text.Lazy.Encoding   as T
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
 -----------------------------------------------------------------------------------------
 import           Graphics.Font             as FT hiding (height, width)
-import           Graphics.Font             as FTExport (Font,
-                                                        FontDescriptor (..),
-                                                        FontLoadMode (..),
-                                                        loadFont)
 -----------------------------------------------------------------------------------------
 import           Codec.Picture.Types
 import           Linear
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
+import           Yage.Rendering.Mesh
 import           Yage.Rendering.Primitives
 import           Yage.Rendering.VertexSpec
-import           Yage.Rendering.Mesh
-import           Yage.Texture.Atlas
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------
@@ -48,8 +40,8 @@ data TextBuffer = TextBuffer
 
 makeLenses ''TextBuffer
 
+pixelFormat :: Double
 pixelFormat = 64.0
-            --let i = showDigest . sha1 $ T.encodeUtf8 text
 
 emptyTextBuffer :: FontTexture -> TextBuffer
 emptyTextBuffer fTex = TextBuffer fTex emptyMeshData (V2 0 0) ""
@@ -59,7 +51,7 @@ pushChar :: TextBuffer -> Char -> TextBuffer
 pushChar tbuf '\n' =
     let face    = fontFace theFont
         theFont = tbuf^.tbufTexture.font
-        fsize   = fromI ((charSize $ fontDescr theFont)^._2) / pixelFormat
+        fsize   = fromI (charSize (fontDescr theFont)^._2) / pixelFormat
         hSpace  = tbuf^.tbufTexture.fontMarkup.verticalSpacing
         lineH   = hSpace * fsize * fromI (lineHeight face)
     in tbufCaret._y -~ lineH / pixelFormat $
@@ -75,7 +67,7 @@ pushChar tbuf c =
        $ tbuf
     where
         getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c
-        aux mesh (Just fdata@(glyph, region)) =
+        aux mesh (Just fdata@(glyph, _region)) =
             let fTex          = tbuf^.tbufTexture
                 caret         = tbuf^.tbufCaret
                 metric        = glyphMetrics glyph
@@ -86,22 +78,22 @@ pushChar tbuf c =
                 (texW, texH)  = ( dynamicMap imageWidth (fTex^.textureData)
                                 , dynamicMap imageHeight (fTex^.textureData)
                                 )
-                (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
+                -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
 
-                mesh'         = mesh `pushToBack` (makeGlypMesh caret fdata texW texH)
+                mesh'         = mesh `pushToBack` makeGlypMesh caret fdata texW texH
             in (caret & _x +~ advance, mesh')
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
 
 writeText :: TextBuffer -> Text -> TextBuffer
-writeText tbuf = T.foldl pushChar tbuf
+writeText = T.foldl pushChar
 
 
 makeGlypMesh :: Caret -> FontData -> Int -> Int -> MeshData Vertex2P2T4C
 makeGlypMesh caret (gly, r) tw th =
         let GlyphMetrics{..}   = glyphMetrics gly
-            bearingX = fromI (glyHoriBearingX) / pixelFormat
-            bearingY = fromI (glyHoriBearingY) / pixelFormat
+            bearingX = fromI glyHoriBearingX / pixelFormat
+            bearingY = fromI glyHoriBearingY / pixelFormat
 
             leftX    = caret^._x + bearingX
             topY     = caret^._y + bearingY

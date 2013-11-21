@@ -60,7 +60,7 @@ yageLoop ystate' wire session = do
     
     unit' <- either 
         (\e -> handleError e >> return (renderUnit yst))
-        (\s -> renderScene' (renderUnit yst))
+        (\_s -> renderScene' (renderUnit yst))
         mx
     
 

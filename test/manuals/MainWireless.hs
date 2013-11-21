@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -12,14 +13,11 @@ module Main where
 import qualified Prelude
 import Yage.Prelude
 
-import Control.Monad (mapM_, unless)
 import Yage 
 
 import Data.Typeable
 import Data.List
-import Data.Set hiding (map)
 
-import Control.Monad.Reader            (asks)
 
 import Control.Lens
 
@@ -27,13 +25,11 @@ import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
 import Yage.Math
-import Yage.Events
 import Yage.Font
 import Yage.Texture.Atlas
 import Yage.Rendering
 import Yage.Rendering.Texture
 import Yage.Rendering.VertexSpec
-import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 import Yage.Rendering.Backend.Renderer
 import Yage.Rendering.Mesh
@@ -53,11 +49,14 @@ hints = [ WindowHint'ContextVersionMajor  3
         --, WindowHint'Decorated            False
         ]
 
-
+fontchars :: String
 fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
             "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
             "`abcdefghijklmnopqrstuvwxyz{|}~"
+fontPath :: String
 fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Light.otf"
+
+fontAtlas :: TextureAtlas i Pixel8
 fontAtlas = emptyAtlas 1024 1024 (0 :: Pixel8) 5
 
 class (Typeable i, Typeable a) => IsUpdateable i a where
@@ -83,7 +82,7 @@ instance IsUpdateable InputState Box where
 tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
-
+string :: Text
 string = "Hallo Welt! :) \nline breaks"
 main :: IO ()
 main = 
@@ -97,12 +96,12 @@ main =
         let textE  = (textEntity font string) & entityPosition .~ V3 (-5) (-3) (-10) & entityScale .~ (V3 1 1 1) / 300
             scene' = addEntity textE scene
 
-        (state', sc) <- execApplication "MainWireless" conf 
+        (state', _sc) <- execApplication "MainWireless" conf 
             $ basicWindowLoop size hints (state, scene') loop
 
         finalization state'
         where 
-            loop win (state@YageState{..}, scene) inputState = do
+            loop _win (state@YageState{..}, scene) inputState = do
                 -- this is a mess
                 let env            = renderUnit^.renderSettings
                     (scene', env') = (scene, env) `updateScene` inputState
@@ -136,7 +135,7 @@ testScene = fill emptyRenderScene
             box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (3) 0 (-10)
         in scene & sceneEntities .~ [SomeRenderable box1, SomeRenderable box2]
 
-
+boxEntity :: RenderEntity
 boxEntity = 
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
         shdef     = perspectiveUniformDef
@@ -155,7 +154,7 @@ boxEntity =
             }
     in mkRenderEntity rdef
 
-
+textEntity :: Font -> Text -> RenderEntity
 textEntity font text =
     let markup            = FontMarkup 0.9 0.8
         Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
@@ -193,5 +192,4 @@ screenSpaceDef = do
     "projection_matrix" != view^.rvProjectionMatrix
     "view_matrix"       != view^.rvViewMatrix
     "model_matrix"      != vdef^.vdModelMatrix
-    -- "normal_matrix"     != _vdNormalMatrix
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -9,7 +8,6 @@ import Prelude hiding (id, (.)) -- reimported by Control.Wire
 import             Control.Monad.Reader
 import             Control.Monad.State
 import             Control.Wire                 hiding (Event, Position, window)
-import             Control.Lens
 import             Data.Typeable
 ---------------------------------------------------------------------------------------------------
 import qualified   Data.Set                     as Set
