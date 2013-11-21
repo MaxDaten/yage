@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Yage.Font
     ( module FT
     , module TB

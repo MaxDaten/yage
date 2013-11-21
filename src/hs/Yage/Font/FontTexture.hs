@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Font.FontTexture
     ( module Yage.Font.FontTexture
@@ -6,26 +7,16 @@ module Yage.Font.FontTexture
 
 import Yage.Prelude hiding (Text)
 import Yage.Images
-import Yage.Math
-import GHC.Float
-import Foreign.C.Types
 
 
 import Data.Map hiding (map, null)
 import Data.List (map, sortBy, null)
-import Data.Digest.Pure.SHA
 import Control.Lens hiding (indices)
 
 import Graphics.Font as FT
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)
 
 import Yage.Texture.Atlas
-import Yage.Rendering
-import Yage.Rendering.VertexSpec
-import Yage.Rendering.Primitives
-import Linear
-
-import Codec.Picture.Types
 
 ---------------------------------------------------------------------------------------------------
 
@@ -64,7 +55,7 @@ makeFontTexture font markup filedAtlas =
 
 generateFontTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
 generateFontTexture font markup mode chars emptyAtlas =
-    let imgs          = sortBy descArea $ (map (generateCharImg font mode) chars) `piz` chars
+    let imgs          = sortBy descArea $ map (generateCharImg font mode) chars `piz` chars
         (err, atlas)  = insertImages imgs emptyAtlas
     in if null err then Right $ makeFontTexture font markup atlas else error $ show err 
     where

@@ -14,3 +14,4 @@ dist/
 cabal.sandbox.config
 cabal.config
 atlas.png
+hlint.html

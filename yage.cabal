@@ -34,7 +34,7 @@ library
   exposed-modules:      Yage
                         Yage.Types
                         Yage.Events
-                        Yage.Wire
+                        -- Yage.Wire
                         Yage.Font
                         Yage.Texture.Atlas
   other-modules:        Paths_yage
@@ -109,6 +109,8 @@ executable wireless
                         , linear
                         , lens
                         , containers
+                        , mtl
+
 
     if flag(perf)
       ghc-options:        -threaded -O2
