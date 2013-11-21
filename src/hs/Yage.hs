@@ -17,6 +17,7 @@ import             Yage.Core.Application.Utils
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
+import             Yage.Rendering.RenderScene
 import qualified   Graphics.Rendering.OpenGL       as GL
 ---------------------------------------------------------------------------------------------------
 
@@ -36,9 +37,9 @@ yageMain title wire session = do
 initialization :: IO YageState
 initialization = do
     let rConf = RenderConfig
-            { confClearColor    = GL.Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
-            , confDebugNormals  = False 
-            , confWireframe     = False
+            { _rcConfClearColor    = GL.Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
+            , _rcConfDebugNormals  = False 
+            , _rcConfWireframe     = False
             }
         renderTarget = RenderTarget (800, 600) 2 -- TODO real target
         renderUnit   = initialRenderUnit rConf renderTarget

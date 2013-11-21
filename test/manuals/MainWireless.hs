@@ -37,6 +37,7 @@ import Yage.Rendering.Types
 import Yage.Rendering.Primitives
 import Yage.Rendering.Backend.Renderer
 import Yage.Rendering.Mesh
+import Yage.Rendering.RenderScene
 
 import Yage.Core.Application
 import Yage.Core.Application.Loops
@@ -76,7 +77,7 @@ instance IsUpdateable InputState Box where
                         * rotV Key'Left  zAxis   1.0
                         * rotV Key'Down  xAxis   1.0
                         * rotV Key'Up    xAxis (-1.0)
-        in  Box ent{ eOrientation = signorm $ eOrientation * rot }
+        in  Box ent{ _entityOrientation = signorm $ _entityOrientation * rot }
 
 
 tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
@@ -92,8 +93,8 @@ main =
     in do
         state <- initialization
         font  <- loadFont'
-        print $ show $ viewMatrix scene
-        let textE  = (textEntity font string){ ePosition = V3 (-5) (-3) (-10), eScale = (V3 1 1 1) / 300 }
+        print $ show $ scene^.sceneViewMatrix
+        let textE  = (textEntity font string) & entityPosition .~ V3 (-5) (-3) (-10) & entityScale .~ (V3 1 1 1) / 300
             scene' = addEntity textE scene
 
         (state', sc) <- execApplication "MainWireless" conf 
@@ -118,12 +119,11 @@ main =
 
 updateScene :: (RenderScene, RenderEnv) -> InputState -> (RenderScene, RenderEnv)
 updateScene (scene, env) input =
-    let ents    = entities scene
+    let ents    = scene^.sceneEntities
         updateF = tryWithSomeRenderable (update input :: Box -> Box)
-        scene'  = scene { entities = map updateF ents
-                        , sceneTime = 0.001 + sceneTime scene
-                        }
-        env'  = env{ envConfig = (envConfig env){confWireframe = input `isPressed` Key'W }}
+        scene'  = scene & sceneEntities .~ map updateF ents
+                        & sceneTime +~ 0.001 -- dummy
+        env'  = env & reRenderConfig.rcConfWireframe .~ input `isPressed` Key'W
     in (scene', env')        
 
 
@@ -132,32 +132,26 @@ testScene :: RenderScene
 testScene = fill emptyRenderScene
     where
     fill scene = 
-        let box1     = Box $ boxEntity 
-                            { eScale    = 1.5 * V3 1 1 1
-                            , ePosition = V3 (-3) 0 (-10)
-                            }
-            box2     = Box $ boxEntity 
-                            { eScale    = 1.5 * V3 1 1 1
-                            , ePosition = V3 (3) 0 (-10)
-                            }
-        in scene{entities = [SomeRenderable box1, SomeRenderable box2]}
+        let box1     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (-3) 0 (-10)
+            box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (3) 0 (-10)
+        in scene & sceneEntities .~ [SomeRenderable box1, SomeRenderable box2]
 
 
 boxEntity = 
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"       
         shdef     = perspectiveUniformDef
         mesh      = cubeMesh
-        attribs   = [ "in_vert_position" @= (vertices mesh)^..traverse.vPosition
-                    , "in_vert_normal"   @= (vertices mesh)^..traverse.vNormal
-                    , "in_vert_color"    @= (vertices mesh)^..traverse.vColor
-                    , "in_vert_texture"  @= (vertices mesh)^..traverse.vTexture
+        attribs   = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
+                    , "in_vert_normal"   @= mesh^.mDataVertices^..traverse.vNormal
+                    , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
+                    , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
                     ]
         rdef      = RenderDefinition
-            { def'data     = makeMesh 4711 "cube" mesh attribs
-            , def'program  = (shader, shdef)
-            , def'textures = [ TextureDefinition (0, "textures") 
-                              (TextureFile ("res" </> "Brown_Leather_Texture.png"))
-                             ]
+            { _rdefData     = makeMesh 4711 "cube" mesh attribs
+            , _rdefProgram  = (shader, shdef)
+            , _rdefTextures = [ TextureDefinition (0, "textures") 
+                               (TextureFile ("res" </> "Brown_Leather_Texture.png"))
+                              ]
             }
     in mkRenderEntity rdef
 
@@ -175,9 +169,9 @@ textEntity font text =
         textBuff          = emptyTextBuffer fontTexture `writeText` text
         mesh              = textBuff^.tbufMesh
         textMesh          = makeMesh 66 "fontyfont" mesh attribs
-        attribs           = [ "in_vert_position" @= (vertices mesh)^..traverse.vPosition
-                            , "in_vert_color"    @= (vertices mesh)^..traverse.vColor
-                            , "in_vert_texture"  @= (vertices mesh)^..traverse.vTexture
+        attribs           = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
+                            , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
+                            , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
                             ]
         renderDef         = RenderDefinition textMesh program texDef
     in mkRenderEntity renderDef
@@ -187,18 +181,17 @@ textEntity font text =
 
 perspectiveUniformDef :: ShaderDefinition ()
 perspectiveUniformDef = do
-    ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
-    RenderView{..}     <- asks shaderEnv'CurrentScene
-    "mvp_matrix"      != _vdMVPMatrix
-    "normal_matrix"   != _vdNormalMatrix
+    vdef   <- view seViewDef
+    "mvp_matrix"      != vdef^.vdMVPMatrix
+    "normal_matrix"   != vdef^.vdNormalMatrix
 
 
 screenSpaceDef :: ShaderDefinition ()
 screenSpaceDef = do
-    ViewDefinition{..} <- asks shaderEnv'CurrentRenderable
-    RenderView{..}     <- asks shaderEnv'CurrentScene
-    "projection_matrix" != _rvProjectionMatrix
-    "view_matrix"       != _rvViewMatrix
-    "model_matrix"      != _vdModelMatrix
+    vdef <- view seViewDef
+    view <- view seView
+    "projection_matrix" != view^.rvProjectionMatrix
+    "view_matrix"       != view^.rvViewMatrix
+    "model_matrix"      != vdef^.vdModelMatrix
     -- "normal_matrix"     != _vdNormalMatrix
 

@@ -114,13 +114,14 @@ makeGlypMesh caret (gly, r) tw th =
             v0       = fromI (r^.y1) / fromI th
             v1       = fromI (r^.y0) / fromI th
         in MeshData
-             { vertices = [ vert leftX     topY       u0 v1
-                          , vert leftX     (topY - h) u0 v0
-                          , vert (leftX+w) (topY - h) u1 v0
-                          , vert (leftX+w) topY       u1 v1
-                          ]
-             , indices  = [0, 1, 2, 2, 3, 0]
-             , triCount = 2
+             { _mDataVertices =
+                  [ vert leftX     topY       u0 v1
+                  , vert leftX     (topY - h) u0 v0
+                  , vert (leftX+w) (topY - h) u1 v0
+                  , vert (leftX+w) topY       u1 v1
+                  ]
+             , _mDataIndices  = [0, 1, 2, 2, 3, 0]
+             , _mDataTriCount = 2
              }
         where
             vert :: Double -> Double -> Double -> Double -> Vertex2P2T4C
