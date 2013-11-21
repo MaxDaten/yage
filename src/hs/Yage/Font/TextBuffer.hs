@@ -10,7 +10,6 @@ import           Yage.Images
 import           Yage.Math
 import           Yage.Prelude              hiding (Text)
 -----------------------------------------------------------------------------------------
-import           Control.Lens              hiding (indices)
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
 -----------------------------------------------------------------------------------------

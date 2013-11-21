@@ -11,7 +11,6 @@ import Yage.Images
 
 import Data.Map hiding (map, null)
 import Data.List (map, sortBy, null)
-import Control.Lens hiding (indices)
 
 import Graphics.Font as FT
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)

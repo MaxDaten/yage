@@ -19,8 +19,6 @@ import Data.Typeable
 import Data.List
 
 
-import Control.Lens
-
 import Linear
 import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
@@ -45,7 +43,7 @@ hints = [ WindowHint'ContextVersionMajor  3
         , WindowHint'OpenGLProfile        OpenGLProfile'Core
         , WindowHint'OpenGLForwardCompat  True
         , WindowHint'RefreshRate          60
-        , WindowHint'Resizable            False
+        --, WindowHint'Resizable            False
         --, WindowHint'Decorated            False
         ]
 
@@ -101,29 +99,29 @@ main =
 
         finalization state'
         where 
-            loop _win (state@YageState{..}, scene) inputState = do
-                -- this is a mess
-                let env            = renderUnit^.renderSettings
-                    (scene', env') = (scene, env) `updateScene` inputState
-                    unit           = renderSettings .~ env' $ renderUnit
-                unit' <- renderScene scene' unit
+            loop _win (state@YageState{..}, scene) (inputState, winEvents) = do
+                let rSettings'     = (renderUnit^.renderSettings) `updateSettings` (inputState, winEvents)
+                    scene'         = scene `updateScene` inputState
+
+                unit' <- renderScene scene' $ renderUnit & renderSettings .~ rSettings'
                 
                 return (state{ renderUnit = unit' }, scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
                 let descr = FontDescriptor (12*64) (1024,1024)
                 in loadFont fontPath descr
-            
 
+updateSettings :: RenderEnv -> (InputState, WindowEvents) -> RenderEnv 
+updateSettings env (inputSt, winEvents) =
+    env & reRenderConfig.rcConfWireframe .~ inputSt `isPressed` Key'W
+        & reRenderTarget.targetSize      %?~ justResizedTo winEvents
 
-updateScene :: (RenderScene, RenderEnv) -> InputState -> (RenderScene, RenderEnv)
-updateScene (scene, env) input =
+updateScene :: RenderScene -> InputState -> RenderScene
+updateScene scene inputSt =
     let ents    = scene^.sceneEntities
-        updateF = tryWithSomeRenderable (update input :: Box -> Box)
-        scene'  = scene & sceneEntities .~ map updateF ents
-                        & sceneTime +~ 0.001 -- dummy
-        env'  = env & reRenderConfig.rcConfWireframe .~ input `isPressed` Key'W
-    in (scene', env')        
+        updater = tryWithSomeRenderable (update inputSt :: Box -> Box)      
+    in scene & sceneEntities .~ map updater ents
+             & sceneTime     +~ 0.001 -- dummy'       
 
 
 

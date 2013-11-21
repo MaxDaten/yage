@@ -7,7 +7,6 @@ import           Yage.Math
 import           Yage.Prelude
 
 
-import           Control.Lens
 import qualified Data.Foldable as Foldable
 import qualified Data.Map      as Map
 import           Data.Set      hiding (foldr, null)
