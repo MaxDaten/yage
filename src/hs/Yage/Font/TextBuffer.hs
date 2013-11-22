@@ -32,7 +32,7 @@ import           Yage.Font.FontTexture
 type Caret = V2 Double
 data TextBuffer = TextBuffer
     { _tbufTexture :: FontTexture
-    , _tbufMesh    :: MeshData Vertex2P2T4C
+    , _tbufMesh    :: MeshData Vertex2P4C2T
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
     }
@@ -88,7 +88,7 @@ writeText :: TextBuffer -> Text -> TextBuffer
 writeText = T.foldl pushChar
 
 
-makeGlypMesh :: Caret -> FontData -> Int -> Int -> MeshData Vertex2P2T4C
+makeGlypMesh :: Caret -> FontData -> Int -> Int -> MeshData Vertex2P4C2T
 makeGlypMesh caret (gly, r) tw th =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / pixelFormat
@@ -115,7 +115,7 @@ makeGlypMesh caret (gly, r) tw th =
              , _mDataTriCount = 2
              }
         where
-            vert :: Double -> Double -> Double -> Double -> Vertex2P2T4C
+            vert :: Double -> Double -> Double -> Double -> Vertex2P4C2T
             vert x y u v =
                 Vertex (V2 (CFloat $ double2Float x) (CFloat $ double2Float y))
                        ()
