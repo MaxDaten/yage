@@ -91,7 +91,8 @@ main =
         state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
         let textE  = (textEntity font string) & entityPosition .~ V3 (-5) (-3) (-10) & entityScale .~ (V3 1 1 1) / 300
-            scene' = addEntity textE scene
+            floorE = floorEntity & entityScale .~ 10 * V3 1 1 1
+            scene' = scene `addEntity` floorE `addEntity` textE 
 
         (state', _sc) <- execApplication "MainWireless" conf
             $ basicWindowLoop size hints (state, scene') loop
@@ -163,6 +164,7 @@ testScene = fill $ emptyRenderScene (Camera fpsCamera (deg2rad 60.0))
             box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (3) 0 (-10)
         in scene & sceneEntities .~ [SomeRenderable box1, SomeRenderable box2]
 
+
 boxEntity :: RenderEntity
 boxEntity =
     let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"
@@ -182,6 +184,26 @@ boxEntity =
             , _rdefMode     = Triangles
             }
     in mkRenderEntity rdef
+
+
+floorEntity :: RenderEntity
+floorEntity =
+    let shader      = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
+        shdef       = perspectiveUniformDef
+        mesh        = gridMesh (10, 10)
+        attribs     = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
+                      , "in_vert_normal"   @= mesh^.mDataVertices^..traverse.vNormal
+                      , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
+                      , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
+                      ]
+        rdef        = RenderDefinition
+                        { _rdefData     = makeMesh 0815 "floor" mesh attribs
+                        , _rdefProgram  = (shader, shdef)
+                        , _rdefTextures = []
+                        , _rdefMode     = Triangles
+                        }
+    in mkRenderEntity rdef
+
 
 textEntity :: Font -> Text -> RenderEntity
 textEntity font text =
@@ -206,7 +228,7 @@ textEntity font text =
 
 
 ---------------------------------------------------------------------------------------------------
-
+-- Shader Definitions
 perspectiveUniformDef :: ShaderDefinition ()
 perspectiveUniformDef = do
     vdef   <- view seViewDef
