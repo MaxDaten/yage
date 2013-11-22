@@ -80,7 +80,7 @@ tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderabl
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
 string :: Text
-string = "Hallo Welt! :) \nline breaks"
+string = "Hallo Welt! :) \nZeilenumbruch"
 main :: IO ()
 main =
     let scene  = testScene
@@ -90,8 +90,8 @@ main =
     in do
         state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
-        let textE  = (textEntity font string) & entityPosition .~ V3 (-5) (-3) (-10) & entityScale .~ (V3 1 1 1) / 300
-            floorE = floorEntity & entityScale .~ 10 * V3 1 1 1
+        let textE  = (textEntity font string) & entityPosition .~ V3 (-3) (5) (0) & entityScale .~ (V3 1 1 1) / 300
+            floorE = floorEntity & entityScale .~ 100 * V3 1 1 1
             scene' = scene `addEntity` floorE `addEntity` textE 
 
         (state', _sc) <- execApplication "MainWireless" conf
@@ -156,13 +156,17 @@ updateScene scene inputSt =
 ---------------------------------------------------------------------------------------------------
 -- Entity Definitions
 
+camPosition :: V3 Float
+camPosition = V3 (0) 10 (10)
 testScene :: RenderScene
-testScene = fill $ emptyRenderScene (Camera fpsCamera (deg2rad 60.0))
+testScene = fill $ emptyRenderScene (Camera (fpsCamera `dolly` camPosition `tilt` (-45)) (deg2rad 60.0))
     where
     fill scene =
-        let box1     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (-3) 0 (-10)
-            box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (3) 0 (-10)
-        in scene & sceneEntities .~ [SomeRenderable box1, SomeRenderable box2]
+        let box1     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (-3) 2 (0)
+            box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 3 2 (0)
+        in scene 
+            `addEntity` box1 
+            `addEntity` box2
 
 
 boxEntity :: RenderEntity
@@ -190,7 +194,7 @@ floorEntity :: RenderEntity
 floorEntity =
     let shader      = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
         shdef       = perspectiveUniformDef
-        mesh        = gridMesh (10, 10)
+        mesh        = gridMesh (50, 50)
         attribs     = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
                       , "in_vert_normal"   @= mesh^.mDataVertices^..traverse.vNormal
                       , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
@@ -200,7 +204,7 @@ floorEntity =
                         { _rdefData     = makeMesh 0815 "floor" mesh attribs
                         , _rdefProgram  = (shader, shdef)
                         , _rdefTextures = []
-                        , _rdefMode     = Triangles
+                        , _rdefMode     = Lines
                         }
     in mkRenderEntity rdef
 
@@ -229,6 +233,8 @@ textEntity font text =
 
 ---------------------------------------------------------------------------------------------------
 -- Shader Definitions
+
+
 perspectiveUniformDef :: ShaderDefinition ()
 perspectiveUniformDef = do
     vdef   <- view seViewDef
