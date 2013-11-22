@@ -20,7 +20,7 @@ import Data.List
 
 
 import Linear
-import Yage.Types (YageState(..))
+import Yage.Types
 import Yage.Math
 import Yage.Font
 import Yage.Texture.Atlas
@@ -98,13 +98,14 @@ main =
 
         finalization state'
         where 
-            loop _win (state@YageState{..}, scene) (inputState, winEvents) = do
-                let rSettings'     = (renderUnit^.renderSettings) `updateSettings` (inputState, winEvents)
+            loop _win (yst, scene) (inputState, winEvents) = do
+                let rUnit          = yst^.renderUnit
+                    rSettings'     = (rUnit^.renderSettings) `updateSettings` (inputState, winEvents)
                     scene'         = scene `updateScene` inputState
 
-                unit' <- renderScene scene' $ renderUnit & renderSettings .~ rSettings'
+                unit' <- renderScene scene' $ rUnit & renderSettings .~ rSettings'
                 
-                return (state{ renderUnit = unit' }, scene')
+                return (yst & renderUnit .~ unit', scene')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' = 
                 let descr = FontDescriptor (12*64) (1024,1024)

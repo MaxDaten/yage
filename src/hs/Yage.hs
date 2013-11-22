@@ -52,18 +52,18 @@ finalization _ = return ()
 yageLoop :: YageState -> YageWire () WorldState -> Session IO -> Application AnyException ()
 yageLoop ystate' wire session = do
     ins <- Set.fromList <$> collectEvents
-    let yst' = ystate' { inputs = ins }
+    let yst' = ystate' & inputs .~ ins
 
     (dt, s')        <- io $ sessionUpdate session
     ((mx, w'), yst) <- io $ runYage yst' $ stepWire wire dt ()
     
     unit' <- either 
-        (\e -> handleError e >> return (renderUnit yst))
-        (\_s -> renderScene' (renderUnit yst))
+        (\e -> handleError e >> return (yst^.renderUnit))
+        (\_s -> renderScene' (yst^.renderUnit))
         mx
     
 
-    yageLoop yst{ renderUnit = unit' } w' s'
+    yageLoop (yst & renderUnit .~ unit') w' s'
     where
         handleError :: (Throws InternalException l, Show e) => e -> Application l ()
         handleError e = criticalM $ "err:" ++ show e
