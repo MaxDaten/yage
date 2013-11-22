@@ -28,20 +28,19 @@ type WorldState = ()-- dummy
 yageMain :: String -> YageWire () WorldState -> Session IO -> IO ()
 yageMain title wire session = do
     _ <- bracket 
-            initialization
+            (initialization $ RenderTarget (0, 0) (800, 600) 2 0.1 100 True) -- TODO remove it real target
             finalization
             (\st -> execApplication title defaultAppConfig $ yageLoop st wire session)
     return ()
 
 
-initialization :: IO YageState
-initialization = do
+initialization :: RenderTarget -> IO YageState
+initialization renderTarget = do
     let rConf = RenderConfig
             { _rcConfClearColor    = GL.Color4 0.3 0.3 0.3 0 -- TODO to rendertarget
             , _rcConfDebugNormals  = False 
             , _rcConfWireframe     = False
             }
-        renderTarget = RenderTarget (800, 600) 2 -- TODO real target
         renderUnit   = initialRenderUnit rConf renderTarget
     return $ YageState Set.empty renderUnit
 
@@ -71,7 +70,7 @@ yageLoop ystate' wire session = do
         
         renderScene' :: (Throws InternalException l) => RenderUnit -> Application l RenderUnit
         renderScene' unit = do
-            let scene = emptyRenderScene -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TOOOOODOOOOOO !!!!!
+            let scene = emptyRenderScene (Camera fpsCamera (deg2rad 60.0))-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TODO TOOOOODOOOOOO !!!!!
             unit' <- ioe $ renderScene scene unit
             --debugM $ show rLog
             return $! unit'

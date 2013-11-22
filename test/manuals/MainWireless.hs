@@ -20,7 +20,6 @@ import Data.List
 
 
 import Linear
-import Graphics.GLUtil.Camera3D (deg2rad)
 import Yage.Types (YageState(..))
 import Yage.Math
 import Yage.Font
@@ -84,13 +83,13 @@ string :: Text
 string = "Hallo Welt! :) \nline breaks"
 main :: IO ()
 main = 
-    let scene = testScene
-        conf  = defaultAppConfig{ logPriority = WARNING }
-        size  = (800,600)
+    let scene  = testScene
+        conf   = defaultAppConfig{ logPriority = WARNING }
+        size   = (800,600)
+        factor = 2
     in do
-        state <- initialization
+        state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
-        print $ show $ scene^.sceneViewMatrix
         let textE  = (textEntity font string) & entityPosition .~ V3 (-5) (-3) (-10) & entityScale .~ (V3 1 1 1) / 300
             scene' = addEntity textE scene
 
@@ -111,22 +110,52 @@ main =
                 let descr = FontDescriptor (12*64) (1024,1024)
                 in loadFont fontPath descr
 
+---------------------------------------------------------------------------------------------------
+-- Input & Events
+
+
 updateSettings :: RenderEnv -> (InputState, WindowEvents) -> RenderEnv 
 updateSettings env (inputSt, winEvents) =
-    env & reRenderConfig.rcConfWireframe .~ inputSt `isPressed` Key'W
+    env & reRenderConfig.rcConfWireframe .~ inputSt `isPressed` Key'F1
         & reRenderTarget.targetSize      %?~ justResizedTo winEvents
+
 
 updateScene :: RenderScene -> InputState -> RenderScene
 updateScene scene inputSt =
     let ents    = scene^.sceneEntities
         updater = tryWithSomeRenderable (update inputSt :: Box -> Box)      
-    in scene & sceneEntities .~ map updater ents
-             & sceneTime     +~ 0.001 -- dummy'       
+    in scene & sceneEntities    .~ map updater ents
+             & sceneTime        +~ 0.001 -- dummy'
+             & sceneCamera      %~ cameraMovement inputSt
+    where
+        cameraMovement input cam = 
+            let moveV k v   = if input `isPressed` k then v else Linear.zero
+                scalarD k v = if input `isPressed` k then v else 0
+                speed       = 0.1 -- yes this is not frame independent
+                movement    =  normalize $
+                               moveV Key'W (V3 0 0 (-1))
+                             + moveV Key'A (V3 (-1) 0 0)
+                             + moveV Key'S (V3 0 0 1)
+                             + moveV Key'D (V3 1 0 0)
+                turn        =  scalarD Key'Q 1
+                             + scalarD Key'E (-1)
+                tilting     =  scalarD Key'R 1
+                             + scalarD Key'F (-1)
+                fov         =  deg2rad $ 
+                               scalarD Key'X 1
+                             + scalarD Key'Z (-1)
+                camHandle   = (cam^.cameraHandle)
+                              `dolly` (speed * movement)
+                              `pan`   turn
+                              `tilt`  tilting
+            in cam & cameraHandle .~ camHandle
+                   & cameraFOV    +~ fov
 
-
+---------------------------------------------------------------------------------------------------
+-- Entity Definitions
 
 testScene :: RenderScene
-testScene = fill emptyRenderScene
+testScene = fill $ emptyRenderScene (Camera fpsCamera (deg2rad 60.0))
     where
     fill scene = 
         let box1     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (-3) 0 (-10)
