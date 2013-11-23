@@ -79,8 +79,8 @@ instance IsUpdateable InputState Box where
 tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
-string :: Text
-string = "Hallo Welt! :) \nZeilenumbruch"
+hellWorld :: Text
+hellWorld = "Hallo Welt! :)\nZeilenumbruch"
 main :: IO ()
 main =
     let scene  = testScene
@@ -90,9 +90,12 @@ main =
     in do
         state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
-        let textE  = (textEntity font string) & entityPosition .~ V3 (-3) (5) (0) & entityScale .~ (V3 1 1 1) / 300
-            floorE = floorEntity & entityScale .~ 100 * V3 1 1 1
-            scene' = scene `addEntity` floorE `addEntity` textE 
+        let helloTextE  = (textEntity font hellWorld) & entityPosition .~ V3 (-3) (5) (0) 
+                                                      & entityScale .~ (V3 1 1 1) / 300
+            screenTextE = (textEntity font "screen text ('_')") & entityPosition .~ V3 (0) (0) (0) 
+                                                                -- & entityScale .~ (V3 1 1 1) / 300
+            floorE      = floorEntity & entityScale .~ 100 * V3 1 1 1
+            scene'      = scene `addEntity` floorE `addEntity` helloTextE --`addEntity` screenTextE
 
         (state', _sc) <- execApplication "MainWireless" conf
             $ basicWindowLoop size hints (state, scene') loop
@@ -171,7 +174,7 @@ testScene = fill $ emptyRenderScene (Camera (fpsCamera `dolly` camPosition `tilt
 
 boxEntity :: RenderEntity
 boxEntity =
-    let shader    = ShaderResource "src/glsl/baseTex.vert" "src/glsl/baseTex.frag"
+    let shader    = ShaderResource "src/glsl/3d/baseTex.vert" "src/glsl/3d/baseTex.frag"
         shdef     = perspectiveUniformDef
         mesh      = cubeMesh
         attribs   = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
@@ -192,7 +195,7 @@ boxEntity =
 
 floorEntity :: RenderEntity
 floorEntity =
-    let shader      = ShaderResource "src/glsl/base.vert" "src/glsl/base.frag"
+    let shader      = ShaderResource "src/glsl/3d/base.vert" "src/glsl/3d/base.frag"
         shdef       = perspectiveUniformDef
         mesh        = gridMesh (50, 50)
         attribs     = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
@@ -214,7 +217,7 @@ textEntity font text =
     let markup            = FontMarkup 0.9 0.8
         Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
 
-        fontShader        = ShaderResource "src/glsl/baseFont.vert" "src/glsl/baseFont.frag"
+        fontShader        = ShaderResource "src/glsl/3d/baseFont.vert" "src/glsl/3d/baseFont.frag"
         fontShaderDef     = screenSpaceDef
 
         program           = (fontShader, fontShaderDef)
@@ -246,7 +249,5 @@ screenSpaceDef :: ShaderDefinition ()
 screenSpaceDef = do
     vdef <- view seViewDef
     view <- view seView
-    "projection_matrix" != view^.rvProjectionMatrix
-    "view_matrix"       != view^.rvViewMatrix
-    "model_matrix"      != vdef^.vdModelMatrix
+    "mvp_matrix"      != vdef^.vdMVPMatrix
 
