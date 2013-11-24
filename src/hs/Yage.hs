@@ -41,8 +41,7 @@ initialization renderTarget = do
             , _rcConfDebugNormals  = False 
             , _rcConfWireframe     = False
             }
-        renderUnit   = initialRenderUnit rConf renderTarget
-    return $ YageState Set.empty renderUnit 
+    return $ YageState Set.empty mempty (RenderSettings rConf renderTarget)
 
 finalization :: YageState -> IO ()
 finalization _ = return ()
@@ -56,21 +55,21 @@ yageLoop ystate' wire session = do
     (dt, s')        <- io $ sessionUpdate session
     ((mx, w'), yst) <- io $ runYage yst' $ stepWire wire dt ()
     
-    unit' <- either 
-        (\e -> handleError e >> return (yst^.renderUnit))
-        (\_s -> renderScene' (yst^.renderUnit))
+    res' <- either 
+        (\e -> handleError e >> return (yst^.renderRes))
+        (\_s -> renderScene' (yst^.renderRes) (yst^.renderSettings))
         mx
     
 
-    yageLoop (yst & renderUnit .~ unit') w' s'
+    yageLoop (yst & renderRes .~ res') w' s'
     where
         handleError :: (Throws InternalException l, Show e) => e -> Application l ()
         handleError e = criticalM $ "err:" ++ show e
         
-        renderScene' :: (Throws InternalException l, Throws SomeException l) => RenderUnit -> Application l RenderUnit
-        renderScene' unit = do
+        renderScene' :: (Throws InternalException l, Throws SomeException l) => RenderResources -> RenderSettings -> Application l RenderResources
+        renderScene' res settings = do
             let scene = undefined -- emptyRenderScene (Camera3D fpsCamera (deg2rad 60.0))-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! TODO TOOOOODOOOOOO !!!!!
-            (unit', _rlog) <- runRenderSystem [scene] unit
-            return unit'
+            (res', _rlog) <- runRenderSystem [RenderUnit scene] settings res
+            return res'
 ---------------------------------------------------------------------------------------------------
 

@@ -98,7 +98,7 @@ main =
                             & entityPosition .~ V3 (-3) (7) (0) 
                             & entityScale .~ (V3 1 1 1) / 100
             screenTextE = (textEntity2D font fontTexture "screen text ('_')" 77) 
-                            & entityPosition .~ V3 (0) (100) (2.0) 
+                            & entityPosition .~ V3 (0) (100) (-2.0) 
                                                                   -- & entityScale .~ (V3 1 1 1) / 300
             floorE      = floorEntity & entityScale .~ 100 * V3 1 1 1
             scene'      = scene `addEntity` floorE `addEntity` helloTextE
@@ -109,13 +109,13 @@ main =
         finalization state'
         where
             loop _win (yst, scene, gui) (inputState, winEvents) = do
-                let rUnit          = yst^.renderUnit
-                    rSettings'     = (rUnit^.renderSettings) `updateSettings` (inputState, winEvents)
+                let rRes           = yst^.renderRes
+                    rSettings'     = (yst^.renderSettings) `updateSettings` (inputState, winEvents)
                     scene'         = scene `updateScene` inputState
 
-                (unit', rlog) <- runRenderSystem [scene'{--, gui--}] $ rUnit & renderSettings .~ rSettings'
+                (rRes', rlog) <- runRenderSystem [RenderUnit scene', RenderUnit gui] rSettings' rRes
 
-                return (yst & renderUnit .~ unit', scene', gui)
+                return (yst & renderRes .~ rRes', scene', gui)
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' =
                 let descr = FontDescriptor (12*64) (800,600)

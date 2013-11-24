@@ -18,8 +18,9 @@ import           Yage.Rendering
 
 
 data YageState = YageState
-    { _inputs     :: Set.Set Event
-    , _renderUnit :: RenderUnit
+    { _inputs           :: Set.Set Event
+    , _renderRes        :: RenderResources
+    , _renderSettings   :: RenderSettings
     }
 
 makeLenses ''YageState
