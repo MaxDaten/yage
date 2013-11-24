@@ -6,9 +6,9 @@ in vec3 in_vert_normal;
 in vec2 in_vert_texture;
 in vec4 in_vert_color;
 
-uniform mat4 modelview_matrix;
-uniform mat4 mvp_matrix;
-uniform mat3 normal_matrix;
+uniform mat4 mvp_matrix = mat4(0.0);
+uniform mat4 modelview_matrix = mat4(0.0);
+uniform mat3 normal_matrix = mat3(0.0);
 
 uniform float global_time     = 0.0;
 

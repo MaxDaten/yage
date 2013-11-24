@@ -7,10 +7,9 @@ module Yage.Types where
 import           Yage.Prelude
 -- import Prelude hiding (id, (.)) -- reimported by Control.Wire
 ---------------------------------------------------------------------------------------------------
-import           Control.Monad.Reader
+--import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Wire          hiding (Event, Position, window)
-import           Data.Typeable
 ---------------------------------------------------------------------------------------------------
 import qualified Data.Set              as Set
 import           Yage.Core.Application (Event)
@@ -21,7 +20,6 @@ import           Yage.Rendering
 data YageState = YageState
     { _inputs     :: Set.Set Event
     , _renderUnit :: RenderUnit
-    -- , resources   :: [String]     -- ^ should use a res-manager later on
     }
 
 makeLenses ''YageState

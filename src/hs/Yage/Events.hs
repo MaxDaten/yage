@@ -2,12 +2,12 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Yage.Events where
 
-import             Yage.Prelude
+--import             Yage.Prelude
 
-import             Data.Set
-import             Data.List                      (elem)
+-- import             Data.Set
+-- import             Data.List                      (elem)
 
-import             Yage.Core.Application
+-- import             Yage.Core.Application
 
 
 --keyPressed :: Key -> Set Event -> Bool
