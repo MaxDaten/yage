@@ -83,11 +83,11 @@ hellWorld :: Text
 hellWorld = "Hallo Welt! :)\nZeilenumbruch"
 main :: IO ()
 main =
-    let scene  = testScene
-        gui    = emptyRenderScene (Camera2D fpsCamera)
-        conf   = defaultAppConfig{ logPriority = WARNING }
-        size   = (800,600)
-        factor = 2
+    let scene        = testScene
+        gui          = emptyRenderScene $ Camera2D fpsCamera
+        conf         = defaultAppConfig{ logPriority = WARNING }
+        size         = (800,600)
+        factor       = 2
     in do
         state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
@@ -96,9 +96,10 @@ main =
             Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
             helloTextE  = (textEntity3D font fontTexture hellWorld 66) 
                             & entityPosition .~ V3 (-3) (7) (0) 
-                            & entityScale .~ (V3 1 1 1) / 100
-            screenTextE = (textEntity2D font fontTexture "screen text ('_')" 77) 
-                            & entityPosition .~ V3 (0) (100) (-2.0) 
+                            & entityScale    .~ (V3 1 1 1) / 100
+            screenTextE = (textEntity2D font fontTexture "screen text (0_0)" 77) 
+                            & entityPosition .~ V3 (0) (100) (-0.5)
+                            & entityScale    .~ V3 (1) (-1) (1)
                                                                   -- & entityScale .~ (V3 1 1 1) / 300
             floorE      = floorEntity & entityScale .~ 100 * V3 1 1 1
             scene'      = scene `addEntity` floorE `addEntity` helloTextE
@@ -115,7 +116,7 @@ main =
 
                 (rRes', rlog) <- runRenderSystem [RenderUnit scene', RenderUnit gui] rSettings' rRes
 
-                return (yst & renderRes .~ rRes', scene', gui)
+                return (yst & renderRes .~ rRes' & renderSettings .~ rSettings', scene', gui)
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' =
                 let descr = FontDescriptor (12*64) (800,600)
