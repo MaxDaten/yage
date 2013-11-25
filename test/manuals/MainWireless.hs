@@ -51,7 +51,7 @@ fontchars = " !\"#$%&'()*+,-./0123456789:;<=>?" ++
             "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_" ++
             "`abcdefghijklmnopqrstuvwxyz{|}~"
 fontPath :: String
-fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Light.otf"
+fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
 
 fontAtlas :: TextureAtlas i Pixel8
 fontAtlas = emptyAtlas 1024 1024 (0 :: Pixel8) 5
@@ -92,12 +92,12 @@ main =
         state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
         
-        let markup            = FontMarkup 0.9 0.8
+        let markup            = FontMarkup 1 1
             Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
             helloTextE  = (textEntity3D font fontTexture hellWorld 66) 
                             & entityPosition .~ V3 (-3) (7) (0) 
-                            & entityScale    .~ (V3 1 1 1) / 100
-            screenTextE = (textEntity2D font fontTexture "screen text (0_0)" 77) 
+                            & entityScale    .~ (V3 1 1 1) / 10
+            screenTextE = (textEntity2D font fontTexture "screen text (0_0)\nStumple" 77) 
                             & entityPosition .~ V3 (0) (100) (-0.5)
                             & entityScale    .~ V3 (1) (-1) (1)
                                                                   -- & entityScale .~ (V3 1 1 1) / 300
@@ -119,7 +119,7 @@ main =
                 return (yst & renderRes .~ rRes' & renderSettings .~ rSettings', scene', gui)
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' =
-                let descr = FontDescriptor (12*64) (800,600)
+                let descr = FontDescriptor (21*64) (512,512)
                 in loadFont fontPath descr
 
 ---------------------------------------------------------------------------------------------------
