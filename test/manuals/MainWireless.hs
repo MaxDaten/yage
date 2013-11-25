@@ -183,10 +183,11 @@ boxEntity =
     let shader    = ShaderResource "src/glsl/3d/baseTex.vert" "src/glsl/3d/baseTex.frag"
         shdef     = perspectiveUniformDef
         mesh      = cubeMesh
-        attribs   = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
-                    , "in_vert_normal"   @= mesh^.mDataVertices^..traverse.vNormal
-                    , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
-                    , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
+        attribs   = \m ->
+                    [ "in_vert_position" @= m^.mDataVertices^..traverse.vPosition
+                    , "in_vert_normal"   @= m^.mDataVertices^..traverse.vNormal
+                    , "in_vert_color"    @= m^.mDataVertices^..traverse.vColor
+                    , "in_vert_texture"  @= m^.mDataVertices^..traverse.vTexture
                     ]
         rdef      = RenderDefinition
             { _rdefData     = makeMesh 4711 "cube" mesh attribs
@@ -204,10 +205,11 @@ floorEntity =
     let shader      = ShaderResource "src/glsl/3d/base.vert" "src/glsl/3d/base.frag"
         shdef       = perspectiveUniformDef
         mesh        = gridMesh (50, 50)
-        attribs     = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
-                      , "in_vert_normal"   @= mesh^.mDataVertices^..traverse.vNormal
-                      , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
-                      , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
+        attribs     = \m -> 
+                      [ "in_vert_position" @= m^.mDataVertices^..traverse.vPosition
+                      , "in_vert_normal"   @= m^.mDataVertices^..traverse.vNormal
+                      , "in_vert_color"    @= m^.mDataVertices^..traverse.vColor
+                      , "in_vert_texture"  @= m^.mDataVertices^..traverse.vTexture
                       ]
         rdef        = RenderDefinition
                         { _rdefData     = makeMesh 0815 "floor" mesh attribs
@@ -229,9 +231,10 @@ textEntity3D font fontTexture text ident =
         textBuff          = emptyTextBuffer fontTexture `writeText` text
         mesh              = textBuff^.tbufMesh
         textMesh          = makeMesh ident "fontyfont" mesh attribs
-        attribs           = [ "in_vert_position" @= mesh^.mDataVertices^..traverse.vPosition
-                            , "in_vert_color"    @= mesh^.mDataVertices^..traverse.vColor
-                            , "in_vert_texture"  @= mesh^.mDataVertices^..traverse.vTexture
+        attribs           = \m -> 
+                            [ "in_vert_position" @= m^.mDataVertices^..traverse.vPosition
+                            , "in_vert_color"    @= m^.mDataVertices^..traverse.vColor
+                            , "in_vert_texture"  @= m^.mDataVertices^..traverse.vTexture
                             ]
         renderDef         = RenderDefinition textMesh program texDef Triangles
     in mkRenderEntity renderDef
