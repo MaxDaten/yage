@@ -11,7 +11,7 @@
 module Main where
 
 import qualified Prelude
-import           Yage.Prelude
+import           Yage.Prelude hiding (Text)
 
 import           Yage
 
@@ -22,8 +22,9 @@ import           Data.Typeable
 import           Linear
 import           Yage.Font
 import           Yage.Math
+import           Yage.Text as T
+import           Data.Text.Lazy (Text)
 import           Yage.Rendering
---import           Yage.Rendering.Backend.Renderer
 import           Yage.Rendering.Mesh
 import           Yage.Rendering.Primitives
 import           Yage.Rendering.RenderScene
@@ -65,6 +66,13 @@ class (Typeable i, Typeable a) => IsUpdateable i a where
 newtype Box = Box RenderEntity
     deriving (Typeable, Renderable)
 
+newtype ReactingText = ReactingText RenderText
+    deriving (Typeable, Renderable)
+
+instance IsUpdateable InputState ReactingText where
+    update input (ReactingText rt) =
+        let mousePos = input^.mouse.mousePosition
+        in ReactingText $ rt & textBuffer %~ (`setText` (T.format "({},{})" mousePos))
 
 instance IsUpdateable InputState Box where
     update input (Box ent@RenderEntity{..}) =
@@ -73,7 +81,7 @@ instance IsUpdateable InputState Box where
                         * rotV Key'Left  zAxis   1.0
                         * rotV Key'Down  xAxis   1.0
                         * rotV Key'Up    xAxis (-1.0)
-        in  Box ent{ _entityOrientation = signorm $ _entityOrientation * rot }
+        in  Box $ ent &  entityOrientation .~ signorm (ent^.entityOrientation * rot)
 
 
 tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
@@ -94,15 +102,16 @@ main =
         
         let markup            = FontMarkup 1 1
             Right fontTexture = generateFontTexture font markup Monochrome fontchars fontAtlas
-            helloTextE  = (textEntity3D font fontTexture hellWorld 66) 
-                            & entityPosition .~ V3 (-3) (7) (0) 
-                            & entityScale    .~ (V3 1 1 1) / 10
-            screenTextE = (textEntity2D font fontTexture "screen text (0_0)\nStumple" 77) 
-                            & entityPosition .~ V3 (0) (100) (-0.5)
-                            & entityScale    .~ V3 (1) (-1) (1)
+            helloTextE  = (textEntity3D fontTexture hellWorld 66) 
+                            & textTransf.transPosition .~ V3 (-3) (7) (0) 
+                            & textTransf.transScale    .~ (V3 1 1 1) / 10
+            screenTextE = ReactingText $
+                           (textEntity2D fontTexture "screen text (0_0)\nStumple" 77) 
+                            & textTransf.transPosition .~ V3 (0) (100) (-0.5)
+                            & textTransf.transScale    .~ V3 (1) (-1) (1)
                                                                   -- & entityScale .~ (V3 1 1 1) / 300
             floorE      = floorEntity & entityScale .~ 100 * V3 1 1 1
-            scene'      = scene `addEntity` floorE `addEntity` helloTextE
+            scene'      = scene `addRenderable` floorE `addRenderable` helloTextE
 
         (state', _sc, _gui) <- execApplication "MainWireless" conf
             $ basicWindowLoop size hints (state, scene', gui & sceneEntities .~ [SomeRenderable screenTextE]) loop
@@ -112,11 +121,12 @@ main =
             loop _win (yst, scene, gui) (inputState, winEvents) = do
                 let rRes           = yst^.renderRes
                     rSettings'     = (yst^.renderSettings) `updateSettings` (inputState, winEvents)
-                    scene'         = scene `updateScene` inputState
+                    scene'         = scene `update3DScene` inputState `updateScene` inputState
+                    gui'           = gui `updateScene` inputState
 
-                (rRes', rlog) <- runRenderSystem [RenderUnit scene', RenderUnit gui] rSettings' rRes
+                (rRes', _rlog) <- runRenderSystem [RenderUnit scene', RenderUnit gui] rSettings' rRes
 
-                return (yst & renderRes .~ rRes' & renderSettings .~ rSettings', scene', gui)
+                return (yst & renderRes .~ rRes' & renderSettings .~ rSettings', scene', gui')
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' =
                 let descr = FontDescriptor (21*64) (512,512)
@@ -132,12 +142,9 @@ updateSettings settings (inputSt, winEvents) =
              & reRenderTarget.targetSize      %?~ justResizedTo winEvents
 
 
-updateScene :: RenderScene -> InputState -> RenderScene
-updateScene scene inputSt =
-    let ents    = scene^.sceneEntities
-        updater = tryWithSomeRenderable (update inputSt :: Box -> Box)
-    in scene & sceneEntities    .~ map updater ents
-             & sceneCamera      %~ cameraMovement inputSt
+update3DScene :: RenderScene -> InputState -> RenderScene
+update3DScene scene inputSt =
+    scene & sceneCamera      %~ cameraMovement inputSt
     where
         cameraMovement input cam =
             let moveV k v   = if input `isPressed` k then v else Linear.zero
@@ -152,15 +159,21 @@ updateScene scene inputSt =
                              + scalarD Key'E (-1)
                 tilting     =  scalarD Key'R 1
                              + scalarD Key'F (-1)
-                fov         =  deg2rad $
-                               scalarD Key'X 1
-                             + scalarD Key'Z (-1)
+                --fov         =  deg2rad $
+                --               scalarD Key'X 1
+                --             + scalarD Key'Z (-1)
                 camHandle   = (cam^.cameraHandle)
                               `dolly` (speed * movement)
                               `pan`   turn
                               `tilt`  tilting
             in cam & cameraHandle .~ camHandle
                    -- & cameraFOV    +~ fov
+
+updateScene :: RenderScene -> InputState -> RenderScene
+updateScene scene inputSt =
+    let boxUpdater = tryWithSomeRenderable (update inputSt :: Box -> Box)
+        textUpdate = tryWithSomeRenderable (update inputSt :: ReactingText -> ReactingText)
+    in scene & sceneEntities    %~ (map textUpdate) . (map boxUpdater) -- Not the efficent way :)
 
 ---------------------------------------------------------------------------------------------------
 -- Entity Definitions
@@ -174,8 +187,8 @@ testScene = fill $ emptyRenderScene (Camera3D (fpsCamera `dolly` camPosition `ti
         let box1     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 (-3) 2 (0)
             box2     = Box $ boxEntity & entityScale .~ 1.5 * V3 1 1 1 & entityPosition .~ V3 3 2 (0)
         in scene 
-            `addEntity` box1 
-            `addEntity` box2
+            `addRenderable` box1 
+            `addRenderable` box2
 
 
 boxEntity :: RenderEntity
@@ -220,30 +233,29 @@ floorEntity =
     in mkRenderEntity rdef
 
 
-textEntity3D :: Font -> FontTexture -> Text -> Int -> RenderEntity
-textEntity3D font fontTexture text ident =
+textEntity3D :: FontTexture -> Text -> Int -> RenderText
+textEntity3D fontTexture text ident =
     let fontShader        = ShaderResource "src/glsl/3d/baseFont.vert" "src/glsl/3d/baseFont.frag"
         fontShaderDef     = perspectiveUniformDef
-
-        program           = (fontShader, fontShaderDef)
-        texDef            = [TextureDefinition (0, "textures") (TextureImage "some-font" (fontTexture^.textureData))]
-
-        textBuff          = emptyTextBuffer fontTexture `writeText` text
-        mesh              = textBuff^.tbufMesh
-        textMesh          = makeMesh ident "fontyfont" mesh attribs
         attribs           = \m -> 
                             [ "in_vert_position" @= m^.mDataVertices^..traverse.vPosition
                             , "in_vert_color"    @= m^.mDataVertices^..traverse.vColor
                             , "in_vert_texture"  @= m^.mDataVertices^..traverse.vTexture
                             ]
-        renderDef         = RenderDefinition textMesh program texDef Triangles
-    in mkRenderEntity renderDef
+    in RenderText 
+        { _textIdent   = ident
+        , _textBuffer  = emptyTextBuffer fontTexture `writeText` text
+        , _textTexCh   = (0, "textures") 
+        , _textShader  = (fontShader, fontShaderDef)
+        , _textAttribs = attribs
+        , _textTransf  = idTransformation
+        }
 
-textEntity2D :: Font -> FontTexture -> Text -> Int -> RenderEntity
-textEntity2D font fontTexture text ident = 
-    (textEntity3D font fontTexture text ident) 
-    & entityRenderDef.rdefProgram.shaderDef .~ screenSpaceDef
-    & entityRenderDef.rdefProgram.shaderRes .~ ShaderResource "src/glsl/3d/baseFont.vert" "src/glsl/3d/baseFont.frag"
+textEntity2D :: FontTexture -> Text -> Int -> RenderText
+textEntity2D fontTexture text ident = 
+    (textEntity3D fontTexture text ident) 
+    & textShader.shaderDef .~ screenSpaceDef
+    & textShader.shaderRes .~ ShaderResource "src/glsl/3d/baseFont.vert" "src/glsl/3d/baseFont.frag"
 
 ---------------------------------------------------------------------------------------------------
 -- Shader Definitions
@@ -260,9 +272,5 @@ perspectiveUniformDef = do
 screenSpaceDef :: ShaderDefinition ()
 screenSpaceDef = do
     vdef <- view seViewDef
-    view <- view seView
     "mvp_matrix"      != vdef^.vdMVPMatrix
-    --where
-    --    oMatrix = orthoMatrix . fmap getXYW . getXYW
-    --    getXYW (V4 x y _ w) = V3 x y w
 

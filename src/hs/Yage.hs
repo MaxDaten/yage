@@ -13,11 +13,11 @@ import             Data.List                    ((++))
 ---------------------------------------------------------------------------------------------------
 import             Yage.Types
 import             Yage.Core.Application
-import             Yage.Core.Application.Utils
+--import             Yage.Core.Application.Utils
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
-import             Yage.Rendering.RenderScene
+--import             Yage.Rendering.RenderScene
 import qualified   Graphics.Rendering.OpenGL       as GL
 ---------------------------------------------------------------------------------------------------
 

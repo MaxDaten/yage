@@ -13,7 +13,7 @@ import Data.Map hiding (map, null)
 import Data.List (map, sortBy, null)
 
 import Graphics.Font as FT
-import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)
+import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontname), loadFont)
 
 import Yage.Texture.Atlas
 

@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
 module Yage.Font.TextBuffer where
 
 import           Foreign.C.Types
@@ -10,8 +11,8 @@ import           Yage.Images
 import           Yage.Math
 import           Yage.Prelude              hiding (Text)
 -----------------------------------------------------------------------------------------
-import           Data.Text                 (Text)
-import qualified Data.Text                 as T
+import           Data.Text.Lazy            (Text)
+import qualified Data.Text.Lazy            as T
 -----------------------------------------------------------------------------------------
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
@@ -35,7 +36,7 @@ data TextBuffer = TextBuffer
     , _tbufMesh    :: MeshData Vertex2P4C2T
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
-    }
+    } deriving (Typeable)
 
 makeLenses ''TextBuffer
 
@@ -50,6 +51,8 @@ pxNorm (FontDescriptor _ (resX,resY)) = (fromI resX, fromI resY)
 emptyTextBuffer :: FontTexture -> TextBuffer
 emptyTextBuffer fTex = TextBuffer fTex emptyMeshData (V2 0 0) ""
 
+clearTextBuffer :: TextBuffer -> TextBuffer
+clearTextBuffer fTex = emptyTextBuffer (fTex^.tbufTexture)
 
 pushChar :: TextBuffer -> Char -> TextBuffer
 pushChar tbuf '\n' =
@@ -96,6 +99,9 @@ pushChar tbuf c =
             in (caret & _x +~ advance / normX, mesh')
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
+
+setText :: TextBuffer -> Text -> TextBuffer
+setText = writeText . clearTextBuffer
 
 writeText :: TextBuffer -> Text -> TextBuffer
 writeText = T.foldl pushChar
