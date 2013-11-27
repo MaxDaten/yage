@@ -2,8 +2,6 @@
 
 module Main where
 
-
-import Prelude hiding (id, (.)) -- reimported by Control.Wire
 import Yage.Rendering.WorldState
 import Control.Wire
 

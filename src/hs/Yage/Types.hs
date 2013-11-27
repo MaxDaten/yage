@@ -5,40 +5,38 @@
 module Yage.Types where
 
 import           Yage.Prelude
--- import Prelude hiding (id, (.)) -- reimported by Control.Wire
 ---------------------------------------------------------------------------------------------------
---import           Control.Monad.Reader
-import           Control.Monad.State
-import           Control.Wire          hiding (Event, Position, window)
+import           Control.Monad.Reader
+import           Control.Wire          hiding (Event)
 ---------------------------------------------------------------------------------------------------
-import qualified Data.Set              as Set
-import           Yage.Core.Application (Event)
+import           Yage.Core.Application (InputState, WindowEvents)
 import           Yage.Rendering
 ---------------------------------------------------------------------------------------------------
 
+type YageInput = (InputState, WindowEvents)
 
-data YageState = YageState
-    { _inputs           :: Set.Set Event
-    , _renderRes        :: RenderResources
+---------------------------------------------------------------------------------------------------
+
+
+type Yage = ReaderT YageInput IO
+
+type NominalTimed = Timed NominalDiffTime ()
+type YageMainWire session view = Wire session () Yage () view
+
+data YageLoopState s v = YageLoopState
+    { _renderRes        :: RenderResources
     , _renderSettings   :: RenderSettings
+    , _currentWire      :: YageMainWire s v
+    , _currentSession   :: Session IO s
     }
 
-makeLenses ''YageState
 ---------------------------------------------------------------------------------------------------
-
-
-newtype Yage a = Yage (StateT YageState IO a)
-    deriving (Functor, Monad, MonadIO, MonadState YageState, Typeable)
-
---data Input = Input
---type Inputs = Set.Set Input
-
-type YageWire = WireM Yage
+makeLenses ''YageLoopState
 
 ---------------------------------------------------------------------------------------------------
 
-runYage :: YageState -> Yage a -> IO (a, YageState)
-runYage st (Yage a) = runStateT a st
+runYage :: YageInput -> Yage a -> IO a
+runYage input m = runReaderT m input
 
 ---------------------------------------------------------------------------------------------------
 

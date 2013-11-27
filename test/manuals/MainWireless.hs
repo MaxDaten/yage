@@ -10,10 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 module Main where
 
-import qualified Prelude
 import           Yage.Prelude hiding (Text)
-
-import           Yage
 
 import           Data.List
 import           Data.Typeable
@@ -22,7 +19,7 @@ import           Data.Typeable
 import           Linear
 import           Yage.Font
 import           Yage.Math
-import           Yage.Text as T
+import qualified Yage.Text as T
 import           Data.Text.Lazy (Text)
 import           Yage.Rendering
 import           Yage.Rendering.Mesh
@@ -31,7 +28,6 @@ import           Yage.Rendering.RenderScene
 import           Yage.Rendering.Texture
 import           Yage.Rendering.VertexSpec
 import           Yage.Texture.Atlas
-import           Yage.Types
 
 import           Yage.Core.Application
 import           Yage.Core.Application.Logging
@@ -87,6 +83,7 @@ instance IsUpdateable InputState Box where
 tryWithSomeRenderable :: (Typeable u, Renderable r) => (u -> r) -> SomeRenderable -> SomeRenderable
 tryWithSomeRenderable f some = maybe some (toRenderable . f) (fromRenderable some)
 
+
 hellWorld :: Text
 hellWorld = "Hallo Welt! :)\nZeilenumbruch"
 main :: IO ()
@@ -96,8 +93,15 @@ main =
         conf         = defaultAppConfig{ logPriority = WARNING }
         size         = (800,600)
         factor       = 2
+        winConf      = WindowConfig size hints
+        target       = RenderTarget (0,0) size factor 0.1 100 True
+        res          = mempty
+        rsettings     = RenderSettings RenderConfig
+                        { _rcConfClearColor    = Color4 0.3 0.3 0.3 0
+                        , _rcConfDebugNormals  = False
+                        , _rcConfWireframe     = False
+                        } target
     in do
-        state <- initialization $ RenderTarget (0,0) size factor 0.1 100 True
         font  <- loadFont'
         
         let markup            = FontMarkup 1 1
@@ -114,22 +118,23 @@ main =
             scene'      = scene `addRenderable` floorE `addRenderable` helloTextE
 
         (state', _sc, _gui) <- execApplication "MainWireless" conf
-            $ basicWindowLoop size hints (state, scene', gui & sceneEntities .~ [SomeRenderable screenTextE]) loop
+            $ basicWindowLoop winConf ((res, rsettings), scene', gui & sceneEntities .~ [SomeRenderable screenTextE]) loop
 
-        finalization state'
+        return ()
         where
-            loop _win (yst, scene, gui) (inputState, winEvents) = do
-                let rRes           = yst^.renderRes
-                    rSettings'     = (yst^.renderSettings) `updateSettings` (inputState, winEvents)
-                    scene'         = scene `update3DScene` inputState `updateScene` inputState
-                    gui'           = gui `updateScene` inputState
+            loop _win (inputState, winEvents) ((res, settings), scene, gui) = do
+                let settingsNew      = settings `updateSettings` (inputState, winEvents)
+                    sceneNew         = scene `update3DScene` inputState `updateScene` inputState
+                    guiNew           = gui `updateScene` inputState
 
-                (rRes', _rlog) <- runRenderSystem [RenderUnit scene', RenderUnit gui] rSettings' rRes
+                (resNew, _rlog) <- runRenderSystem
+                                        [RenderUnit sceneNew, RenderUnit guiNew]
+                                        settingsNew res
 
-                return (yst & renderRes .~ rRes' & renderSettings .~ rSettings', scene', gui')
+                return ((resNew, settingsNew), sceneNew, guiNew)
                 --unless (isEmptyRenderLog l) $ mapM_ debugM $ rlog'log l
             loadFont' =
-                let descr = FontDescriptor (21*64) (512,512)
+                let descr = FontDescriptor (21*64,21*64) (512,512)
                 in loadFont fontPath descr
 
 ---------------------------------------------------------------------------------------------------
@@ -222,7 +227,6 @@ floorEntity =
                       [ "in_vert_position" @= m^.mDataVertices^..traverse.vPosition
                       , "in_vert_normal"   @= m^.mDataVertices^..traverse.vNormal
                       , "in_vert_color"    @= m^.mDataVertices^..traverse.vColor
-                      , "in_vert_texture"  @= m^.mDataVertices^..traverse.vTexture
                       ]
         rdef        = RenderDefinition
                         { _rdefData     = makeMesh 0815 "floor" mesh attribs
