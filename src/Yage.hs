@@ -1,17 +1,22 @@
-{-# LANGUAGE UnicodeSyntax      #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 
-module Yage where
+module Yage
+    ( yageMain
+    , module Types
+    , module Application
+    , module YagePrelude
+    ) where
 
-import             Yage.Prelude
+import             Yage.Prelude                    as YagePrelude
 ---------------------------------------------------------------------------------------------------
 import             Control.Wire
 ---------------------------------------------------------------------------------------------------
 import             Data.List                    ((++))
 ---------------------------------------------------------------------------------------------------
-import             Yage.Types
-import             Yage.Core.Application
+import             Yage.Types                      as Types
+import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
@@ -19,11 +24,22 @@ import             Yage.Rendering
 import qualified   Graphics.Rendering.OpenGL       as GL
 ---------------------------------------------------------------------------------------------------
 
-class HasRenderView a where
-    getRenderView :: a -> RenderUnit
+
+data YageLoopState t v = YageLoopState
+    { _renderRes        :: RenderResources
+    , _renderSettings   :: RenderSettings
+    , _currentWire      :: YageWire t () v
+    , _currentSession   :: YageSession t
+    }
+
+---------------------------------------------------------------------------------------------------
+makeLenses ''YageLoopState
+
+---------------------------------------------------------------------------------------------------
 
 
-yageMain :: (HasRenderView v) => String -> WindowConfig -> YageMainWire s v -> Session IO s -> IO ()
+
+yageMain :: (HasRenderView view, Real t) => String -> WindowConfig -> YageWire t () view -> YageSession t -> IO ()
 yageMain title winConf wire session = do
     _ <- bracket 
             (return $ initialization wire session $ RenderTarget (0, 0) (800, 600) 2 0.1 100 True) -- TODO remove it real target
@@ -34,7 +50,7 @@ yageMain title winConf wire session = do
     return ()
 
 
-initialization :: YageMainWire s v -> Session IO s -> RenderTarget -> YageLoopState s v
+initialization :: YageWire t () view -> YageSession t -> RenderTarget -> YageLoopState t view
 initialization wire session renderTarget =
     let rConf = RenderConfig
             { _rcConfClearColor    = GL.Color4 0.3 0.3 0.3 0
@@ -51,9 +67,9 @@ yageLoop :: (HasRenderView v)
         => Window
         -> YageInput
         -> YageLoopState s v -> Application AnyException (YageLoopState s v)
-yageLoop win ins@(inputState, winEvents) loopSt = do
-    (dt, s')        <- io $ stepSession $ loopSt^.currentSession
-    (rView, w')     <- io $ runYage ins $ stepWire (loopSt^.currentWire) dt (Right ())
+yageLoop _win events loopSt = do
+    (ds, s')     <- io $ stepSession $ loopSt^.currentSession
+    (rView, w') <- io $ stepWire (loopSt^.currentWire) (ds events) (Right ())
     
     updatedSt <- either 
         (\e -> handleError e >> return loopSt)

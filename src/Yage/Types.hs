@@ -18,27 +18,22 @@ type YageInput = (InputState, WindowEvents)
 ---------------------------------------------------------------------------------------------------
 
 
-type Yage = ReaderT YageInput IO
+-- type Yage = ReaderT YageInput IO
 
-type NominalTimed = Timed NominalDiffTime ()
-type YageMainWire session view = Wire session () Yage () view
+type YageTimedInput t = Timed t YageInput
+type YageSession t  = Session IO (YageInput -> YageTimedInput t)
+type YageWire t = Wire (YageTimedInput t) ({--error--}) IO
 
-data YageLoopState s v = YageLoopState
-    { _renderRes        :: RenderResources
-    , _renderSettings   :: RenderSettings
-    , _currentWire      :: YageMainWire s v
-    , _currentSession   :: Session IO s
-    }
-
----------------------------------------------------------------------------------------------------
-makeLenses ''YageLoopState
-
----------------------------------------------------------------------------------------------------
-
+{--
 runYage :: YageInput -> Yage a -> IO a
 runYage input m = runReaderT m input
+--}
 
 ---------------------------------------------------------------------------------------------------
+
+class HasRenderView a where
+    getRenderView :: a -> RenderUnit
+
 
 {--
 putRenderEnv :: RenderEnv -> Yage ()
