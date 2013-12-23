@@ -11,11 +11,10 @@ module Yage
 
 import             Yage.Prelude                    as YagePrelude
 ---------------------------------------------------------------------------------------------------
-import             Control.Wire
----------------------------------------------------------------------------------------------------
-import             Data.List                    ((++))
+import             Data.List                       ((++))
 ---------------------------------------------------------------------------------------------------
 import             Yage.Types                      as Types
+import             Yage.Wire                       as Wire
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging
@@ -73,7 +72,7 @@ yageLoop _win events loopSt = do
     
     updatedSt <- either 
         (\e -> handleError e >> return loopSt)
-        (renderTheViews loopSt)
+        (renderTheViews $ loopSt & renderSettings %~ internalSettingsUpdate events)
         rView
     
 
@@ -82,6 +81,9 @@ yageLoop _win events loopSt = do
     where
         handleError :: (Throws InternalException l, Show e) => e -> Application l ()
         handleError e = criticalM $ "err:" ++ show e
+
+        internalSettingsUpdate :: YageInput -> RenderSettings -> RenderSettings
+        internalSettingsUpdate (_, winEvents) settings = settings & reRenderTarget.targetSize %?~ justResizedTo winEvents
         
         renderTheViews :: (Throws InternalException l, Throws SomeException l, HasRenderView v) 
                        => YageLoopState s v -> v -> Application l (YageLoopState s v)

@@ -1,16 +1,97 @@
-module Yage.Wire where
+module Yage.Wire
+    ( module Yage.Wire
+    , module Netwire
+    ) where
 
 import Yage.Prelude hiding (id, (.))
-import Control.Wire
-import Graphics.Rendering.OpenGL.GL (Color4(..))
-import Data.Tuple.Curry
-import Text.Printf
+import Data.Foldable
 
-import Yage.Rendering.Types
+import Control.Wire.Unsafe.Event
+import Control.Wire.Core as Netwire
+import FRP.Netwire as Netwire
+
+
+import Yage.Core.Application
 import Yage.Types
+import Linear
 
 
 type ColorChs = (Double, Double, Double, Double)
+
+
+
+
+-------------------------------------------------------------------------------
+-- State Events
+
+mouseVelocity :: (Real t) => YageWire t a (V2 Float)
+mouseVelocity = derivativeF . currentMousePosition
+
+
+mouseAcceleration :: (Real t) => YageWire t a (V2 Float)
+mouseAcceleration = derivativeF . mouseVelocity
+
+
+keyDown :: (Real t) => Key -> YageWire t a (Netwire.Event a)
+keyDown key = 
+    mkSF $ \(Timed _ (i, _)) x ->
+        if i `isPressed` key
+            then (Event x, keyDown key)
+            else (NoEvent, keyDown key)
+
+whenKeyUp :: (Real t) => Key -> YageWire t a YageInput
+whenKeyUp key = arr traceShow' . unless (\(i, _) -> i `isPressed` key) . currentInputState
+
+
+currentMousePosition :: (Real t, Fractional b) => YageWire t a (V2 b)
+currentMousePosition = mkSF_ (\(inputSt,_) -> realToFrac <$> (uncurry V2 $ inputSt^.mouse.mousePosition)) . currentInputState
+
+currentInputState :: (Num t) => YageWire t a YageInput
+currentInputState = mkSF $ \(Timed _ s) _ -> (s, currentInputState)
+
+
+
+-------------------------------------------------------------------------------
+-- Generic Wires
+
+
+while :: Monoid e => Wire s e m (Netwire.Event a) a
+while = mkPure_ $ event (Left mempty) Right
+
+
+integrateAttenuated :: (Floating a, Ord a, HasTime t s) 
+                 => a -> a -> Wire s e m a a
+integrateAttenuated a@attenuation x' = mkPure $ \ds dx ->
+    let dt = realToFrac (dtime ds)
+        x  = a * (x' + dt * dx)
+    in x' `seq` ( Right x', integrateAttenuated a x )
+
+
+integrateBounded :: (Floating a, Ord a, HasTime t s) 
+                 => (a, a) -> a -> Wire s e m a a
+integrateBounded b@(lower,upper) x' = mkPure $ \ds dx ->
+    let dt = realToFrac (dtime ds)
+        x  = x' + dt * dx
+        n  = min upper . max lower $ x
+    in x' `seq` ( Right x', integrateBounded b n )
+
+
+derivativeF :: (Foldable f, Fractional (f a), RealFloat a, HasTime t s, Monoid e)
+            => Wire s e m (f a) (f a)
+derivativeF = mkPure $ \_ x -> (Left mempty, loop x)
+    where
+    loop x' = 
+        mkPure $ \ds x ->
+            let dt  = realToFrac (dtime ds)
+                dx  = (x - x') / dt
+                mdx | any isNaN dx       = Right 0
+                    | any isInfinite dx  = Left mempty
+                    | otherwise          = Right dx
+            in mdx `seq` (mdx, loop x)
+
+
+
+
 
 {--
 
