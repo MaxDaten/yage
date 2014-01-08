@@ -127,7 +127,7 @@ yageLoop win preRenderState = do
             let theView     = getRenderView rView
                 res         = state^.renderResources
             settings <- io $ readTVarIO $ state^.renderSettings
-            (res', _rlog) <- runRenderSystem [theView] settings res
+            (res', _rlog) <- runRenderSystem (mkRenderSystem theView) settings res 
             return $ state & renderResources .~ res'
 
 ---------------------------------------------------------------------------------------------------

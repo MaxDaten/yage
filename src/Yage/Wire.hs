@@ -54,8 +54,8 @@ keyJustReleased key =
 -- | acts like `id` while `key` is down, inhibits while `key` is up
 whileKeyDown :: (Num t) => Key -> YageWire t a a
 whileKeyDown key = proc a -> do
-    down <- keyJustPressed key -< ()
-    up <- keyJustReleased key -< ()
+    down <- keyJustPressed key  -< ()
+    up   <- keyJustReleased key -< ()
     between -< (a, down, up)
 
 
