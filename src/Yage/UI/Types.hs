@@ -1,0 +1,100 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
+module Yage.UI.Types where
+
+import           Yage.Prelude
+---------------------------------------------------------------------------------------------------
+import           Yage.Core.Application
+
+import           Linear
+---------------------------------------------------------------------------------------------------
+
+
+data MouseButtonEvent = MouseButtonEvent MouseButton MouseButtonState ModifierKeys
+    deriving (Show, Typeable)
+
+data MouseState = MouseState
+    { _mousePosition      :: V2 Double -- | screen coords relative to upper left corner
+    , _mouseScroll        :: V2 Double
+    , _mouseButtonEvents  :: [MouseButtonEvent]
+    }
+    deriving (Show, Typeable)
+
+makeLenses ''MouseState
+
+---------------------------------------------------------------------------------------------------
+
+data KeyEvent = KeyEvent Key Int KeyState ModifierKeys
+    deriving (Show, Typeable)
+
+data KeyboardState = KeyboardState
+    { _keyEvents :: [KeyEvent]
+    } 
+    deriving (Show, Typeable)
+
+makeLenses ''KeyboardState
+---------------------------------------------------------------------------------------------------
+
+type Axis = Double
+data JoystickState = JoystickState
+    { _joyButtons :: [JoystickButtonState] -- TODO
+    , _joyAxes    :: [Axis]
+    }
+    deriving (Show, Typeable)
+
+makeLenses ''JoystickState
+
+---------------------------------------------------------------------------------------------------
+
+data InputState = InputState
+    { _keyboard :: KeyboardState        -- | current pressed keys
+    , _mouse    :: MouseState           -- | current pressed buttons and mouse position
+    , _joystick :: Maybe JoystickState  -- | current pressed buttons and axes
+    }
+    deriving (Show, Typeable)
+
+makeLenses ''InputState
+
+initialInputState :: InputState
+initialInputState = InputState
+    { _keyboard  = mempty
+    , _mouse     = mempty
+    , _joystick  = Nothing --- JoystickState empty []
+    }
+
+---------------------------------------------------------------------------------------------------
+
+instance Monoid InputState where
+    mempty = initialInputState
+    mappend a b =
+        InputState
+            { _keyboard = a^.keyboard <> b^.keyboard
+            , _mouse    = a^.mouse    <> b^.mouse
+            , _joystick = a^.joystick <> b^.joystick
+            }
+
+
+instance Monoid MouseState where
+    mempty = MouseState 0 0 mempty
+    mappend a b =
+        MouseState
+            (a^.mousePosition      +  b^.mousePosition)
+            (a^.mouseScroll        +  b^.mouseScroll)
+            (a^.mouseButtonEvents  <> b^.mouseButtonEvents)
+
+instance Monoid JoystickState where
+    mempty = JoystickState mempty mempty
+    mappend a b =
+        JoystickState
+            { _joyButtons = a^.joyButtons <> b^.joyButtons
+            , _joyAxes    = a^.joyAxes    <> b^.joyAxes
+            }
+
+
+instance Monoid KeyboardState where
+    mempty = KeyboardState mempty
+    mappend (KeyboardState a) (KeyboardState b) = KeyboardState $ mappend a b
+
+

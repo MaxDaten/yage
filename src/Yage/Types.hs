@@ -6,23 +6,18 @@ module Yage.Types where
 
 import           Yage.Prelude
 ---------------------------------------------------------------------------------------------------
-import           Control.Monad.Reader
-import           Control.Wire          hiding (Event)
+import           Control.Wire          (Wire, Timed, Session)
 ---------------------------------------------------------------------------------------------------
-import           Yage.Core.Application (InputState, WindowEvents)
 import           Yage.Rendering
----------------------------------------------------------------------------------------------------
-
-type YageInput = (InputState, WindowEvents)
-
+import           Yage.UI
 ---------------------------------------------------------------------------------------------------
 
 
--- type Yage = ReaderT YageInput IO
 
-type YageTimedInput t = Timed t YageInput
-type YageSession t  = Session IO (YageInput -> YageTimedInput t)
-type YageWire t = Wire (YageTimedInput t) ({--error--}) IO
+
+type YageTimedInputState t = Timed t InputState
+type YageSession t = Session IO (InputState -> YageTimedInputState t)
+type YageWire t = Wire (YageTimedInputState t) ({--error--}) IO
 
 {--
 runYage :: YageInput -> Yage a -> IO a
@@ -57,5 +52,6 @@ putRenderConfig conf = getRenderEnv >>= \env -> putRenderEnv env{ envConfig = co
 
 --getResources :: Yage (YageResources)
 --getResources = gets resources
+
 
 

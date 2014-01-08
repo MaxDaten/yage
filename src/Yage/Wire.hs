@@ -1,11 +1,13 @@
+{-# LANGUAGE Arrows #-}
 module Yage.Wire
     ( module Yage.Wire
     , module Netwire
     ) where
 
-import Yage.Prelude hiding (id, (.))
+import Yage.Prelude hiding (id, (.), until)
 import Data.Foldable
 
+import Control.Monad (liftM)
 import Control.Wire.Unsafe.Event
 import Control.Wire.Core as Netwire
 import FRP.Netwire as Netwire
@@ -13,10 +15,11 @@ import FRP.Netwire as Netwire
 
 import Yage.Core.Application
 import Yage.Types
+import Yage.UI
 import Linear
 
 
-type ColorChs = (Double, Double, Double, Double)
+--type ColorChs = (Double, Double, Double, Double)
 
 
 
@@ -31,25 +34,36 @@ mouseVelocity = derivativeF . currentMousePosition
 mouseAcceleration :: (Real t) => YageWire t a (V2 Float)
 mouseAcceleration = derivativeF . mouseVelocity
 
+-- | fires ONCE everytime a `key` is pressed
+keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event a)
+keyJustPressed key = 
+    mkSF $ \(Timed _ inputSt) x ->
+        if (key `keyIs` KeyState'Pressed) inputSt
+            then (Event x, keyJustPressed key)
+            else (NoEvent, keyJustPressed key)
 
-keyDown :: (Real t) => Key -> YageWire t a (Netwire.Event a)
-keyDown key = 
-    mkSF $ \(Timed _ (i, _)) x ->
-        if i `isPressed` key
-            then (Event x, keyDown key)
-            else (NoEvent, keyDown key)
 
-whenKeyUp :: (Real t) => Key -> YageWire t a YageInput
-whenKeyUp key = arr traceShow' . unless (\(i, _) -> i `isPressed` key) . currentInputState
+keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event a)
+keyJustReleased key = 
+    mkSF $ \(Timed _ inputSt) x ->
+        if (key `keyIs` KeyState'Released) inputSt
+            then (Event x, keyJustReleased key)
+            else (NoEvent, keyJustReleased key)
+
+
+-- | acts like `id` while `key` is down, inhibits while `key` is up
+whileKeyDown :: (Num t) => Key -> YageWire t a a
+whileKeyDown key = proc a -> do
+    down <- keyJustPressed key -< ()
+    up <- keyJustReleased key -< ()
+    between -< (a, down, up)
 
 
 currentMousePosition :: (Real t, Fractional b) => YageWire t a (V2 b)
-currentMousePosition = mkSF_ (\(inputSt,_) -> realToFrac <$> (uncurry V2 $ inputSt^.mouse.mousePosition)) . currentInputState
+currentMousePosition = mkSF $ \(Timed _ inputSt) _ -> (realToFrac <$> inputSt^.mouse.mousePosition, currentMousePosition)
 
-currentInputState :: (Num t) => YageWire t a YageInput
-currentInputState = mkSF $ \(Timed _ s) _ -> (s, currentInputState)
-
-
+currentInputState :: (Num t) => YageWire t a InputState
+currentInputState = mkSF $ \(Timed _ inputState) _ -> (inputState, currentInputState)
 
 -------------------------------------------------------------------------------
 -- Generic Wires
@@ -88,9 +102,6 @@ derivativeF = mkPure $ \_ x -> (Left mempty, loop x)
                     | any isInfinite dx  = Left mempty
                     | otherwise          = Right dx
             in mdx `seq` (mdx, loop x)
-
-
-
 
 
 {--

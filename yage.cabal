@@ -32,14 +32,16 @@ Flag perf
 library
   hs-source-dirs:       src/
   exposed-modules:      Yage
-                        Yage.Types
-                        Yage.Events
                         Yage.Wire
                         Yage.Font
+                        Yage.UI
                         Yage.Texture.Atlas
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture
+                        Yage.Types
+                        
+                        Yage.UI.Types
 
   if flag(perf)
     ghc-options:        -threaded -O2
@@ -67,6 +69,7 @@ library
                         
                         , containers      == 0.5.*
                         , transformers    == 0.3.*
+                        , stm             == 2.4.*
                         , tuple           == 0.2.*
                         , mtl             == 2.1.*
                         , text            >= 0.11
