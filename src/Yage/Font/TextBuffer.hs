@@ -17,10 +17,8 @@ import qualified Data.Text.Lazy            as T
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
 import           Codec.Picture.Types
-import           Linear
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import           Yage.Rendering.Mesh
 import           Yage.Rendering.Primitives
 import           Yage.Rendering.VertexSpec
 -----------------------------------------------------------------------------------------

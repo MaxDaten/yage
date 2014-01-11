@@ -7,7 +7,6 @@ module Yage.Wire
 import Yage.Prelude hiding (id, (.), until)
 import Data.Foldable
 
-import Control.Monad (liftM)
 import Control.Wire.Unsafe.Event
 import Control.Wire.Core as Netwire
 import FRP.Netwire as Netwire

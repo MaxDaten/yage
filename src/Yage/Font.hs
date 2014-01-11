@@ -15,7 +15,6 @@ import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
-import           Yage.Rendering.Mesh
 import           Yage.Rendering.VertexSpec
 
 

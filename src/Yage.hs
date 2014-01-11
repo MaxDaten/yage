@@ -69,10 +69,9 @@ instance EventCtr (YageLoopState t v) where
 
 yageMain :: (HasRenderView view, Real time)=> String -> WindowConfig -> YageWire time () view -> YageSession time -> IO ()
 yageMain title winConf wire session = 
-    let renderTarget  = RenderTarget (V2 0 0) (V2 800 600) 2 0.1 100 True  -- TODO remove it real target
+    let renderTarget  = RenderTarget (V2 0 0) (V2 800 600) 2 0.1 100 True -- TODO remove it real target
         rConf         = RenderConfig
-                        { _rcConfClearColor    = GL.Color4 0.3 0.3 0.3 0
-                        , _rcConfDebugNormals  = False
+                        { _rcConfDebugNormals  = False
                         , _rcConfWireframe     = False
                         }
         renderSettings = RenderSettings rConf renderTarget
