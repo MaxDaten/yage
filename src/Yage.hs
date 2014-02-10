@@ -23,6 +23,7 @@ import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
+import             Yage.Pipeline.Deferred
 
 import             Yage.UI
 
@@ -31,10 +32,11 @@ import qualified   Graphics.Rendering.OpenGL       as GL
 
 
 data YageLoopState time view = YageLoopState
-    { _renderResources  :: RenderResources
+    { _renderResources  :: GLResources
     , _currentWire      :: YageWire time () view
     , _currentSession   :: YageSession time
-    , _renderSettings   :: TVar RenderSettings
+    , _renderConfig     :: TVar RenderConfig
+    , _viewport         :: TVar ViewportI
     , _inputState       :: TVar InputState
     }
 
@@ -49,8 +51,8 @@ makeLenses ''YageLoopState
 -- maybe we will use generics and deriving later on
 instance EventCtr (YageLoopState t v) where
     --windowPositionCallback = windowPositionCallback . _eventCtr
-    windowSizeCallback YageLoopState{_renderSettings} = return $ \_winH w h ->
-        atomically $ modifyTVar' _renderSettings $ reRenderTarget.targetSize .~ V2 w h
+    windowSizeCallback YageLoopState{_viewport} = return $ \_winH w h ->
+        atomically $ modifyTVar' _viewport $ vpSize .~ V2 w h
     --windowCloseCallback    = windowCloseCallback . _eventCtr
     --windowRefreshCallback  = windowRefreshCallback . _eventCtr
     --windowFocusCallback    = windowFocusCallback . _eventCtr
@@ -67,43 +69,56 @@ instance EventCtr (YageLoopState t v) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: (HasRenderView view, Real time)=> String -> WindowConfig -> YageWire time () view -> YageSession time -> IO ()
+yageMain :: (HasRenderScene scene, Real time) 
+         => String -> WindowConfig -> YageWire time () scene -> YageSession time -> IO ()
 yageMain title winConf wire session = 
-    let renderTarget  = RenderTarget (V2 0 0) (V2 800 600) 2 0.1 100 True -- TODO remove it real target
-        rConf         = RenderConfig
+    -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
+    let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 2.0
+        renderConf    = RenderConfig
                         { _rcConfDebugNormals  = False
                         , _rcConfWireframe     = False
                         }
-        renderSettings = RenderSettings rConf renderTarget
     in do
     _ <- bracket 
-            (initialization wire session <$> newTVarIO renderSettings <*> newTVarIO mempty)
+            ( initialization wire session initialGLRenderResources
+                <$> newTVarIO renderConf 
+                <*> newTVarIO theViewport 
+                <*> newTVarIO mempty
+            )
             finalization
-            (\initState -> execApplication title defaultAppConfig $ 
+            ( \initState -> execApplication title defaultAppConfig $ 
                                 basicWindowLoop winConf initState $
-                                yageLoop)
+                                yageLoop
+            )
     return ()
 
 
-initialization :: YageWire time () view -> YageSession time -> TVar RenderSettings -> TVar InputState -> YageLoopState time view
-initialization wire session tRenderSettings tInputState = YageLoopState mempty wire session tRenderSettings tInputState
+initialization :: 
+                  YageWire time () scene 
+               -> YageSession time
+               -> GLResources
+               -> TVar RenderConfig 
+               -> TVar ViewportI
+               -> TVar InputState 
+               -> YageLoopState time scene
+initialization wire session resources tRenderSettings tInputState = YageLoopState resources wire session tRenderSettings tInputState
 
 finalization :: YageLoopState t v -> IO ()
 finalization _ = return ()
 
 
-yageLoop :: (HasRenderView view) 
+yageLoop :: (HasRenderScene scene) 
         => Window
-        -> YageLoopState time view -> Application AnyException (YageLoopState time view)
+        -> YageLoopState time scene -> Application AnyException (YageLoopState time scene)
 yageLoop win preRenderState = do
-    inputSt      <- io $ atomically $ readModifyTVar (preRenderState^.inputState) clearEvents
-    (ds, s')     <- io $ stepSession $ preRenderState^.currentSession
-    (rView, w')  <- io $ stepWire (preRenderState^.currentWire) (ds inputSt) (Right ())
+    inputSt            <- io $ atomically $ readModifyTVar (preRenderState^.inputState) clearEvents
+    (ds, s')           <- io $ stepSession $ preRenderState^.currentSession
+    (renderScene, w')  <- io $ stepWire (preRenderState^.currentWire) (ds inputSt) (Right ())
     
     postRenderState <- either 
         (\err -> handleError err >> return preRenderState)
-        (renderTheViews preRenderState)
-        rView
+        (renderTheScene preRenderState)
+        renderScene
     
 
     return $ postRenderState & currentWire     .~ w'
@@ -120,13 +135,15 @@ yageLoop win preRenderState = do
             return var
 
         
-        renderTheViews :: (Throws InternalException l, Throws SomeException l, HasRenderView v) 
+        renderTheScene :: (Throws InternalException l, Throws SomeException l, HasRenderScene v) 
                        => YageLoopState t v -> v -> Application l (YageLoopState t v)
-        renderTheViews state rView = do
-            let theView     = getRenderView rView
-                res         = state^.renderResources
-            settings <- io $ readTVarIO $ state^.renderSettings
-            (res', _rlog) <- runRenderSystem (mkRenderSystem theView) settings res 
+        renderTheScene state v = do
+            theViewport     <- io $ readTVarIO $ state^.viewport
+            let theScene    = getRenderScene v
+                pipelineDef = yDeferredLightingDescr theViewport
+                theSystem   = createDeferredRenderSystem pipelineDef theScene (fromIntegral <$> theViewport)
+
+            (res', _rlog)   <- runRenderSystem theSystem $ state^.renderResources 
             return $ state & renderResources .~ res'
 
 ---------------------------------------------------------------------------------------------------

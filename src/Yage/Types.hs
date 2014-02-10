@@ -29,8 +29,8 @@ runYage input m = runReaderT m input
 
 ---------------------------------------------------------------------------------------------------
 
-class HasRenderView a where
-    getRenderView :: a -> RenderNode
+class HasRenderScene a where
+    getRenderScene :: a -> RenderScene
 
 
 {--
