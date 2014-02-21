@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
 module Yage.Font
     ( module Yage.Font
     , module FT
@@ -15,7 +15,8 @@ import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
-import           Yage.Rendering.VertexSpec
+import           Yage.Rendering.Transformation
+import           Yage.Vertex
 
 
 
@@ -24,21 +25,19 @@ data RenderText = RenderText
     { _textIdent   :: Int
     , _textBuffer  :: TextBuffer
     , _textTexCh   :: TextureChannel
-    , _textShader  :: Program
-    , _textAttribs :: MeshData Vertex2P4C2T -> [VertexAttribute]
-    , _textTransf  :: RenderTransformation
+    , _textShader  :: ShaderResource
+    , _textTransf  :: Transformation GLfloat
     } deriving (Typeable)
 
 makeLenses ''RenderText
 
 
-instance Renderable RenderText where
+instance Renderable RenderText P2T2C4 where
     renderDefinition rt = 
         let fontTex     = rt^.textBuffer.tbufTexture
-            name        = fontTex^.font.to fontname
+            name        = fontTex^.font.to fontname -- warning, not a good ident
             texImg      = TextureImage name (fontTex^.textureData)
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
-            textMesh    = (makeMesh (rt^.textIdent) name (rt^.textBuffer.tbufMesh) (rt^.textAttribs)) 
-                            & meshModToken %~ (`hashWithSalt` rt^.textBuffer.tbufText)
-        in RenderDefinition textMesh (rt^.textShader) texDef Triangles 
+            textMesh    = (rt^.textBuffer.tbufMesh)
+        in RenderDefinition textMesh {--(rt^.textShader)--} texDef Triangles 
     renderTransformation rt = rt^.textTransf

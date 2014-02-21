@@ -1,15 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yage.Types where
 
 import           Yage.Prelude
 ---------------------------------------------------------------------------------------------------
 import           Control.Wire          (Wire, Timed, Session)
 ---------------------------------------------------------------------------------------------------
-import           Yage.Rendering
 import           Yage.UI
+--import           Yage.Rendering.Vertex
 ---------------------------------------------------------------------------------------------------
 
 
@@ -29,8 +26,7 @@ runYage input m = runReaderT m input
 
 ---------------------------------------------------------------------------------------------------
 
-class HasRenderScene a where
-    getRenderScene :: a -> RenderScene
+-- class (ViableVertex (Vertex geo)) => HasScene a geo where
 
 
 {--

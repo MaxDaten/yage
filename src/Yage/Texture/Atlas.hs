@@ -107,15 +107,17 @@ insertNode _ Nil                    = Left Nil
 insertNode node tree@(Node _ l r)   = case insertNode node l of
                                         Right l' -> Right $ setLeft l' tree
                                         Left _   -> flip setRight tree <$> insertNode node r
-insertNode _ _                      = error "invalid insertion"
+-- insertNode _ _                      = error "invalid insertion"
 
 
 setLeft :: Tree a b -> Tree a b -> Tree a b
 setLeft node (Node a _ r) = Node a node r
+setLeft _ _ = error "invalid Atlas.hs: setLeft"
 
 
 setRight :: Tree a b -> Tree a b -> Tree a b
 setRight node (Node a l _) = Node a l node
+setRight _ _ = error "invalid Atlas.hs: setRight"
 
 
 foldrWithFilled :: (a -> b -> b) -> b -> Tree c a -> b

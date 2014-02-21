@@ -5,7 +5,6 @@
 {-# LANGUAGE DeriveDataTypeable   #-}
 module Yage.Font.TextBuffer where
 
-import           Foreign.C.Types
 import           GHC.Float
 import           Yage.Images
 import           Yage.Math
@@ -19,8 +18,7 @@ import           Graphics.Font             as FT hiding (height, width)
 import           Codec.Picture.Types
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import           Yage.Rendering.Primitives
-import           Yage.Rendering.VertexSpec
+import qualified Yage.Vertex               as Vert (P2T2C4)
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------
@@ -31,7 +29,7 @@ import           Yage.Font.FontTexture
 type Caret = V2 Double
 data TextBuffer = TextBuffer
     { _tbufTexture :: FontTexture
-    , _tbufMesh    :: MeshData Vertex2P4C2T
+    , _tbufMesh    :: Mesh (Vert.P2T2C4)
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
     } deriving (Typeable)
@@ -47,7 +45,7 @@ pxNorm (FontDescriptor _ (resX,resY)) = (fromI resX, fromI resY)
 
 
 emptyTextBuffer :: FontTexture -> TextBuffer
-emptyTextBuffer fTex = TextBuffer fTex emptyMeshData (V2 0 0) ""
+emptyTextBuffer fTex = TextBuffer fTex emptyMesh (V2 0 0) ""
 
 clearTextBuffer :: TextBuffer -> TextBuffer
 clearTextBuffer fTex = emptyTextBuffer (fTex^.tbufTexture)
@@ -105,7 +103,7 @@ writeText :: TextBuffer -> Text -> TextBuffer
 writeText = T.foldl pushChar
 
 
-makeGlypMesh :: Caret -> FontData -> (Int, Int) -> (Double, Double) -> MeshData Vertex2P4C2T
+makeGlypMesh :: Caret -> FontData -> (Int, Int) -> (Double, Double) -> [Vertex Vert.P2T2C4]
 makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / normX
@@ -121,23 +119,16 @@ makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
             u1       = fromI (region^.x1) / fromI tw
             v0       = fromI (region^.y1) / fromI th
             v1       = fromI (region^.y0) / fromI th
-        in MeshData
-             { _mDataVertices =
-                  [ vert leftX     topY       u0 v1
-                  , vert leftX     (topY - h) u0 v0
-                  , vert (leftX+w) (topY - h) u1 v0
-                  , vert (leftX+w) topY       u1 v1
-                  ]
-             , _mDataIndices  = [0, 1, 2, 2, 3, 0]
-             , _mDataTriCount = 2
-             }
+        in [ vert leftX     topY       u0 v1
+           , vert leftX     (topY - h) u0 v0
+           , vert (leftX+w) (topY - h) u1 v0
+           , vert (leftX+w) topY       u1 v1
+           ]
         where
-            vert :: Double -> Double -> Double -> Double -> Vertex2P4C2T
-            vert x y u v =
-                Vertex (V2 (CFloat $ double2Float x) (CFloat $ double2Float y))
-                       ()
-                       (V4 0 0 0 0)
-                       (V2 (CFloat $ double2Float u) (CFloat $ double2Float v))
+            vert :: Double -> Double -> Double -> Double -> Vertex Vert.P2T2C4
+            vert x y u v = position2 =: V2 (realToFrac x) (realToFrac y)
+                        <+> texture2 =: V2 (realToFrac u) (realToFrac v)
+                        <+> color4   =: 0
 
 
 fromI :: (Integral a, Num b) => a -> b

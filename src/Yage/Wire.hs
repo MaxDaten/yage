@@ -74,7 +74,7 @@ while = mkPure_ $ event (Left mempty) Right
 
 integrateAttenuated :: (Floating a, Ord a, HasTime t s) 
                  => a -> a -> Wire s e m a a
-integrateAttenuated a@attenuation x' = mkPure $ \ds dx ->
+integrateAttenuated a@_attenuation x' = mkPure $ \ds dx ->
     let dt = realToFrac (dtime ds)
         x  = a * (x' + dt * dx)
     in x' `seq` ( Right x', integrateAttenuated a x )
@@ -91,16 +91,16 @@ integrateBounded b@(lower,upper) x' = mkPure $ \ds dx ->
 
 derivativeF :: (Foldable f, Fractional (f a), RealFloat a, HasTime t s, Monoid e)
             => Wire s e m (f a) (f a)
-derivativeF = mkPure $ \_ x -> (Left mempty, loop x)
+derivativeF = mkPure $ \_ x -> (Left mempty, looping x)
     where
-    loop x' = 
+    looping x' = 
         mkPure $ \ds x ->
             let dt  = realToFrac (dtime ds)
                 dx  = (x - x') / dt
                 mdx | any isNaN dx       = Right 0
                     | any isInfinite dx  = Left mempty
                     | otherwise          = Right dx
-            in mdx `seq` (mdx, loop x)
+            in mdx `seq` (mdx, looping x)
 
 
 {--
