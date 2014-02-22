@@ -9,8 +9,8 @@ import Yage.Prelude hiding (Text)
 import Yage.Images
 
 
+import Yage.Data.List (map, sortBy, null, piz)
 import Data.Map hiding (map, null)
-import Data.List (map, sortBy, null)
 
 import Graphics.Font as FT
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontname), loadFont)

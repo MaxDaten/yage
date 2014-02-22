@@ -148,8 +148,8 @@ yageLoop _win preRenderState = do
                 pipelineDef = yDeferredLightingDescr theViewport theScene
                 theSystem   = createDeferredRenderSystem pipelineDef (SceneView theScene theViewport)
 
-            (res', rlog)   <- runRenderSystem theSystem $ state^.renderResources
-            io $ print $ rlog
+            (res', _rlog)   <- runRenderSystem theSystem $ state^.renderResources
+            -- io $ print $ rlog
             return $ state & renderResources .~ res'
 
 
