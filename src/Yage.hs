@@ -29,7 +29,7 @@ import             Yage.Pipeline.Deferred
 import             Yage.UI
 import             Yage.Scene
 import             Yage.Primitives
-import             Yage.Vertex
+import             Yage.Geometry
 import             Yage.Rendering.Transformation
 
 ---------------------------------------------------------------------------------------------------
@@ -162,7 +162,7 @@ instance HasScreen (SceneView GeoVertex) ScrVertex where
             transformation = idTransformation & transPosition .~ 0
                                               & transScale    .~ V3 ( dim^._x ) ( dim^._y ) (1)
             definition     =  RenderDefinition
-                                { _rdefData     = makeMesh "SCREEN" q
+                                { _rdefData     = Right $ makeMesh "SCREEN" q
                                 , _rdefTextures = []
                                 , _rdefMode     = Triangles
                                 } 

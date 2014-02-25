@@ -18,7 +18,7 @@ import           Graphics.Font             as FT hiding (height, width)
 import           Codec.Picture.Types
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import qualified Yage.Vertex               as Vert (P2T2C4)
+import qualified Yage.Geometry             as Vert (P2T2C4)
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------

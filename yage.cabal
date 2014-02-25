@@ -38,7 +38,7 @@ library
                         Yage.Camera
                         Yage.UI
 
-                        Yage.Vertex
+                        Yage.Geometry
                         Yage.Uniforms
 
                         Yage.Texture.Atlas
@@ -86,6 +86,7 @@ library
                         
                         , containers      == 0.5.*
                         , transformers    == 0.3.*
+                        , vector          == 0.10.*
                         , stm             == 2.4.*
                         , tuple           == 0.2.*
                         , mtl             == 2.1.*

@@ -5,7 +5,7 @@ module Yage.Pipeline.Deferred where
 
 import Yage.Prelude
 import Yage.Math
-import Yage.Vertex
+import Yage.Geometry
 import Yage.Uniforms
 
 import Yage.Rendering hiding (P3N3)

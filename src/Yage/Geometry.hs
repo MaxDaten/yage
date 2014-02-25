@@ -2,17 +2,24 @@
 {-# LANGUAGE DataKinds, TypeOperators #-}
 {-# LANGUAGE FlexibleContexts, NoMonomorphismRestriction #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-module Yage.Vertex
-    ( module Yage.Vertex
-    , module Data.Vinyl
+{-# LANGUAGE PackageImports #-}
+module Yage.Geometry
+    ( NormalSmoothness(..), Primitive(..)
     , module Vertex
+    , module Geometry
+    , module Data.Vinyl
+    , module Yage.Geometry
     ) where
+
+import Yage.Prelude
 
 import Data.Vinyl
 import Yage.Geometry.Vertex             as Vertex hiding (P3, P3N3)
-import Yage.Primitives                  (NormalSmoothness, Primitive, calculateNormals)
+import "yage-geometry" Yage.Geometry    as Geometry
+import Yage.Primitives                  (Primitive(..), calculateNormals)
 import Graphics.Rendering.OpenGL        (GLfloat)
 
+import qualified Data.Vector as V
 
 -- deriving instance (Eq a) => Eq (Identity a)
 
@@ -34,6 +41,16 @@ type P3       = '[ YPosition3 ]
 
 normalCalculator :: NormalSmoothness -> Primitive (Vertex P3) -> Primitive (Vertex P3N3)
 normalCalculator = calculateNormals (position3 :: YPosition3) normal3
+
+loadObj :: OBJ -> Geometry (Vertex P3N3)
+loadObj obj = 
+    let geo     = geoElements $ geometryFromOBJ obj (position3 :: YPosition3)
+        flatVec = V.concatMap (V.fromList . vertices . triangles . faceNorm) geo
+    in Geometry flatVec  
+
+
+faceNorm :: Face (Vertex P3) -> Face (Vertex P3N3)
+faceNorm = addFaceNormal (position3 :: YPosition3) normal3
 
 {--
 position3 :: Position3

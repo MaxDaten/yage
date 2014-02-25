@@ -16,7 +16,7 @@ import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
 import           Yage.Rendering.Transformation
-import           Yage.Vertex
+import           Yage.Geometry
 
 
 
@@ -38,6 +38,6 @@ instance Renderable RenderText P2T2C4 where
             name        = fontTex^.font.to fontname -- warning, not a good ident
             texImg      = TextureImage name (fontTex^.textureData)
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
-            textMesh    = (rt^.textBuffer.tbufMesh)
+            textMesh    = Right (rt^.textBuffer.tbufMesh)
         in RenderDefinition textMesh {--(rt^.textShader)--} texDef Triangles 
     renderTransformation rt = rt^.textTransf
