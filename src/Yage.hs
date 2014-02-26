@@ -22,24 +22,29 @@ import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging
 import             Yage.Core.Application.Exception hiding (bracket)
-import             Yage.Rendering hiding (P3)
+import             Yage.Rendering
 import             Yage.Rendering.Viewport
 import             Yage.Pipeline.Deferred
 
 import             Yage.UI
 import             Yage.Scene
-import             Yage.Primitives
-import             Yage.Geometry
-import             Yage.Rendering.Transformation
+import qualified   Yage.Resources as Res
 
 ---------------------------------------------------------------------------------------------------
 
 
-data YageLoopState time view = YageLoopState
-    { _renderResources  :: GLResources
-    , _currentWire      :: YageWire time () view
+data YageResources = YageResources
+    { _resourceRegistry   :: !(Res.ResourceRegistry GeoVertex)
+    , _renderResources    :: !GLResources
+    , _resourceLoader     :: !(Res.ResourceLoader GeoVertex)
+    }
+
+makeLenses ''YageResources
+
+data YageLoopState time scene = YageLoopState
+    { _loadedResources  :: YageResources
+    , _currentWire      :: YageWire time () scene
     , _currentSession   :: YageSession time
-    , _renderConfig     :: TVar RenderConfig
     , _viewport         :: TVar ViewportI
     , _inputState       :: TVar InputState
     }
@@ -78,15 +83,11 @@ yageMain :: (HasScene scene GeoVertex, Real time)
 yageMain title winConf wire session = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 2.0
-        renderConf    = RenderConfig
-                        { _rcConfDebugNormals  = False
-                        , _rcConfWireframe     = False
-                        }
+        resources     = YageResources Res.initialRegistry initialGLRenderResources deferredResourceLoader
     in do
     _ <- bracket 
-            ( initialization wire session initialGLRenderResources
-                <$> newTVarIO renderConf 
-                <*> newTVarIO theViewport 
+            ( initialization wire session resources
+                <$> newTVarIO theViewport 
                 <*> newTVarIO mempty
             )
             finalization
@@ -97,15 +98,13 @@ yageMain title winConf wire session =
     return ()
 
 
-initialization :: 
-                  YageWire time () scene 
+initialization :: YageWire time () scene 
                -> YageSession time
-               -> GLResources
-               -> TVar RenderConfig 
+               -> YageResources
                -> TVar ViewportI
                -> TVar InputState 
                -> YageLoopState time scene
-initialization wire session resources tRenderSettings tInputState = YageLoopState resources wire session tRenderSettings tInputState
+initialization wire session resources tInputState = YageLoopState resources wire session tInputState
 
 finalization :: YageLoopState t v -> IO ()
 finalization _ = return ()
@@ -117,64 +116,45 @@ yageLoop :: (HasScene scene GeoVertex)
 yageLoop _win preRenderState = do
     inputSt            <- io $ atomically $ readModifyTVar (preRenderState^.inputState) clearEvents
     (ds, s')           <- io $ stepSession $ preRenderState^.currentSession
-    (scene, w')        <- io $ stepWire (preRenderState^.currentWire) (ds inputSt) (Right ())
-    
-    postRenderState <- either 
-        (\err -> handleError err >> return preRenderState)
-        (renderTheScene preRenderState)
-        scene
-    
+    (eScene, w')        <- io $ stepWire (preRenderState^.currentWire) (ds inputSt) (Right ())
 
-    return $ postRenderState & currentWire     .~ w'
-                             & currentSession  .~ s'
+    
+    postRenderState <- case eScene of
+        Left err    -> handleError err >> return preRenderState
+        Right scene -> do
+            (renderScene, newFileRes) <- Res.runYageResources 
+                                                          ( preRenderState^.loadedResources.resourceLoader )
+                                                          ( loadSceneResources $ getScene scene )
+                                                          ( preRenderState^.loadedResources.resourceRegistry )
+            flip renderTheScene renderScene $ (preRenderState & loadedResources.resourceRegistry .~ newFileRes)
+
+    return $ postRenderState & currentWire                   .~ w'
+                             & currentSession                .~ s'
     
     where
         handleError :: (Throws InternalException l, Show err) => err -> Application l ()
         handleError err = criticalM $ "err:" ++ show err
 
-        readModifyTVar :: TVar a -> (a -> a) -> STM a
-        readModifyTVar tvar f = do
-            var <- readTVar tvar
-            modifyTVar' tvar f
-            return var
-
         
-        renderTheScene :: (Throws InternalException l, Throws SomeException l
-                          , HasScene scene GeoVertex )
-                       => YageLoopState t scene -> scene -> Application l (YageLoopState t scene)
-        renderTheScene state scene = do
+        renderTheScene :: (Throws InternalException l, Throws SomeException l)
+                       => YageLoopState t scene -> SScene GeoVertex -> Application l (YageLoopState t scene)
+        renderTheScene state renderScene = do
             theViewport     <- io $ readTVarIO $ state^.viewport
-            let theScene    = getScene scene
-                pipelineDef = yDeferredLightingDescr theViewport theScene
-                theSystem   = createDeferredRenderSystem pipelineDef (SceneView theScene theViewport)
-
-            (res', _rlog)   <- runRenderSystem theSystem $ state^.renderResources
+            let pipeline    = yDeferredLighting theViewport renderScene
+            (res', _rlog)   <- runRenderSystem pipeline $ state^.loadedResources.renderResources
             -- io $ print $ rlog
-            return $ state & renderResources .~ res'
+            return $ state & loadedResources.renderResources .~ res'
 
 
 
 
-instance HasScreen (SceneView GeoVertex) ScrVertex where
-    getScreen (SceneView _ vp) = 
-        let q              = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
-            dim            = realToFrac <$> vp^.vpSize
-            transformation = idTransformation & transPosition .~ 0
-                                              & transScale    .~ V3 ( dim^._x ) ( dim^._y ) (1)
-            definition     =  RenderDefinition
-                                { _rdefData     = Right $ makeMesh "SCREEN" q
-                                , _rdefTextures = []
-                                , _rdefMode     = Triangles
-                                } 
-        in RenderEntity transformation definition
+readModifyTVar :: TVar a -> (a -> a) -> STM a
+readModifyTVar tvar f = do
+    var <- readTVar tvar
+    modifyTVar' tvar f
+    return var
 
 
-addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3T2)
-addQuadTex (Quad (Face a b c d)) = Quad $ Face  (a <+> texture2 =: (V2 0 1))
-                                                (b <+> texture2 =: (V2 0 0))
-                                                (c <+> texture2 =: (V2 1 0))
-                                                (d <+> texture2 =: (V2 1 1))
-addQuadTex _ = error "not a quad"
 
 ---------------------------------------------------------------------------------------------------
 

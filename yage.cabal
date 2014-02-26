@@ -37,12 +37,15 @@ library
                         Yage.Scene
                         Yage.Camera
                         Yage.UI
+                        Yage.Resources
 
                         Yage.Geometry
                         Yage.Uniforms
 
                         Yage.Texture.Atlas
                         Yage.Pipeline.Deferred
+                        Yage.Pipeline.Deferred.Spec
+                        Yage.Pipeline.Deferred.ResourceLoader
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture

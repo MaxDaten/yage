@@ -1,14 +1,19 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleContexts           #-}
-module Yage.Pipeline.Deferred where
+module Yage.Pipeline.Deferred
+    ( module Yage.Pipeline.Deferred
+    , module Spec
+    , module ResourceLoader
+    ) where
 
 import Yage.Prelude
 import Yage.Math
 import Yage.Geometry
-import Yage.Uniforms
+import Yage.Primitives
 
-import Yage.Rendering hiding (P3N3)
+
+import Yage.Rendering hiding (P3, P3N3)
 import Yage.Rendering.Viewport
 import Yage.Rendering.Transformation
 
@@ -16,29 +21,13 @@ import Yage.Scene
 import Yage.Camera
 import qualified Graphics.Rendering.OpenGL as GL
 
-
-
-type GeoGlobalUniforms = [YProjectionMatrix, YViewMatrix, YVPMatrix]
-type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix]
-type GeoVertex         = P3N3
-
-
-type LitGlobalUniforms = '[]
-type LitLocalUniforms  = '[]
-type LitVertex         = P3N3T2
-
-type ScrGlobalUniforms = [YProjectionMatrix, YScreenTex]
-type ScrLocalUniforms  = '[YModelMatrix]
-type ScrVertex         = P3T2
+import Yage.Pipeline.Deferred.Spec as Spec
+import Yage.Pipeline.Deferred.ResourceLoader as ResourceLoader
 
 
 
-yDeferredLightingDescr :: ViewportI 
-                       -> Scene GeoVertex 
-                       -> DeferredLightingDescr GeoGlobalUniforms GeoLocalUniforms GeoVertex
-                                                LitGlobalUniforms LitLocalUniforms LitVertex
-                                                ScrGlobalUniforms ScrLocalUniforms ScrVertex
-yDeferredLightingDescr viewport scene =
+yDeferredLighting :: ViewportI -> SScene GeoVertex -> RenderSystem ()
+yDeferredLighting viewport scene =
     let size            = floor . (*) (viewport^.vpFactor) . fromIntegral <$> viewport^.vpSize
         albedoTex       = TextureBuffer "gbuffer-albedo" Texture2D $ GLBufferSpec RGB8 size
         normalTex       = TextureBuffer "gbuffer-normal" Texture2D $ GLBufferSpec RGB8 size
@@ -101,15 +90,11 @@ yDeferredLightingDescr viewport scene =
                                 GL.frontFace    GL.$= GL.CCW
                                 GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
                                 GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-
                             , passPostRendering  = return ()
                             }
-    in
-    DeferredLightingDescr
-    { dfGeoPassDescr        = geoPass
-    , dfLightingPassDescr   = error "lightpass not defined" -- lightPass
-    , dfFinalScreen         = screenPass
-    }
+    in do
+        runRenderPass geoPass (scene^.sceneEntities)
+        runRenderPass screenPass [(Screen viewport)]
 
 
 geoUniforms :: Viewport GLfloat -> Camera -> Uniforms GeoGlobalUniforms
@@ -121,21 +106,30 @@ geoUniforms vp cam =
        viewMatrix       =: viewM <+>
        vpMatrix         =: vpM
 
-entityUniforms :: RenderEntity a -> Uniforms GeoLocalUniforms
+entityUniforms :: SceneEntity a -> Uniforms GeoLocalUniforms
 entityUniforms ent =
-    let trans        = ent^.entityTransformation
+    let trans        = ent^.transformation
         scaleM       = kronecker . point $ trans^.transScale
         transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
         modelM       = transM !*! scaleM
         -- TODO rethink the normal matrix here
         normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) <|> Just eye3) ^?!_Just
-    in modelMatrix  =: modelM <+>
-       normalMatrix =: normalM
+    in modelMatrix  =: ((fmap . fmap) realToFrac modelM) <+>
+       normalMatrix =: ((fmap . fmap) realToFrac normalM)
 
 
 --{--
 --   to screen
 ----}
+
+
+newtype Screen = Screen ViewportI
+
+instance Renderable Screen ScrVertex where
+    renderDefinition _ = 
+        let q    = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
+            mesh = makeMesh "SCREEN" q
+        in RenderEntity mesh Triangles []
 
 
 screenUniforms :: Viewport Float -> Uniforms ScrGlobalUniforms
@@ -144,15 +138,26 @@ screenUniforms vp =
     in projectionMatrix =: projM <+>
        screenTex        =: 0
 
-viewportUniforms :: RenderEntity a -> Uniforms ScrLocalUniforms
-viewportUniforms screenEnt =
+viewportUniforms :: Screen -> Uniforms ScrLocalUniforms
+viewportUniforms (Screen vp) =
     -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
     -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
-    let trans        = screenEnt^.entityTransformation 
-                            & transPosition._xy    +~ ((0.5) * screenEnt^.entityTransformation.transScale._xy)
-                            & transScale._y        *~ (-1)
+    let dim           = realToFrac <$> vp^.vpSize
+        trans         = idTransformation & transPosition._xy .~ 0.5 * dim
+                                         & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
+        --trans        = screenEnt^.transformation 
+        --                    & transPosition._xy    +~ ((0.5) * screenEnt^.transformation.transScale._xy)
+        --                    & transScale._y        *~ (-1)
         scaleM       = kronecker . point $ trans^.transScale
         transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
         modelM       = transM !*! scaleM
     in modelMatrix =: modelM
+
+
+addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3T2)
+addQuadTex (Quad (Face a b c d)) = Quad $ Face  (a <+> texture2 =: (V2 0 1))
+                                                (b <+> texture2 =: (V2 0 0))
+                                                (c <+> texture2 =: (V2 1 0))
+                                                (d <+> texture2 =: (V2 1 1))
+addQuadTex _ = error "not a quad"
 

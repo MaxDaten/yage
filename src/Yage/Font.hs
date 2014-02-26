@@ -35,9 +35,8 @@ makeLenses ''RenderText
 instance Renderable RenderText P2T2C4 where
     renderDefinition rt = 
         let fontTex     = rt^.textBuffer.tbufTexture
-            name        = fontTex^.font.to fontname -- warning, not a good ident
-            texImg      = TextureImage name (fontTex^.textureData)
+            theName     = fontTex^.font.to fontname -- warning, not a good ident
+            texImg      = TextureImage theName (fontTex^.textureData)
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
-            textMesh    = Right (rt^.textBuffer.tbufMesh)
-        in RenderDefinition textMesh {--(rt^.textShader)--} texDef Triangles 
-    renderTransformation rt = rt^.textTransf
+            textMesh    = rt^.textBuffer.tbufMesh
+        in RenderEntity textMesh Triangles {--(rt^.textShader)--} texDef 
