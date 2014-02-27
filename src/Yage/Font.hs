@@ -10,6 +10,7 @@ module Yage.Font
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)
 
 import Yage.Prelude
+import Yage.Lens
 
 import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB

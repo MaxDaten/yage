@@ -5,10 +5,10 @@
 {-# LANGUAGE DeriveDataTypeable   #-}
 module Yage.Font.TextBuffer where
 
-import           GHC.Float
-import           Yage.Images
-import           Yage.Math
 import           Yage.Prelude              hiding (Text)
+import           Yage.Lens
+
+import           Yage.Math
 -----------------------------------------------------------------------------------------
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as T

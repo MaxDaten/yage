@@ -4,7 +4,9 @@ module Yage.Wire
     , module Netwire
     ) where
 
-import Yage.Prelude hiding (id, (.), until)
+import Yage.Prelude hiding (id, (.), until, any)
+import Yage.Lens
+
 import Data.Foldable
 
 import Control.Wire.Unsafe.Event

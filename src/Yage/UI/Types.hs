@@ -5,6 +5,7 @@
 module Yage.UI.Types where
 
 import           Yage.Prelude
+import           Yage.Lens
 ---------------------------------------------------------------------------------------------------
 import           Yage.Core.Application
 
@@ -32,7 +33,8 @@ data KeyEvent = KeyEvent Key Int KeyState ModifierKeys
 data KeyboardState = KeyboardState
     { _keyEvents :: [KeyEvent]
     } 
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable )
+
 
 makeLenses ''KeyboardState
 ---------------------------------------------------------------------------------------------------
@@ -75,6 +77,8 @@ instance Monoid InputState where
             , _joystick = a^.joystick <> b^.joystick
             }
 
+instance Semigroup InputState
+
 
 instance Monoid MouseState where
     mempty = MouseState 0 0 mempty
@@ -84,6 +88,8 @@ instance Monoid MouseState where
             (a^.mouseScroll        +  b^.mouseScroll)
             (a^.mouseButtonEvents  <> b^.mouseButtonEvents)
 
+instance Semigroup MouseState
+
 instance Monoid JoystickState where
     mempty = JoystickState mempty mempty
     mappend a b =
@@ -92,9 +98,13 @@ instance Monoid JoystickState where
             , _joyAxes    = a^.joyAxes    <> b^.joyAxes
             }
 
+instance Semigroup JoystickState
+
 
 instance Monoid KeyboardState where
     mempty = KeyboardState mempty
     mappend (KeyboardState a) (KeyboardState b) = KeyboardState $ mappend a b
+
+instance Semigroup KeyboardState
 
 

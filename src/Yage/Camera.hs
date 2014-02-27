@@ -5,6 +5,7 @@ module Yage.Camera where
 
 
 import Yage.Prelude
+import Yage.Lens
 
 import qualified Graphics.GLUtil.Camera3D            as Cam
 

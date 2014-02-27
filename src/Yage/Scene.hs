@@ -10,12 +10,10 @@ module Yage.Scene
 
 
 import           Yage.Prelude
+import           Yage.Lens
+
 import           Yage.Camera
 import           Yage.Resources
-
-import           Control.Monad
-
-import           Data.List (length)
 
 import qualified Graphics.GLUtil.Camera3D as Cam
 

@@ -1,7 +1,8 @@
 module Yage.Resources where
 
-import Yage.Prelude
-import Data.Digest.XXHash
+import           Yage.Prelude
+import           Yage.Lens
+import           Data.Digest.XXHash
 
 import           Control.Monad.RWS.Strict
 import qualified Data.Map.Strict as M
@@ -38,7 +39,7 @@ requestVertexData mesh          = return mesh
 
 loadVertexResource :: VertexResource geo -> YageResources geo (Mesh geo)
 loadVertexResource (OBJResource filepath _) = do
-    xhash <- io $ xxHashFile filepath -- cache filepath -> hash (or memo?)
+    xhash <- xxHash <$> readFile filepath -- cache filepath -> hash (or memo?)
     registry <- get
     res <- maybe 
             load

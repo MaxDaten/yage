@@ -6,8 +6,8 @@ module Yage.UI
     ) where
 
 import             Yage.Prelude
+import             Yage.Lens
 
-import             Data.List (find)
 import             Yage.Core.Application.Event
 import             Yage.UI.Types
 

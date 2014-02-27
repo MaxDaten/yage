@@ -6,15 +6,16 @@ module Yage.Font.FontTexture
     ) where
 
 import Yage.Prelude hiding (Text)
-import Yage.Images
+import Yage.Lens
 
 
-import Yage.Data.List (map, sortBy, null, piz)
+import Yage.Data.List (piz)
 import Data.Map hiding (map, null)
 
 import Graphics.Font as FT
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontname), loadFont)
 
+import Yage.Images
 import Yage.Texture.Atlas
 
 ---------------------------------------------------------------------------------------------------

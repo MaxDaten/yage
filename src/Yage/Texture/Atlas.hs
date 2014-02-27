@@ -2,9 +2,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Texture.Atlas where
 
+import           Yage.Prelude
+import           Yage.Lens
+
 import           Yage.Images
 import           Yage.Math
-import           Yage.Prelude
 
 
 import qualified Data.Foldable as Foldable

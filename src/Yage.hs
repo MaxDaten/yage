@@ -11,8 +11,7 @@ module Yage
     ) where
 
 import             Yage.Prelude                    as YagePrelude
----------------------------------------------------------------------------------------------------
-import             Data.List                       ((++))
+import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
 import             Control.Concurrent.STM          (TVar, STM, atomically, modifyTVar', readTVarIO, readTVar, newTVarIO)
 ---------------------------------------------------------------------------------------------------
@@ -155,20 +154,3 @@ readModifyTVar tvar f = do
     return var
 
 
-
----------------------------------------------------------------------------------------------------
-
-
---instance (RealFloat a, Typeable a) => Renderable (Viewport a) (P3 "pos" GLfloat) where
---    renderDefinition _      =
---        let quadVerts = (vertices . triangles $ quad 1)
---        in RenderDefinition
---            { _rdefData     = makeMesh "screen" quadVerts
---            --, _rdefProgram  = (shader, shdef)
---            , _rdefTextures = []
---            , _rdefMode     = Triangles
---            }
---    renderTransformation vp = 
---        let dim  = realToFrac <$> vp^.vpSize
---        in idTransformation & transPosition .~ 0
---                            & transScale    .~ V3 ( dim^._x ) ( dim^._y ) (1)

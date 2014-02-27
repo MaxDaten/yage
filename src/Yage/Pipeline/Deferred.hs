@@ -8,6 +8,7 @@ module Yage.Pipeline.Deferred
     ) where
 
 import Yage.Prelude
+import Yage.Lens
 import Yage.Math
 import Yage.Geometry
 import Yage.Primitives
