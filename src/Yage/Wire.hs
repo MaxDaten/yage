@@ -67,7 +67,8 @@ whileKeyDown !key = go
 
 
 currentMousePosition :: (Real t, Fractional b) => YageWire t a (V2 b)
-currentMousePosition = mkSF $ \(Timed _ inputSt) _ -> (realToFrac <$> inputSt^.mouse.mousePosition, currentMousePosition)
+currentMousePosition = go 
+    where go = mkSF $ \(Timed _ inputSt) _ -> (realToFrac <$> inputSt^.mouse.mousePosition, go)
 
 currentInputState :: (Num t) => YageWire t a InputState
 currentInputState = mkSF $ \(Timed _ inputState) _ -> (inputState, currentInputState)
@@ -97,7 +98,7 @@ integrateBounded (lower,upper) = loop
     loop x' = mkPure $ \ds dx ->
         let dt = realToFrac (dtime ds)
             x  = x' + dt * dx
-            n  = min upper . max lower $ x
+            n  = clamp lower upper x
         in x' `seq` ( Right x', loop n )
 
 
