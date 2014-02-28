@@ -6,6 +6,7 @@ module Yage.Wire
 
 import Yage.Prelude hiding (id, (.), until, any)
 import Yage.Lens
+import Yage.Math
 
 import Data.Foldable
 
@@ -17,12 +18,6 @@ import FRP.Netwire as Netwire hiding (loop)
 import Yage.Core.Application
 import Yage.Types
 import Yage.UI
-import Linear
-
-
---type ColorChs = (Double, Double, Double, Double)
-
-
 
 
 -------------------------------------------------------------------------------
@@ -40,16 +35,16 @@ keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event a)
 keyJustPressed !key = go
     where go = mkSF $ \(Timed _ inputSt) x ->
             if (key `keyIs` KeyState'Pressed) inputSt
-            then (Event x, keyJustPressed key)
-            else (NoEvent, keyJustPressed key)
+            then (Event x, go)
+            else (NoEvent, go)
 
 
 keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event a)
 keyJustReleased !key = go
     where go = mkSF $ \(Timed _ inputSt) x ->
             if (key `keyIs` KeyState'Released) inputSt
-            then (Event x, keyJustReleased key)
-            else (NoEvent, keyJustReleased key)
+            then (Event x, go)
+            else (NoEvent, go)
 
 
 -- | acts like `id` while `key` is down, inhibits while `key` is up
@@ -59,11 +54,6 @@ whileKeyDown !key = go
             if (inputSt^.keyboard.keysDown.contains key)
             then (Right x    , go)
             else (Left mempty, go)
-
- --{-# SCC "-->whileKeyDown" #-} proc a -> do
- --   down <- keyJustPressed key  -< ()
- --   up   <- keyJustReleased key -< ()
- --   between -< a `seq` {-# SCC "whileKeyDown-->" #-} (a, down, up)
 
 
 currentMousePosition :: (Real t, Fractional b) => YageWire t a (V2 b)
@@ -98,7 +88,7 @@ integrateBounded (lower,upper) = loop
     loop x' = mkPure $ \ds dx ->
         let dt = realToFrac (dtime ds)
             x  = x' + dt * dx
-            n  = clamp lower upper x
+            n  = clamp upper lower x
         in x' `seq` ( Right x', loop n )
 
 
