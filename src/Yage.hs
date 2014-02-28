@@ -4,7 +4,7 @@
 {-# LANGUAGE NamedFieldPuns     #-}
 
 module Yage
-    ( yageMain
+    ( yageMain, YageSimulation(..)
     , module Types
     , module Application
     , module YagePrelude
@@ -29,6 +29,7 @@ import             Yage.UI
 import             Yage.Scene
 import qualified   Yage.Resources as Res
 
+import Data.Time.Clock
 ---------------------------------------------------------------------------------------------------
 
 
@@ -38,21 +39,35 @@ data YageResources = YageResources
     , _resourceLoader     :: !(Res.ResourceLoader GeoVertex)
     }
 
-makeLenses ''YageResources
+
+data YageTiming = YageTiming
+    { _totalTime        :: !Double
+    , _loopSession      :: !(YageSession NominalDiffTime)
+    , _accumulator      :: !Double
+    }
+
+data YageSimulation time scene = YageSimulation
+    { _simWire          :: !(YageWire time () scene)
+    , _simSession       :: !(YageSession time)
+    , _simPrevState     :: !(Either () scene)
+    , _simDT            :: !time
+    }
 
 data YageLoopState time scene = YageLoopState
-    { _loadedResources  :: YageResources
-    , _currentWire      :: YageWire time () scene
-    , _currentSession   :: YageSession time
+    { _loadedResources  :: !YageResources
+    , _simulation       :: !(YageSimulation time scene)
+    , _timing           :: !YageTiming
     , _viewport         :: TVar ViewportI
     , _inputState       :: TVar InputState
     }
 
 ---------------------------------------------------------------------------------------------------
+makeLenses ''YageTiming
+makeLenses ''YageSimulation
 makeLenses ''YageLoopState
+makeLenses ''YageResources
 
 ---------------------------------------------------------------------------------------------------
-
 --data InternalEventController ectr = InternalEventController 
 --    { innerECtr :: ectr }
 
@@ -67,7 +82,9 @@ instance EventCtr (YageLoopState t v) where
     --windowIconifyCallback  = windowIconifyCallback . _eventCtr
     --cursorEnterCallback    = cursorEnterCallback . _eventCtr
     keyCallback YageLoopState{_inputState} = return $ \_winH key code state modifier ->
-        atomically $ modifyTVar' _inputState $ keyboard.keyEvents <>~ [KeyEvent key code state modifier]
+        atomically $ modifyTVar' _inputState $ \i -> 
+            i & keyboard.keyEvents             <>~ [KeyEvent key code state modifier]
+              & keyboard.keysDown.contains key .~  (state == KeyState'Pressed || state == KeyState'Repeating)
     
     cursorPositionCallback YageLoopState{_inputState} = return $ \_winH x y ->
         atomically $ modifyTVar' _inputState $ mouse.mousePosition .~ V2 x y
@@ -78,14 +95,14 @@ instance EventCtr (YageLoopState t v) where
 
 
 yageMain :: (HasScene scene GeoVertex, Real time) 
-         => String -> WindowConfig -> YageWire time () scene -> YageSession time -> IO ()
-yageMain title winConf wire session = 
+         => String -> WindowConfig -> YageWire time () scene -> time -> IO ()
+yageMain title winConf sim dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 2.0
         resources     = YageResources Res.initialRegistry initialGLRenderResources deferredResourceLoader
     in do
     _ <- bracket 
-            ( initialization wire session resources
+            ( initialization resources (YageSimulation sim (countSession dt) (Left ()) dt)
                 <$> newTVarIO theViewport 
                 <*> newTVarIO mempty
             )
@@ -97,44 +114,51 @@ yageMain title winConf wire session =
     return ()
 
 
-initialization :: YageWire time () scene 
-               -> YageSession time
-               -> YageResources
-               -> TVar ViewportI
-               -> TVar InputState 
-               -> YageLoopState time scene
-initialization wire session resources tInputState = YageLoopState resources wire session tInputState
-
-finalization :: YageLoopState t v -> IO ()
-finalization _ = return ()
-
-
-yageLoop :: (HasScene scene GeoVertex) 
+-- http://gafferongames.com/game-physics/fix-your-timestep/
+yageLoop :: (HasScene scene GeoVertex, Real time) 
         => Window
         -> YageLoopState time scene -> Application AnyException (YageLoopState time scene)
-yageLoop _win preRenderState = do
-    inputSt            <- io $ atomically $ readModifyTVar (preRenderState^.inputState) clearEvents
-    (ds, s')           <- io $ stepSession $ preRenderState^.currentSession
-    (eScene, w')        <- io $ stepWire (preRenderState^.currentWire) (ds inputSt) (Right ())
-
+yageLoop _win previousState = do
+    inputSt            <- io $! atomically $ readModifyTVar (previousState^.inputState) clearEvents
     
-    postRenderState <- case eScene of
-        Left err    -> handleError err >> return preRenderState
-        Right scene -> do
-            (renderScene, newFileRes) <- Res.runYageResources 
-                                                          ( preRenderState^.loadedResources.resourceLoader )
-                                                          ( loadSceneResources $ getScene scene )
-                                                          ( preRenderState^.loadedResources.resourceRegistry )
-            flip renderTheScene renderScene $ (preRenderState & loadedResources.resourceRegistry .~ newFileRes)
-
-    return $ postRenderState & currentWire                   .~ w'
-                             & currentSession                .~ s'
+    (frameDT, newSession)   <- io $ stepSession $ previousState^.timing.loopSession
+    let iaccum              = (realToFrac $ dtime (frameDT inputSt)) + previousState^.timing.accumulator
+        prevSimState        = previousState^.simulation.simPrevState
+        s                   = previousState^.simulation.simSession
+        w                   = previousState^.simulation.simWire
+        dt                  = realToFrac $ previousState^.simulation.simDT
+    
+    -- step our global timing to integrate our simulation
+    (simSt, simS, simW, newAccum) <- simulate iaccum dt s w prevSimState inputSt
+    
+    processRendering simSt  <&> simulation.simWire      .~ simW
+                            <&> simulation.simSession   .~ simS
+                            <&> simulation.simPrevState .~ simSt
+                            <&> timing.loopSession      .~ newSession
+                            <&> timing.accumulator      .~ newAccum
     
     where
-        handleError :: (Throws InternalException l, Show err) => err -> Application l ()
-        handleError err = criticalM $ "err:" ++ show err
+        -- processRendering :: (Throws InternalException l, Show err, HasScene scene GeoVertex) => Either err scene -> Application l (YageLoopState time scene)
+        processRendering (Left err)    = (criticalM $ "err:" ++ show err) >> return previousState
+        processRendering (Right scene) = do
+            (renderScene, newFileRes) <- Res.runYageResources 
+                                          ( previousState^.loadedResources.resourceLoader )
+                                          ( loadSceneResources $ getScene scene )
+                                          ( previousState^.loadedResources.resourceRegistry )
+            flip renderTheScene renderScene $ (previousState & loadedResources.resourceRegistry .~ newFileRes)
 
-        
+        simulate accum dt s' w' state input
+            | accum < dt = return (state, s', w', accum)
+            | otherwise   = do
+                (st, s, w) <- stepSimulation s' w' input
+                simulate (accum - dt) dt s w st input 
+
+
+        stepSimulation s' w' input = do
+            (ds, s)           <- io $ stepSession s'
+            (newState, w)     <- io $ stepWire w' (ds input) (Right ())
+            return $! newState `seq` (newState, s, w)
+
         renderTheScene :: (Throws InternalException l, Throws SomeException l)
                        => YageLoopState t scene -> SScene GeoVertex -> Application l (YageLoopState t scene)
         renderTheScene state renderScene = do
@@ -146,6 +170,19 @@ yageLoop _win preRenderState = do
 
 
 
+initialization :: YageResources
+               -> YageSimulation time scene
+               -> TVar ViewportI
+               -> TVar InputState 
+               -> YageLoopState time scene
+initialization resources sim tInputState = YageLoopState resources sim loopTimingInit tInputState
+
+finalization :: YageLoopState t v -> IO ()
+finalization _ = return ()
+
+
+loopTimingInit :: YageTiming
+loopTimingInit = YageTiming 0 clockSession 0
 
 readModifyTVar :: TVar a -> (a -> a) -> STM a
 readModifyTVar tvar f = do

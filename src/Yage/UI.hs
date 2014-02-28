@@ -17,11 +17,11 @@ import             Yage.UI.Types
 --    where p (EventKey _ e)    = e^.key == key' && elem (e^.keyState) [KeyState'Pressed, KeyState'Repeating]
 --          p _                 = False
 
-isPressed :: InputState -> (KeyEvent -> Bool) -> Maybe KeyEvent
-isPressed = flip find . _keyEvents . _keyboard
+findKeyEvent :: InputState -> (KeyEvent -> Bool) -> Maybe KeyEvent
+findKeyEvent = flip find . _keyEvents . _keyboard
 
 keyIs :: Key -> KeyState -> (InputState -> Bool)
-keyIs key state = isJust . flip isPressed (\(KeyEvent k _ s _) -> key == k && s == state)
+keyIs key state = isJust . flip findKeyEvent (\(KeyEvent k _ s _) -> key == k && s == state)
 
 
 clearEvents :: InputState -> InputState

@@ -22,8 +22,8 @@ data CameraPlanes = CameraPlanes
 makeLenses ''CameraPlanes
 
 data Camera =
-      Camera3D !CameraHandle CameraPlanes !Float
-    | Camera2D !CameraHandle CameraPlanes
+      Camera3D !CameraHandle !CameraPlanes !Float
+    | Camera2D !CameraHandle !CameraPlanes
     deriving (Show)
 
 deriving instance Show CameraHandle

@@ -13,13 +13,13 @@ import           Linear
 ---------------------------------------------------------------------------------------------------
 
 
-data MouseButtonEvent = MouseButtonEvent MouseButton MouseButtonState ModifierKeys
+data MouseButtonEvent = MouseButtonEvent !MouseButton !MouseButtonState !ModifierKeys
     deriving (Show, Typeable)
 
 data MouseState = MouseState
-    { _mousePosition      :: V2 Double -- | screen coords relative to upper left corner
-    , _mouseScroll        :: V2 Double
-    , _mouseButtonEvents  :: [MouseButtonEvent]
+    { _mousePosition      :: !(V2 Double) -- | screen coords relative to upper left corner
+    , _mouseScroll        :: !(V2 Double)
+    , _mouseButtonEvents  :: !([MouseButtonEvent])
     }
     deriving (Show, Typeable)
 
@@ -27,11 +27,12 @@ makeLenses ''MouseState
 
 ---------------------------------------------------------------------------------------------------
 
-data KeyEvent = KeyEvent Key Int KeyState ModifierKeys
+data KeyEvent = KeyEvent !Key !Int !KeyState !ModifierKeys
     deriving (Show, Typeable)
 
 data KeyboardState = KeyboardState
-    { _keyEvents :: [KeyEvent]
+    { _keyEvents :: !([KeyEvent])
+    , _keysDown  :: !(Set Key)
     } 
     deriving ( Show, Typeable )
 
@@ -41,8 +42,8 @@ makeLenses ''KeyboardState
 
 type Axis = Double
 data JoystickState = JoystickState
-    { _joyButtons :: [JoystickButtonState] -- TODO
-    , _joyAxes    :: [Axis]
+    { _joyButtons :: !([JoystickButtonState]) -- TODO
+    , _joyAxes    :: !([Axis])
     }
     deriving (Show, Typeable)
 
@@ -51,9 +52,9 @@ makeLenses ''JoystickState
 ---------------------------------------------------------------------------------------------------
 
 data InputState = InputState
-    { _keyboard :: KeyboardState        -- | current pressed keys
-    , _mouse    :: MouseState           -- | current pressed buttons and mouse position
-    , _joystick :: Maybe JoystickState  -- | current pressed buttons and axes
+    { _keyboard :: !KeyboardState        -- | current pressed keys
+    , _mouse    :: !MouseState           -- | current pressed buttons and mouse position
+    , _joystick :: !(Maybe JoystickState)  -- | current pressed buttons and axes
     }
     deriving (Show, Typeable)
 
@@ -102,8 +103,8 @@ instance Semigroup JoystickState
 
 
 instance Monoid KeyboardState where
-    mempty = KeyboardState mempty
-    mappend (KeyboardState a) (KeyboardState b) = KeyboardState $ mappend a b
+    mempty = KeyboardState mempty mempty
+    mappend (KeyboardState a a') (KeyboardState b b') = KeyboardState (a <> b) (a' <> b')
 
 instance Semigroup KeyboardState
 
