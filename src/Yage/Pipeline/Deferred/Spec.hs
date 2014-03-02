@@ -9,7 +9,7 @@ import Yage.Uniforms as Uniforms
 
 type GeoGlobalUniforms = [YProjectionMatrix, YViewMatrix, YVPMatrix]
 type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix]
-type GeoVertex         = P3N3
+type GeoVertex         = P3T2
 
 
 type LitGlobalUniforms = '[]

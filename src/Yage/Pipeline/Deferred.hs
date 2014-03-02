@@ -14,7 +14,7 @@ import Yage.Geometry
 import Yage.Primitives
 
 
-import Yage.Rendering hiding (P3, P3N3)
+import Yage.Rendering hiding (P3, P3N3, P3T2)
 import Yage.Rendering.Viewport
 import Yage.Rendering.Transformation
 
