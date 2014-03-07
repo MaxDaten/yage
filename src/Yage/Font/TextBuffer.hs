@@ -18,18 +18,18 @@ import           Graphics.Font             as FT hiding (height, width)
 import           Codec.Picture.Types
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import qualified Yage.Geometry             as Vert (P2T2C4)
+import qualified Yage.Geometry             as Vert (P2TX2C4)
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------
 
 
-
+type GlyphVertex = Vert.P2TX2C4
 
 type Caret = V2 Double
 data TextBuffer = TextBuffer
     { _tbufTexture :: FontTexture
-    , _tbufMesh    :: Mesh (Vert.P2T2C4)
+    , _tbufMesh    :: TriMesh GlyphVertex
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
     } deriving (Typeable)
@@ -70,10 +70,9 @@ pushChar tbuf '\n' =
 pushChar tbuf c =
     let mesh            = tbuf^.tbufMesh
         (caret', mesh') = aux mesh (getFontDataFor c)
-    in tbufMesh      .~  mesh' $
-       tbufCaret     .~  caret' $
-       tbufText      <>~ T.singleton c
-       $ tbuf
+    in tbuf & tbufMesh      .~  mesh'
+            & tbufCaret     .~  caret'
+            & tbufText      <>~ T.singleton c
     where
         getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c
         aux mesh (Just fdata@(glyph, _region)) =
@@ -90,8 +89,9 @@ pushChar tbuf c =
                                 , dynamicMap imageHeight (fTex^.textureData)
                                 )
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-
-                mesh'         = mesh `pushToBack` makeGlypMesh caret fdata (texW, texH) norm
+                glyphVerts    = makeGlypMesh caret fdata (texW, texH) norm
+                vcnt          = vertexCount mesh
+                mesh'         = pushToBack mesh glyphVerts [Triangle (vcnt+0) (vcnt+1) (vcnt+2), Triangle (vcnt+2) (vcnt+3) (vcnt+0)]
             in (caret & _x +~ advance / normX, mesh')
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
@@ -103,7 +103,7 @@ writeText :: TextBuffer -> Text -> TextBuffer
 writeText = T.foldl pushChar
 
 
-makeGlypMesh :: Caret -> FontData -> (Int, Int) -> (Double, Double) -> [Vertex Vert.P2T2C4]
+makeGlypMesh :: Caret -> FontData -> (Int, Int) -> (Double, Double) -> [Vertex GlyphVertex]
 makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / normX
@@ -125,7 +125,7 @@ makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
            , vert (leftX+w) topY       u1 v1
            ]
         where
-            vert :: Double -> Double -> Double -> Double -> Vertex Vert.P2T2C4
+            vert :: Double -> Double -> Double -> Double -> Vertex GlyphVertex
             vert x y u v = position2 =: V2 (realToFrac x) (realToFrac y)
                         <+> texture2 =: V2 (realToFrac u) (realToFrac v)
                         <+> color4   =: 0

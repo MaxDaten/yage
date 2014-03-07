@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 module Yage.Pipeline.Deferred.Spec
     ( module Yage.Pipeline.Deferred.Spec
     , module Uniforms
@@ -7,16 +8,18 @@ import Yage.Geometry as Geometry
 import Yage.Uniforms as Uniforms
 
 
-type GeoGlobalUniforms = [YProjectionMatrix, YViewMatrix, YVPMatrix]
+type GeoGlobalUniforms = [YProjectionMatrix, YViewMatrix, YVPMatrix, YZFarPlane, YAlbedoTex, YNormalTex]
 type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix]
-type GeoVertex         = P3T2
+type GeoVertex         = P3TX2NT3
 
 
-type LitGlobalUniforms = '[]
-type LitLocalUniforms  = '[]
-type LitVertex         = P3N3T2
+type LitGlobalUniforms = [YViewportDim, YZNearPlane, YZFarPlane, YAlbedoTex, YNormalTex, YDepthTex]
+type LitLocalUniforms  = [YMVPMatrix, YModelMatrix, YViewMatrix] ++ YLightAttributes
+type LitVertex         = P3
 
 type ScrGlobalUniforms = [YProjectionMatrix, YScreenTex]
 type ScrLocalUniforms  = '[YModelMatrix]
-type ScrVertex         = P3T2
+type ScrVertex         = P3TX2
+
+
 

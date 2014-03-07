@@ -36,6 +36,7 @@ library
                         Yage.Font
                         Yage.Scene
                         Yage.Camera
+                        Yage.Light
                         Yage.UI
                         Yage.Resources
 
@@ -46,6 +47,7 @@ library
                         Yage.Pipeline.Deferred
                         Yage.Pipeline.Deferred.Spec
                         Yage.Pipeline.Deferred.ResourceLoader
+                        Yage.Pipeline.Deferred.Light
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture

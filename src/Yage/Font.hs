@@ -17,7 +17,6 @@ import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
 import           Yage.Rendering.Transformation
-import           Yage.Geometry
 
 
 
@@ -33,7 +32,7 @@ data RenderText = RenderText
 makeLenses ''RenderText
 
 
-instance Renderable RenderText P2T2C4 where
+instance Renderable RenderText GlyphVertex where
     renderDefinition rt = 
         let fontTex     = rt^.textBuffer.tbufTexture
             theName     = fontTex^.font.to fontname -- warning, not a good ident

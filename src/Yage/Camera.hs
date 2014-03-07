@@ -33,6 +33,10 @@ cameraHandle :: Lens' Camera CameraHandle
 cameraHandle f (Camera3D hnd planes fov) = fmap (\h -> Camera3D h planes fov) (f hnd)
 cameraHandle f (Camera2D hnd planes) = fmap (`Camera2D` planes) (f hnd)
 
+cameraPlanes :: Lens' Camera CameraPlanes
+cameraPlanes f (Camera3D hnd planes fov) = fmap (\p -> Camera3D hnd p fov) (f planes)
+cameraPlanes f (Camera2D hnd planes) = fmap (Camera2D hnd) (f planes)
+
 cameraLocation :: Lens' CameraHandle (V3 Float)
 cameraLocation f (cam@Cam.Camera{Cam.location})= fmap (\l -> cam{Cam.location = l}) (f location)
 

@@ -1,7 +1,6 @@
 module Yage.Pipeline.Deferred.ResourceLoader where
 
 import Yage.Prelude
-import Yage.Lens
 
 import Yage.Resources
 import Yage.Geometry
@@ -9,7 +8,6 @@ import Yage.Geometry
 import                  Foreign.C.Types.Binary           ()
 import                  Data.Proxy
 import                  Data.Vinyl.Binary                ()
-import qualified        Data.Vector                      as V
 
 import                  Yage.Rendering.Mesh
 
@@ -22,19 +20,25 @@ import Yage.Pipeline.Deferred.Spec
 deferredResourceLoader :: ResourceLoader GeoVertex
 deferredResourceLoader = ResourceLoader
     { objLoader = loadOBJ
-    , ygmLoader = \path -> loadYGM <$> (YGM.ygmFromFile path (Proxy::Proxy GeoVertex))
+    , ygmLoader = loadYGM 
     }
 
-loadOBJ :: OBJ.OBJ -> Mesh P3T2
-loadOBJ = makeMeshV' . geoToV . OBJ.geometryFromOBJ (Proxy::Proxy P3T2)
-
-loadYGM :: YGM.YGM P3T2 -> Mesh P3T2
-loadYGM ygm = makeMeshV (unpack $ YGM.ygmName ygm) $ geoToV . YGM.ygmModel $ ygm
+loadOBJ :: FilePath -> IO (TriMesh GeoVertex)
+loadOBJ path = toMesh <$> OBJ.parseOBJFile path
+    where toMesh = makeMeshGeo (fpToString path) . geoWithNormTang . OBJ.geometryFromOBJ (Proxy::Proxy P3TX2)
 
 
-geoToV :: Geometry (Triangle (Vertex a)) -> V.Vector (Vertex a)
-geoToV = V.concatMap (V.fromList . triToVert) . geoElements
-    where
-    triToVert :: Triangle (Vertex a) -> [Vertex a]
-    triToVert t = t^..traverse
+loadYGM :: FilePath -> IO (TriMesh GeoVertex)
+loadYGM path = toMesh <$> YGM.ygmFromFile path (Proxy::Proxy GeoVertex)
+    where toMesh ygm = makeMeshGeo (unpack $ YGM.ygmName ygm) $ (YGM.ygmModel ygm)
+
+
+geoWithNormTang :: TriGeo (Vertex P3TX2) -> TriGeo (Vertex P3TX2NT3)
+geoWithNormTang = 
+    genSmoothings (position3 :: YPosition3)
+                  (texture2  :: YTexture2)
+                  (normal3   :: YNormal3)
+                  (tangent3  :: YTangent3)
+
+
 

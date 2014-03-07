@@ -13,23 +13,21 @@ import qualified Data.Map.Strict as M
 
 import           Yage.Rendering.Types
 import           Yage.Rendering.Vertex
-import           Yage.Geometry.Formats.Obj (OBJ, parseOBJFile)
--- import           Yage.Geometry.Formats.Ygm (YGM, ygmFromFile)
 
 data VertexResource geo =
       OBJResource FilePath (Proxy (Vertex geo))
     | YGMResource FilePath (Proxy (Vertex geo))
 
 
-type VertexData geo = Either (VertexResource geo) (Mesh geo)
+type VertexData geo = Either (VertexResource geo) (TriMesh geo)
 
-type ResourceRegistry geo = M.Map XXHash (Mesh geo)
+type ResourceRegistry geo = M.Map XXHash (TriMesh geo)
 
 type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
 
 data ResourceLoader geo = ResourceLoader
-    { objLoader :: OBJ -> Mesh geo
-    , ygmLoader :: FilePath -> IO (Mesh geo)
+    { objLoader :: FilePath -> IO (TriMesh geo)
+    , ygmLoader :: FilePath -> IO (TriMesh geo)
     }
 
 runYageResources :: (MonadIO m) => ResourceLoader geo -> YageResources geo a -> ResourceRegistry geo -> m (a, ResourceRegistry geo)
@@ -43,7 +41,7 @@ requestVertexData (Left res)    = Right <$> loadVertexResource res
 requestVertexData mesh          = return mesh
 
 
-loadVertexResource :: VertexResource geo -> YageResources geo (Mesh geo)
+loadVertexResource :: VertexResource geo -> YageResources geo (TriMesh geo)
 loadVertexResource (YGMResource filepath _) = do
     xhash <- xxHash <$> readFile filepath
     registry <- get
@@ -74,9 +72,9 @@ loadVertexResource (OBJResource filepath _) = do
     where
     load = do
         loader  <- asks objLoader
-        obj     <- io $ parseOBJFile filepath
-        return $ loader obj
+        io $ loader filepath
 
 
 initialRegistry :: ResourceRegistry geo
 initialRegistry = M.empty
+

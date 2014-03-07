@@ -94,11 +94,11 @@ instance EventCtr (YageLoopState t v) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: (HasScene scene GeoVertex, Real time) 
+yageMain :: (HasScene scene GeoVertex LitVertex, Real time) 
          => String -> WindowConfig -> YageWire time () scene -> time -> IO ()
 yageMain title winConf sim dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-    let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 2.0
+    let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 1.0
         resources     = YageResources Res.initialRegistry initialGLRenderResources deferredResourceLoader
     in do
     _ <- bracket 
@@ -115,7 +115,7 @@ yageMain title winConf sim dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (HasScene scene GeoVertex, Real time) 
+yageLoop :: (HasScene scene GeoVertex LitVertex, Real time) 
         => Window
         -> YageLoopState time scene -> Application AnyException (YageLoopState time scene)
 yageLoop _win previousState = do
@@ -160,7 +160,7 @@ yageLoop _win previousState = do
             return $! newState `seq` (newState, s, w)
 
         renderTheScene :: (Throws InternalException l, Throws SomeException l)
-                       => YageLoopState t scene -> SScene GeoVertex -> Application l (YageLoopState t scene)
+                       => YageLoopState t scene -> SScene GeoVertex LitVertex -> Application l (YageLoopState t scene)
         renderTheScene state renderScene = do
             theViewport     <- io $ readTVarIO $ state^.viewport
             let pipeline    = yDeferredLighting theViewport renderScene
