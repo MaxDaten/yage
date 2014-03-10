@@ -205,15 +205,17 @@ addQuadTex _ = error "not a quad"
 
 lightPassUniforms :: Viewport Int -> Camera -> Uniforms LitGlobalUniforms
 lightPassUniforms vp cam =
-    let projM        = cameraProjectionMatrix cam (fromIntegral <$> vp)
-        viewM        = cam^.cameraHandle.to camMatrix
-        vpM          = projM !*! viewM
-        zNearFar     = realToFrac <$> V2 (-cam^.cameraPlanes^.camZNear) (-cam^.cameraPlanes^.camZFar)
+    let projM                       = cameraProjectionMatrix cam (fromIntegral <$> vp)
+        viewM                       = cam^.cameraHandle.to camMatrix
+        vpM                         = projM !*! viewM
+        zNearFar@(V2 near far)      = realToFrac <$> V2 (-cam^.cameraPlanes^.camZNear) (-cam^.cameraPlanes^.camZFar)
+        zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
     in
     viewMatrix       =: ((fmap . fmap) realToFrac viewM) <+>
     vpMatrix         =: ((fmap . fmap) realToFrac vpM) <+>
     viewportDim      =: (fromIntegral <$> vp^.vpSize) <+>
     zNearFarPlane    =: zNearFar <+>
+    zProjRatio       =: zProj    <+>
     albedoTex        =: 0        <+>
     normalTex        =: 1        <+>
     depthTex         =: 2

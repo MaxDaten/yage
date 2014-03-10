@@ -32,6 +32,7 @@ type YEyePosition      = "EyePosition"           ::: V3 GLfloat
 type YZNearPlane       = "ZNear"                 ::: GLfloat
 type YZFarPlane        = "ZFar"                  ::: GLfloat
 type YZNearFarPlane    = "ZNearFar"              ::: V2 GLfloat
+type YZProjRatio       = "ZProjRatio"              ::: V2 GLfloat
 type YFieldOfView      = "Fovy"                  ::: GLfloat
 
 type YLightPosition      = "lightPosition"      ::: V3 GLfloat
@@ -90,6 +91,9 @@ zFarPlane = Field
 
 zNearFarPlane :: YZNearFarPlane
 zNearFarPlane = Field
+
+zProjRatio :: YZProjRatio
+zProjRatio = Field
 
 fieldOfView :: YFieldOfView
 fieldOfView = Field

@@ -13,7 +13,7 @@ type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix]
 type GeoVertex         = P3TX2NT3
 
 
-type LitGlobalUniforms = [YViewMatrix, YVPMatrix, YViewportDim, YZNearFarPlane, YAlbedoTex, YNormalTex, YDepthTex]
+type LitGlobalUniforms = [YViewMatrix, YVPMatrix, YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
 type LitLocalUniforms  = '[YModelMatrix] ++ YLightAttributes
 type LitVertex         = P3
 
