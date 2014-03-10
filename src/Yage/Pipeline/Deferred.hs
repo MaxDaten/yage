@@ -86,16 +86,17 @@ yDeferredLighting viewport scene =
                                                    ]
                             , passPreRendering   = io $ do
                                 GL.viewport     GL.$= toGLViewport viewport
-                                GL.clearColor   GL.$= GL.Color4 0 0 0 0 --- ambient?
+                                GL.clearColor   GL.$= GL.Color4 0 0 0 0 -- global ambient?
                                 
-                                GL.depthFunc    GL.$= Just GL.Never      --- disable func add
+                                GL.depthFunc    GL.$= Nothing           -- disable func add
                                 GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
                                 
-                                GL.blend        GL.$= GL.Enabled            --- could reject background frags!
+                                GL.blend        GL.$= GL.Enabled        --- could reject background frags!
                                 GL.blendEquation GL.$= GL.FuncAdd
-                                GL.blendFunc    GL.$= (GL.One, GL.One) -- addition each time
+                                GL.blendFunc    GL.$= (GL.One, GL.One)
 
-                                GL.cullFace     GL.$= Just GL.Back
+                                -- we reject front faces because of culling if cam is in volume 
+                                GL.cullFace     GL.$= Just GL.Front
                                 GL.frontFace    GL.$= GL.CCW
                                 GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
                                 

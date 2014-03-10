@@ -38,6 +38,8 @@ lightAttributes Light{lightType,lightAttribs} = case lightType of
                          lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
                          lightSpecular =: (realToFrac <$> lightSpecularColor lightAttribs)   <+>
                          lightDiffuse  =: (realToFrac <$> lightDiffuseColor lightAttribs)    <+> 
-                         lightAmbient  =: (realToFrac <$> lightAmbientColor lightAttribs)
+                         lightAmbient  =: (realToFrac <$> lightAmbientColor lightAttribs)    <+>
+                         lightAtten    =: (realToFrac <$> lightAttenuation lightAttribs)     <+>
+                         lightSpecExp  =: (realToFrac $ lightSpecularExp lightAttribs)
     Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
     OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"

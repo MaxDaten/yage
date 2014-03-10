@@ -27,21 +27,26 @@ type YDepthTex         = "DepthTexture"         ::: GLint
 
 type YScreenTex        = "ScreenTexture"        ::: GLint
 
-type YViewportDim      = "ViewportDim"           ::: V2 GLint
-type YEyePosition      = "EyePosition"           ::: V3 GLfloat
-type YZNearPlane       = "ZNear"                 ::: GLfloat
-type YZFarPlane        = "ZFar"                  ::: GLfloat
-type YZNearFarPlane    = "ZNearFar"              ::: V2 GLfloat
-type YZProjRatio       = "ZProjRatio"              ::: V2 GLfloat
-type YFieldOfView      = "Fovy"                  ::: GLfloat
+type YViewportDim      = "ViewportDim"          ::: V2 GLint
+type YEyePosition      = "EyePosition"          ::: V3 GLfloat
+type YZNearPlane       = "ZNear"                ::: GLfloat
+type YZFarPlane        = "ZFar"                 ::: GLfloat
+type YZNearFarPlane    = "ZNearFar"             ::: V2 GLfloat
+type YZProjRatio       = "ZProjRatio"           ::: V2 GLfloat
+type YFieldOfView      = "Fovy"                 ::: GLfloat
 
 type YLightPosition      = "lightPosition"      ::: V3 GLfloat
 type YLightRadius        = "lightRadius"        ::: V3 GLfloat
 type YLightSpecularColor = "lightSpecularColor" ::: V4 GLfloat
 type YLightDiffuseColor  = "lightDiffuseColor"  ::: V4 GLfloat
 type YLightAmbientColor  = "lightAmbientColor"  ::: V4 GLfloat
+type YLightAttenuation   = "lightAttenuation"   ::: V3 GLfloat
+type YSpecularExp        = "lightSpecularExp"   ::: GLfloat
 
-type YLightAttributes    = [ YLightPosition, YLightRadius, YLightSpecularColor, YLightDiffuseColor, YLightAmbientColor ]
+type YLightAttributes    = [ YLightPosition, YLightRadius
+                           , YLightSpecularColor, YLightDiffuseColor, YLightAmbientColor
+                           , YLightAttenuation
+                           , YSpecularExp ]
 
 
 projectionMatrix :: YProjectionMatrix
@@ -98,6 +103,10 @@ zProjRatio = Field
 fieldOfView :: YFieldOfView
 fieldOfView = Field
 
+{--
+Light
+--}
+
 lightPosition :: YLightPosition
 lightPosition = Field
 
@@ -112,3 +121,9 @@ lightDiffuse = Field
 
 lightAmbient :: YLightAmbientColor
 lightAmbient = Field
+
+lightAtten :: YLightAttenuation
+lightAtten = Field
+
+lightSpecExp :: YSpecularExp
+lightSpecExp = Field

@@ -16,8 +16,12 @@ data LightAttributes where
         { lightAmbientColor   :: V4 Double
         , lightDiffuseColor   :: V4 Double
         , lightSpecularColor  :: V4 Double
-        , quadricAttenuation  :: Double   -- 1 linear, recommended 2 or 3
+        , lightAttenuation    :: V3 Double -- | constant, linear, quadric
+        , lightSpecularExp    :: Double    -- | 0..128: 0 big smooth highlight, 128 tiny hard highlight
         } -> LightAttributes 
+
+-- 1 linear, recommended 2 or 3
+
 {--
 
 alpha = distance / radius
