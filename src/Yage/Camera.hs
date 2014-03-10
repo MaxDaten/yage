@@ -7,6 +7,8 @@ module Yage.Camera where
 import Yage.Prelude
 import Yage.Lens
 
+import Yage.Rendering.Viewport
+
 import qualified Graphics.GLUtil.Camera3D            as Cam
 
 import Linear
@@ -69,3 +71,36 @@ rollRad = flip Cam.rollRad
 
 roll :: CameraHandle -> Float -> CameraHandle
 roll = flip Cam.roll
+
+
+
+
+-- | creates the projectiom matrix for the given viewport
+-- for Camera2D: create an orthographic matrix with origin at the
+-- top left corner of the screen
+-- for Camera3D: creates a perspective projection matrix 
+cameraProjectionMatrix :: (Conjugate a, Epsilon a, RealFloat a)
+                       => Camera -> Viewport a -> M44 a
+cameraProjectionMatrix (Camera2D _ planes )     v =
+    orthographicMatrix -- 0/0 top left
+        ( v^.vpXY._x ) 
+        ( v^.vpXY._x + v^.vpSize._x )
+        ( v^.vpXY._y )
+        ( v^.vpXY._y + v^.vpSize._y )
+        ( realToFrac $ planes^.camZNear )
+        ( realToFrac $ planes^.camZFar )
+cameraProjectionMatrix (Camera3D _ planes fov ) v = 
+    Cam.projectionMatrix
+        ( realToFrac fov )
+        ( (v^.vpSize._x) / (v^.vpSize._y) )
+        ( realToFrac $ planes^.camZNear )
+        ( realToFrac $ planes^.camZFar )
+
+orthographicMatrix :: (Conjugate a, Epsilon a, RealFloat a)
+                    => a -> a -> a -> a -> a -> a -> M44 a
+orthographicMatrix l r t b n f = 
+    V4 ( V4 (2/(r-l)) 0        0             (-(r+l)/(r-l)) )
+       ( V4 0        (2/(t-b)) 0             (-(t+b)/(t-b)) )
+       ( V4 0        0         ((-2)/(f-n))  (-(f+n)/(f-n)) )
+       ( V4 0        0         0             1              )
+

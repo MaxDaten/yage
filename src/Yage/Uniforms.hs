@@ -12,26 +12,27 @@ import Yage.Rendering.Uniforms
 import Linear
 
 
-type YProjectionMatrix = "projection_matrix"     ::: M44 GLfloat
-type YViewMatrix       = "view_matrix"           ::: M44 GLfloat
-type YModelMatrix      = "model_matrix"          ::: M44 GLfloat
-type YNormalMatrix     = "normal_matrix"         ::: M33 GLfloat
+type YProjectionMatrix = "ProjMatrix"           ::: M44 GLfloat
+type YViewMatrix       = "ViewMatrix"           ::: M44 GLfloat
+type YModelMatrix      = "ModelMatrix"          ::: M44 GLfloat
+type YNormalMatrix     = "NormalMatrix"         ::: M33 GLfloat
 
-type YVPMatrix         = "vp_matrix"             ::: M44 GLfloat
-type YMVPMatrix        = "mvp_matrix"            ::: M44 GLfloat
+type YVPMatrix         = "VPMatrix"             ::: M44 GLfloat
+type YMVPMatrix        = "MVPMatrix"            ::: M44 GLfloat
 
-type YAlbedoTex        = "tex_albedo"            ::: GLint
-type YNormalTex        = "tex_normal"            ::: GLint
-type YTangentTex       = "tex_tangent"           ::: GLint
-type YDepthTex         = "tex_depth"             ::: GLint
+type YAlbedoTex        = "AlbedoTexture"        ::: GLint
+type YNormalTex        = "NormalTexture"        ::: GLint
+type YTangentTex       = "TangentTexture"       ::: GLint
+type YDepthTex         = "DepthTexture"         ::: GLint
 
-type YScreenTex        = "screen_texture"        ::: GLint
+type YScreenTex        = "ScreenTexture"        ::: GLint
 
-type YViewportDim      = "viewportDim"           ::: V2 GLint
-type YEyePosition      = "eye_position"          ::: V3 GLfloat
-type YZNearPlane       = "near"                  ::: GLfloat
-type YZFarPlane        = "far"                   ::: GLfloat
-type YFieldOfView      = "fovy"                  ::: GLfloat
+type YViewportDim      = "ViewportDim"           ::: V2 GLint
+type YEyePosition      = "EyePosition"           ::: V3 GLfloat
+type YZNearPlane       = "ZNear"                 ::: GLfloat
+type YZFarPlane        = "ZFar"                  ::: GLfloat
+type YZNearFarPlane    = "ZNearFar"              ::: V2 GLfloat
+type YFieldOfView      = "Fovy"                  ::: GLfloat
 
 type YLightPosition      = "lightPosition"      ::: V3 GLfloat
 type YLightRadius        = "lightRadius"        ::: V3 GLfloat
@@ -81,11 +82,14 @@ viewportDim = Field
 eyePosition :: YEyePosition
 eyePosition = Field
 
-nearPlane :: YZNearPlane
-nearPlane = Field
+zNearPlane :: YZNearPlane
+zNearPlane = Field
 
-farPlane :: YZFarPlane
-farPlane = Field
+zFarPlane :: YZFarPlane
+zFarPlane = Field
+
+zNearFarPlane :: YZNearFarPlane
+zNearFarPlane = Field
 
 fieldOfView :: YFieldOfView
 fieldOfView = Field

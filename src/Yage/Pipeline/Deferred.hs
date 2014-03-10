@@ -53,7 +53,7 @@ yDeferredLighting viewport scene =
                             , passGlobalTextures = []
                             , passPreRendering   = io $ do
                                 GL.viewport     GL.$= toGLViewport viewport
-                                GL.clearColor   GL.$= GL.Color4 0 0 1 0
+                                GL.clearColor   GL.$= GL.Color4 0 0 0 0
                                 
                                 GL.depthFunc    GL.$= Just GL.Less
                                 GL.depthMask    GL.$= GL.Enabled
@@ -75,7 +75,7 @@ yDeferredLighting viewport scene =
         lightPass       = PassDescr
                             { passFBSpec         = CustomFramebuffer ( "light-fbo"
                                                  , colorAttachment (TextureTarget Texture2D lightTex   0)
-                                                 <> depthAttachment (TextureTarget Texture2D depthBuff 0) -- depth buffer is read only (see passPreRendering)
+                                                 -- <> depthAttachment (TextureTarget Texture2D depthBuff 0) -- depth buffer is read only (see passPreRendering)
                                                  )
                             , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
                             , passGlobalUniforms = lightPassUniforms (fromIntegral <$> viewport) (scene^.sceneCamera)
@@ -88,7 +88,7 @@ yDeferredLighting viewport scene =
                                 GL.viewport     GL.$= toGLViewport viewport
                                 GL.clearColor   GL.$= GL.Color4 0 0 0 0 --- ambient?
                                 
-                                GL.depthFunc    GL.$= Nothing      --- disable func add
+                                GL.depthFunc    GL.$= Just GL.Never      --- disable func add
                                 GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
                                 
                                 GL.blend        GL.$= GL.Enabled            --- could reject background frags!
@@ -108,7 +108,7 @@ yDeferredLighting viewport scene =
                             , passShader         = ShaderResource "res/glsl/pass/screenPass.vert" "res/glsl/pass/screenPass.frag"
                             , passGlobalUniforms = screenUniforms (fromIntegral <$> viewport) 
                             , passEntityUniforms = viewportUniforms
-                            , passGlobalTextures = [TextureDefinition (0, "albedo") normalT]
+                            , passGlobalTextures = [TextureDefinition (0, "albedo") lightTex]
                             , passPreRendering   = io $ do
                                 -- our 0/0 is top left (y-Axis is flipped)
                                 GL.viewport     GL.$= toGLViewport viewport
@@ -133,14 +133,14 @@ yDeferredLighting viewport scene =
 
 
 geoUniforms :: Viewport GLfloat -> Camera -> Uniforms GeoGlobalUniforms
-geoUniforms vp cam = 
+geoUniforms vp cam =
     let projM = cameraProjectionMatrix cam vp
         viewM = (fmap . fmap) realToFrac (cam^.cameraHandle.to camMatrix)
         vpM   = projM !*! viewM
-    in projectionMatrix =: projM <+> 
-       viewMatrix       =: viewM <+>
+        zfar  = (realToFrac $ - cam^.cameraPlanes.camZFar)
+    in viewMatrix       =: viewM <+>
        vpMatrix         =: vpM   <+>
-       farPlane         =: (realToFrac $ cam^.cameraPlanes.camZFar) <+>
+       zFarPlane        =: zfar  <+>
        albedoTex        =: 0     <+>
        normalTex        =: 1
 
@@ -204,29 +204,30 @@ addQuadTex _ = error "not a quad"
 ----}
 
 lightPassUniforms :: Viewport Int -> Camera -> Uniforms LitGlobalUniforms
-lightPassUniforms vp cam = 
-    viewportDim =: (fromIntegral <$> vp^.vpSize) <+>
-    -- eyePosition =: (realToFrac <$> cam^.cameraHandle.cameraLocation) <+>
-    nearPlane   =: (realToFrac $ cam^.cameraPlanes^.camZNear) <+>
-    farPlane    =: (realToFrac $ cam^.cameraPlanes^.camZFar) <+>
-    albedoTex  =: 0 <+>
-    normalTex  =: 1 <+>
-    depthTex   =: 2
-
-lightUniforms :: Viewport Float -> Camera -> SceneLight a -> Uniforms LitLocalUniforms
-lightUniforms vp cam light = 
-    let projM        = cameraProjectionMatrix cam vp
+lightPassUniforms vp cam =
+    let projM        = cameraProjectionMatrix cam (fromIntegral <$> vp)
         viewM        = cam^.cameraHandle.to camMatrix
         vpM          = projM !*! viewM
-        trans        = light^.lightTransformation
+        zNearFar     = realToFrac <$> V2 (-cam^.cameraPlanes^.camZNear) (-cam^.cameraPlanes^.camZFar)
+    in
+    viewMatrix       =: ((fmap . fmap) realToFrac viewM) <+>
+    vpMatrix         =: ((fmap . fmap) realToFrac vpM) <+>
+    viewportDim      =: (fromIntegral <$> vp^.vpSize) <+>
+    zNearFarPlane    =: zNearFar <+>
+    albedoTex        =: 0        <+>
+    normalTex        =: 1        <+>
+    depthTex         =: 2
+
+lightUniforms :: Viewport Float -> Camera -> SceneLight a -> Uniforms LitLocalUniforms
+lightUniforms _vp _cam light = 
+    let trans        = light^.lightTransformation
         scaleM       = kronecker . point $ trans^.transScale
         transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
         modelM       = transM !*! scaleM
-        mvpM         = vpM !*! modelM
-    in mvpMatrix  =: ((fmap . fmap) realToFrac mvpM)  <+>
-       modelMatrix=: ((fmap.fmap) realToFrac modelM)  <+>
-       viewMatrix =: ((fmap . fmap) realToFrac viewM) <+>
-       lightAttributes ( light^.lightProperties )
+        lightProps   = light^.lightProperties
+    in 
+    modelMatrix =: ((fmap.fmap) realToFrac modelM)  <+>
+    lightAttributes ( lightProps )
 
 
 

@@ -8,13 +8,13 @@ import Yage.Geometry as Geometry
 import Yage.Uniforms as Uniforms
 
 
-type GeoGlobalUniforms = [YProjectionMatrix, YViewMatrix, YVPMatrix, YZFarPlane, YAlbedoTex, YNormalTex]
+type GeoGlobalUniforms = [YViewMatrix, YVPMatrix, YZFarPlane, YAlbedoTex, YNormalTex]
 type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix]
 type GeoVertex         = P3TX2NT3
 
 
-type LitGlobalUniforms = [YViewportDim, YZNearPlane, YZFarPlane, YAlbedoTex, YNormalTex, YDepthTex]
-type LitLocalUniforms  = [YMVPMatrix, YModelMatrix, YViewMatrix] ++ YLightAttributes
+type LitGlobalUniforms = [YViewMatrix, YVPMatrix, YViewportDim, YZNearFarPlane, YAlbedoTex, YNormalTex, YDepthTex]
+type LitLocalUniforms  = '[YModelMatrix] ++ YLightAttributes
 type LitVertex         = P3
 
 type ScrGlobalUniforms = [YProjectionMatrix, YScreenTex]
