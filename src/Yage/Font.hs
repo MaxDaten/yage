@@ -39,4 +39,5 @@ instance Renderable RenderText GlyphVertex where
             texImg      = TextureImage theName (fontTex^.textureData)
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
             textMesh    = rt^.textBuffer.tbufMesh
-        in RenderEntity textMesh Triangles {--(rt^.textShader)--} texDef 
+            drawSett    = GLDrawSettings Triangles (Just Back)
+        in RenderEntity textMesh drawSett {--(rt^.textShader)--} texDef 

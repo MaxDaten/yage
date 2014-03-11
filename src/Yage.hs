@@ -177,12 +177,13 @@ yageLoop win previousState = do
             title   <- gets appTitle
             gcTime  <- gets appGCTime
             setWindowTitle win $ unpack $ 
-                TF.format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms]"
+                TF.format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
                 ( title
                 , TF.fixed 4 $ 1000 * wiretime
                 , TF.fixed 4 $ 1000 * stats^.resourcingTime
                 , TF.fixed 4 $ 1000 * stats^.renderingTime
                 , TF.fixed 4 $ 1000 * gcTime
+                , TF.fixed 4 $ 1000 * sum [wiretime, stats^.resourcingTime, stats^.renderingTime, gcTime]
                 )
 
 

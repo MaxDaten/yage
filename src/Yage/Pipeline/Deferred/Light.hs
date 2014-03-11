@@ -19,7 +19,7 @@ import Yage.Pipeline.Deferred.Spec
 mkLight :: Light -> SceneLight LitVertex
 mkLight light = 
     let (vol, trans) = lightData
-    in SceneLight vol trans light
+    in SceneLight vol trans light (GLDrawSettings Triangles (Just Front))
     where
         lightData = case lightType light of
             Pointlight{..}    -> (makeSimpleTriMesh "plight" . vertices . triangles $ geoSphere 2 1

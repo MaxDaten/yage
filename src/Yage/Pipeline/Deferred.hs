@@ -21,6 +21,7 @@ import Yage.Rendering.Transformation
 
 import Yage.Scene
 import Yage.Camera
+import Yage.Material
 import qualified Graphics.Rendering.OpenGL as GL
 
 import Yage.Pipeline.Deferred.Spec              as Spec
@@ -153,8 +154,12 @@ entityUniforms ent =
         modelM       = transM !*! scaleM
         -- TODO rethink the normal matrix here
         normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) {--<|> Just eye3--}) ^?!_Just
-    in modelMatrix  =: ((fmap . fmap) realToFrac modelM) <+>
-       normalMatrix =: ((fmap . fmap) realToFrac normalM)
+        isTextured   = not $ null (ent^.textures) 
+    in modelMatrix       =: ((fmap . fmap) realToFrac modelM)       <+>
+       normalMatrix      =: ((fmap . fmap) realToFrac normalM)      <+>
+       textured          =: (if isTextured then 1 else 0)           <+>
+       materialColor     =: (realToFrac <$> ent^.material.matColor) <+>
+       materialSpecular  =: (realToFrac $ ent^.material.matSpecular)
 
 --{--
 --   to screen
@@ -167,7 +172,7 @@ instance Renderable Screen ScrVertex where
     renderDefinition _ = 
         let q    = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
             mesh = makeSimpleTriMesh "YAGE:SCREEN" q
-        in RenderEntity mesh Triangles []
+        in RenderEntity mesh (GLDrawSettings Triangles (Just Back)) []
 
 
 screenUniforms :: Viewport Float -> Uniforms ScrGlobalUniforms

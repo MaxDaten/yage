@@ -6,6 +6,7 @@
 module Yage.Scene
     ( module Yage.Scene
     , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix
+    , GLDrawSettings(..), PrimitiveMode(..), Face(..)
     ) where
 
 
@@ -15,20 +16,22 @@ import           Yage.Lens
 import           Yage.Camera
 import           Yage.Light
 import           Yage.Resources
+import           Yage.Material
 
 
 import qualified Graphics.GLUtil.Camera3D as Cam
 
 import           Yage.Rendering.Transformation
 import           Yage.Rendering.Types
-import           Yage.Rendering hiding (renderData, renderMode)
+import           Yage.Rendering hiding (renderData, drawSettings)
 
 
 data SceneEntity geo = SceneEntity
     { _renderData      :: !(VertexData geo)
-    , _renderMode      :: !PrimitiveMode
-    , _textures        :: [TextureDefinition]
+    , _textures        :: ![TextureDefinition]
+    , _material        :: !(Material Float)
     , _transformation  :: !(Transformation Float)
+    , _drawSettings    :: !GLDrawSettings
     -- , _shader     :: Maybe Shader
     }
 
@@ -38,6 +41,7 @@ data SceneLight lit = SceneLight
     { _lightVolume          :: !(TriMesh lit)            -- | currently no file resources supportet (to keep the resource managment simple)
     , _lightTransformation  :: !(Transformation Float)
     , _lightProperties      :: !Light
+    , _lightDrawSettings    :: !GLDrawSettings
     }
 
 makeLenses ''SceneLight
@@ -120,7 +124,8 @@ class HasScene a geo lit where
 instance (ViableVertex (Vertex geo)) => Renderable (SceneEntity geo) geo where
     renderDefinition ent =
         let mesh = either (const emptyMesh) id (ent^.renderData)
-        in RenderEntity mesh (ent^.renderMode) (ent^.textures)
+        in RenderEntity mesh (ent^.drawSettings) (ent^.textures)
 
 instance (ViableVertex (Vertex lit)) => Renderable (SceneLight lit) lit where
-    renderDefinition lit = RenderEntity (lit^.lightVolume) Triangles []
+    renderDefinition lit = RenderEntity (lit^.lightVolume) (lit^.lightDrawSettings) []
+
