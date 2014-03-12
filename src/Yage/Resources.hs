@@ -1,27 +1,45 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Yage.Resources where
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-import           Yage.Prelude
+module Yage.Resources
+    ( YageResources, runYageResources
+    , ResourceLoader(..), ResourceRegistry
+    , VertexData, VertexResource(..), TextureResource
+    , requestVertexData, requestTextureResource
+    , initialRegistry
+    ) where
+
+import           Yage.Prelude hiding (Index)
 import           Yage.Lens
 
 import           Data.Proxy
 import           Data.Digest.XXHash
+import qualified Data.Trie as T
+
+import           Codec.Picture
 
 import           Control.Monad.RWS.Strict
 import qualified Data.Map.Strict as M
 
-
-import           Yage.Rendering.Types
 import           Yage.Rendering.Vertex
+import           Yage.Rendering.Mesh
 
 data VertexResource geo =
       OBJResource FilePath (Proxy (Vertex geo))
     | YGMResource FilePath (Proxy (Vertex geo))
 
+type VertexData geo  = Either (VertexResource geo) (TriMesh geo)
+type TextureResource = Either FilePath (String, DynamicImage)
 
-type VertexData geo = Either (VertexResource geo) (TriMesh geo)
-
-type ResourceRegistry geo = M.Map XXHash (TriMesh geo)
+data ResourceRegistry geo = ResourceRegistry
+    { loadedMeshes   :: M.Map XXHash (TriMesh geo)
+    , loadedTextures :: T.Trie (String, DynamicImage)
+    }
 
 type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
 
@@ -41,6 +59,32 @@ requestVertexData (Left res)    = Right <$> loadVertexResource res
 requestVertexData mesh          = return mesh
 
 
+requestTextureResource :: TextureResource -> YageResources geo TextureResource
+requestTextureResource (Left filepath) = Right <$> loadTextureFromFile filepath
+requestTextureResource alreadyLoaded = return alreadyLoaded
+
+
+loadTextureFromFile :: FilePath -> YageResources geo (String, DynamicImage)
+loadTextureFromFile f = do
+    let filepath = encodeUtf8 . fpToText $ f
+        fpStr    = fpToString f
+    registry <- get
+    res <- maybe
+            (load fpStr)
+            return
+            (registry^.textures.at filepath)
+
+    put $ registry & textures.at filepath ?~ res
+    return res
+    where
+    load path = io $ do
+        eImg <- readImage path
+        case eImg of
+            Left err -> error err
+            Right dyn -> return (path, dyn)
+
+
+
 loadVertexResource :: VertexResource geo -> YageResources geo (TriMesh geo)
 loadVertexResource (YGMResource filepath _) = do
     xhash <- xxHash <$> readFile filepath
@@ -48,9 +92,9 @@ loadVertexResource (YGMResource filepath _) = do
     res <- maybe 
             load
             return
-            (registry^.at xhash)
+            (registry^.meshes.at xhash)
     
-    put $ registry & at xhash ?~ res
+    put $ registry & meshes.at xhash ?~ res
     return res
     
     where
@@ -64,9 +108,9 @@ loadVertexResource (OBJResource filepath _) = do
     res <- maybe 
             load
             return
-            (registry^.at xhash)
+            (registry^.meshes.at xhash)
     
-    put $ registry & at xhash ?~ res
+    put $ registry & meshes.at xhash ?~ res
     return res
     
     where
@@ -76,5 +120,11 @@ loadVertexResource (OBJResource filepath _) = do
 
 
 initialRegistry :: ResourceRegistry geo
-initialRegistry = M.empty
+initialRegistry = ResourceRegistry M.empty T.empty
+
+meshes :: Lens' (ResourceRegistry geo) (M.Map XXHash (TriMesh geo))
+meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
+
+textures :: Lens' (ResourceRegistry geo) (T.Trie (String, DynamicImage))
+textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
 

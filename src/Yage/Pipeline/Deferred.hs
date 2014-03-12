@@ -38,16 +38,51 @@ yDeferredLighting viewport scene =
         --specularTex     = TextureBuffer "gbuffer-specul" Texture2D $ GLBufferSpec RGB8 size
         --glossyTex       = TextureBuffer "gbuffer-glossy" Texture2D $ GLBufferSpec RGB8 size
         depthBuff       = TextureBuffer "gbuffer-depth" Texture2D  $ GLBufferSpec DepthComponent32 size
+        geoTarget       = CustomFramebuffer ( "geo-fbo"
+                             , colorAttachment (TextureTarget Texture2D albedoT      0)
+                            <> colorAttachment (TextureTarget Texture2D normalT     0)
+                            -- <> colorAttachment (TextureTarget Texture2D specularTex 0)
+                            -- <> colorAttachment (TextureTarget Texture2D glossyTex   0)
+                            <> depthAttachment (TextureTarget Texture2D depthBuff 0)
+                            -- <> depthStencilAttachment (TextureTarget Texture2D depthStencilTex 0)
+                            )
+        lightTex        = TextureBuffer "lbuffer" Texture2D $ GLBufferSpec RGB8 size
+        lightTarget     = CustomFramebuffer ( "light-fbo"
+                             , colorAttachment (TextureTarget Texture2D lightTex   0)
+                             <> depthAttachment (TextureTarget Texture2D depthBuff 0) -- depth buffer is read only (see passPreRendering)
+                             )
+
+
+        skyPass         = PassDescr
+                            { passFBSpec         = lightTarget
+                            , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
+                            , passGlobalUniforms = perspectiveUniforms (fromIntegral <$> viewport) (scene^.sceneCamera)
+                            , passEntityUniforms = skyUniforms
+                            , passGlobalTextures = []
+                            , passPreRendering   = io $ do
+                                GL.viewport     GL.$= toGLViewport viewport
+                                --GL.clearColor   GL.$= GL.Color4 0 0 0 0
+                                
+                                GL.depthFunc    GL.$= Just GL.Less
+                                GL.depthMask    GL.$= GL.Enabled
+                                
+                                GL.blend        GL.$= GL.Disabled
+
+                                GL.cullFace     GL.$= Just GL.Back
+                                -- we are looking from the inside into the sky box direction
+                                GL.frontFace    GL.$= GL.CW
+                                GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
+
+                                --GL.polygonMode  GL.$= (GL.Line, GL.Line)
+                                --GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
+                                --GL.depthFunc    GL.$= Nothing
+                                --GL.depthMask    GL.$= GL.Disabled
+                            , passPostRendering  = return ()
+                            }
+
 
         geoPass         = PassDescr
-                            { passFBSpec         = CustomFramebuffer ( "geo-fbo"
-                                                 , colorAttachment (TextureTarget Texture2D albedoT      0)
-                                                 <> colorAttachment (TextureTarget Texture2D normalT     0)
-                                                 -- <> colorAttachment (TextureTarget Texture2D specularTex 0)
-                                                 -- <> colorAttachment (TextureTarget Texture2D glossyTex   0)
-                                                 <> depthAttachment (TextureTarget Texture2D depthBuff 0)
-                                                 -- <> depthStencilAttachment (TextureTarget Texture2D depthStencilTex 0)
-                                                 )
+                            { passFBSpec         = geoTarget
                             , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
                             , passGlobalUniforms = geoUniforms (fromIntegral <$> viewport) (scene^.sceneCamera)
                             , passEntityUniforms = entityUniforms
@@ -65,19 +100,14 @@ yDeferredLighting viewport scene =
                                 GL.frontFace    GL.$= GL.CCW
                                 GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
-                                --GL.polygonMode  GL.$= (GL.Line, GL.Line)
+                                -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
                                 GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
                             , passPostRendering  = return ()
                             }
 
-
-        lightTex        = TextureBuffer "lbuffer" Texture2D $ GLBufferSpec RGB8 size
         
         lightPass       = PassDescr
-                            { passFBSpec         = CustomFramebuffer ( "light-fbo"
-                                                 , colorAttachment (TextureTarget Texture2D lightTex   0)
-                                                 -- <> depthAttachment (TextureTarget Texture2D depthBuff 0) -- depth buffer is read only (see passPreRendering)
-                                                 )
+                            { passFBSpec         = lightTarget
                             , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
                             , passGlobalUniforms = lightPassUniforms (fromIntegral <$> viewport) (scene^.sceneCamera)
                             , passEntityUniforms = lightUniforms (fromIntegral <$> viewport) (scene^.sceneCamera)
@@ -130,28 +160,47 @@ yDeferredLighting viewport scene =
                             }
     in do
         runRenderPass geoPass    (scene^.sceneEntities)
-        runRenderPass lightPass  (scene^.sceneLights)
+        runRenderPass lightPass  (scene^.sceneEnvironment.envLights)
+        runRenderPass skyPass    (toList $ scene^.sceneEnvironment.envSky)
         runRenderPass screenPass [(Screen viewport)]
+
+
+calcModelMatrix :: (Num a) => Transformation a -> M44 a
+calcModelMatrix trans =
+    let scaleM       = kronecker . point $ trans^.transScale
+        transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
+    in transM !*! scaleM
+
+
+skyUniforms :: Sky -> Uniforms SkyUniforms
+skyUniforms sky = 
+    let modelM = (fmap . fmap) realToFrac $ calcModelMatrix (sky^.skyTransformation) 
+    in modelMatrix       =: modelM <+>
+       intensity         =: (realToFrac $ sky^.skyIntensity) <+>
+       skyTex            =: 0
+
+
+perspectiveUniforms :: Viewport GLfloat -> Camera -> Uniforms PerspectiveUniforms
+perspectiveUniforms vp cam =
+    let projM = cameraProjectionMatrix cam vp
+        viewM = (fmap . fmap) realToFrac (cam^.cameraHandle.to camMatrix)
+        vpM   = projM !*! viewM
+    in viewMatrix       =: viewM <+>
+       vpMatrix         =: vpM
 
 
 geoUniforms :: Viewport GLfloat -> Camera -> Uniforms GeoGlobalUniforms
 geoUniforms vp cam =
-    let projM = cameraProjectionMatrix cam vp
-        viewM = (fmap . fmap) realToFrac (cam^.cameraHandle.to camMatrix)
-        vpM   = projM !*! viewM
-        zfar  = (realToFrac $ - cam^.cameraPlanes.camZFar)
-    in viewMatrix       =: viewM <+>
-       vpMatrix         =: vpM   <+>
-       zFarPlane        =: zfar  <+>
-       albedoTex        =: 0     <+>
+    let zfar  = (realToFrac $ - cam^.cameraPlanes.camZFar)
+    in perspectiveUniforms vp cam  <+>
+       zFarPlane        =: zfar    <+>
+       albedoTex        =: 0       <+>
        normalTex        =: 1
+
 
 entityUniforms :: SceneEntity a -> Uniforms GeoLocalUniforms
 entityUniforms ent =
-    let trans        = ent^.transformation
-        scaleM       = kronecker . point $ trans^.transScale
-        transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
-        modelM       = transM !*! scaleM
+    let modelM       = calcModelMatrix (ent^.transformation)
         -- TODO rethink the normal matrix here
         normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) {--<|> Just eye3--}) ^?!_Just
         isTextured   = not $ null (ent^.textures) 
@@ -211,27 +260,23 @@ addQuadTex _ = error "not a quad"
 
 lightPassUniforms :: Viewport Int -> Camera -> Uniforms LitGlobalUniforms
 lightPassUniforms vp cam =
-    let projM                       = cameraProjectionMatrix cam (fromIntegral <$> vp)
-        viewM                       = cam^.cameraHandle.to camMatrix
-        vpM                         = projM !*! viewM
-        zNearFar@(V2 near far)      = realToFrac <$> V2 (-cam^.cameraPlanes^.camZNear) (-cam^.cameraPlanes^.camZFar)
+    let zNearFar@(V2 near far)      = realToFrac <$> V2 (-cam^.cameraPlanes^.camZNear) (-cam^.cameraPlanes^.camZFar)
         zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
+        fvp                         = fromIntegral <$> vp
+        dim                         = fromIntegral <$> vp^.vpSize
     in
-    viewMatrix       =: ((fmap . fmap) realToFrac viewM) <+>
-    vpMatrix         =: ((fmap . fmap) realToFrac vpM) <+>
-    viewportDim      =: (fromIntegral <$> vp^.vpSize) <+>
-    zNearFarPlane    =: zNearFar <+>
-    zProjRatio       =: zProj    <+>
-    albedoTex        =: 0        <+>
-    normalTex        =: 1        <+>
+    perspectiveUniforms fvp cam     <+>
+    viewportDim      =: dim         <+>
+    zNearFarPlane    =: zNearFar    <+>
+    zProjRatio       =: zProj       <+>
+    albedoTex        =: 0           <+>
+    normalTex        =: 1           <+>
     depthTex         =: 2
+
 
 lightUniforms :: Viewport Float -> Camera -> SceneLight a -> Uniforms LitLocalUniforms
 lightUniforms _vp _cam light = 
-    let trans        = light^.lightTransformation
-        scaleM       = kronecker . point $ trans^.transScale
-        transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
-        modelM       = transM !*! scaleM
+    let modelM       = calcModelMatrix $ light^.lightTransformation
         lightProps   = light^.lightProperties
     in 
     modelMatrix =: ((fmap.fmap) realToFrac modelM)  <+>

@@ -29,17 +29,16 @@ import             Yage.Rendering.Viewport
 import             Yage.Pipeline.Deferred
 
 import             Yage.UI
-import             Yage.Scene
-import qualified   Yage.Resources as Res
+import             Yage.Scene                      hiding (YageResources)
 
 import Data.Time.Clock
 ---------------------------------------------------------------------------------------------------
 
 
 data YageResources = YageResources
-    { _resourceRegistry   :: !(Res.ResourceRegistry GeoVertex)
+    { _resourceRegistry   :: !(ResourceRegistry GeoVertex)
     , _renderResources    :: !GLResources
-    , _resourceLoader     :: !(Res.ResourceLoader GeoVertex)
+    , _resourceLoader     :: !(ResourceLoader GeoVertex)
     }
 
 
@@ -103,7 +102,7 @@ yageMain :: (HasScene scene GeoVertex LitVertex, Real time)
 yageMain title winConf sim dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 1.0
-        resources     = YageResources Res.initialRegistry initialGLRenderResources deferredResourceLoader
+        resources     = YageResources initialRegistry initialGLRenderResources deferredResourceLoader
     in do
     _ <- bracket 
             ( initialization resources (YageSimulation sim (countSession dt) (Left ()) dt)
@@ -148,7 +147,7 @@ yageLoop win previousState = do
         --processRendering :: (Throws InternalException l, Show err, HasScene scene GeoVertex LitVertex) => Either err scene -> Application l (YageLoopState time scene, RStatistics)
         processRendering (Left err)    = (criticalM $ "err:" ++ show err) >> return previousState
         processRendering (Right scene) = do
-            (renderScene, newFileRes) <- Res.runYageResources 
+            (renderScene, newFileRes) <- runYageResources 
                                           ( previousState^.loadedResources.resourceLoader )
                                           ( loadSceneResources $ getScene scene )
                                           ( previousState^.loadedResources.resourceRegistry )
@@ -176,7 +175,7 @@ yageLoop win previousState = do
         setDevStuff stats wiretime = do
             title   <- gets appTitle
             gcTime  <- gets appGCTime
-            setWindowTitle win $ unpack $ 
+            setWindowTitle win $ TF.unpack $ 
                 TF.format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
                 ( title
                 , TF.fixed 4 $ 1000 * wiretime

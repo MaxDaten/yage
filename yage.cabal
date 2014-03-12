@@ -92,6 +92,7 @@ library
                         , vinyl           == 0.2.1
                         
                         , containers      == 0.5.*
+                        , bytestring-trie == 0.2.*
                         , transformers    == 0.3.*
                         , vector          == 0.10.*
                         , stm             == 2.4.*

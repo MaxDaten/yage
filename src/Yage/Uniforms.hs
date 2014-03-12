@@ -24,6 +24,8 @@ type YAlbedoTex        = "AlbedoTexture"        ::: GLint
 type YNormalTex        = "NormalTexture"        ::: GLint
 type YTangentTex       = "TangentTexture"       ::: GLint
 type YDepthTex         = "DepthTexture"         ::: GLint
+type YSkyTexture       = "SkyTexture"           ::: GLint
+type YIntensity        = "intensity"            ::: GLfloat
 
 type YScreenTex        = "ScreenTexture"        ::: GLint
 
@@ -87,6 +89,12 @@ tangentTex = Field
 
 depthTex :: YDepthTex
 depthTex = Field
+
+skyTex :: YSkyTexture
+skyTex = Field
+
+intensity :: YIntensity
+intensity = Field
 
 viewportDim :: YViewportDim
 viewportDim = Field
