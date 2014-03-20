@@ -6,7 +6,6 @@
 
 module Yage
     ( yageMain, YageSimulation(..)
-    , module Types
     , module Application
     , module YagePrelude
     ) where
@@ -18,7 +17,6 @@ import             Yage.Text                       as TF
 import             Control.Concurrent.STM          (TVar, STM, atomically, modifyTVar', readTVarIO, readTVar, newTVarIO)
 import             Control.Monad.State             (gets)
 ---------------------------------------------------------------------------------------------------
-import             Yage.Types                      as Types
 import             Yage.Wire                       as Wire hiding ((<+>))
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
@@ -31,7 +29,6 @@ import             Yage.Pipeline.Deferred
 import             Yage.UI
 import             Yage.Scene                      hiding (YageResources)
 
-import Data.Time.Clock
 ---------------------------------------------------------------------------------------------------
 
 

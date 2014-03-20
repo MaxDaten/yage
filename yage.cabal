@@ -32,7 +32,6 @@ Flag perf
 library
   hs-source-dirs:       src/
   exposed-modules:      Yage
-                        Yage.Wire
                         Yage.Font
                         Yage.Scene
                         Yage.Camera
@@ -43,6 +42,12 @@ library
 
                         Yage.Geometry
                         Yage.Uniforms
+                        
+                        Yage.Wire
+                        Yage.Wire.Movement
+                        Yage.Wire.Camera
+                        Yage.Wire.Input
+                        Yage.Wire.Analytic
 
                         Yage.Texture.Atlas
                         Yage.Pipeline.Deferred
@@ -52,7 +57,7 @@ library
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture
-                        Yage.Types
+                        Yage.Wire.Types
                         
                         Yage.UI.Types
 

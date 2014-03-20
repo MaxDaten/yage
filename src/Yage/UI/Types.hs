@@ -2,15 +2,26 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
-module Yage.UI.Types where
+module Yage.UI.Types
+    ( module Yage.UI.Types
+    , module Core
+    ) where
 
 import           Yage.Prelude
 import           Yage.Lens
 ---------------------------------------------------------------------------------------------------
-import           Yage.Core.Application
+import           Yage.Core.Application as Core (Key(..), KeyState(..), MouseButton(..), MouseButtonState(..), ModifierKeys(..), JoystickButtonState(..))
 
 import           Linear
 ---------------------------------------------------------------------------------------------------
+
+data MovementKeys = MovementKeys
+    { left      :: Key
+    , right     :: Key
+    , forward   :: Key
+    , backward  :: Key
+    } 
+    deriving ( Show, Typeable )
 
 
 data MouseButtonEvent = MouseButtonEvent !MouseButton !MouseButtonState !ModifierKeys
