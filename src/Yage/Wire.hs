@@ -3,7 +3,6 @@ module Yage.Wire
     , module Netwire
     ) where
 
-import Yage.Wire.Camera   as Wire
 import Yage.Wire.Input    as Wire
 import Yage.Wire.Movement as Wire
 import Yage.Wire.Analytic as Wire

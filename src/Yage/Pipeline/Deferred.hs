@@ -117,7 +117,9 @@ yDeferredLighting viewport scene =
                                                    ]
                             , passPreRendering   = io $ do
                                 GL.viewport     GL.$= toGLViewport viewport
-                                GL.clearColor   GL.$= GL.Color4 0 0 0 0 -- global ambient?
+                                let AmbientLight ambientColor = scene^.sceneEnvironment.envAmbient
+                                    V3 r g b                  = realToFrac <$> ambientColor
+                                GL.clearColor   GL.$= GL.Color4 r g b 0
                                 
                                 GL.depthFunc    GL.$= Nothing           -- disable func add
                                 GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled

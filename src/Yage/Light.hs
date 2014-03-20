@@ -11,14 +11,15 @@ data Light where
         , lightAttribs        :: LightAttributes
         } -> Light
 
+data AmbientLight = AmbientLight (V3 Double)
+
+
 data LightAttributes where
     LightAttributes ::
-        { lightAmbientColor   :: V4 Double
-        , lightDiffuseColor   :: V4 Double
-        , lightSpecularColor  :: V4 Double
+        { lightColor          :: V4 Double
         , lightAttenuation    :: V3 Double -- | constant, linear, quadric
         , lightSpecularExp    :: Double    -- | 0..128: 0 big smooth highlight, 128 tiny hard highlight
-        } -> LightAttributes 
+        } -> LightAttributes
 
 -- 1 linear, recommended 2 or 3
 
@@ -36,7 +37,6 @@ data LightType where
         { pLightPosition  :: V3 Double 
         , pLightRadius    :: V3 Double
         } -> LightType
-    
     Spotlight ::
         { sLightPosition  :: V3 Double
         , sLightDirection :: V3 Double

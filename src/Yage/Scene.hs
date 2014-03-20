@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Yage.Scene
     ( module Yage.Scene
+    , module Yage.Light
     , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix, CubeMap(..)
     , GLDrawSettings(..), PrimitiveMode(..), Face(..)
 
@@ -62,8 +63,9 @@ data Sky = Sky
 makeLenses ''Sky
 
 data Environment lit = Environment
-    { _envLights      :: ![lit]
-    , _envSky         :: !(Maybe Sky)
+    { _envLights       :: ![lit]
+    , _envSky          :: !(Maybe Sky)
+    , _envAmbient      :: !AmbientLight
     } deriving ( Functor )
 
 makeLenses ''Environment
@@ -81,7 +83,7 @@ type SScene geo lit = Scene (SceneEntity geo) (SceneLight lit)
 
 
 emptyScene :: Camera -> Scene geo lit
-emptyScene = Scene [] (Environment [] Nothing)
+emptyScene = Scene [] (Environment [] Nothing (AmbientLight 0))
 
 
 addEntity :: SScene geo lit -> SceneEntity geo -> SScene geo lit

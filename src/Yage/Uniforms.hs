@@ -43,14 +43,12 @@ type YMaterialSpecular = "MaterialSpecular"     ::: GLfloat
 
 type YLightPosition      = "lightPosition"      ::: V3 GLfloat
 type YLightRadius        = "lightRadius"        ::: V3 GLfloat
-type YLightSpecularColor = "lightSpecularColor" ::: V4 GLfloat
-type YLightDiffuseColor  = "lightDiffuseColor"  ::: V4 GLfloat
-type YLightAmbientColor  = "lightAmbientColor"  ::: V4 GLfloat
+type YLightColor         = "lightColor"         ::: V4 GLfloat
 type YLightAttenuation   = "lightAttenuation"   ::: V3 GLfloat
 type YSpecularExp        = "lightSpecularExp"   ::: GLfloat
 
 type YLightAttributes    = [ YLightPosition, YLightRadius
-                           , YLightSpecularColor, YLightDiffuseColor, YLightAmbientColor
+                           , YLightColor
                            , YLightAttenuation
                            , YSpecularExp ]
 
@@ -140,14 +138,8 @@ lightPosition = Field
 lightRadius :: YLightRadius
 lightRadius = Field
 
-lightSpecular :: YLightSpecularColor
-lightSpecular = Field
-
-lightDiffuse :: YLightDiffuseColor
-lightDiffuse = Field
-
-lightAmbient :: YLightAmbientColor
-lightAmbient = Field
+lightColor :: YLightColor
+lightColor = Field
 
 lightAtten :: YLightAttenuation
 lightAtten = Field

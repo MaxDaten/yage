@@ -16,10 +16,10 @@ import           Linear
 ---------------------------------------------------------------------------------------------------
 
 data MovementKeys = MovementKeys
-    { left      :: Key
-    , right     :: Key
-    , forward   :: Key
-    , backward  :: Key
+    { _moveLeft      :: Key
+    , _moveRight     :: Key
+    , _moveForward   :: Key
+    , _moveBackward  :: Key
     } 
     deriving ( Show, Typeable )
 

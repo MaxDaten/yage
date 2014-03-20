@@ -7,14 +7,13 @@ import Yage.Lens
 
 
 import Yage.Scene
-import Yage.Light
+import Yage.Light as L
 import Yage.Primitives
-import Yage.Uniforms
 
 import Yage.Rendering.Mesh
 import Yage.Rendering.Transformation
 
-import Yage.Pipeline.Deferred.Spec
+import Yage.Pipeline.Deferred.Spec as U
 
 mkLight :: Light -> SceneLight LitVertex
 mkLight light = 
@@ -34,12 +33,10 @@ mkLight light =
 
 lightAttributes :: Light -> Uniforms YLightAttributes
 lightAttributes Light{lightType,lightAttribs} = case lightType of
-    Pointlight{..}    -> lightPosition =: (realToFrac <$> pLightPosition)                    <+>
-                         lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
-                         lightSpecular =: (realToFrac <$> lightSpecularColor lightAttribs)   <+>
-                         lightDiffuse  =: (realToFrac <$> lightDiffuseColor lightAttribs)    <+> 
-                         lightAmbient  =: (realToFrac <$> lightAmbientColor lightAttribs)    <+>
-                         lightAtten    =: (realToFrac <$> lightAttenuation lightAttribs)     <+>
-                         lightSpecExp  =: (realToFrac $ lightSpecularExp lightAttribs)
+    Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                    <+>
+                         U.lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
+                         U.lightColor    =: (realToFrac <$> L.lightColor lightAttribs)         <+>
+                         U.lightAtten    =: (realToFrac <$> lightAttenuation lightAttribs)     <+>
+                         U.lightSpecExp  =: (realToFrac $ lightSpecularExp lightAttribs)
     Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
     OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"

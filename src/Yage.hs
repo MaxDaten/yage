@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage
-    ( yageMain, YageSimulation(..)
+    ( yageMain, YageSimulation(..), MovementKeys(..)
     , module Application
     , module YagePrelude
     ) where

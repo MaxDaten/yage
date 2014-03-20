@@ -45,7 +45,6 @@ library
                         
                         Yage.Wire
                         Yage.Wire.Movement
-                        Yage.Wire.Camera
                         Yage.Wire.Input
                         Yage.Wire.Analytic
 
