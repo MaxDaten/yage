@@ -165,8 +165,8 @@ yageLoop win previousState = do
 
         renderTheScene renderScene state = do
             winSt           <- io $ readTVarIO (winState win)
-            let theViewport = Viewport 0 $ winSt^.fbSize
-                pipeline    = yDeferredLighting theViewport renderScene
+            let screenVP    = Viewport 0 $ winSt^.fbSize
+                pipeline    = yDeferredLighting screenVP renderScene
             (res', stats)   <- runRenderSystem pipeline $ state^.loadedResources.renderResources
             return $ state & loadedResources.renderResources .~ res'
                            & renderStats .~ stats
