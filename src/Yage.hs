@@ -59,7 +59,6 @@ data YageLoopState time scene = YageLoopState
     { _loadedResources  :: !YageResources
     , _simulation       :: !(YageSimulation time scene)
     , _timing           :: !YageTiming
-    , _viewport         :: TVar ViewportI
     , _inputState       :: TVar InputState
     , _renderStats      :: RStatistics
     }
@@ -77,8 +76,8 @@ makeLenses ''YageResources
 -- maybe we will use generics and deriving later on
 instance EventCtr (YageLoopState t v) where
     --windowPositionCallback = windowPositionCallback . _eventCtr
-    windowSizeCallback YageLoopState{_viewport} = return $ \_winH w h ->
-        atomically $ modifyTVar' _viewport $ vpSize .~ V2 w h
+    --framebufferSizeCallback YageLoopState{_viewport} = return $ \_winH w h ->
+    --    atomically $ modifyTVar' _viewport $ vpSize .~ V2 w h
     --windowCloseCallback    = windowCloseCallback . _eventCtr
     --windowRefreshCallback  = windowRefreshCallback . _eventCtr
     --windowFocusCallback    = windowFocusCallback . _eventCtr
@@ -97,18 +96,17 @@ instance EventCtr (YageLoopState t v) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
+
+
 yageMain :: (HasScene scene GeoVertex LitVertex, Real time) 
          => String -> WindowConfig -> YageWire time () scene -> time -> IO ()
 yageMain title winConf sim dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-    let theViewport   = Viewport (V2 0 0) (uncurry V2 (windowSize winConf)) 1.0
-        resources     = YageResources initialRegistry initialGLRenderResources deferredResourceLoader
+    let initResources     = YageResources initialRegistry initialGLRenderResources deferredResourceLoader
+        initSim           = YageSimulation sim (countSession dt) (Left ()) dt
     in do
     _ <- bracket 
-            ( initialization resources (YageSimulation sim (countSession dt) (Left ()) dt)
-                <$> newTVarIO theViewport 
-                <*> newTVarIO mempty
-            )
+            ( initialization initResources initSim <$> (newTVarIO mempty) )
             finalization
             ( \initState -> execApplication title defaultAppConfig $
                                 basicWindowLoop winConf initState $
@@ -151,7 +149,7 @@ yageLoop win previousState = do
                                           ( previousState^.loadedResources.resourceLoader )
                                           ( loadSceneResources $ getScene scene )
                                           ( previousState^.loadedResources.resourceRegistry )
-            flip renderTheScene renderScene $ (previousState & loadedResources.resourceRegistry .~ newFileRes)
+            renderTheScene renderScene $ previousState & loadedResources.resourceRegistry .~ newFileRes
 
         simulate accum dt s' w' state input
             | accum < dt = return (state, s', w', accum)
@@ -165,9 +163,10 @@ yageLoop win previousState = do
             (newState, w)     <- io $ stepWire w' (ds input) (Right ())
             return $! newState `seq` (newState, s, w)
 
-        renderTheScene state renderScene = do
-            theViewport     <- io $ readTVarIO $ state^.viewport
-            let pipeline    = yDeferredLighting theViewport renderScene
+        renderTheScene renderScene state = do
+            winSt           <- io $ readTVarIO (winState win)
+            let theViewport = Viewport 0 $ winSt^.fbSize
+                pipeline    = yDeferredLighting theViewport renderScene
             (res', stats)   <- runRenderSystem pipeline $ state^.loadedResources.renderResources
             return $ state & loadedResources.renderResources .~ res'
                            & renderStats .~ stats
@@ -188,10 +187,10 @@ yageLoop win previousState = do
 
 initialization :: YageResources
                -> YageSimulation time scene
-               -> TVar ViewportI
                -> TVar InputState 
                -> YageLoopState time scene
-initialization resources sim tvp tInputState = YageLoopState resources sim loopTimingInit tvp tInputState mempty
+initialization resources sim tInputState = YageLoopState resources sim loopTimingInit tInputState mempty
+
 
 finalization :: YageLoopState t v -> IO ()
 finalization _ = return ()

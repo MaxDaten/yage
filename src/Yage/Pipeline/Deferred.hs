@@ -32,7 +32,7 @@ import Yage.Pipeline.Deferred.Light             as Light
 
 yDeferredLighting :: ViewportI -> SScene GeoVertex LitVertex -> RenderSystem ()
 yDeferredLighting viewport scene =
-    let size            = floor . (*) (viewport^.vpFactor) . fromIntegral <$> viewport^.vpSize
+    let size            = fromIntegral <$> viewport^.vpSize
         albedoT         = TextureBuffer "gbuffer-albedo" Texture2D $ GLBufferSpec RGBA8 size
         normalT         = TextureBuffer "gbuffer-normal" Texture2D $ GLBufferSpec RGBA8 size
         --specularTex     = TextureBuffer "gbuffer-specul" Texture2D $ GLBufferSpec RGB8 size
