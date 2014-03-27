@@ -37,22 +37,21 @@ type YZNearFarPlane    = "ZNearFar"             ::: V2 GLfloat
 type YZProjRatio       = "ZProjRatio"           ::: V2 GLfloat
 type YFieldOfView      = "Fovy"                 ::: GLfloat
 
-type YTextured         = "Textured"             ::: GLint
-type YMaterialColor    = "MaterialColor"        ::: V3 GLfloat
-type YMaterialSpecular = "MaterialSpecular"     ::: GLfloat
+type YMaterialBaseColor  = "BaseColor"            ::: V4 GLfloat
+type YMaterialSpecular   = "Specular"             ::: GLfloat
 
-type YLightPosition      = "lightPosition"      ::: V3 GLfloat
-type YLightRadius        = "lightRadius"        ::: V3 GLfloat
-type YLightColor         = "lightColor"         ::: V4 GLfloat
-type YLightAttenuation   = "lightAttenuation"   ::: V3 GLfloat
-type YSpecularExp        = "lightSpecularExp"   ::: GLfloat
+type YLightPosition      = "lightPosition"        ::: V3 GLfloat
+type YLightRadius        = "lightRadius"          ::: V3 GLfloat
+type YLightColor         = "lightColor"           ::: V4 GLfloat
+type YLightAttenuation   = "lightAttenuation"     ::: V3 GLfloat
+type YSpecularExp        = "lightSpecularExp"     ::: GLfloat
 
 type YLightAttributes    = [ YLightPosition, YLightRadius
                            , YLightColor
                            , YLightAttenuation
                            , YSpecularExp ]
 
-type YMaterial = [ YTextured, YMaterialColor, YMaterialSpecular ]
+type YMaterial = [ YMaterialBaseColor, YMaterialSpecular ]
 
 
 projectionMatrix :: YProjectionMatrix
@@ -119,11 +118,8 @@ fieldOfView = Field
 Material
 --}
 
-textured :: YTextured
-textured = Field
-
-materialColor :: YMaterialColor
-materialColor = Field
+materialBaseColor :: YMaterialBaseColor
+materialBaseColor = Field
 
 materialSpecular :: YMaterialSpecular
 materialSpecular = Field

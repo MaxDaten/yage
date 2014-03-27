@@ -1,7 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NamedFieldPuns #-}
-module Yage.Camera where
+module Yage.Camera
+    ( module Yage.Camera
+    , module Cam
+    ) where
 
 
 import Yage.Prelude
@@ -10,6 +13,7 @@ import Yage.Lens
 import Yage.Rendering.Viewport
 
 import qualified Graphics.GLUtil.Camera3D            as Cam
+import Graphics.GLUtil.Camera3D            as Cam (camMatrix)
 
 import Linear
 

@@ -50,9 +50,14 @@ library
 
                         Yage.Texture.Atlas
                         Yage.Pipeline.Deferred
-                        Yage.Pipeline.Deferred.Spec
+                        Yage.Pipeline.Deferred.Common
+                        
+                        Yage.Pipeline.Deferred.GeometryPass
+                        Yage.Pipeline.Deferred.LightPass
+                        Yage.Pipeline.Deferred.SkyPass
+                        Yage.Pipeline.Deferred.ScreenPass
+                        
                         Yage.Pipeline.Deferred.ResourceLoader
-                        Yage.Pipeline.Deferred.Light
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture

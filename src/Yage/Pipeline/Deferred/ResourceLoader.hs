@@ -15,7 +15,7 @@ import                  Yage.Rendering.Mesh
 import qualified        Yage.Geometry.Formats.Obj        as OBJ
 import qualified        Yage.Geometry.Formats.Ygm        as YGM
 
-import Yage.Pipeline.Deferred.Spec
+import Yage.Pipeline.Deferred.GeometryPass
 
 deferredResourceLoader :: ResourceLoader GeoVertex
 deferredResourceLoader = ResourceLoader
@@ -27,7 +27,7 @@ loadOBJ :: FilePath -> IO (TriMesh GeoVertex)
 loadOBJ path = do
     (posGeo, texGeo) <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile path
     let ntGeo        = genSmoothings posGeo texGeo
-    return $ makeMeshGeo (fpToString path) $ packGeos YGM.vertexFormat posGeo texGeo ntGeo
+    return $ makeMeshGeo (fpToString path) $ packGeos3 YGM.vertexFormat posGeo texGeo ntGeo
     
 
 

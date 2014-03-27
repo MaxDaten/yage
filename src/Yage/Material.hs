@@ -7,8 +7,8 @@ import Yage.Lens
 import Linear
 
 data Material a = Material
-    { _matColor    :: !(V3 a)
-    , _matSpecular :: !a
-    } deriving ( Show, Eq, Ord, Functor)
+    { _matBaseColor    :: !(V4 a)
+    , _matSpecular     :: !a
+    } deriving ( Show, Eq, Ord, Functor )
 
 makeLenses ''Material

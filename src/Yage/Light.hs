@@ -16,9 +16,9 @@ data AmbientLight = AmbientLight (V3 Double)
 
 data LightAttributes where
     LightAttributes ::
-        { lightColor          :: V4 Double
-        , lightAttenuation    :: V3 Double -- | constant, linear, quadric
-        , lightSpecularExp    :: Double    -- | 0..128: 0 big smooth highlight, 128 tiny hard highlight
+        { lAttrColor          :: V4 Double
+        , lAttrAttenuation    :: V3 Double -- | constant, linear, quadric
+        , lAttrSpecularExp    :: Double    -- | 0..128: 0 big smooth highlight, 128 tiny hard highlight
         } -> LightAttributes
 
 -- 1 linear, recommended 2 or 3

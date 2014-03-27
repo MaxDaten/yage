@@ -30,8 +30,9 @@ import           Yage.Rendering.Vertex
 import           Yage.Rendering.Mesh
 
 data VertexResource geo =
-      OBJResource FilePath (Proxy (Vertex geo))
-    | YGMResource FilePath (Proxy (Vertex geo))
+      OBJResource FilePath
+    | YGMResource FilePath
+    | NullResource (Proxy (Vertex geo)) -- currently no clue how to avoid this
 
 type VertexData geo  = Either (VertexResource geo) (TriMesh geo)
 type TextureResource = Either FilePath (String, DynamicImage)
@@ -86,7 +87,7 @@ loadTextureFromFile f = do
 
 
 loadVertexResource :: VertexResource geo -> YageResources geo (TriMesh geo)
-loadVertexResource (YGMResource filepath _) = do
+loadVertexResource (YGMResource filepath) = do
     xhash <- xxHash <$> readFile filepath
     registry <- get
     res <- maybe 
@@ -102,7 +103,7 @@ loadVertexResource (YGMResource filepath _) = do
         loader  <- asks ygmLoader
         io $ loader filepath
 
-loadVertexResource (OBJResource filepath _) = do
+loadVertexResource (OBJResource filepath) = do
     xhash <- xxHash <$> readFile filepath -- cache filepath -> hash (or memo?)
     registry <- get
     res <- maybe 
@@ -117,6 +118,8 @@ loadVertexResource (OBJResource filepath _) = do
     load = do
         loader  <- asks objLoader
         io $ loader filepath
+
+loadVertexResource _ = error "Yage.Resources: invalid null resource"
 
 
 initialRegistry :: ResourceRegistry geo

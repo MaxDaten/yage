@@ -27,8 +27,8 @@ import qualified Graphics.GLUtil.Camera3D as Cam
 
 import           Yage.Rendering.Transformation
 import           Yage.Rendering.Texture
-import           Yage.Rendering.Types hiding (TextureResource)
-import           Yage.Rendering hiding (renderData, drawSettings, P3, TextureResource)
+import           Yage.Rendering.Types
+import           Yage.Rendering hiding (renderData, drawSettings, P3)
 
 
 data SceneEntity geo = SceneEntity
