@@ -83,7 +83,7 @@ screenPass toScreen viewport = PassDescr
 instance Renderable Screen ScrVertex where
     renderDefinition _ = 
         let q    = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
-            mesh = makeSimpleTriMesh "YAGE:SCREEN" q
+            mesh = meshFromVertexList "YAGE:SCREEN" q
         in RenderEntity mesh (GLDrawSettings Triangles (Just Back)) []
 
 addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3TX2)

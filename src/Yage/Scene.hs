@@ -43,7 +43,7 @@ data SceneEntity geo = SceneEntity
 makeLenses ''SceneEntity
 
 data SceneLight lit = SceneLight
-    { _lightVolume          :: !(TriMesh lit)            -- | currently no file resources supportet (to keep the resource managment simple)
+    { _lightVolume          :: !(Mesh lit)            -- | currently no file resources supportet (to keep the resource managment simple)
     , _lightTransformation  :: !(Transformation Float)
     , _lightProperties      :: !Light
     , _lightDrawSettings    :: !GLDrawSettings
@@ -53,7 +53,7 @@ makeLenses ''SceneLight
 
 
 data Sky = Sky
-    { _skyVolume         :: !(TriMesh P3)
+    { _skyVolume         :: !(Mesh P3)
     , _skyTexture        :: !(CubeMap TextureResource)
     , _skyTransformation :: !(Transformation Float)
     , _skyDrawSettings   :: !GLDrawSettings

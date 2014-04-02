@@ -10,6 +10,7 @@ import           Yage.Lens
 
 import           Yage.Math
 -----------------------------------------------------------------------------------------
+import qualified Data.Vector.Storable      as V
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as T
 -----------------------------------------------------------------------------------------
@@ -29,7 +30,7 @@ type GlyphVertex = Vert.P2TX2C4
 type Caret = V2 Double
 data TextBuffer = TextBuffer
     { _tbufTexture :: FontTexture
-    , _tbufMesh    :: TriMesh GlyphVertex
+    , _tbufMesh    :: Mesh GlyphVertex
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
     } deriving (Typeable)
@@ -90,10 +91,8 @@ pushChar tbuf c =
                                 )
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
                 glyphVerts    = makeGlypMesh caret fdata (texW, texH) norm
-                vcnt          = vertexCount mesh
-                mesh'         = pushToBack mesh glyphVerts [Triangle (vcnt+0) (vcnt+1) (vcnt+2), Triangle (vcnt+2) (vcnt+3) (vcnt+0)]
-            in (caret & _x +~ advance / normX, mesh')
-        aux mesh Nothing = aux mesh (getFontDataFor '_') -- WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
+            in (caret & _x +~ advance / normX, mesh `pushToBack` (V.fromList glyphVerts))
+        aux mesh Nothing = aux mesh (getFontDataFor '_') -- FIXME: WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
 
 setText :: TextBuffer -> Text -> TextBuffer

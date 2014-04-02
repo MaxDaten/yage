@@ -34,19 +34,19 @@ data VertexResource geo =
     | YGMResource FilePath
     | NullResource (Proxy (Vertex geo)) -- currently no clue how to avoid this
 
-type VertexData geo  = Either (VertexResource geo) (TriMesh geo)
+type VertexData geo  = Either (VertexResource geo) (Mesh geo)
 type TextureResource = Either FilePath (String, DynamicImage)
 
 data ResourceRegistry geo = ResourceRegistry
-    { loadedMeshes   :: M.Map XXHash (TriMesh geo)
+    { loadedMeshes   :: M.Map XXHash (Mesh geo)
     , loadedTextures :: T.Trie (String, DynamicImage)
     }
 
 type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
 
 data ResourceLoader geo = ResourceLoader
-    { objLoader :: FilePath -> IO (TriMesh geo)
-    , ygmLoader :: FilePath -> IO (TriMesh geo)
+    { objLoader :: FilePath -> IO (Mesh geo)
+    , ygmLoader :: FilePath -> IO (Mesh geo)
     }
 
 runYageResources :: (MonadIO m) => ResourceLoader geo -> YageResources geo a -> ResourceRegistry geo -> m (a, ResourceRegistry geo)
@@ -86,7 +86,7 @@ loadTextureFromFile f = do
 
 
 
-loadVertexResource :: VertexResource geo -> YageResources geo (TriMesh geo)
+loadVertexResource :: VertexResource geo -> YageResources geo (Mesh geo)
 loadVertexResource (YGMResource filepath) = do
     xhash <- xxHash <$> readFile filepath
     registry <- get
@@ -125,7 +125,7 @@ loadVertexResource _ = error "Yage.Resources: invalid null resource"
 initialRegistry :: ResourceRegistry geo
 initialRegistry = ResourceRegistry M.empty T.empty
 
-meshes :: Lens' (ResourceRegistry geo) (M.Map XXHash (TriMesh geo))
+meshes :: Lens' (ResourceRegistry geo) (M.Map XXHash (Mesh geo))
 meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 
 textures :: Lens' (ResourceRegistry geo) (T.Trie (String, DynamicImage))

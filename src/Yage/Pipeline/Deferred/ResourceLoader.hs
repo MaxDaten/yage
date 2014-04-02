@@ -1,6 +1,7 @@
+{-# LANGUAGE RecordWildCards #-}
 module Yage.Pipeline.Deferred.ResourceLoader where
 
-import Yage.Prelude
+import Yage.Prelude hiding (toList)
 
 import Yage.Resources
 import Yage.Geometry
@@ -15,7 +16,7 @@ import                  Yage.Rendering.Mesh
 import qualified        Yage.Geometry.Formats.Obj        as OBJ
 import qualified        Yage.Geometry.Formats.Ygm        as YGM
 
-import Yage.Pipeline.Deferred.GeometryPass
+import                  Yage.Pipeline.Deferred.GeometryPass
 
 deferredResourceLoader :: ResourceLoader GeoVertex
 deferredResourceLoader = ResourceLoader
@@ -23,16 +24,14 @@ deferredResourceLoader = ResourceLoader
     , ygmLoader = loadYGM 
     }
 
-loadOBJ :: FilePath -> IO (TriMesh GeoVertex)
+loadOBJ :: FilePath -> IO (Mesh GeoVertex)
 loadOBJ path = do
     (posGeo, texGeo) <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile path
     let ntGeo        = genSmoothings posGeo texGeo
-    return $ makeMeshGeo (fpToString path) $ packGeos3 YGM.vertexFormat posGeo texGeo ntGeo
+    return $ meshFromTriangleGeometry ( fpToString path ) $ packGeos3 YGM.vertexFormat posGeo texGeo ntGeo
     
 
 
-loadYGM :: FilePath -> IO (TriMesh GeoVertex)
+loadYGM :: FilePath -> IO (Mesh GeoVertex)
 loadYGM path = toMesh <$> YGM.ygmFromFile path (Proxy::Proxy GeoVertex)
-    where toMesh ygm = makeMeshGeo (unpack $ YGM.ygmName ygm) $ (YGM.ygmModel ygm)
-
-
+    where toMesh ygm = meshFromTriangleGeometry ( unpack $ YGM.ygmName ygm ) $ YGM.ygmModel ygm

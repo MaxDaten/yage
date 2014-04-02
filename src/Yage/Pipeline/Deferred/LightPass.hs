@@ -117,7 +117,7 @@ mkLight light =
         OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
     
     pLightVolume Pointlight{..} 
-        = ( makeSimpleTriMesh "plight" . vertices . triangles $ geoSphere 2 1
+        = ( meshFromVertexList "plight" . vertices . triangles $ geoSphere 2 1
           , idTransformation & transPosition .~ (realToFrac <$> pLightPosition)
                              & transScale    .~ (realToFrac <$> pLightRadius)
           )
