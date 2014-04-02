@@ -24,6 +24,7 @@ deferredResourceLoader = ResourceLoader
     , ygmLoader = loadYGM 
     }
 
+
 loadOBJ :: FilePath -> IO (Mesh GeoVertex)
 loadOBJ path = do
     (posGeo, texGeo) <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile path
