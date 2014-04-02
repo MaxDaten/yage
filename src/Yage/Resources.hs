@@ -9,8 +9,8 @@
 module Yage.Resources
     ( YageResources, runYageResources
     , ResourceLoader(..), ResourceRegistry
-    , VertexData, VertexResource(..), TextureResource
-    , requestVertexData, requestTextureResource
+    , MeshResource, MeshFile(..), TextureResource
+    , requestMeshResource, requestTextureResource
     , initialRegistry
     ) where
 
@@ -29,12 +29,12 @@ import qualified Data.Map.Strict as M
 import           Yage.Rendering.Vertex
 import           Yage.Rendering.Mesh
 
-data VertexResource geo =
-      OBJResource FilePath
-    | YGMResource FilePath
+data MeshFile geo =
+      OBJFile FilePath
+    | YGMFile FilePath
     | NullResource (Proxy (Vertex geo)) -- currently no clue how to avoid this
 
-type VertexData geo  = Either (VertexResource geo) (Mesh geo)
+type MeshResource geo  = Either (MeshFile geo) (Mesh geo)
 type TextureResource = Either FilePath (String, DynamicImage)
 
 data ResourceRegistry geo = ResourceRegistry
@@ -44,9 +44,15 @@ data ResourceRegistry geo = ResourceRegistry
 
 type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
 
+
+
+type MeshLoader geo = FilePath -> IO (Mesh geo)
+
+type ResourceLoaderAccessor geo = ResourceLoader geo -> MeshLoader geo
+
 data ResourceLoader geo = ResourceLoader
-    { objLoader :: FilePath -> IO (Mesh geo)
-    , ygmLoader :: FilePath -> IO (Mesh geo)
+    { objLoader :: MeshLoader geo
+    , ygmLoader :: MeshLoader geo
     }
 
 runYageResources :: (MonadIO m) => ResourceLoader geo -> YageResources geo a -> ResourceRegistry geo -> m (a, ResourceRegistry geo)
@@ -55,9 +61,9 @@ runYageResources loader yr st = do
     return (a, res)
 
 
-requestVertexData :: VertexData geo -> YageResources geo (VertexData geo)
-requestVertexData (Left res)    = Right <$> loadVertexResource res
-requestVertexData mesh          = return mesh
+requestMeshResource :: MeshResource geo -> YageResources geo (MeshResource geo)
+requestMeshResource (Left res) = Right <$> loadMeshFromFile res
+requestMeshResource mesh       = return mesh
 
 
 requestTextureResource :: TextureResource -> YageResources geo TextureResource
@@ -86,8 +92,14 @@ loadTextureFromFile f = do
 
 
 
-loadVertexResource :: VertexResource geo -> YageResources geo (Mesh geo)
-loadVertexResource (YGMResource filepath) = do
+loadMeshFromFile :: MeshFile geo -> YageResources geo (Mesh geo)
+loadMeshFromFile (YGMFile filepath) = loadMesh' filepath ygmLoader
+loadMeshFromFile (OBJFile filepath) = loadMesh' filepath objLoader
+loadMeshFromFile _ = error "Yage.Resources: invalid null resource"
+
+
+loadMesh' :: FilePath -> ResourceLoaderAccessor geo -> YageResources geo (Mesh geo)
+loadMesh' filepath loader = do
     xhash <- xxHash <$> readFile filepath
     registry <- get
     res <- maybe 
@@ -100,26 +112,8 @@ loadVertexResource (YGMResource filepath) = do
     
     where
     load = do
-        loader  <- asks ygmLoader
-        io $ loader filepath
-
-loadVertexResource (OBJResource filepath) = do
-    xhash <- xxHash <$> readFile filepath -- cache filepath -> hash (or memo?)
-    registry <- get
-    res <- maybe 
-            load
-            return
-            (registry^.meshes.at xhash)
-    
-    put $ registry & meshes.at xhash ?~ res
-    return res
-    
-    where
-    load = do
-        loader  <- asks objLoader
-        io $ loader filepath
-
-loadVertexResource _ = error "Yage.Resources: invalid null resource"
+        l <- (asks loader)
+        io $ l filepath
 
 
 initialRegistry :: ResourceRegistry geo

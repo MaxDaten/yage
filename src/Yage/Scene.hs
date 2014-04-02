@@ -32,7 +32,7 @@ import           Yage.Rendering hiding (renderData, drawSettings, P3)
 
 
 data SceneEntity geo = SceneEntity
-    { _renderData      :: !(VertexData geo)
+    { _renderData      :: !(MeshResource geo)
     , _textures        :: ![TextureResource]
     , _material        :: !(Material Float)
     , _transformation  :: !(Transformation Float)
@@ -133,7 +133,7 @@ skyPosition = skyTransformation.transPosition
 
 loadSceneEntitiy :: SceneEntity geo -> YageResources geo (SceneEntity geo)
 loadSceneEntitiy ent = do
-    vdata <- requestVertexData $ ent^.renderData
+    vdata <- requestMeshResource $ ent^.renderData
     eTexs <- mapM requestTextureResource $ ent^.textures
     return $ ent & renderData .~ vdata & textures .~ eTexs
 
