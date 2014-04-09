@@ -14,7 +14,6 @@ import             Yage.Prelude                    as YagePrelude
 import             Yage.Lens                       as Lens hiding ( Index )
 import             Yage.Text                       as TF
 ---------------------------------------------------------------------------------------------------
-import             Control.Concurrent.STM          (TVar, STM, atomically, modifyTVar', readTVarIO, readTVar, newTVarIO)
 import             Control.Monad.State             (gets)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ((<+>))
