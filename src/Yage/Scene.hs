@@ -6,7 +6,7 @@
 module Yage.Scene
     ( module Yage.Scene
     , module Yage.Light
-    , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix, CubeMap(..)
+    , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix, TextureCube(..)
     , GLDrawSettings(..), PrimitiveMode(..), Face(..)
 
     , module Res
@@ -26,7 +26,7 @@ import           Data.Traversable (mapM)
 import qualified Graphics.GLUtil.Camera3D as Cam
 
 import           Yage.Rendering.Transformation
-import           Yage.Rendering.Texture
+import           Yage.Rendering.Textures
 import           Yage.Rendering.Types
 import           Yage.Rendering hiding (renderData, drawSettings, P3)
 
@@ -54,7 +54,7 @@ makeLenses ''SceneLight
 
 data Sky = Sky
     { _skyVolume         :: !(Mesh P3)
-    , _skyTexture        :: !(CubeMap TextureResource)
+    , _skyTexture        :: !(TextureCube TextureResource)
     , _skyTransformation :: !(Transformation Float)
     , _skyDrawSettings   :: !GLDrawSettings
     , _skyIntensity      :: !Float

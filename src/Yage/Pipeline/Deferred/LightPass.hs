@@ -9,8 +9,8 @@ import Yage.Lens
 import Yage.Math
 
 import Yage.Geometry as Geometry
+import Yage.Geometry3D
 import Yage.Uniforms as U
-import Yage.Primitives
 import Yage.Camera
 import Yage.Scene
 

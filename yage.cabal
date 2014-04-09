@@ -39,6 +39,7 @@ library
                         Yage.UI
                         Yage.Resources
                         Yage.Material
+                        Yage.Images
 
                         Yage.Geometry
                         Yage.Uniforms

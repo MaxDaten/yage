@@ -8,7 +8,8 @@ import Yage.Math
 import Yage.Scene
 import Yage.Camera
 import Yage.Geometry
-import Yage.Primitives
+import Yage.Geometry3D
+
 
 import Yage.Rendering hiding (P3)
 import Yage.Rendering.Transformation

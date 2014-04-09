@@ -1,6 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Yage.Texture.Atlas where
+module Yage.Texture.Atlas
+    ( module Yage.Texture.Atlas
+    , module Rectangle
+    ) where
 
 import           Yage.Prelude
 import           Yage.Lens
@@ -13,6 +16,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Map      as Map
 import           Data.Set      hiding (foldr, null)
 
+import           Yage.Geometry.D2.Rectangle as Rectangle
 
 data Tree region fill =
       Node region (Tree region fill) (Tree region fill)
@@ -26,7 +30,7 @@ data AtlasError i =
 
 data SplitDirection = SplitHorizontal | SplitVertical
 
-type TextureRegion = Rectangle
+type TextureRegion = Rectangle Int
 data AtlasRegion i a = AtlasRegion
     { _regionRect    :: !TextureRegion
     , _regionPadding :: !Int
@@ -57,16 +61,14 @@ emptyNode rect = Node rect Nil Nil
 
 filledLeaf :: i -> Image a -> Int -> AtlasTree i a
 filledLeaf ident img padding =
-    let rect = x1 +~ 2*padding $
-               y1 +~ 2*padding $
-               img^.to imgRectangle
+    let rect = imageRectangle img & extend +~ pure (2 * padding)
     in Filled (AtlasRegion rect padding ident img)
 
 
 emptyAtlas :: Int -> Int -> a -> Int -> TextureAtlas i a
 emptyAtlas width height background padding =
     let root = Node rect Nil Nil
-        rect = Rectangle 0 0 width height
+        rect = Rectangle 0 (V2 width height)
     in TextureAtlas
     { _atlasSize    = (width, height)
     , _atlasRegions = root
@@ -93,13 +95,16 @@ insertImage ident img atlas =
 insertNode :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTree i a)
 -- empty region, split and insert left
 insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
+    
     -- insert rect to big
-    | not $ (a^.regionRect) `fits` nodeRegion             = Left tree
+    | not $ (a^.regionRect) `fits` nodeRegion         = Left tree
+    
     -- perfectly fits
-    | (a^.regionRect) `dimMatches` nodeRegion             = let padding = a^.regionPadding
-                                                                rect    = x0 +~ padding $ y0 +~ padding $
-                                                                          x1 -~ padding $ y1 -~ padding $ nodeRegion
-                                                            in Right $ Filled (a & regionRect .~ rect)
+    | (a^.regionRect.extend) == nodeRegion^.extend    = let padding = a^.regionPadding
+                                                            rect    = nodeRegion & topLeft     +~ pure padding
+                                                                                 & bottomRight -~ pure padding
+                                                        in Right $ Filled (a & regionRect .~ rect)
+    
     -- split region in one half fitting and retaining region, then insert into the half fitting one
     | otherwise =
         let (leftRegion, rightRegion) = emptyNode <$$> splitRect nodeRegion (a^.regionRect)
@@ -155,22 +160,23 @@ regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
 
 
 isInNode :: AtlasTree i a -> Int -> Int -> Bool
-isInNode (Node region _ _) x y  = inRectangle x y region
-isInNode (Filled a) x y         = inRectangle x y (a^.regionRect)
+isInNode (Node region _ _) x y  = region `containsPoint` (V2 x y)
+isInNode (Filled a) x y         = (a^.regionRect) `containsPoint` (V2 x y)
 isInNode _ _ _                  = False
 
 
 getFilledAt :: AtlasTree i a -> Int -> Int -> Maybe (AtlasTree i a)
 getFilledAt root@(Node region _l _r) x y
-    | inRectangle x y region    = getNodeIn root
-    | otherwise                 = error "out of bounds"
+    | region `containsPoint` at   = getNodeIn root
+    | otherwise                   = error "out of bounds"
     where
-        getNodeIn (Node _ Nil Nil)            = Nothing
+        at = V2 x y
+        getNodeIn (Node _ Nil Nil)               = Nothing
         getNodeIn (Filled a)
-            | inRectangle x y (a^.regionRect) = Just $ Filled a
-            | otherwise                       = Nothing
-        getNodeIn Nil                         = Nothing
-        getNodeIn (Node _ l r)                = getNodeIn (if isInNode l x y then l else r)
+            | (a^.regionRect) `containsPoint` at = Just $ Filled a
+            | otherwise                          = Nothing
+        getNodeIn Nil                            = Nothing
+        getNodeIn (Node _ l r)                   = getNodeIn (if isInNode l x y then l else r)
 getFilledAt _ _ _ = error "not a valid root"
 
 
@@ -187,8 +193,8 @@ getAtlasPixel atlas x y =
     in get mReg
     where
         get (Just region) = pixelAt (region^.regionData)
-                                    (x - region^.regionRect.x0)
-                                    (y - region^.regionRect.y0)
+                                    (x - region^.regionRect.topLeft._x)
+                                    (y - region^.regionRect.topLeft._y)
         get _             = atlas^.background
 
 
@@ -198,28 +204,17 @@ atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSize._1) (
 
 splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)
 splitRect toSplit toFit =
-    let dw        = toSplit^.to width - toFit^.to width
-        dh        = toSplit^.to height - toFit^.to height
+    let dw        = toSplit^.width - toFit^.width
+        dh        = toSplit^.height - toFit^.height
         direction = if dw > dh then SplitVertical else SplitHorizontal
     in split direction
     where
-        split SplitVertical     = ( Rectangle (toSplit^.x0)
-                                              (toSplit^.y0)
-                                              (toSplit^.x0 + toFit^.to width - 1)
-                                              (toSplit^.y1)
-                                  , Rectangle (toSplit^.x0 + toFit^.to width)
-                                              (toSplit^.y0)
-                                              (toSplit^.x1)
-                                              (toSplit^.y1))
-
-        split SplitHorizontal   = ( Rectangle (toSplit^.x0)
-                                              (toSplit^.y0)
-                                              (toSplit^.x1)
-                                              (toSplit^.y0 + toFit^.to height - 1)
-                                  , Rectangle (toSplit^.x0)
-                                              (toSplit^.y0 + toFit^.to height)
-                                              (toSplit^.x1)
-                                              (toSplit^.y1))
+        split SplitVertical     = ( toSplit & bottomRight._x -~ (toFit^.width - 1)
+                                  , toSplit & topLeft._x     +~ (toFit^.width)
+                                  )
+        split SplitHorizontal   = ( toSplit & bottomRight._y +~ (toFit^.height - 1)
+                                  , toSplit & topLeft._y     -~ toFit^.height 
+                                  )
 
 
 instance Foldable.Foldable (Tree region) where

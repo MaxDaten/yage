@@ -114,10 +114,8 @@ makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
             w        = fromI glyWidth / normX
             h        = fromI glyHeight / normY
 
-            u0       = fromI (region^.x0) / fromI tw
-            u1       = fromI (region^.x1) / fromI tw
-            v0       = fromI (region^.y1) / fromI th
-            v1       = fromI (region^.y0) / fromI th
+            V2 u0 v0 = (fromI <$> region^.topLeft)     / V2 (fromI tw) (fromI th)
+            V2 u1 v1 = (fromI <$> region^.bottomRight) / V2 (fromI tw) (fromI th)
         in [ vert leftX     topY       u0 v1
            , vert leftX     (topY - h) u0 v0
            , vert (leftX+w) (topY - h) u1 v0

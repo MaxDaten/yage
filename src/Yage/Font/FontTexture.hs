@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Font.FontTexture
     ( module Yage.Font.FontTexture
+    , module Rectangle
     , module FTExport
     ) where
 
@@ -17,6 +18,8 @@ import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fon
 
 import Yage.Images
 import Yage.Texture.Atlas
+import Yage.Geometry.D2.Rectangle as Rectangle
+
 
 ---------------------------------------------------------------------------------------------------
 

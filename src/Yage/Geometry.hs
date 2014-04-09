@@ -4,8 +4,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PackageImports #-}
 module Yage.Geometry
-    ( NormalSmoothness(..), Primitive(..)
-    , module Vertex
+    ( module Vertex
     , module Geometry
     , module Data.Vinyl
     , module Yage.Geometry
@@ -15,7 +14,6 @@ import                  Data.Vinyl
 import                  Yage.Geometry.Vertex             as Vertex hiding (P3, P3N3, P3T2, P3T2N3)
 
 import "yage-geometry"  Yage.Geometry                    as Geometry
-import                  Yage.Primitives                  (Primitive(..), calculateNormals)
 import                  Graphics.Rendering.OpenGL        (GLfloat)
 
 
@@ -38,12 +36,6 @@ type P3TX2     =  [ YPosition3, YTexture2 ]
 type P2        = '[ YPosition2 ]
 type P3        = '[ YPosition3 ]
 
-
-normalCalculator :: NormalSmoothness -> Primitive (Vertex P3) -> Primitive (Vertex P3N3)
-normalCalculator = calculateNormals (position3 :: YPosition3) normal3
-
-faceNorm :: Face (Vertex P3) -> Face (Vertex P3N3)
-faceNorm = calcFaceNormal (position3 :: YPosition3) normal3
 
 {--
 position3 :: Position3
