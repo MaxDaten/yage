@@ -25,6 +25,7 @@ import Yage.Pipeline.Deferred.GeometryPass
 import qualified Graphics.Rendering.OpenGL as GL
 
 
+--type LitGlobalUniforms = PerspectiveUniforms ++ [YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
 type LitGlobalUniforms = PerspectiveUniforms ++ [YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
 type LitLocalUniforms  = '[YModelMatrix] ++ YLightAttributes
 type LitVertex         = P3

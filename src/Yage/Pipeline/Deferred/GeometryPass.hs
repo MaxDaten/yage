@@ -20,7 +20,8 @@ import Yage.Pipeline.Deferred.Common
 import qualified Graphics.Rendering.OpenGL as GL
 
 
-type GeoGlobalUniforms = PerspectiveUniforms ++ [YZFarPlane, YAlbedoTex, YNormalTex]
+--type GeoGlobalUniforms = PerspectiveUniforms ++ [YZFarPlane, YAlbedoTex, YNormalTex]
+type GeoGlobalUniforms = PerspectiveUniforms ++ [ YZFarPlane, YAlbedoTex, YNormalTex]
 type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix] ++ YMaterial
 type GeoVertex         = P3TX2NT3
 
