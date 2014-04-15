@@ -8,13 +8,13 @@ import Yage.Geometry
 
 import                  Foreign.C.Types.Binary           ()
 import                  Data.Proxy
-import                  Data.Vinyl.Binary                ()
+import                  Data.Vinyl.Instances             ()
 
 import                  Yage.Rendering.Mesh
 
 
-import qualified        Yage.Geometry.Formats.Obj        as OBJ
-import qualified        Yage.Geometry.Formats.Ygm        as YGM
+import qualified        Yage.Formats.Obj        as OBJ
+import qualified        Yage.Formats.Ygm        as YGM
 
 import                  Yage.Pipeline.Deferred.GeometryPass
 
