@@ -15,17 +15,15 @@ import Yage.Camera
 import Yage.Scene
 
 import Yage.Rendering hiding (P3)
+import Yage.Rendering.Textures              (mkTextureSpec')
 
 import Yage.Rendering.Transformation
 
-
-import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
 
---type LitGlobalUniforms = PerspectiveUniforms ++ [YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
 type LitGlobalUniforms = PerspectiveUniforms ++ [YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
 type LitLocalUniforms  = '[YModelMatrix] ++ YLightAttributes
 type LitVertex         = P3
@@ -37,7 +35,7 @@ data LightPassChannels = LightPassChannels
 
 type LightPass = PassDescr String LightPassChannels (SceneLight LitVertex) LitGlobalUniforms LitLocalUniforms
 
-lightPass :: GeometryPass -> ViewportI -> SScene geo LitVertex -> LightPass
+lightPass :: GeometryPass -> ViewportI -> SScene geo mat LitVertex -> LightPass
 lightPass base viewport scene =
     let GeoPassChannels{..} = renderTargets base
     in PassDescr
@@ -80,8 +78,9 @@ lightPass base viewport scene =
     
     sceneCam        = scene^.sceneCamera
     vpgl            = fromIntegral <$> viewport
+    outSpec         = mkTextureSpec' (viewport^.vpSize) GL.RGB
     
-    lightTex        = TextureBuffer "lbuffer" Texture2D $ GLBufferSpec RGB8 (viewport^.vpSize)
+    lightTex        = TextureBuffer "lbuffer" GL.Texture2D outSpec
 
     lightPassUniforms =
         let zNearFar@(V2 near far)      = realToFrac <$> V2 (-sceneCam^.cameraPlanes^.camZNear) (-sceneCam^.cameraPlanes^.camZFar)
@@ -140,8 +139,8 @@ lightAttributes Light{lightType,lightAttribs} = case lightType of
 
 instance FramebufferSpec LightPassChannels RenderTargets where
     fboColors LightPassChannels{lBufferChannel} = 
-        [ Attachment (ColorAttachment 0) $ TextureTarget Texture2D lBufferChannel 0
+        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D lBufferChannel 0
         ] 
     
     fboDepth LightPassChannels{lDepthChannel} = 
-        Just $ Attachment DepthAttachment $ TextureTarget Texture2D lDepthChannel 0
+        Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D lDepthChannel 0

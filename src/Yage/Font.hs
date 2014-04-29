@@ -36,7 +36,7 @@ instance Renderable RenderText GlyphVertex where
     renderDefinition rt = 
         let fontTex     = rt^.textBuffer.tbufTexture
             theName     = fontTex^.font.to fontname -- warning, not a good ident
-            texImg      = TextureImage theName (fontTex^.textureData)
+            texImg      = Texture2D theName (fontTex^.textureData)
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
             textMesh    = rt^.textBuffer.tbufMesh
             drawSett    = GLDrawSettings Triangles (Just Back)

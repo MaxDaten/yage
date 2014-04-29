@@ -93,7 +93,7 @@ instance EventCtr (YageLoopState t v) where
 
 
 
-yageMain :: (HasScene scene GeoVertex LitVertex, Real time) 
+yageMain :: (HasScene scene GeoVertex GeoMaterial LitVertex, Real time) 
          => String -> WindowConfig -> YageWire time () scene -> time -> IO ()
 yageMain title winConf sim dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
@@ -111,7 +111,7 @@ yageMain title winConf sim dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (HasScene scene GeoVertex LitVertex, Real time) 
+yageLoop :: (HasScene scene GeoVertex GeoMaterial LitVertex, Real time) 
         => Window
         -> YageLoopState time scene -> Application AnyException (YageLoopState time scene)
 yageLoop win previousState = do

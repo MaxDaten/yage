@@ -4,22 +4,22 @@ module Yage.Pipeline.Deferred.SkyPass where
 import Yage.Prelude
 import Yage.Lens
 
-import Yage.Scene
-
 import Yage.Rendering hiding (P3)
 
-import Yage.Pipeline.Deferred.Common
+import Yage.Scene
+import Yage.Uniforms
+
 import Yage.Pipeline.Deferred.LightPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
 
-type SkyUniforms      = [YModelMatrix, YIntensity, YSkyTexture]
+type SkyUniforms      = [ YModelMatrix, YIntensity, YSkyTexture ]
 
 type SkyPass = PassDescr String LightPassChannels Sky PerspectiveUniforms SkyUniforms
 
 
-skyPass :: LightPass -> ViewportI -> SScene geo LitVertex -> SkyPass
+skyPass :: LightPass -> ViewportI -> SScene geo mat LitVertex -> SkyPass
 skyPass lighting viewport scene = PassDescr
     { passTarget         = passTarget lighting
     , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"

@@ -1,7 +1,7 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE NamedFieldPuns     #-}
 module Yage.Pipeline.Deferred.GeometryPass where
 
 import Yage.Prelude
@@ -15,14 +15,17 @@ import Yage.Scene
 import Yage.Material
 
 import Yage.Rendering
+import Yage.Rendering.Textures              (mkTextureSpec')
 
-import Yage.Pipeline.Deferred.Common
 import qualified Graphics.Rendering.OpenGL as GL
 
 
 --type GeoGlobalUniforms = PerspectiveUniforms ++ [YZFarPlane, YAlbedoTex, YNormalTex]
-type GeoGlobalUniforms = PerspectiveUniforms ++ [ YZFarPlane, YAlbedoTex, YNormalTex]
-type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix] ++ YMaterial
+type AlbedoMaterialU   = YMaterial "AlbedoColor" "AlbedoTexture"
+type NormalMaterialU   = YMaterial "NormalColor" "NormalTexture"
+
+type GeoGlobalUniforms = PerspectiveUniforms ++ '[ YZFarPlane ]
+type GeoLocalUniforms  = [YModelMatrix, YNormalMatrix] ++ AlbedoMaterialU ++ NormalMaterialU
 type GeoVertex         = P3TX2NT3
 
 data GeoPassChannels = GeoPassChannels
@@ -31,10 +34,15 @@ data GeoPassChannels = GeoPassChannels
     , gDepthChannel  :: Texture
     }
 
+data GeoMaterial = GeoMaterial
+    { albedoMaterial :: Material
+    , normalMaterial :: Material
+    }
 
-type GeometryPass = PassDescr String GeoPassChannels (SceneEntity GeoVertex) GeoGlobalUniforms GeoLocalUniforms
+type GeoEntity = SceneEntity GeoVertex GeoMaterial
+type GeometryPass = PassDescr String GeoPassChannels GeoEntity GeoGlobalUniforms GeoLocalUniforms
 
-geoPass :: ViewportI -> SScene GeoVertex lit -> GeometryPass
+geoPass :: ViewportI -> SScene GeoVertex GeoMaterial lit -> GeometryPass
 geoPass viewport scene = PassDescr
     { passTarget         = geoTarget
     , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
@@ -62,12 +70,14 @@ geoPass viewport scene = PassDescr
     where
     sceneCam        = scene^.sceneCamera
     glvp            = fromIntegral <$> viewport
+    baseSpec        = mkTextureSpec' (glvp^.vpSize) GL.RGBA
+    depthSpec       = mkTextureSpec' (glvp^.vpSize) GL.DepthComponent
     
-    albedoT         = TextureBuffer "gbuffer-albedo" Texture2D $ GLBufferSpec RGBA8 (glvp^.vpSize)
-    normalT         = TextureBuffer "gbuffer-normal" Texture2D $ GLBufferSpec RGBA8 (glvp^.vpSize)
+    albedoT         = TextureBuffer "gbuffer-albedo" GL.Texture2D baseSpec
+    normalT         = TextureBuffer "gbuffer-normal" GL.Texture2D baseSpec
     --specularTex     = TextureBuffer "gbuffer-specul" Texture2D $ GLBufferSpec RGB8 size
     --glossyTex       = TextureBuffer "gbuffer-glossy" Texture2D $ GLBufferSpec RGB8 size
-    depthBuff       = TextureBuffer "gbuffer-depth" Texture2D  $ GLBufferSpec DepthComponent32 (glvp^.vpSize)
+    depthBuff       = TextureBuffer "gbuffer-depth" GL.Texture2D  depthSpec
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
                            { gAlbedoChannel = albedoT
@@ -78,9 +88,7 @@ geoPass viewport scene = PassDescr
     geoUniforms =
         let zfar  = - (realToFrac $ sceneCam^.cameraPlanes.camZFar)
         in perspectiveUniforms glvp sceneCam  <+>
-           zFarPlane        =: zfar    <+>
-           albedoTex        =: 0       <+>
-           normalTex        =: 1
+           zFarPlane        =: zfar
     
     entityUniforms ent =
         let modelM       = calcModelMatrix (ent^.transformation)
@@ -88,15 +96,14 @@ geoPass viewport scene = PassDescr
             normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) {--<|> Just eye3--}) ^?!_Just
         in modelMatrix       =: ((fmap . fmap) realToFrac modelM)           <+>
            normalMatrix      =: ((fmap . fmap) realToFrac normalM)          <+>
-           materialBaseColor =: (realToFrac <$> ent^.material.matBaseColor) <+>
-           materialSpecular  =: (realToFrac $ ent^.material.matSpecular)
-
+           materialUniforms 0 (albedoMaterial $ ent^.material)              <+>
+           materialUniforms 1 (normalMaterial $ ent^.material)
 
 instance FramebufferSpec GeoPassChannels RenderTargets where
     fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} = 
-        [ Attachment (ColorAttachment 0) $ TextureTarget Texture2D gAlbedoChannel 0
-        , Attachment (ColorAttachment 1) $ TextureTarget Texture2D gNormalChannel 0
+        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0
+        , Attachment (ColorAttachment 1) $ TextureTarget GL.Texture2D gNormalChannel 0
         ] 
     
     fboDepth GeoPassChannels{gDepthChannel} = 
-        Just $ Attachment DepthAttachment $ TextureTarget Texture2D gDepthChannel 0
+        Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0

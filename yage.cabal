@@ -44,6 +44,9 @@ library
 
                         Yage.Geometry
                         Yage.Uniforms
+                        Yage.Uniforms.Material
+                        Yage.Uniforms.Light
+                        Yage.Uniforms.MVP
 
                         Yage.Formats.Obj.Parser
                         Yage.Formats.Obj
@@ -56,7 +59,6 @@ library
 
                         Yage.Texture.Atlas
                         Yage.Pipeline.Deferred
-                        Yage.Pipeline.Deferred.Common
                         
                         Yage.Pipeline.Deferred.GeometryPass
                         Yage.Pipeline.Deferred.LightPass

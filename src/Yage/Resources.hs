@@ -29,17 +29,19 @@ import qualified Data.Map.Strict as M
 import           Yage.Rendering.Vertex
 import           Yage.Rendering.Mesh
 
+import           Yage.Images
+
 data MeshFile geo =
       OBJFile FilePath
     | YGMFile FilePath
     | NullResource (Proxy (Vertex geo)) -- currently no clue how to avoid this
 
 type MeshResource geo  = Either (MeshFile geo) (Mesh geo)
-type TextureResource = Either FilePath (String, DynamicImage)
+type TextureResource = Either FilePath (String, TextureImage)
 
 data ResourceRegistry geo = ResourceRegistry
     { loadedMeshes   :: M.Map XXHash (Mesh geo)
-    , loadedTextures :: T.Trie (String, DynamicImage)
+    , loadedTextures :: T.Trie (String, TextureImage)
     }
 
 type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
@@ -71,7 +73,7 @@ requestTextureResource (Left filepath) = Right <$> loadTextureFromFile filepath
 requestTextureResource alreadyLoaded = return alreadyLoaded
 
 
-loadTextureFromFile :: FilePath -> YageResources geo (String, DynamicImage)
+loadTextureFromFile :: FilePath -> YageResources geo (String, TextureImage)
 loadTextureFromFile f = do
     let filepath = encodeUtf8 . fpToText $ f
         fpStr    = fpToString f
@@ -85,10 +87,10 @@ loadTextureFromFile f = do
     return res
     where
     load path = io $ do
-        eImg <- readImage path
+        eImg <- (fromDynamic =<<) <$> readImage path
         case eImg of
-            Left err -> error err
-            Right dyn -> return (path, dyn)
+            Left err    -> error err
+            Right dyn   -> return (path, dyn)
 
 
 
@@ -122,6 +124,6 @@ initialRegistry = ResourceRegistry M.empty T.empty
 meshes :: Lens' (ResourceRegistry geo) (M.Map XXHash (Mesh geo))
 meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 
-textures :: Lens' (ResourceRegistry geo) (T.Trie (String, DynamicImage))
+textures :: Lens' (ResourceRegistry geo) (T.Trie (String, TextureImage))
 textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
 

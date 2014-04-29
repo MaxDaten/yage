@@ -5,24 +5,23 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.Math
 
-import Yage.Scene
-import Yage.Camera
 import Yage.Geometry
 import Yage.Geometry3D
 
+import Yage.Scene
+import Yage.Camera
+import Yage.Uniforms
 
 import Yage.Rendering hiding (P3)
 import Yage.Rendering.Transformation
-
-import Yage.Pipeline.Deferred.Common
 
 import qualified Graphics.Rendering.OpenGL as GL
 
 
 newtype Screen = Screen ViewportI
 
-type ScrGlobalUniforms = [YProjectionMatrix, YScreenTex]
-type ScrLocalUniforms  = '[YModelMatrix]
+type ScrGlobalUniforms = [ YProjectionMatrix, YScreenTex ]
+type ScrLocalUniforms  = '[ YModelMatrix ]
 type ScrVertex         = P3TX2
 
 type ScreenPass = PassDescr String DefaultRenderTarget Screen ScrGlobalUniforms ScrLocalUniforms

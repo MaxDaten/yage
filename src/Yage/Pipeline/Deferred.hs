@@ -21,7 +21,7 @@ import Yage.Pipeline.Deferred.ScreenPass      as Pass
 
 
 
-yDeferredLighting :: ViewportI -> SScene Pass.GeoVertex Pass.LitVertex -> RenderSystem ()
+yDeferredLighting :: ViewportI -> SScene Pass.GeoVertex Pass.GeoMaterial Pass.LitVertex -> RenderSystem ()
 yDeferredLighting viewport scene = 
     let base       = Pass.geoPass viewport scene
         lighting   = Pass.lightPass base viewport scene
