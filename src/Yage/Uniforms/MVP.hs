@@ -10,7 +10,7 @@ import Graphics.Rendering.OpenGL (GLfloat, GLint)
 
 import Yage.Rendering.Viewport
 import Yage.Rendering.Transformation
-import Yage.Rendering.Uniforms
+import Yage.Rendering.Shader
 
 import Yage.Camera
 

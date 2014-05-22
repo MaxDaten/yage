@@ -1,31 +1,41 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Yage.Pipeline.Deferred.SkyPass where
 
-import Yage.Prelude
-import Yage.Lens
+import           Yage.Prelude
+import           Yage.Lens
 
-import Yage.Rendering hiding (P3)
+import           Yage.Rendering                     hiding (P3)
 
-import Yage.Scene
-import Yage.Uniforms
+import           Yage.Scene
+import           Yage.Uniforms
+import           Yage.Material
 
-import Yage.Pipeline.Deferred.LightPass
+import           Yage.Pipeline.Deferred.LightPass
 
-import qualified Graphics.Rendering.OpenGL as GL
-
-
-type SkyUniforms      = [ YModelMatrix, YIntensity, YSkyTexture ]
-
-type SkyPass = PassDescr String LightPassChannels Sky PerspectiveUniforms SkyUniforms
+import qualified Graphics.Rendering.OpenGL          as GL
 
 
-skyPass :: LightPass -> ViewportI -> SScene geo mat LitVertex -> SkyPass
+type SkyPerFrame      = ShaderData PerspectiveUniforms '[]
+
+type SkyUniforms      =  [ YModelMatrix, YSkyColor ]
+type SkyTextures      = '[ YSkyTex ]
+type SkyPerEntity     = ShaderData SkyUniforms SkyTextures
+
+type SkyPass = PassDescr
+                    LitPassChannels
+                    SkyPerFrame
+                    SkyPerEntity
+                    LitVertex
+
+type SkyEntity = Sky SkyMaterial
+type SkyMaterial = RenderMaterial
+
+
+skyPass :: LightPass -> ViewportI -> LitPassScene ent SkyMaterial -> SkyPass
 skyPass lighting viewport scene = PassDescr
     { passTarget         = passTarget lighting
     , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
-    , passGlobalUniforms = perspectiveUniforms viewport (scene^.sceneCamera)
-    , passEntityUniforms = skyUniforms
-    , passGlobalTextures = []
+    , passPerFrameData   = ShaderData (perspectiveUniforms viewport (scene^.sceneCamera)) mempty
     , passPreRendering   = io $ do
         GL.viewport     GL.$= toGLViewport viewport
         --GL.clearColor   GL.$= GL.Color4 0 0 0 0
@@ -47,11 +57,13 @@ skyPass lighting viewport scene = PassDescr
     , passPostRendering  = return ()
     }
 
-    where
 
-    skyUniforms :: Sky -> Uniforms SkyUniforms
-    skyUniforms sky = 
-        let modelM = (fmap . fmap) realToFrac $ calcModelMatrix (sky^.skyTransformation) 
-        in modelMatrix       =: modelM <+>
-           intensity         =: (realToFrac $ sky^.skyIntensity) <+>
-           skyTex            =: 0
+toSkyEntity :: SkyEntity -> RenderEntity LitVertex SkyPerEntity
+toSkyEntity sky = toRenderEntity shData sky
+    where
+    shData   :: SkyPerEntity
+    shData   = ShaderData uniforms RNil `append` material
+    uniforms = modelMatrix =: ( (fmap . fmap) realToFrac $ calcModelMatrix $ sky^.transformation )
+
+    material :: ShaderData '[ YSkyColor ] '[ YSkyTex ]
+    material = materialUniforms $ sky^.materials

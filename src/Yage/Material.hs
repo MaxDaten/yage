@@ -1,25 +1,36 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE DeriveFunctor    #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Yage.Material where
 
 import Yage.Prelude
 import Yage.Lens
 import Yage.Images
 import Yage.Color
+import Yage.Resources
+import Yage.Rendering.Resources
 
-type MaterialTexture = TextureImage 
+type MaterialTexture = TextureResource 
 type MaterialColor   = Colour Double
 type MaterialColorA  = AlphaColour Double
 type MaterialPixel   = ColourPixel Double
 -- | resulting texel color will be matColor * matTexture
 -- so white matColor will result in 100% color from matTexture
-data Material = Material
+data Material tex = Material
     { _matColor    :: !MaterialColorA
-    , _matTexture  :: !MaterialTexture
-    }
+    , _matTexture  :: !tex
+    } deriving ( Functor )
 
 makeLenses ''Material
+
+
+-- material either to load or already loaded
+type ResourceMaterial = Material TextureResource
+
+-- ready to render material
+type RenderMaterial = Material Texture
+
 
 
 zeroNormal :: (Ord a, Floating a) => Colour a
@@ -46,11 +57,16 @@ zeroNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
 zeroNormalDummy = (`pxTexture` zeroNormal)
 
 
-defaultMaterial :: MaterialPixel pixel => TextureCtr pixel -> Material
+defaultMaterial :: MaterialPixel pixel => TextureCtr pixel -> RenderMaterial
 defaultMaterial ctr =
     Material
     { _matColor   = opaque white
-    , _matTexture = whiteDummy ctr
+    , _matTexture = Texture "WHITEDUMMY" $ Texture2D (whiteDummy ctr)
     }
 
+
+instance HasResources vert ResourceMaterial RenderMaterial where
+    requestResources mat =
+        set matTexture <$> requestTextureResource (mat^.matTexture)
+                       <*> pure mat
 

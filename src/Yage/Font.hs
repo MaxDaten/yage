@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE DeriveDataTypeable   #-}
+{-# LANGUAGE DataKinds, TypeOperators #-}
 module Yage.Font
     ( module Yage.Font
     , module FT
@@ -16,21 +17,27 @@ import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
+--import           Yage.Rendering.Shader
 import           Yage.Rendering.Transformation
 
+import           Yage.Uniforms.MVP
 
 
+type FontUniforms       = PerspectiveUniforms ++ '[YModelMatrix ]
+type FontTextureField   = '[TextureUniform "FontTexture"]
+type FontShaderData     = ShaderData FontUniforms FontTextureField
 
 data RenderText = RenderText
-    { _textIdent   :: Int
-    , _textBuffer  :: TextBuffer
-    , _textTexCh   :: TextureChannel
-    , _textShader  :: ShaderResource
-    , _textTransf  :: Transformation GLfloat
-    } deriving (Typeable)
+    { _textIdent        :: Int
+    , _textBuffer       :: TextBuffer
+    , _textShaderData   :: FontShaderData
+    , _textShader       :: ShaderResource
+    , _textTransf       :: Transformation Float
+    } deriving ( Typeable )
 
 makeLenses ''RenderText
 
+{--
 
 instance Renderable RenderText GlyphVertex where
     renderDefinition rt = 
@@ -40,4 +47,5 @@ instance Renderable RenderText GlyphVertex where
             texDef      = [TextureDefinition (rt^.textTexCh) texImg]
             textMesh    = rt^.textBuffer.tbufMesh
             drawSett    = GLDrawSettings Triangles (Just Back)
-        in RenderEntity textMesh drawSett {--(rt^.textShader)--} texDef 
+        in RenderEntity textMesh shaderData drawSettings 
+--}

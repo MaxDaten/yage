@@ -36,7 +36,7 @@ makeLenses ''FontMarkup
 data FontTexture = FontTexture
     { _font              :: Font
     , _charRegionMap     :: Map Char FontData
-    , _textureData       :: TextureImage
+    , _fontMap           :: TextureImage
     , _fontDescriptor    :: FontDescriptor
     , _fontMarkup        :: FontMarkup
     } deriving ( Typeable )
@@ -50,7 +50,7 @@ makeFontTexture font markup filedAtlas =
     in FontTexture
         { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
-        , _textureData    = mkTextureImg TexY8 $ atlasToImage filedAtlas
+        , _fontMap        = mkTextureImg TexY8 $ atlasToImage filedAtlas
         , _fontDescriptor = fontDescr font 
         , _fontMarkup     = markup
         }

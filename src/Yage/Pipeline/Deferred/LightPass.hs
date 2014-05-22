@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 module Yage.Pipeline.Deferred.LightPass where
 
 import Yage.Prelude
@@ -23,34 +24,45 @@ import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
+-- , YAlbedoTex, YNormalTex, YDepthTex]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio ]
+type LitPerFrameTex     = '[ ]
+type LitPerFrame        = ShaderData LitPerFrameUni LitPerFrameTex
 
-type LitGlobalUniforms = PerspectiveUniforms ++ [YViewportDim, YZNearFarPlane, YZProjRatio, YAlbedoTex, YNormalTex, YDepthTex]
-type LitLocalUniforms  = '[YModelMatrix] ++ YLightAttributes
-type LitVertex         = P3
+type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
+type LitPerEntityTex    = '[ ]
+type LitPerEnity        = ShaderData LitPerEntityUni LitPerEntityTex
 
-data LightPassChannels = LightPassChannels
+type LitVertex          = P3
+
+data LitPassChannels = LitPassChannels
     { lBufferChannel :: Texture 
     , lDepthChannel  :: Texture
     }
 
-type LightPass = PassDescr String LightPassChannels (SceneLight LitVertex) LitGlobalUniforms LitLocalUniforms
+type LightPass = PassDescr
+                    LitPassChannels
+                    LitPerFrame
+                    LitPerEnity
+                    LitVertex
 
-lightPass :: GeometryPass -> ViewportI -> SScene geo mat LitVertex -> LightPass
+type LitEntity = SceneLight (Mesh LitVertex)
+type LitPassScene ent sky = Scene ent (Environment LitEntity sky)
+
+lightPass :: GeometryPass -> ViewportI -> LitPassScene ent sky -> LightPass
 lightPass base viewport scene =
     let GeoPassChannels{..} = renderTargets base
     in PassDescr
-    { passTarget         = RenderTarget "light-fbo" $
-                            LightPassChannels
-                            { lBufferChannel   = lightTex
-                            , lDepthChannel    = gDepthChannel
-                            }
+    { passTarget         = RenderTarget "light-fbo" $ LitPassChannels
+                                { lBufferChannel   = lightTex
+                                , lDepthChannel    = gDepthChannel
+                                }
     , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
-    , passGlobalUniforms = lightPassUniforms
-    , passEntityUniforms = lightUniforms
-    , passGlobalTextures = [ TextureDefinition (0, "albedo") gAlbedoChannel
-                           , TextureDefinition (1, "normal") gNormalChannel
-                           , TextureDefinition (2, "depth") gDepthChannel
-                           ]
+    , passPerFrameData   = lightShaderData
+    -- , passGlobalTextures = [ TextureDefinition (0, "albedo") gAlbedoChannel
+    --                       , TextureDefinition (1, "normal") gNormalChannel
+    --                       , TextureDefinition (2, "depth") gDepthChannel
+    --                       ]
     , passPreRendering   = io $ do
         GL.viewport     GL.$= toGLViewport viewport
         let AmbientLight ambientColor = scene^.sceneEnvironment.envAmbient
@@ -80,9 +92,13 @@ lightPass base viewport scene =
     vpgl            = fromIntegral <$> viewport
     outSpec         = mkTextureSpec' (viewport^.vpSize) GL.RGB
     
-    lightTex        = TextureBuffer "lbuffer" GL.Texture2D outSpec
+    lightTex        = Texture "lbuffer" $ TextureBuffer GL.Texture2D outSpec
 
-    lightPassUniforms =
+    lightShaderData :: LitPerFrame
+    lightShaderData = ShaderData lightUniforms mempty
+
+    lightUniforms   :: Uniforms LitPerFrameUni
+    lightUniforms   =
         let zNearFar@(V2 near far)      = realToFrac <$> V2 (-sceneCam^.cameraPlanes^.camZNear) (-sceneCam^.cameraPlanes^.camZFar)
             zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
             fvp                         = vpgl
@@ -91,25 +107,17 @@ lightPass base viewport scene =
         perspectiveUniforms fvp sceneCam     <+>
         viewportDim      =: dim              <+>
         zNearFarPlane    =: zNearFar         <+>
-        zProjRatio       =: zProj            <+>
-        albedoTex        =: 0                <+>
-        normalTex        =: 1                <+>
-        depthTex         =: 2
+        zProjRatio       =: zProj
+        -- albedoTex        =: 0                <+>
+        -- normalTex        =: 1                <+>
+        -- depthTex         =: 2
 
 
-    lightUniforms :: SceneLight a -> Uniforms LitLocalUniforms
-    lightUniforms light = 
-        let modelM       = calcModelMatrix $ light^.lightTransformation
-            lightProps   = light^.lightProperties
-        in 
-        modelMatrix =: ((fmap.fmap) realToFrac modelM)  <+>
-        lightAttributes ( lightProps )
-
-
-mkLight :: Light -> SceneLight LitVertex
+mkLight :: Light -> LitEntity
 mkLight light = 
     let (vol, trans) = lightData
-    in SceneLight vol trans light (GLDrawSettings Triangles (Just Front))
+        lightEnt     = Entity vol () trans (GLDrawSettings GL.Triangles (Just GL.Front))
+    in SceneLight lightEnt light 
     where
     lightData = case lightType light of
         p@Pointlight{}    -> pLightVolume p
@@ -125,22 +133,32 @@ mkLight light =
 
 
 
-
-lightAttributes :: Light -> Uniforms YLightAttributes
-lightAttributes Light{lightType,lightAttribs} = case lightType of
-    Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                    <+>
-                         U.lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
-                         U.lightColor    =: (realToFrac <$> lAttrColor lightAttribs)           <+>
-                         U.lightAtten    =: (realToFrac <$> lAttrAttenuation lightAttribs)     <+>
-                         U.lightSpecExp  =: (realToFrac $ lAttrSpecularExp lightAttribs)
-    Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
-    OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
-
-
-instance FramebufferSpec LightPassChannels RenderTargets where
-    fboColors LightPassChannels{lBufferChannel} = 
+instance FramebufferSpec LitPassChannels RenderTargets where
+    fboColors LitPassChannels{lBufferChannel} = 
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D lBufferChannel 0
         ] 
     
-    fboDepth LightPassChannels{lDepthChannel} = 
+    fboDepth LitPassChannels{lDepthChannel} = 
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D lDepthChannel 0
+
+
+
+toLitEntity :: LitEntity -> RenderEntity LitVertex LitPerEnity
+toLitEntity (SceneLight ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
+    where
+    uniforms =
+        modelMatrix =: theModelMatrix  <+>
+        lightAttributes light
+    
+    theModelMatrix = (fmap.fmap) realToFrac $ calcModelMatrix $ ent^.transformation
+
+    lightAttributes :: Light -> Uniforms YLightAttributes
+    lightAttributes Light{lightType,lightAttribs} = case lightType of
+        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                    <+>
+                             U.lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
+                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttribs)           <+>
+                             U.lightAtten    =: (realToFrac <$> lAttrAttenuation lightAttribs)     <+>
+                             U.lightSpecExp  =: (realToFrac $ lAttrSpecularExp lightAttribs)
+        Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
+        OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+

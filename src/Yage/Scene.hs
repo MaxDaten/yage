@@ -1,165 +1,156 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE RecordWildCards        #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies           #-}
 module Yage.Scene
     ( module Yage.Scene
     , module Yage.Light
     , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix, Texture(..)
-    , GLDrawSettings(..), PrimitiveMode(..), Face(..)
+    , GLDrawSettings(..)
 
     , module Res
     ) where
 
 
-import           Yage.Prelude hiding (mapM)
+import           Yage.Prelude                   hiding (mapM)
 import           Yage.Lens
 
 import           Yage.Camera
 import           Yage.Light
-import           Yage.Resources as Res
-import           Yage.Geometry hiding (Face)
+import           Yage.Resources                 as Res
+import           Yage.Geometry                  hiding (Face)
 
-import           Data.Traversable (mapM)
-import qualified Graphics.GLUtil.Camera3D as Cam
+import           Data.Traversable               (mapM)
+import qualified Graphics.GLUtil.Camera3D       as Cam
 
 import           Yage.Rendering.Transformation
-import           Yage.Rendering.Textures
-import           Yage.Rendering.Types
-import           Yage.Rendering hiding (renderData, drawSettings, P3)
+import           Yage.Rendering.RenderEntity
+import           Yage.Rendering                 hiding (P3)
 
 
-data SceneEntity vert mat = SceneEntity
-    { _renderData      :: !(MeshResource vert)
-    , _textures        :: ![TextureResource]
-    , _material        :: !mat
-    , _transformation  :: !(Transformation Float)
+data Entity mesh mat = Entity
+    { _renderData      :: !mesh
+    , _materials       :: !mat
+    , _transformation  :: !( Transformation Float )
     , _drawSettings    :: !GLDrawSettings
-    -- , _shader     :: Maybe Shader
     }
 
-makeLenses ''SceneEntity
+makeLenses ''Entity
 
+data SceneLight mesh = SceneLight (Entity mesh ()) !Light
 
-data SceneLight lit = SceneLight
-    { _lightVolume          :: !(Mesh lit)            -- | currently no file resources supportet (to keep the resource managment simple)
-    , _lightTransformation  :: !(Transformation Float)
-    , _lightProperties      :: !Light
-    , _lightDrawSettings    :: !GLDrawSettings
-    }
+type Sky mat = Entity (Mesh P3) mat
 
-makeLenses ''SceneLight
-
-
-data Sky = Sky
-    { _skyVolume         :: !(Mesh P3)
-    , _skyTexture        :: !(Cube TextureResource)
-    , _skyTransformation :: !(Transformation Float)
-    , _skyDrawSettings   :: !GLDrawSettings
-    , _skyIntensity      :: !Float
-    }
-
-makeLenses ''Sky
-
-data Environment lit = Environment
-    { _envLights       :: ![lit]
-    , _envSky          :: !(Maybe Sky)
+data Environment lit mat = Environment
+    { _envLights       :: ![ lit ]
+    , _envSky          :: !( Maybe ( Sky mat ) )
     , _envAmbient      :: !AmbientLight
-    } deriving ( Functor )
+    }
 
 makeLenses ''Environment
 
-data Scene ent lit = Scene
-    { _sceneEntities    :: [ent]
-    , _sceneEnvironment :: Environment lit
+
+
+data Scene ent env = Scene
+    { _sceneEntities    :: [ ent ]
+    , _sceneEnvironment :: env
     , _sceneCamera      :: Camera
     } deriving ( Functor )
 
 makeLenses ''Scene
 
-type SScene geoVert geoMat lit = Scene (SceneEntity geoVert geoMat) (SceneLight lit)
+
+--type ResScene geoVert geoMat litVert skyMat = 
+--    Scene 
+--        (Entity (MeshResource geoVert) geoMat)
+--        (Environment (SceneLight litVert) skyMat)
 
 
-emptyScene :: Camera -> Scene geo lit
-emptyScene = Scene [] (Environment [] Nothing (AmbientLight 0))
+emptyScene :: Camera -> Scene ent (Environment lit skymat)
+emptyScene = Scene [] emptyEnvironment
 
 
-addEntity :: Scene geo lit -> geo -> Scene geo lit
+emptyEnvironment :: Environment lit mat
+emptyEnvironment = Environment [] Nothing (AmbientLight 0)
+
+
+addEntity :: Scene ent env -> ent -> Scene ent env
 addEntity scene ent = scene & sceneEntities <>~ [ent]
 
 
-addLight :: Scene geo lit -> lit -> Scene geo lit
+addLight :: Scene ent (Environment lit mat) -> lit -> Scene ent (Environment lit mat)
 addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
 
 
-entitiesCount :: Scene e l -> Int
+entitiesCount :: Scene ent (Environment l m) -> Int
 entitiesCount = length . _sceneEntities
 
-lightCount :: Scene e l -> Int
+lightCount :: Scene ent (Environment l m) -> Int
 lightCount = length . _envLights . _sceneEnvironment
 
-sceneSky :: Lens' (Scene ent lit) (Maybe Sky)
+sceneSky :: Lens' (Scene ent (Environment lit m)) (Maybe (Sky m))
 sceneSky = sceneEnvironment.envSky
 
 mkCameraHandle :: V3 Float -> V3 Float -> V3 Float -> Quaternion Float -> V3 Float -> CameraHandle
 mkCameraHandle = Cam.Camera
 
 
-entityPosition    :: Lens' (SceneEntity vert mat) (Position Float)
+entityPosition    :: Lens' (Entity vert mat) (Position Float)
 entityPosition    = transformation.transPosition
 
-entityScale       :: Lens' (SceneEntity vert mat) (Scale Float)
+entityScale       :: Lens' (Entity vert mat) (Scale Float)
 entityScale       = transformation.transScale
 
-entityOrientation :: Lens' (SceneEntity vert mat) (Orientation Float)
+entityOrientation :: Lens' (Entity vert mat) (Orientation Float)
 entityOrientation = transformation.transOrientation
 
 
-skyPosition :: Lens' Sky (Position Float)
-skyPosition = skyTransformation.transPosition
+instance ( HasResources vert ent ent', HasResources vert env env' ) => 
+        HasResources vert (Scene ent env) (Scene ent' env') where
+    requestResources scene =
+        Scene   <$> ( mapM requestResources $ scene^.sceneEntities )
+                <*> ( requestResources $ scene^.sceneEnvironment )
+                <*> ( pure $ scene^.sceneCamera )
 
---lightPosition    :: Lens' (SceneLight v) (Position Float)
---lightPosition    = lightTransformation.transPosition
-
---lightScale       :: Lens' (SceneLight v) (Scale Float)
---lightScale       = lightTransformation.transScale
-
---lightOrientation :: Lens' (SceneLight v) (Orientation Float)
---lightOrientation = lightTransformation.transOrientation
-
-
-
-loadSceneEntitiy :: SceneEntity vert mat -> YageResources vert (SceneEntity vert mat)
-loadSceneEntitiy ent = do
-    vdata <- requestMeshResource $ ent^.renderData
-    eTexs <- mapM requestTextureResource $ ent^.textures
-    return $ ent & renderData .~ vdata & textures .~ eTexs
+instance HasResources vert mat mat' => 
+        HasResources vert ( Entity (MeshResource vert) mat ) ( Entity (Mesh vert) mat' ) where
+    requestResources entity = 
+        Entity <$> ( requestMeshResource $ entity^.renderData )
+                    <*> ( requestResources $ entity^.materials )
+                    <*> ( pure $ entity^.transformation )
+                    <*> ( pure $ entity^.drawSettings )
 
 
-loadSceneResources :: SScene vert mat lit -> YageResources vert (SScene vert mat lit)
-loadSceneResources scene =
-    Scene <$> (forM (scene^.sceneEntities) loadSceneEntitiy)
-          <*> (loadEnvironment $ scene^.sceneEnvironment)
-          <*> pure (scene^.sceneCamera) 
-    where
-        loadEnvironment env = 
-            case env^.envSky of
-                Nothing -> return env
-                Just sky -> do
-                    skyTex <- mapM requestTextureResource (sky^.skyTexture)
-                    return $ env & envSky %~ over (mapped.skyTexture) (const skyTex)
+instance ( HasResources vert lit lit', HasResources vert mat mat' ) =>
+         HasResources vert ( Environment lit mat) ( Environment lit' mat' ) where
+    requestResources env =
+        Environment <$> ( mapM requestResources $ env^.envLights )
+                    <*> ( mapM loadSky $ env^.envSky )
+                    <*> ( pure $ env^.envAmbient )
 
 
-class HasScene a geoVert geoMat lit where
-    getScene :: a -> SScene geoVert geoMat lit
+loadSky :: HasResources vert mat mat' => Sky mat -> YageResources vert (Sky mat')
+loadSky sky = do 
+    loaded <- requestResources (sky^.materials)
+    return $ sky & materials .~ loaded 
 
 
+toRenderEntity :: ShaderData u t ->
+                  Entity (Mesh vert) mat ->
+                  RenderEntity vert (ShaderData u t)
+toRenderEntity shaderData ent =
+    RenderEntity ( ent^.renderData )
+                 ( shaderData )
+                 ( ent^.drawSettings )
 
-instance (ViableVertex (Vertex geoVert)) => Renderable (SceneEntity geoVert geoMat) geoVert where
+{--
+instance (ViableVertex (Vertex geoVert)) => Renderable (Entity geoVert geoMat) geoVert where
     renderDefinition ent =
         let mesh = either (const emptyMesh) id (ent^.renderData)
-            texs = either (error "Yage.Scene.Renderable SceneEntity: missing texture: no default texture defined") (id) <$> (ent^.textures)
+            texs = either (error "Yage.Scene.Renderable Entity: missing texture: no default texture defined") (id) <$> (ent^.textures)
             defs = zipWith ($) [ TextureDefinition (0, "tex_albedo") . uncurry Texture2D
                                , TextureDefinition (1, "tex_tangent") . uncurry Texture2D
                                ] texs
@@ -175,3 +166,5 @@ instance Renderable Sky P3 where
             str     = fst $ cubeFaceRight cubeImg
             tex     = TextureCube str (snd <$> cubeImg)
         in RenderEntity (sky^.skyVolume) (sky^.skyDrawSettings) [TextureDefinition (0, "SkyTexture") tex]
+--}
+
