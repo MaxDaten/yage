@@ -21,10 +21,9 @@ import Yage.Pipeline.Deferred.LightPass       as Pass
 import Yage.Pipeline.Deferred.SkyPass         as Pass
 import Yage.Pipeline.Deferred.ScreenPass      as Pass
 
-type DeferredEnvironment = Environment Pass.LitEntity Pass.SkyMaterial
-type DeferredScene       = Scene Pass.GeoEntity DeferredEnvironment 
+type DeferredEnvironment = Environment Pass.LitEntityDraw Pass.SkyEntityDraw
+type DeferredScene       = Scene GeoEntityDraw DeferredEnvironment 
 
---ViewportI -> SScene Pass.GeoVertex Pass.GeoMaterial Pass.LitVertex Pass.SkyMaterial -> RenderSystem ()
 yDeferredLighting :: YageRenderSystem DeferredScene
 yDeferredLighting viewport scene = 
     let base       = Pass.geoPass viewport scene

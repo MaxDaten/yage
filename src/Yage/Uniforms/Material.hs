@@ -13,7 +13,6 @@ import Linear
 import Yage.Rendering.Shader
 
 import Yage.Material
-import Yage.Color
 
 
 type YMaterial c t      = ShaderData '[ YMaterialColor c ] '[ TextureUniform t ]

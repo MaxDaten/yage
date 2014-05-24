@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yage.Color
     ( module Yage.Color
     , module Color
@@ -35,3 +36,6 @@ sRGBV4 ca =
     let a           = alphaChannel ca
         V3 r g b    = sRGBV3 $ ca `over` black
     in V4 r g b a
+
+instance (Num a) => Semigroup (Colour a)
+instance (Num a) => Semigroup (AlphaColour a)

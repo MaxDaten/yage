@@ -16,7 +16,6 @@ import Yage.Scene
 import Yage.Material
 
 import Yage.Rendering
-import Yage.Rendering.Textures              (mkTextureSpec')
 
 import qualified Graphics.Rendering.OpenGL as GL
 
@@ -42,13 +41,21 @@ data GeoPassChannels = GeoPassChannels
     , gDepthChannel  :: Texture
     }
 
-data GeoMaterial = GeoMaterial
-    { _albedoMaterial :: RenderMaterial
-    , _normalMaterial :: RenderMaterial
-    }
+data GeoMaterial mat = GeoMaterial
+    { _albedoMaterial :: mat
+    , _normalMaterial :: mat
+    } deriving ( Functor, Foldable, Traversable )
+
 makeLenses ''GeoMaterial
 
-type GeoEntity = Entity (Mesh GeoVertex) GeoMaterial
+
+-- | Base type for a GeoEntity
+type GeoEntityT mesh mat = Entity (mesh GeoVertex) (GeoMaterial mat)
+-- | Drawable entity with loaded resources
+type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
+-- | Resource descripte entity
+type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
+
 type GeometryPass = PassDescr
                         GeoPassChannels 
                         GeoPerFrame 
@@ -56,7 +63,7 @@ type GeometryPass = PassDescr
                         GeoVertex
 
 
-type GeoPassScene env = Scene GeoEntity env
+type GeoPassScene env = Scene GeoEntityDraw env
 
 geoPass :: ViewportI -> GeoPassScene env -> GeometryPass
 geoPass viewport scene = PassDescr
@@ -112,7 +119,7 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
 
 
-toGeoEntity :: GeoEntity -> RenderEntity GeoVertex GeoPerEntity
+toGeoEntity :: GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
 toGeoEntity ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
@@ -123,4 +130,17 @@ toGeoEntity ent = toRenderEntity shaderData ent
             normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) {--<|> Just eye3--}) ^?!_Just
         in modelMatrix       =: ((fmap . fmap) realToFrac modelM)           <+>
            normalMatrix      =: ((fmap . fmap) realToFrac normalM)
+
+
+defaultGeoMaterial :: GeoMaterial ResourceMaterial
+defaultGeoMaterial = GeoMaterial defaultMaterialSRGB defaultMaterialSRGB
+
+
+instance Default (GeoMaterial ResourceMaterial) where
+    def = defaultGeoMaterial
+
+
+instance Applicative GeoMaterial where
+    pure mat = GeoMaterial mat mat
+    GeoMaterial f g <*> GeoMaterial m n = GeoMaterial (f m) (g n)
 

@@ -18,8 +18,6 @@ import Yage.Scene
 import Yage.Rendering hiding (P3)
 import Yage.Rendering.Textures              (mkTextureSpec')
 
-import Yage.Rendering.Transformation
-
 import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
@@ -46,8 +44,11 @@ type LightPass = PassDescr
                     LitPerEnity
                     LitVertex
 
-type LitEntity = SceneLight (Mesh LitVertex)
-type LitPassScene ent sky = Scene ent (Environment LitEntity sky)
+type LitEntityT f    = LightEntity (f LitVertex)
+type LitEntityRes    = LitEntityT MeshResource
+type LitEntityDraw   = LitEntityT Mesh
+
+type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
 lightPass :: GeometryPass -> ViewportI -> LitPassScene ent sky -> LightPass
 lightPass base viewport scene =
@@ -113,11 +114,11 @@ lightPass base viewport scene =
         -- depthTex         =: 2
 
 
-mkLight :: Light -> LitEntity
+mkLight :: Light -> LitEntityDraw
 mkLight light = 
     let (vol, trans) = lightData
         lightEnt     = Entity vol () trans (GLDrawSettings GL.Triangles (Just GL.Front))
-    in SceneLight lightEnt light 
+    in LightEntity lightEnt light 
     where
     lightData = case lightType light of
         p@Pointlight{}    -> pLightVolume p
@@ -143,8 +144,8 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 
-toLitEntity :: LitEntity -> RenderEntity LitVertex LitPerEnity
-toLitEntity (SceneLight ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
+toLitEntity :: LitEntityDraw -> RenderEntity LitVertex LitPerEnity
+toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
     where
     uniforms =
         modelMatrix =: theModelMatrix  <+>

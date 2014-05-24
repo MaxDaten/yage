@@ -18,7 +18,6 @@ import Yage.Font.TextBuffer as TB
 
 import           Yage.Rendering
 --import           Yage.Rendering.Shader
-import           Yage.Rendering.Transformation
 
 import           Yage.Uniforms.MVP
 

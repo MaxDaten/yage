@@ -27,11 +27,16 @@ type SkyPass = PassDescr
                     SkyPerEntity
                     LitVertex
 
-type SkyEntity = Sky SkyMaterial
-type SkyMaterial = RenderMaterial
+
+type SkyMaterialRes = AResourceMaterial Cube
+type SkyMaterial    = RenderMaterial
+
+type SkyEntityT mesh mat = Entity (mesh LitVertex) mat
+type SkyEntityRes   = SkyEntityT MeshResource SkyMaterialRes
+type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
-skyPass :: LightPass -> ViewportI -> LitPassScene ent SkyMaterial -> SkyPass
+skyPass :: LightPass -> ViewportI -> LitPassScene ent SkyEntityDraw -> SkyPass
 skyPass lighting viewport scene = PassDescr
     { passTarget         = passTarget lighting
     , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
@@ -58,7 +63,7 @@ skyPass lighting viewport scene = PassDescr
     }
 
 
-toSkyEntity :: SkyEntity -> RenderEntity LitVertex SkyPerEntity
+toSkyEntity :: SkyEntityDraw -> RenderEntity LitVertex SkyPerEntity
 toSkyEntity sky = toRenderEntity shData sky
     where
     shData   :: SkyPerEntity

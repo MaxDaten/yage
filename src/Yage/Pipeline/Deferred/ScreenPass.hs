@@ -13,7 +13,6 @@ import Yage.Camera
 import Yage.Uniforms
 
 import Yage.Rendering hiding (P3)
-import Yage.Rendering.Transformation
 
 import qualified Graphics.Rendering.OpenGL as GL
 

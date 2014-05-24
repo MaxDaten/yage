@@ -8,7 +8,7 @@
 module Yage.Resources
     ( YageResources, runYageResources
     , ResourceLoader(..), ResourceRegistry
-    , MeshResource (..), MeshFileType(..), TextureResource, HasResources(..)
+    , MeshResource (..), MeshFileType(..), TextureResource(..), HasResources(..)
     , requestMeshResource, requestTextureResource
     , initialRegistry
     ) where
@@ -41,7 +41,7 @@ data MeshFileType =
     | YGMFile
 
 
-data MeshResource geo  = 
+data MeshResource geo = 
       MeshFile FilePath MeshFileType
     | MeshPure (Mesh geo)
 
@@ -144,4 +144,20 @@ meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 
 textures :: Lens' (ResourceRegistry geo) (T.Trie Texture)
 textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
+
+
+instance HasResources vert (MeshResource vert) (Mesh vert) where
+    requestResources = requestMeshResource
+
+instance HasResources vert TextureResource Texture where
+    requestResources = requestTextureResource
+
+instance HasResources vert (Mesh vert) (Mesh vert) where
+    requestResources = return
+
+instance HasResources vert Texture Texture where
+    requestResources = return
+
+instance HasResources vert () () where
+    requestResources _ = return ()
 

@@ -30,6 +30,7 @@ import           Yage.Rendering.Transformation
 import           Yage.Rendering.RenderEntity
 import           Yage.Rendering                 hiding (P3)
 
+import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity
     { _renderData      :: !mesh
@@ -40,13 +41,12 @@ data Entity mesh mat = Entity
 
 makeLenses ''Entity
 
-data SceneLight mesh = SceneLight (Entity mesh ()) !Light
+data LightEntity mesh = LightEntity (Entity mesh ()) !Light
 
-type Sky mat = Entity (Mesh P3) mat
 
-data Environment lit mat = Environment
+data Environment lit sky = Environment
     { _envLights       :: ![ lit ]
-    , _envSky          :: !( Maybe ( Sky mat ) )
+    , _envSky          :: !( Maybe sky )
     , _envAmbient      :: !AmbientLight
     }
 
@@ -91,7 +91,7 @@ entitiesCount = length . _sceneEntities
 lightCount :: Scene ent (Environment l m) -> Int
 lightCount = length . _envLights . _sceneEnvironment
 
-sceneSky :: Lens' (Scene ent (Environment lit m)) (Maybe (Sky m))
+sceneSky :: Lens' (Scene ent (Environment lit sky)) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
 mkCameraHandle :: V3 Float -> V3 Float -> V3 Float -> Quaternion Float -> V3 Float -> CameraHandle
@@ -115,27 +115,35 @@ instance ( HasResources vert ent ent', HasResources vert env env' ) =>
                 <*> ( requestResources $ scene^.sceneEnvironment )
                 <*> ( pure $ scene^.sceneCamera )
 
-instance HasResources vert mat mat' => 
-        HasResources vert ( Entity (MeshResource vert) mat ) ( Entity (Mesh vert) mat' ) where
+instance ( HasResources vert mat mat', HasResources vert mesh mesh' ) => 
+        HasResources vert ( Entity mesh mat ) ( Entity mesh' mat' ) where
     requestResources entity = 
-        Entity <$> ( requestMeshResource $ entity^.renderData )
-                    <*> ( requestResources $ entity^.materials )
-                    <*> ( pure $ entity^.transformation )
-                    <*> ( pure $ entity^.drawSettings )
+        Entity <$> ( requestResources $ entity^.renderData )
+               <*> ( requestResources $ entity^.materials )
+               <*> ( pure $ entity^.transformation )
+               <*> ( pure $ entity^.drawSettings )
 
 
-instance ( HasResources vert lit lit', HasResources vert mat mat' ) =>
-         HasResources vert ( Environment lit mat) ( Environment lit' mat' ) where
+instance ( HasResources vert lit lit', HasResources vert sky sky' ) =>
+         HasResources vert ( Environment lit sky) ( Environment lit' sky' ) where
     requestResources env =
         Environment <$> ( mapM requestResources $ env^.envLights )
-                    <*> ( mapM loadSky $ env^.envSky )
+                    <*> ( mapM requestResources $ env^.envSky )
                     <*> ( pure $ env^.envAmbient )
 
+instance ( HasResources vert mesh mesh' ) =>
+         HasResources vert (LightEntity mesh) (LightEntity mesh') where
+         requestResources (LightEntity ent light) =
+            LightEntity <$> requestResources ent
+                        <*> pure light
 
-loadSky :: HasResources vert mat mat' => Sky mat -> YageResources vert (Sky mat')
+{--
+
+loadSky :: HasResources vert mat mat' => Sky MeshResource mat -> YageResources vert (Sky Mesh mat')
 loadSky sky = do 
     loaded <- requestResources (sky^.materials)
     return $ sky & materials .~ loaded 
+--}
 
 
 toRenderEntity :: ShaderData u t ->
@@ -146,25 +154,19 @@ toRenderEntity shaderData ent =
                  ( shaderData )
                  ( ent^.drawSettings )
 
-{--
-instance (ViableVertex (Vertex geoVert)) => Renderable (Entity geoVert geoMat) geoVert where
-    renderDefinition ent =
-        let mesh = either (const emptyMesh) id (ent^.renderData)
-            texs = either (error "Yage.Scene.Renderable Entity: missing texture: no default texture defined") (id) <$> (ent^.textures)
-            defs = zipWith ($) [ TextureDefinition (0, "tex_albedo") . uncurry Texture2D
-                               , TextureDefinition (1, "tex_tangent") . uncurry Texture2D
-                               ] texs
-                                
-        in RenderEntity mesh (ent^.drawSettings) defs
 
-instance (ViableVertex (Vertex lit)) => Renderable (SceneLight lit) lit where
-    renderDefinition lit = RenderEntity (lit^.lightVolume) (lit^.lightDrawSettings) []
 
-instance Renderable Sky P3 where
-    renderDefinition sky = 
-        let cubeImg = either (error "Yage.Scene.Renderable Sky: missing texture: no default texture defined") id <$> (sky^.skyTexture)
-            str     = fst $ cubeFaceRight cubeImg
-            tex     = TextureCube str (snd <$> cubeImg)
-        in RenderEntity (sky^.skyVolume) (sky^.skyDrawSettings) [TextureDefinition (0, "SkyTexture") tex]
---}
+-- | creates an `Entity` with:
+--      an empty `Mesh`
+--      the default `Material` as `TexSRGB8`
+--      id Transformation
+--      settings for triangle primitive rendering and back-face culling
+basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource geo) mat
+basicEntity =
+    Entity 
+        { _renderData     = MeshPure emptyMesh
+        , _materials      = def
+        , _transformation = idTransformation
+        , _drawSettings   = GLDrawSettings GL.Triangles (Just GL.Back)
+        }
 
