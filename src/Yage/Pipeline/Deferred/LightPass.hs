@@ -22,9 +22,8 @@ import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
--- , YAlbedoTex, YNormalTex, YDepthTex]
 type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio ]
-type LitPerFrameTex     = '[ ]
+type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex ]
 type LitPerFrame        = ShaderData LitPerFrameUni LitPerFrameTex
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -96,7 +95,7 @@ lightPass base viewport scene =
     lightTex        = Texture "lbuffer" $ TextureBuffer GL.Texture2D outSpec
 
     lightShaderData :: LitPerFrame
-    lightShaderData = ShaderData lightUniforms mempty
+    lightShaderData = ShaderData lightUniforms attributeTextures
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
@@ -109,9 +108,12 @@ lightPass base viewport scene =
         viewportDim      =: dim              <+>
         zNearFarPlane    =: zNearFar         <+>
         zProjRatio       =: zProj
-        -- albedoTex        =: 0                <+>
-        -- normalTex        =: 1                <+>
-        -- depthTex         =: 2
+
+    attributeTextures :: Textures LitPerFrameTex
+    attributeTextures =
+        materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
+        materialTexture =: (gNormalChannel $ renderTargets base)    <+>
+        materialTexture =: (gDepthChannel  $ renderTargets base)
 
 
 mkLight :: Light -> LitEntityRes

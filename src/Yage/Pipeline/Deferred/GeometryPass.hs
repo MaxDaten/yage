@@ -65,6 +65,10 @@ type GeometryPass = PassDescr
 
 type GeoPassScene env = Scene GeoEntityDraw env
 
+{--
+Pass Description
+--}
+
 geoPass :: ViewportI -> GeoPassScene env -> GeometryPass
 geoPass viewport scene = PassDescr
     { passTarget         = geoTarget
@@ -108,16 +112,9 @@ geoPass viewport scene = PassDescr
                       zFarPlane        =: zfar
         in ShaderData uniform mempty
 
-
-instance FramebufferSpec GeoPassChannels RenderTargets where
-    fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} = 
-        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0
-        , Attachment (ColorAttachment 1) $ TextureTarget GL.Texture2D gNormalChannel 0
-        ] 
-    
-    fboDepth GeoPassChannels{gDepthChannel} = 
-        Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
-
+{--
+Geo Pass Utils
+--}
 
 toGeoEntity :: GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
 toGeoEntity ent = toRenderEntity shaderData ent
@@ -147,6 +144,18 @@ instance Applicative GeoMaterial where
     pure mat = GeoMaterial mat mat
     GeoMaterial f g <*> GeoMaterial m n = GeoMaterial (f m) (g n)
 
+
 instance HasResources vert (GeoMaterial ResourceMaterial) (GeoMaterial RenderMaterial) where
     requestResources = mapM requestResources
+
+
+
+instance FramebufferSpec GeoPassChannels RenderTargets where
+    fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} = 
+        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0
+        , Attachment (ColorAttachment 1) $ TextureTarget GL.Texture2D gNormalChannel 0
+        ] 
+    
+    fboDepth GeoPassChannels{gDepthChannel} = 
+        Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
 
