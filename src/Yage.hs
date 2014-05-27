@@ -8,18 +8,21 @@ module Yage
     ( yageMain, YageSimulation(..), MovementKeys(..)
     , module Application
     , module YagePrelude
+    , module Logging
     ) where
 
 import             Yage.Prelude                    as YagePrelude
 import             Yage.Lens                       as Lens hiding ( Index )
-import             Yage.Text                       as TF
+import qualified   Yage.Text                       as TF
+---------------------------------------------------------------------------------------------------
+import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State             (gets)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ((<+>))
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
-import             Yage.Core.Application.Logging
+import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
 import             Yage.Pipeline.Types
@@ -95,18 +98,19 @@ instance EventCtr (YageLoopState t a b) where
 
 yageMain :: ( HasResources GeoVertex scene' scene, Real time ) => 
          String -> 
+         ApplicationConfig ->
          WindowConfig -> 
          YageWire time () scene' -> 
          YageRenderSystem scene ->
          time -> IO ()
-yageMain title winConf sim thePipeline dt = 
+yageMain title appConf winConf sim thePipeline dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
     in do
     _ <- bracket 
             ( initialization initSim thePipeline <$> (newTVarIO mempty) )
-            finalization
-            ( \initState -> execApplication title defaultAppConfig $
+            ( finalization )
+            ( \initState -> execApplication title appConf $
                                 basicWindowLoop winConf initState $
                                 yageLoop
             )
@@ -129,6 +133,11 @@ yageLoop win oldState = do
     newLoopState <- processRendering $ newSim^.simScene
     
     setDevStuff (newLoopState^.renderStats) simTime
+    
+
+    -- log loaded resources and render trace
+    traverse_ (noticeM . format "[ResourceLog]: {0}" . singleton) (newLoopState^.renderStats.resourceLog)
+    traverse_ (noticeM . format "[RenderTrace]: {0}" . singleton) (newLoopState^.renderStats.renderLog.rlTrace)
     
     return $! newLoopState  
         & simulation              .~ newSim

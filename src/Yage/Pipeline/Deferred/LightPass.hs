@@ -45,7 +45,7 @@ type LightPass = PassDescr
                     LitVertex
 
 type LitEntityT f    = LightEntity (f LitVertex)
-type LitEntityRes    = LitEntityT MeshResource
+type LitEntityRes    = LitEntityT Mesh
 type LitEntityDraw   = LitEntityT Mesh
 
 type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
@@ -114,7 +114,7 @@ lightPass base viewport scene =
         -- depthTex         =: 2
 
 
-mkLight :: Light -> LitEntityDraw
+mkLight :: Light -> LitEntityRes
 mkLight light = 
     let (vol, trans) = lightData
         lightEnt     = Entity vol () trans (GLDrawSettings GL.Triangles (Just GL.Front))

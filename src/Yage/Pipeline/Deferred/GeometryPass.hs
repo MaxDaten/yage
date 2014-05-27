@@ -133,7 +133,10 @@ toGeoEntity ent = toRenderEntity shaderData ent
 
 
 defaultGeoMaterial :: GeoMaterial ResourceMaterial
-defaultGeoMaterial = GeoMaterial defaultMaterialSRGB defaultMaterialSRGB
+defaultGeoMaterial = 
+    let albedoMat = defaultMaterialSRGB
+        normalMat = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ Texture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
+    in GeoMaterial albedoMat normalMat
 
 
 instance Default (GeoMaterial ResourceMaterial) where
@@ -143,4 +146,7 @@ instance Default (GeoMaterial ResourceMaterial) where
 instance Applicative GeoMaterial where
     pure mat = GeoMaterial mat mat
     GeoMaterial f g <*> GeoMaterial m n = GeoMaterial (f m) (g n)
+
+instance HasResources vert (GeoMaterial ResourceMaterial) (GeoMaterial RenderMaterial) where
+    requestResources = mapM requestResources
 

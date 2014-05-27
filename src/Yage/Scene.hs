@@ -63,11 +63,9 @@ data Scene ent env = Scene
 makeLenses ''Scene
 
 
---type ResScene geoVert geoMat litVert skyMat = 
---    Scene 
---        (Entity (MeshResource geoVert) geoMat)
---        (Environment (SceneLight litVert) skyMat)
-
+{--
+## Structure access
+--}
 
 emptyScene :: Camera -> Scene ent (Environment lit skymat)
 emptyScene = Scene [] emptyEnvironment
@@ -88,15 +86,21 @@ addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
 entitiesCount :: Scene ent (Environment l m) -> Int
 entitiesCount = length . _sceneEntities
 
+
 lightCount :: Scene ent (Environment l m) -> Int
 lightCount = length . _envLights . _sceneEnvironment
+
 
 sceneSky :: Lens' (Scene ent (Environment lit sky)) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
+
 mkCameraHandle :: V3 Float -> V3 Float -> V3 Float -> Quaternion Float -> V3 Float -> CameraHandle
 mkCameraHandle = Cam.Camera
 
+{--
+## Entity Shortcuts
+--}
 
 entityPosition    :: Lens' (Entity vert mat) (Position Float)
 entityPosition    = transformation.transPosition

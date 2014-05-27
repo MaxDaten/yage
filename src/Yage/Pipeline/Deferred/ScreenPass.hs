@@ -76,9 +76,6 @@ toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) 
         let dim           = realToFrac <$> vp^.vpSize
             trans         = idTransformation & transPosition._xy .~ 0.5 * dim
                                              & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
-            --trans        = screenEnt^.transformation 
-            --                    & transPosition._xy    +~ ((0.5) * screenEnt^.transformation.transScale._xy)
-            --                    & transScale._y        *~ (-1)
             scaleM       = kronecker . point $ trans^.transScale
             transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
             modelM       = transM !*! scaleM

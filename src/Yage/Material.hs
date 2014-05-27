@@ -63,16 +63,25 @@ zeroNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
 zeroNormalDummy = (`pxTexture` zeroNormal)
 
 
+mkMaterial :: Applicative f => MaterialColorA -> TextureResource -> AResourceMaterial f
+mkMaterial color texture = Material color (pure texture)
+
 defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
-defaultMaterial ctr =
-    Material
-    { _matColor   = opaque white
-    , _matTexture = pure . TexturePure $ Texture "WHITEDUMMY" $ Texture2D (whiteDummy ctr)
-    }
+defaultMaterial ctr = 
+    let color   = opaque white
+        texture = TexturePure $ Texture "WHITEDUMMY" $ Texture2D (whiteDummy ctr)
+    in mkMaterial color texture
 
 
 defaultMaterialSRGB :: Applicative f => AResourceMaterial f
 defaultMaterialSRGB = defaultMaterial TexSRGB8
+
+
+singleMaterial :: Lens' ResourceMaterial TextureResource
+singleMaterial = lens getter setter
+    where
+    getter = runIdentity . _matTexture 
+    setter mat tex = mat & matTexture .~ ( pure tex )
 
 
 instance Applicative Material where

@@ -32,7 +32,7 @@ type SkyMaterialRes = AResourceMaterial Cube
 type SkyMaterial    = RenderMaterial
 
 type SkyEntityT mesh mat = Entity (mesh LitVertex) mat
-type SkyEntityRes   = SkyEntityT MeshResource SkyMaterialRes
+type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
 type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
