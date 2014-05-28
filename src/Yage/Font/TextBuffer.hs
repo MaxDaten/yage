@@ -16,10 +16,9 @@ import qualified Data.Text.Lazy            as T
 -----------------------------------------------------------------------------------------
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
-import           Codec.Picture.Types
------------------------------------------------------------------------------------------
 import           Yage.Rendering
 import qualified Yage.Geometry             as Vert (P2TX2C4)
+import           Yage.Images
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------
@@ -33,7 +32,7 @@ data TextBuffer = TextBuffer
     , _tbufMesh    :: Mesh GlyphVertex
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
-    } deriving (Typeable)
+    } deriving ( Typeable )
 
 makeLenses ''TextBuffer
 
@@ -86,11 +85,9 @@ pushChar tbuf c =
                 advance       = vSpace * fromI (glyHoriAdvance metric)
                 norm@(normX,_)= pxNorm . fontDescr $ tbuf^.tbufTexture.font
 
-                (texW, texH)  = ( dynamicMap imageWidth (fTex^.textureData)
-                                , dynamicMap imageHeight (fTex^.textureData)
-                                )
+                texDim        = textureDimension $ fTex^.fontMap
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-                glyphVerts    = makeGlypMesh caret fdata (texW, texH) norm
+                glyphVerts    = makeGlypMesh caret fdata texDim norm
             in (caret & _x +~ advance / normX, mesh `pushToBack` (V.fromList glyphVerts))
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- FIXME: WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
@@ -102,11 +99,12 @@ writeText :: TextBuffer -> Text -> TextBuffer
 writeText = T.foldl pushChar
 
 
-makeGlypMesh :: Caret -> FontData -> (Int, Int) -> (Double, Double) -> [Vertex GlyphVertex]
-makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
+makeGlypMesh :: Caret -> FontData -> V2 Int -> (Double, Double) -> [Vertex GlyphVertex]
+makeGlypMesh caret (gly, region) dim' (normX, normY) =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / normX
             bearingY = fromI glyHoriBearingY / normY
+            dim      = fromI <$> dim'
 
             leftX    = caret^._x + bearingX
             topY     = caret^._y + bearingY
@@ -114,8 +112,8 @@ makeGlypMesh caret (gly, region) (tw, th) (normX, normY) =
             w        = fromI glyWidth / normX
             h        = fromI glyHeight / normY
 
-            V2 u0 v0 = (fromI <$> region^.topLeft)     / V2 (fromI tw) (fromI th)
-            V2 u1 v1 = (fromI <$> region^.bottomRight) / V2 (fromI tw) (fromI th)
+            V2 u0 v0 = (fromI <$> region^.topLeft)     / dim
+            V2 u1 v1 = (fromI <$> region^.bottomRight) / dim
         in [ vert leftX     topY       u0 v1
            , vert leftX     (topY - h) u0 v0
            , vert (leftX+w) (topY - h) u1 v0

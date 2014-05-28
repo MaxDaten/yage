@@ -1,83 +1,100 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 module Yage.Resources
     ( YageResources, runYageResources
     , ResourceLoader(..), ResourceRegistry
-    , MeshResource, MeshFile(..), TextureResource
+    , MeshResource (..), MeshFileType(..), TextureResource(..), HasResources(..)
     , requestMeshResource, requestTextureResource
     , initialRegistry
     ) where
 
-import           Yage.Prelude hiding (Index)
 import           Yage.Lens
+import           Yage.Prelude             hiding (Index)
 
-import           Data.Proxy
 import           Data.Digest.XXHash
-import qualified Data.Trie as T
+import qualified Data.Trie                as T
 
 import           Codec.Picture
 
-import           Control.Monad.RWS.Strict
-import qualified Data.Map.Strict as M
+import           Control.Monad.RWS.Strict hiding (mapM)
+import qualified Data.Map.Strict          as M
 
-import           Yage.Rendering.Vertex
 import           Yage.Rendering.Mesh
+import           Yage.Rendering.Resources hiding (loadedTextures)
 
-data MeshFile geo =
-      OBJFile FilePath
-    | YGMFile FilePath
-    | NullResource (Proxy (Vertex geo)) -- currently no clue how to avoid this
+import           Yage.Images
 
-type MeshResource geo  = Either (MeshFile geo) (Mesh geo)
-type TextureResource = Either FilePath (String, DynamicImage)
 
-data ResourceRegistry geo = ResourceRegistry
-    { loadedMeshes   :: M.Map XXHash (Mesh geo)
-    , loadedTextures :: T.Trie (String, DynamicImage)
+data ResourceRegistry vert = ResourceRegistry
+    { loadedMeshes   :: M.Map XXHash (Mesh vert)
+    , loadedTextures :: T.Trie Texture
     }
 
-type YageResources geo = RWST (ResourceLoader geo) () (ResourceRegistry geo) IO
+
+data MeshFileType =
+      OBJFile
+    | YGMFile
 
 
+data MeshResource vert = 
+      MeshFile FilePath MeshFileType
+    | MeshPure (Mesh vert)
 
-type MeshLoader geo = FilePath -> IO (Mesh geo)
 
-type ResourceLoaderAccessor geo = ResourceLoader geo -> MeshLoader geo
+data TextureResource =
+      TextureFile FilePath
+    | TexturePure Texture
 
-data ResourceLoader geo = ResourceLoader
-    { objLoader :: MeshLoader geo
-    , ygmLoader :: MeshLoader geo
+
+type YageResources vert = RWST (ResourceLoader vert) () (ResourceRegistry vert) IO
+
+type MeshLoader vert = FilePath -> IO (Mesh vert)
+
+
+type ResourceLoaderAccessor vert = ResourceLoader vert -> MeshLoader vert
+
+data ResourceLoader vert = ResourceLoader
+    { objLoader :: MeshLoader vert
+    , ygmLoader :: MeshLoader vert
     }
 
-runYageResources :: (MonadIO m) => ResourceLoader geo -> YageResources geo a -> ResourceRegistry geo -> m (a, ResourceRegistry geo)
+
+class HasResources vert resource loaded | resource -> loaded where
+    requestResources :: resource -> YageResources vert loaded
+
+
+{--
+## Loading
+--}
+
+runYageResources :: (MonadIO m) => ResourceLoader vert -> YageResources vert a -> ResourceRegistry vert -> m (a, ResourceRegistry vert)
 runYageResources loader yr st = do
     (a, res, ()) <- io $ runRWST yr loader st
     return (a, res)
 
 
-requestMeshResource :: MeshResource geo -> YageResources geo (MeshResource geo)
-requestMeshResource (Left res) = Right <$> loadMeshFromFile res
-requestMeshResource mesh       = return mesh
+requestMeshResource :: MeshResource vert -> YageResources vert (Mesh vert)
+requestMeshResource (MeshFile filepath meshType) = loadMeshFile meshType filepath
+requestMeshResource (MeshPure mesh) = return mesh
 
 
-requestTextureResource :: TextureResource -> YageResources geo TextureResource
-requestTextureResource (Left filepath) = Right <$> loadTextureFromFile filepath
-requestTextureResource alreadyLoaded = return alreadyLoaded
+requestTextureResource :: TextureResource -> YageResources vert Texture
+requestTextureResource (TextureFile filepath)      = loadTextureFile filepath
+requestTextureResource (TexturePure alreadyLoaded) = return alreadyLoaded
 
 
-loadTextureFromFile :: FilePath -> YageResources geo (String, DynamicImage)
-loadTextureFromFile f = do
+loadTextureFile :: FilePath -> YageResources vert Texture
+loadTextureFile f = do
     let filepath = encodeUtf8 . fpToText $ f
-        fpStr    = fpToString f
+
     registry <- get
     res <- maybe
-            (load fpStr)
+            (load $ fpToString f)
             return
             (registry^.textures.at filepath)
 
@@ -85,36 +102,39 @@ loadTextureFromFile f = do
     return res
     where
     load path = io $ do
-        eImg <- readImage path
+        eImg <- (fromDynamic =<<) <$> readImage path
         case eImg of
-            Left err -> error err
-            Right dyn -> return (path, dyn)
+            Left err    -> error err
+            Right img   -> return $ Texture (fromStrict $ fpToText f) $ Texture2D img
 
 
 
-loadMeshFromFile :: MeshFile geo -> YageResources geo (Mesh geo)
-loadMeshFromFile (YGMFile filepath) = loadMesh' filepath ygmLoader
-loadMeshFromFile (OBJFile filepath) = loadMesh' filepath objLoader
-loadMeshFromFile _ = error "Yage.Resources: invalid null resource"
+loadMeshFile :: MeshFileType -> FilePath -> YageResources vert (Mesh vert)
+loadMeshFile = \case
+    YGMFile -> loadMesh' ygmLoader
+    OBJFile -> loadMesh' objLoader
 
 
-loadMesh' :: FilePath -> ResourceLoaderAccessor geo -> YageResources geo (Mesh geo)
-loadMesh' filepath loader = do
+loadMesh' :: ResourceLoaderAccessor vert -> FilePath -> YageResources vert (Mesh vert)
+loadMesh' loader filepath = do
     xhash <- xxHash <$> readFile filepath
     registry <- get
-    res <- maybe 
+    res <- maybe
             load
             return
             (registry^.meshes.at xhash)
-    
+
     put $ registry & meshes.at xhash ?~ res
     return res
-    
+
     where
     load = do
         l <- (asks loader)
         io $ l filepath
 
+{--
+## Utility
+--}
 
 initialRegistry :: ResourceRegistry geo
 initialRegistry = ResourceRegistry M.empty T.empty
@@ -122,6 +142,26 @@ initialRegistry = ResourceRegistry M.empty T.empty
 meshes :: Lens' (ResourceRegistry geo) (M.Map XXHash (Mesh geo))
 meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 
-textures :: Lens' (ResourceRegistry geo) (T.Trie (String, DynamicImage))
+textures :: Lens' (ResourceRegistry geo) (T.Trie Texture)
 textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
 
+
+instance HasResources vert (MeshResource vert) (Mesh vert) where
+    requestResources = requestMeshResource
+
+instance HasResources vert TextureResource Texture where
+    requestResources = requestTextureResource
+
+instance HasResources vert (Mesh v) (Mesh v) where
+    requestResources = return
+
+instance HasResources vert Texture Texture where
+    requestResources = return
+
+instance HasResources vert () () where
+    requestResources _ = return ()
+
+{--
+instance (Traversable f, HasResources vert a a') => HasResources vert (f a) (f a') where
+    requestResources = mapM requestResources
+--}

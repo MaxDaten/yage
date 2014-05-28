@@ -8,20 +8,24 @@ module Yage
     ( yageMain, YageSimulation(..), MovementKeys(..)
     , module Application
     , module YagePrelude
+    , module Logging
     ) where
 
 import             Yage.Prelude                    as YagePrelude
 import             Yage.Lens                       as Lens hiding ( Index )
-import             Yage.Text                       as TF
+import qualified   Yage.Text                       as TF
+---------------------------------------------------------------------------------------------------
+import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State             (gets)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ((<+>))
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
-import             Yage.Core.Application.Logging
+import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 import             Yage.Rendering
+import             Yage.Pipeline.Types
 import             Yage.Pipeline.Deferred
 
 import             Yage.UI
@@ -46,13 +50,14 @@ data YageTiming = YageTiming
 data YageSimulation time scene = YageSimulation
     { _simWire          :: !(YageWire time () scene)
     , _simSession       :: !(YageSession time)
-    , _simPrevState     :: !(Either () scene)
-    , _simDeltaT        :: !time
+    , _simScene         :: !(Either () scene)
+    , _simDeltaT        :: !Double
     }
 
-data YageLoopState time scene = YageLoopState
+data YageLoopState time wScene rScene = YageLoopState
     { _loadedResources  :: !YageResources
-    , _simulation       :: !(YageSimulation time scene)
+    , _simulation       :: !(YageSimulation time wScene)
+    , _pipeline         :: YageRenderSystem rScene
     , _timing           :: !YageTiming
     , _inputState       :: TVar InputState
     , _renderStats      :: RStatistics
@@ -69,7 +74,7 @@ makeLenses ''YageResources
 --    { innerECtr :: ectr }
 
 -- maybe we will use generics and deriving later on
-instance EventCtr (YageLoopState t v) where
+instance EventCtr (YageLoopState t a b) where
     --windowPositionCallback = windowPositionCallback . _eventCtr
     --framebufferSizeCallback YageLoopState{_viewport} = return $ \_winH w h ->
     --    atomically $ modifyTVar' _viewport $ vpSize .~ V2 w h
@@ -91,19 +96,21 @@ instance EventCtr (YageLoopState t v) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-
-
-yageMain :: (HasScene scene GeoVertex LitVertex, Real time) 
-         => String -> WindowConfig -> YageWire time () scene -> time -> IO ()
-yageMain title winConf sim dt = 
+yageMain :: ( HasResources GeoVertex scene' scene, Real time ) => 
+         String -> 
+         ApplicationConfig ->
+         WindowConfig -> 
+         YageWire time () scene' -> 
+         YageRenderSystem scene ->
+         time -> IO ()
+yageMain title appConf winConf sim thePipeline dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-    let initResources     = YageResources initialRegistry initialGLRenderResources deferredResourceLoader
-        initSim           = YageSimulation sim (countSession dt) (Left ()) dt
+    let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
     in do
     _ <- bracket 
-            ( initialization initResources initSim <$> (newTVarIO mempty) )
-            finalization
-            ( \initState -> execApplication title defaultAppConfig $
+            ( initialization initSim thePipeline <$> (newTVarIO mempty) )
+            ( finalization )
+            ( \initState -> execApplication title appConf $
                                 basicWindowLoop winConf initState $
                                 yageLoop
             )
@@ -111,85 +118,100 @@ yageMain title winConf sim dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (HasScene scene GeoVertex LitVertex, Real time) 
-        => Window
-        -> YageLoopState time scene -> Application AnyException (YageLoopState time scene)
-yageLoop win previousState = do
-    inputSt                 <- io $! atomically $ readModifyTVar (previousState^.inputState) clearEvents
-    (frameDT, newSession)   <- io $ stepSession $ previousState^.timing.loopSession
-    let iaccum              = (realToFrac $ dtime (frameDT inputSt)) + previousState^.timing.accumulator
-        prevSimState        = previousState^.simulation.simPrevState
-        s                   = previousState^.simulation.simSession
-        w                   = previousState^.simulation.simWire
-        dt                  = realToFrac $ previousState^.simulation.simDeltaT
+yageLoop :: (Real time, HasResources GeoVertex wScene rScene) => 
+         Window ->
+         YageLoopState time wScene rScene -> 
+         Application AnyException (YageLoopState time wScene rScene)
+yageLoop win oldState = do
+    inputSt                 <- io $! atomically $ readModifyTVar (oldState^.inputState) clearEvents
+    (frameDT, newSession)   <- io $ stepSession $ oldState^.timing.loopSession
+    let iaccum              = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.accumulator
     
     -- step our global timing to integrate our simulation
-    ((newSimState, nextSimSession, nextSimWire, newAccum), wireTime) <- ioTime $ simulate iaccum dt s w prevSimState inputSt
+    ( ( newSim, newAccum ), simTime ) <- ioTime $ simulate iaccum ( oldState^.simulation ) inputSt
     
-    nextState <- processRendering newSimState
+    newLoopState <- processRendering $ newSim^.simScene
     
-    setDevStuff (nextState^.renderStats) wireTime
+    setDevStuff (newLoopState^.renderStats) simTime
     
-    return $ nextState & simulation.simWire      .~ nextSimWire
-                       & simulation.simSession   .~ nextSimSession
-                       & simulation.simPrevState .~ newSimState
-                       & timing.loopSession      .~ newSession
-                       & timing.accumulator      .~ newAccum
+
+    -- log loaded resources and render trace
+    traverse_ (noticeM . format "[ResourceLog]: {0}" . singleton) (newLoopState^.renderStats.resourceLog)
+    traverse_ (noticeM . format "[RenderTrace]: {0}" . singleton) (newLoopState^.renderStats.renderLog.rlTrace)
+    
+    return $! newLoopState  
+        & simulation              .~ newSim
+        & timing.loopSession      .~ newSession
+        & timing.accumulator      .~ newAccum
     
     where
-    processRendering (Left err)    = (criticalM $ "err:" ++ show err) >> return previousState
+    -- | logic simulation
+    -- selects small time increments and
+    simulate accum sim input
+        | accum < ( sim^.simDeltaT ) = return ( sim, accum )
+        | otherwise = do
+            sim' <- stepSimulation sim input
+            simulate ( accum - sim^.simDeltaT ) sim' input 
+
+    -- perform one step in simulation
+    stepSimulation sim input = do
+        ( ds      , s )     <- io $ stepSession $ sim^.simSession
+        ( newScene, w )     <- io $ stepWire (sim^.simWire) (ds input) (Right ())
+        return $! newScene `seq` ( sim & simScene     .~ newScene 
+                                       & simSession   .~ s 
+                                       & simWire      .~ w )
+
+
+    -- | loading resources & rendering
+    processRendering (Left err)    = ( criticalM $ "err:" ++ show err ) >> return oldState
     processRendering (Right scene) = do
         (renderScene, newFileRes) <- runYageResources 
-                                      ( previousState^.loadedResources.resourceLoader )
-                                      ( loadSceneResources $ getScene scene )
-                                      ( previousState^.loadedResources.resourceRegistry )
-        renderTheScene renderScene $ previousState & loadedResources.resourceRegistry .~ newFileRes
+                                      ( oldState^.loadedResources.resourceLoader )
+                                      ( requestResources scene )
+                                      ( oldState^.loadedResources.resourceRegistry )
+        renderTheScene renderScene $ oldState & loadedResources.resourceRegistry .~ newFileRes
 
 
-    simulate accum dt s' w' state input
-        | accum < dt = return (state, s', w', accum)
-        | otherwise   = do
-            (st, s, w) <- stepSimulation s' w' input
-            simulate (accum - dt) dt s w st input 
+    renderTheScene renderScene resourceState = do
+        let thePipeline = oldState^.pipeline
+        winSt           <- io $ readTVarIO ( winState win )
+        (res', stats)   <- runRenderSystem ( thePipeline ( Viewport 0 $ winSt^.fbSize ) renderScene ) 
+                                           ( resourceState^.loadedResources.rhiResources )
+        return $ resourceState & loadedResources.rhiResources .~ res'
+                               & renderStats                  .~ stats
 
 
-    stepSimulation s' w' input = do
-        (ds, s)           <- io $ stepSession s'
-        (newState, w)     <- io $ stepWire w' (ds input) (Right ())
-        return $! newState `seq` (newState, s, w)
-
-
-    renderTheScene renderScene state = do
-        winSt           <- io $ readTVarIO (winState win)
-        let screenVP    = Viewport 0 $ winSt^.fbSize
-            pipeline    = yDeferredLighting screenVP renderScene
-        (res', stats)   <- runRenderSystem pipeline $ state^.loadedResources.rhiResources
-        return $ state & loadedResources.rhiResources .~ res'
-                       & renderStats                  .~ stats
-
-
-    setDevStuff stats wiretime = do
+    -- debug & stats
+    setDevStuff stats simTime = do
         title   <- gets appTitle
         gcTime  <- gets appGCTime
         setWindowTitle win $ TF.unpack $ 
             TF.format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
             ( title
-            , TF.fixed 4 $ 1000 * wiretime
+            , TF.fixed 4 $ 1000 * simTime
             , TF.fixed 4 $ 1000 * stats^.resourcingTime
             , TF.fixed 4 $ 1000 * stats^.renderingTime
             , TF.fixed 4 $ 1000 * gcTime
-            , TF.fixed 4 $ 1000 * sum [wiretime, stats^.resourcingTime, stats^.renderingTime, gcTime]
+            , TF.fixed 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
             )
 
 
-initialization :: YageResources
-               -> YageSimulation time scene
-               -> TVar InputState 
-               -> YageLoopState time scene
-initialization resources sim tInputState = YageLoopState resources sim loopTimingInit tInputState mempty
+initialization :: YageSimulation time wScene
+               -> YageRenderSystem rScene
+               -> TVar InputState
+               -> YageLoopState time wScene rScene
+initialization sim thePipeline tInputState = 
+    YageLoopState 
+    { _loadedResources  = YageResources initialRegistry initialGLRenderResources deferredResourceLoader -- TODO deferred resource loaded to pipeline
+    , _simulation       = sim
+    , _pipeline         = thePipeline
+    , _timing           = loopTimingInit
+    , _inputState       = tInputState
+    , _renderStats      = mempty
+    }
 
 
-finalization :: YageLoopState t v -> IO ()
+finalization :: YageLoopState t a b -> IO ()
 finalization _ = return ()
 
 

@@ -5,35 +5,39 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.Math
 
-import Yage.Scene
-import Yage.Camera
 import Yage.Geometry
 import Yage.Geometry3D
 
+import Yage.Scene
+import Yage.Camera
+import Yage.Uniforms
 
 import Yage.Rendering hiding (P3)
-import Yage.Rendering.Transformation
-
-import Yage.Pipeline.Deferred.Common
 
 import qualified Graphics.Rendering.OpenGL as GL
 
 
 newtype Screen = Screen ViewportI
 
-type ScrGlobalUniforms = [YProjectionMatrix, YScreenTex]
-type ScrLocalUniforms  = '[YModelMatrix]
+type SrcPerFrameUni    = '[ YProjectionMatrix ]
+type SrcPerFrame       = ShaderData SrcPerFrameUni '[ YScreenTex ]
+
+type SrcPerEntity      = ShaderData '[ YModelMatrix ] '[]
+
 type ScrVertex         = P3TX2
 
-type ScreenPass = PassDescr String DefaultRenderTarget Screen ScrGlobalUniforms ScrLocalUniforms
+type ScreenPass        = PassDescr 
+                            DefaultRenderTarget
+                            SrcPerFrame
+                            SrcPerEntity
+                            ScrVertex
+
 
 screenPass :: Texture -> ViewportI -> ScreenPass
 screenPass toScreen viewport = PassDescr
     { passTarget         = defaultRenderTarget
     , passShader         = ShaderResource "res/glsl/pass/screenPass.vert" "res/glsl/pass/screenPass.frag"
-    , passGlobalUniforms = screenUniforms
-    , passEntityUniforms = viewportUniforms
-    , passGlobalTextures = [TextureDefinition (0, "screentex") toScreen]
+    , passPerFrameData   = ShaderData screenUniforms screenTextures
     , passPreRendering   = io $ do
         -- our 0/0 is top left (y-Axis is flipped)
         GL.viewport     GL.$= toGLViewport viewport
@@ -55,42 +59,51 @@ screenPass toScreen viewport = PassDescr
 
     glVP =  (realToFrac) <$> viewport
 
-    screenUniforms :: Uniforms ScrGlobalUniforms
+    screenUniforms :: Uniforms SrcPerFrameUni
     screenUniforms =
-        let 
-            projM = cameraProjectionMatrix (Camera2D fpsCamera $ CameraPlanes 0 10) glVP :: M44 GLfloat
-        in projectionMatrix =: projM <+>
-           screenTex        =: 0
+        projectionMatrix =: (cameraProjectionMatrix (Camera2D fpsCamera $ CameraPlanes 0 10) glVP :: M44 GL.GLfloat)
 
-    viewportUniforms :: Screen -> Uniforms ScrLocalUniforms
-    viewportUniforms (Screen vp) =
+    screenTextures :: Textures '[YScreenTex]
+    screenTextures = Field =: toScreen
+
+
+toScrEntity :: Screen -> RenderEntity ScrVertex SrcPerEntity
+toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) settings
+    where
+    uniforms =
         -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
         let dim           = realToFrac <$> vp^.vpSize
             trans         = idTransformation & transPosition._xy .~ 0.5 * dim
                                              & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
-            --trans        = screenEnt^.transformation 
-            --                    & transPosition._xy    +~ ((0.5) * screenEnt^.transformation.transScale._xy)
-            --                    & transScale._y        *~ (-1)
             scaleM       = kronecker . point $ trans^.transScale
             transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
             modelM       = transM !*! scaleM
         in modelMatrix =: modelM
 
+    screenMesh = 
+        let screenQuad = vertices . triangles $ addQuadTex $ quad 1
+        in meshFromVertexList "YAGE:SCREEN" screenQuad
+
+    -- TODO: not neccessary, can be moved to the shader (better for vr?)
+    addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3TX2)
+    addQuadTex (Quad (Face a b c d)) = Quad $ Face  (a <+> texture2 =: (V2 0 1))
+                                                    (b <+> texture2 =: (V2 0 0))
+                                                    (c <+> texture2 =: (V2 1 0))
+                                                    (d <+> texture2 =: (V2 1 1))
+    addQuadTex _ = error "not a quad"
+
+    settings = GLDrawSettings GL.Triangles (Just GL.Back)
+--}
 
 
 
+{--
 
 instance Renderable Screen ScrVertex where
     renderDefinition _ = 
         let q    = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
             mesh = meshFromVertexList "YAGE:SCREEN" q
-        in RenderEntity mesh (GLDrawSettings Triangles (Just Back)) []
+        in RenderEntity mesh  []
 
-addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3TX2)
-addQuadTex (Quad (Face a b c d)) = Quad $ Face  (a <+> texture2 =: (V2 0 1))
-                                                (b <+> texture2 =: (V2 0 0))
-                                                (c <+> texture2 =: (V2 1 0))
-                                                (d <+> texture2 =: (V2 1 1))
-addQuadTex _ = error "not a quad"
-
+--}
