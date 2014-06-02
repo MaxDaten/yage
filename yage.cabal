@@ -230,8 +230,8 @@ test-suite parsing-obj
 
   build-depends:
       base          == 4.*
-    , yage-geometry == 0.0.0.1
     , yage-contrib
+    , yage
 
     , vector
     

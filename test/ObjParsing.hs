@@ -11,11 +11,33 @@ import Yage.Lens hiding (elements)
 import qualified Data.Vector as V
 import Data.Vinyl.Instances ()
 
-import Yage.Geometry.Vertex
 import Yage.Geometry
-import Yage.Geometry.Formats.Obj
+import Yage.Formats.Obj
 
-type OBJVertex = P3T2 "pos" "tex" Float
+
+
+main :: IO ()
+main = hspec spec
+
+-- Tests
+
+spec :: Spec
+spec = do
+  describe "parse OBJ files" $ do
+    it "parses a simple square" $ do
+      parsedObj <- parseOBJFile $ "test" </> "res" </> "square.obj"
+      parsedObj `shouldBe` squareOBJ
+
+    it "parses a simple square into position Geometry" $ do
+      (pos, _tex) <- geometryFromOBJFile $ "test" </> "res" </> "square.obj"
+      pos `shouldBe` squarePos
+
+    it "parses a simple square into texture Geometry" $ do
+      (_pos, tex) <- geometryFromOBJFile $ "test" </> "res" </> "square.obj"
+      tex `shouldBe` squareTex
+
+
+-- fixtures
 
 squareOBJ :: OBJ
 squareOBJ = mempty & vertexData.geometricVertices .~ V.fromList [ V3 0 2 0, V3 0 0 0, V3 2 0 0, V3 2 2 0 ]
@@ -27,39 +49,24 @@ squareOBJ = mempty & vertexData.geometricVertices .~ V.fromList [ V3 0 2 0, V3 0
                                                    ,[ VertexIndex 4, TextureIndex 3, NormalIndex 1 ]
                                                    ]
 
-squareGeo :: TriGeo (Vertex OBJVertex)
-squareGeo = Geometry
-  { geoVertices = V.fromList [ position3 =: V3 0 2 0 <+> texture2 =: V2 0 0
-                             , position3 =: V3 0 0 0 <+> texture2 =: V2 0 1
-                             , position3 =: V3 2 0 0 <+> texture2 =: V2 1 1
-                             
-                             , position3 =: V3 0 2 0 <+> texture2 =: V2 0 0
-                             , position3 =: V3 2 0 0 <+> texture2 =: V2 1 1
-                             , position3 =: V3 2 2 0 <+> texture2 =: V2 1 0
+
+squarePos :: TriGeo (V3 Float)
+squarePos = Geometry
+  { geoVertices = V.fromList [ V3 0 2 0
+                             , V3 0 0 0
+                             , V3 2 0 0
+                             , V3 2 2 0
                              ]
-  , geoElements = V.fromList [Triangle 0 1 2, Triangle 3 4 5]
+  , geoElements = V.fromList [Triangle 0 1 2, Triangle 0 2 3]
   }
 
 
-
-main :: IO ()
-main = hspec spec
-
-
-spec :: Spec
-spec = do
-  describe "parse OBJ files" $ do
-    it "parses a simple square" $ do
-      parsedObj <- parseOBJFile $ "test" </> "res" </> "square.obj"
-      parsedObj `shouldBe` squareOBJ
-
-    it "parses a simple square into Geometry (drops normals)" $ do
-      parsedGeo <- testPacker <$> (geometryFromOBJFile $ "test" </> "res" </> "square.obj")
-      parsedGeo `shouldBe` squareGeo
-
-  where
-  testFormat :: V3 Float -> V2 Float -> Vertex OBJVertex 
-  testFormat p t = position3 =: p <+> texture2 =: t
-
-  testPacker :: (TriGeo (V3 Float), TriGeo (V2 Float)) -> TriGeo (Vertex OBJVertex)
-  testPacker = uncurry (packGeos2 testFormat)
+squareTex :: TriGeo (V2 Float)
+squareTex = Geometry
+  { geoVertices = V.fromList [ V2 0 0
+                             , V2 0 1
+                             , V2 1 0
+                             , V2 1 1
+                             ]
+  , geoElements = V.fromList [Triangle 0 1 3, Triangle 0 3 2]
+  }
