@@ -57,7 +57,7 @@ pushChar tbuf '\n' =
         hSpace          = tbuf^.tbufTexture.fontMarkup.verticalSpacing
         lineH           = hSpace * fromI (lineHeight face)
         em              = fromI $ unitsPerEM face
-        (_, ptY)        = fromI <$$> tbuf^.tbufTexture.fontDescriptor.to charSize
+        (_, ptY)        = over both fromI $ tbuf^.tbufTexture.fontDescriptor.to charSize
     -- line height is in font units, 
     -- this is different to the glyph metric unit (which is 26.6 format) and must
     -- scaled with the underlying dpi

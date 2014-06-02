@@ -107,7 +107,7 @@ insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
     
     -- split region in one half fitting and retaining region, then insert into the half fitting one
     | otherwise =
-        let (leftRegion, rightRegion) = emptyNode <$$> splitRect nodeRegion (a^.regionRect)
+        let (leftRegion, rightRegion) = over both emptyNode $ splitRect nodeRegion (a^.regionRect)
         in insertNode filled $ Node nodeRegion leftRegion rightRegion
 insertNode _ (Filled a)             = Left $ Filled a
 insertNode _ Nil                    = Left Nil
