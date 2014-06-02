@@ -30,6 +30,7 @@ yDeferredLighting viewport scene =
         lighting   = Pass.lightPass base viewport scene
         atmosphere = Pass.skyPass lighting viewport scene
         final      = Pass.screenPass (Pass.lBufferChannel . renderTargets $ lighting) viewport
+        --final      = Pass.screenPass (Pass.gNormalChannel . renderTargets $ base) viewport
     in do
     base        `runRenderPass`  ( toGeoEntity <$> scene^.sceneEntities )
     

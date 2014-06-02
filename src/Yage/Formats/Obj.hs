@@ -12,17 +12,14 @@ import Yage.Math
 import qualified Data.Vector as V
 import Yage.Formats.Obj.Parser hiding (Face)
 import qualified Yage.Formats.Obj.Parser as OBJ (Face)
-import Yage.Geometry.Vertex
 import Yage.Geometry.Elements
 import Yage.Geometry
 
 
 
 
-type PosGeo a = TriGeo (V3 a)
-type TexGeo a = TriGeo (V2 a)
-type Geo pn tn a = TriGeo (Vertex (P3T2 pn tn a))
-
+type PosGeo = TriGeo (V3 Float)
+type TexGeo = TriGeo (V2 Float)
 
 type FaceIdx = Int
 type VertIdx = Int
@@ -33,12 +30,12 @@ data OBJFaceVertex = FaceVertex
     , fTextureIndex :: !TexIdx
     }
 
-geometryFromOBJ :: (Floating a, Enum a) => OBJ -> (PosGeo a, TexGeo a)
+geometryFromOBJ :: OBJ -> (PosGeo, TexGeo)
 geometryFromOBJ obj 
     | not $ hasTextureCoords obj  = error "OBJ is missing neccessary texture coords"
     | otherwise =
-    let vertGeo = Geometry (V.map (fmap realToFrac) verts) (V.map (fmap fVertexIndex) triFaces)
-        texGeo  = Geometry (V.map (fmap realToFrac) texs) (V.map (fmap fTextureIndex) triFaces)
+    let vertGeo = Geometry verts (V.map (fmap fVertexIndex) triFaces)
+        texGeo  = Geometry texs  (V.map (fmap fTextureIndex) triFaces)
     in (vertGeo, texGeo)
 
     where
@@ -59,7 +56,7 @@ geometryFromOBJ obj
     mkFaceVertex _ = error "Yage.Geometry.Formats.Obj.mkFaceVertex: invalid index order"
 
 
-geometryFromOBJFile :: (Floating a, Enum a, Show a) => FilePath -> IO (PosGeo a, TexGeo a)
+geometryFromOBJFile :: FilePath -> IO (PosGeo, TexGeo)
 geometryFromOBJFile file = geometryFromOBJ <$> parseOBJFile file
 
 

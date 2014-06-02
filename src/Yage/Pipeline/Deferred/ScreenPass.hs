@@ -24,7 +24,7 @@ type SrcPerFrame       = ShaderData SrcPerFrameUni '[ YScreenTex ]
 
 type SrcPerEntity      = ShaderData '[ YModelMatrix ] '[]
 
-type ScrVertex         = P3TX2
+type ScrVertex         = Y'P3TX2 GLfloat
 
 type ScreenPass        = PassDescr 
                             DefaultRenderTarget
@@ -86,7 +86,7 @@ toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) 
         in meshFromVertexList "YAGE:SCREEN" screenQuad
 
     -- TODO: not neccessary, can be moved to the shader (better for vr?)
-    addQuadTex :: Primitive (Vertex P3) -> Primitive (Vertex P3TX2)
+    addQuadTex :: Primitive (Vertex (Y'P3 GLfloat)) -> Primitive (Vertex ScrVertex)
     addQuadTex (Quad (Face a b c d)) = Quad $ Face  (a <+> texture2 =: (V2 0 1))
                                                     (b <+> texture2 =: (V2 0 0))
                                                     (c <+> texture2 =: (V2 1 0))

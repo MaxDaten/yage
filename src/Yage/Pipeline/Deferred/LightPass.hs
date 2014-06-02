@@ -30,7 +30,7 @@ type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 type LitPerEntityTex    = '[ ]
 type LitPerEnity        = ShaderData LitPerEntityUni LitPerEntityTex
 
-type LitVertex          = P3
+type LitVertex          = Y'P3 GLfloat
 
 data LitPassChannels = LitPassChannels
     { lBufferChannel :: Texture 

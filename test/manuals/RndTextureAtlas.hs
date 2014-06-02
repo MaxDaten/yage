@@ -1,10 +1,12 @@
 {-# LANGUAGE ParallelListComp #-}
 module Main where
 
+import qualified Prelude
+
 import Yage.Prelude
+import Yage.Data.List (piz)
 import Yage.Images
 
-import Data.List (sortBy)
 import Control.Monad (when)
 import Yage.Texture.Atlas
 import Codec.Picture

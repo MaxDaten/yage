@@ -10,8 +10,8 @@ module Yage.Formats.Ygm
     ) where
 
 import Yage.Prelude
+import Yage.Lens
 
-import Data.Proxy
 import Data.Binary
 import Data.Text.Binary as Bin ()
 import Data.Vinyl.Instances ()
@@ -19,33 +19,44 @@ import Codec.Compression.GZip
 import qualified Data.ByteString.Lazy as B
 
 import Yage.Geometry
+import Linear
 
 -- yage geometry model
-data YGM e = YGM
+type InternalFormat a = Y'P3TX2TN a
+type YGMFormat = InternalFormat Float
+data YGM = YGM
     { ygmName  :: Text
-    , ygmModel :: Geometry (Vertex e) (Triangle Int)
-    } deriving ( Typeable, Generic )
+    , ygmModel :: TriGeo (Vertex YGMFormat)
+    } deriving ( Eq, Typeable, Generic )
 
 
-
-ygmToFile :: (v ~ (P3T2NT3 pn txn nn tgn a), Binary (Vertex v)) 
-          => FilePath -> YGM v -> IO ()
+ygmToFile :: FilePath -> YGM -> IO ()
 ygmToFile name = B.writeFile (fpToString name) . compress . encode
 
-ygmFromFile :: (v ~ (P3T2NT3 pn txn nn tgn a), Binary (Vertex v)) 
-            => FilePath -> Proxy v -> IO (YGM v)
-ygmFromFile path _p = decode . decompress <$> (B.readFile $ fpToString path)
+ygmFromFile :: FilePath -> IO YGM
+ygmFromFile path = decode . decompress <$> (B.readFile $ fpToString path)
 
 
-vertexFormat :: (v ~ (P3T2NT3 pn txn nn tgn a), Binary (Vertex v)) 
-             => Pos a -> Tex a -> NT a -> (Vertex v)
-vertexFormat pos tex (normal, tangent) =
-    position3 =: pos <+>
-    texture2  =: tex <+>
-    normal3   =: normal <+>
-    tangent3  =: tangent
+internalFormat :: ( Real a, Fractional b ) => 
+               Pos a ->
+               Tex a ->
+               TBN a ->
+               Vertex (InternalFormat b)
+internalFormat pos tex tangentBasis@(V3 t _b n) =
+    yposition3 =: ( realToFrac <$> pos )      <+>
+    ytexture2  =: ( realToFrac <$> tex )      <+>
+    ytangentX  =: ( realToFrac <$> tangent )  <+>
+    ytangentZ  =: ( realToFrac <$> normal )
+    where
+    tangent   = vector t
+    normal    = vector n & _w .~ basisSign
+    basisSign = signum $ det33 tangentBasis
 
-instance Show (YGM e) where
+
+sameModel :: YGM -> YGM -> Bool
+sameModel a b = (ygmModel a) == (ygmModel b) 
+
+instance Show YGM where
     show YGM{ygmName} = format "YGM {name = {0}}" [show ygmName]
 
-instance Binary (Vertex e) => Binary (YGM e)
+instance Binary YGM

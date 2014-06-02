@@ -17,14 +17,14 @@ import qualified Data.Text.Lazy            as T
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import qualified Yage.Geometry             as Vert (P2TX2C4)
+import           Yage.Geometry             (Y'P2TX2C4)
 import           Yage.Images
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
 -----------------------------------------------------------------------------------------
 
 
-type GlyphVertex = Vert.P2TX2C4
+type GlyphVertex = Y'P2TX2C4 GLfloat
 
 type Caret = V2 Double
 data TextBuffer = TextBuffer

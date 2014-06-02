@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Yage.Prelude
+import Yage.Prelude hiding (sortBy, toList)
 
 import Yage.Texture.Atlas
 import Yage.Images
@@ -9,10 +9,9 @@ import Yage.Images
 import Graphics.Font
 import Control.Monad
 
-import Data.List
-import Data.Map (toList)
 import Codec.Picture
-
+import Data.List (sortBy)
+import Data.Map (toList)
 
 fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
 atlasFile = encodeString $ "atlas" <.> "png"
