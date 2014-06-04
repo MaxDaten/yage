@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
 module Yage.Pipeline.Deferred.SkyPass where
 
 import           Yage.Prelude
@@ -17,7 +18,7 @@ import qualified Graphics.Rendering.OpenGL          as GL
 
 type SkyPerFrame      = ShaderData PerspectiveUniforms '[]
 
-type SkyUniforms      =  [ YModelMatrix, YSkyColor ]
+type SkyUniforms      = '[ YModelMatrix ] ++ YSkyMaterial
 type SkyTextures      = '[ YSkyTex ]
 type SkyPerEntity     = ShaderData SkyUniforms SkyTextures
 
@@ -70,5 +71,5 @@ toSkyEntity sky = toRenderEntity shData sky
     shData   = ShaderData uniforms RNil `append` material
     uniforms = modelMatrix =: ( (fmap . fmap) realToFrac $ calcModelMatrix $ sky^.transformation )
 
-    material :: ShaderData '[ YSkyColor ] '[ YSkyTex ]
+    material :: YSkyData
     material = materialUniforms $ sky^.materials

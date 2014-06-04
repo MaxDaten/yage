@@ -9,7 +9,6 @@ import Data.Vinyl
 import Graphics.Rendering.OpenGL (GLfloat, GLint)
 
 import Yage.Rendering.Viewport
-import Yage.Rendering.Transformation
 import Yage.Rendering.Shader
 
 import Yage.Camera
@@ -89,10 +88,4 @@ perspectiveUniforms vp cam =
     in viewMatrix       =: viewM <+>
        vpMatrix         =: vpM
 
-
-calcModelMatrix :: (Num a) => Transformation a -> M44 a
-calcModelMatrix trans =
-    let scaleM       = kronecker . point $ trans^.transScale
-        transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
-    in transM !*! scaleM
 

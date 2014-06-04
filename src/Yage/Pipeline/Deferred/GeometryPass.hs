@@ -20,16 +20,17 @@ import Yage.Rendering
 import qualified Graphics.Rendering.OpenGL as GL
 
 
---type GeoGlobalUniforms = PerspectiveUniforms ++ [YZFarPlane, YAlbedoTex, YNormalTex]
---type AlbedoMaterialU   = YMaterial "AlbedoColor" "AlbedoTexture"
---type NormalMaterialU   = YMaterial "NormalColor" "NormalTexture"
-
 type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
 type GeoPerFrameTex    = '[]
 type GeoPerFrame       = ShaderData GeoPerFrameUni GeoPerFrameTex
 
 
-type GeoPerEntityUni   = [ YModelMatrix, YNormalMatrix, YAlbedoColor, YNormalColor ]
+type GeoPerEntityUni   = [ YModelMatrix
+                         , YNormalMatrix
+                         ] 
+                         ++ YAlbedoMaterial 
+                         ++ YNormalMaterial
+
 type GeoPerEntityTex   = [ YAlbedoTex, YNormalTex ]
 type GeoPerEntity      = ShaderData GeoPerEntityUni GeoPerEntityTex
 
@@ -158,4 +159,3 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
     
     fboDepth GeoPassChannels{gDepthChannel} = 
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
-

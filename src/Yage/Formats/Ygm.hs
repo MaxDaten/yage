@@ -37,7 +37,7 @@ ygmFromFile :: FilePath -> IO YGM
 ygmFromFile path = decode . decompress <$> (B.readFile $ fpToString path)
 
 
-internalFormat :: ( Real a, Fractional b ) => 
+internalFormat :: ( Real a, Fractional a, Fractional b ) => 
                Pos a ->
                Tex a ->
                TBN a ->
@@ -45,12 +45,11 @@ internalFormat :: ( Real a, Fractional b ) =>
 internalFormat pos tex tangentBasis@(V3 t _b n) =
     yposition3 =: ( realToFrac <$> pos )      <+>
     ytexture2  =: ( realToFrac <$> tex )      <+>
-    ytangentX  =: ( realToFrac <$> tangent )  <+>
+    ytangentX  =: ( realToFrac <$> t )        <+>
     ytangentZ  =: ( realToFrac <$> normal )
     where
-    tangent   = vector t
     normal    = vector n & _w .~ basisSign
-    basisSign = signum $ det33 tangentBasis
+    basisSign = if det33 tangentBasis < 0 then -1.0 else 1.0
 
 
 sameModel :: YGM -> YGM -> Bool

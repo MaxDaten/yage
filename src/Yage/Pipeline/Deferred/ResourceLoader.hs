@@ -29,7 +29,7 @@ deferredResourceLoader = mkResourceLoader fromInternal
     fromInternal internal =
         yposition3 =: ( realToFrac <$> ( rGet yposition3 internal :: V3 Float ) ) <+>
         ytexture2  =: ( realToFrac <$> ( rGet ytexture2 internal  :: V2 Float ) ) <+>
-        ytangentX  =: ( realToFrac <$> ( rGet ytangentX internal  :: V4 Float ) ) <+>
+        ytangentX  =: ( realToFrac <$> ( rGet ytangentX internal  :: V3 Float ) ) <+>
         ytangentZ  =: ( realToFrac <$> ( rGet ytangentZ internal  :: V4 Float ) )
 
 

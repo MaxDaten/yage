@@ -39,3 +39,4 @@ sRGBV4 ca =
 
 instance (Num a) => Semigroup (Colour a)
 instance (Num a) => Semigroup (AlphaColour a)
+

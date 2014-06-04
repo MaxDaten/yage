@@ -10,10 +10,12 @@ module Yage.Material
 
 import Yage.Prelude
 import Yage.Lens
-import Yage.Images              as Material
-import Yage.Color               as Material
-import Yage.Rendering.Resources as Material
+import Yage.Images                   as Material
+import Yage.Color                    as Material
+import Yage.Rendering.Transformation as Material
+import Yage.Rendering.Resources      as Material
 import Yage.Resources
+
 
 
 type MaterialTexture = TextureResource 
@@ -23,8 +25,9 @@ type MaterialPixel   = ColourPixel Double
 -- | resulting texel color will be matColor * matTexture
 -- so white matColor will result in 100% color from matTexture
 data Material tex = Material
-    { _matColor    :: !MaterialColorA
-    , _matTexture  :: !tex
+    { _matColor          :: !MaterialColorA
+    , _matTexture        :: !tex
+    , _matTransformation :: !( Transformation Double )
     } deriving ( Functor )
 
 makeLenses ''Material
@@ -64,7 +67,10 @@ zeroNormalDummy = (`pxTexture` zeroNormal)
 
 
 mkMaterial :: Applicative f => MaterialColorA -> TextureResource -> AResourceMaterial f
-mkMaterial color texture = Material color (pure texture)
+mkMaterial color texture = Material color (pure texture) idTransformation
+
+mkMaterialF :: MaterialColorA -> f TextureResource -> AResourceMaterial f
+mkMaterialF color textureF = Material color textureF idTransformation
 
 defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
 defaultMaterial ctr = 
@@ -91,7 +97,7 @@ instance Applicative Material where
 
 instance Applicative f => Monoid (AResourceMaterial f) where
     mempty = defaultMaterialSRGB
-    (Material col _tex) `mappend` (Material col' tex') = Material (col <> col') (tex')
+    (Material col _tex _trans) `mappend` (Material col' tex' trans') = Material (col <> col') (tex') (trans')
 
 
 instance Applicative f => Default (AResourceMaterial f) where

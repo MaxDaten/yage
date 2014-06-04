@@ -26,8 +26,8 @@ import                  Yage.Rendering.Mesh
 type YPosition3 a = Position3 "vPosition" a
 type YPosition2 a = Position2 "vPosition" a
 type YTexture2  a = Texture2  "vTexture"  a
-type YTangentX  a = Tangent4  "vTangentX" a
-type YTangentY  a = Tangent4  "vTangentY" a
+type YTangentX  a = Tangent3  "vTangentX" a
+type YTangentY  a = Tangent3  "vTangentY" a
 type YTangentZ  a = Tangent4  "vTangentZ" a
 type YColor4    a = Color4    "vColor"    a
 

@@ -15,27 +15,31 @@ import Yage.Rendering.Shader
 import Yage.Material
 
 
-type YMaterial c t      = ShaderData '[ YMaterialColor c ] '[ TextureUniform t ]
+
+type YMaterialData m t = ShaderData m '[t]
+
+type YMaterialUni c m   = [ YMaterialColor c, YTextureMatrix m ]
 
 type YMaterialColor c   = c ::: V4 GLfloat
 type YMaterialTex t     = TextureUniform t
+type YTextureMatrix m   = m ::: M44 GLfloat
 
-type YAlbedoTex         = TextureUniform "AlbedoTexture"
-type YAlbedoColor       = YMaterialColor "AlbedoColor"
+type YAlbedoTex         = YMaterialTex "AlbedoTexture"
+type YAlbedoMaterial    = YMaterialUni "AlbedoColor" "AlbedoTextureMatrix"
+type YAlbedoData        = YMaterialData YAlbedoMaterial YAlbedoTex
 
-type YNormalTex         = TextureUniform "NormalTexture"
-type YNormalColor       = YMaterialColor "NormalColor"
+type YNormalTex         = YMaterialTex "NormalTexture"
+type YNormalMaterial    = YMaterialUni "NormalColor" "NormalTextureMatrix"
+type YNormalData        = YMaterialData YNormalMaterial YNormalTex
 
-type YTangentTex        = TextureUniform "TangentTexture"
-type YTangentColor      = YMaterialColor "TangentColor"
-
-type YDepthTex          = TextureUniform "DepthTexture"
+type YDepthTex          = YMaterialTex "DepthTexture"
 type YDepthColor        = YMaterialColor "DepthColor"
 
-type YSkyTex            = TextureUniform "SkyTexture"
-type YSkyColor          = YMaterialColor "SkyColor"
+type YSkyTex            = YMaterialTex "SkyTexture"
+type YSkyMaterial       = YMaterialUni "SkyColor" "SkyTextureMatrix"
+type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 
-type YScreenTex         = TextureUniform "ScreenTexture"
+type YScreenTex         = YMaterialTex "ScreenTexture"
 
 
 {--
@@ -68,13 +72,17 @@ materialColor = Field
 materialTexture :: TextureUniform t
 materialTexture = Field
 
+textureMatrix :: YTextureMatrix m
+textureMatrix = Field
+
 
 {--
 Utility
 --}
 
-materialUniforms :: RenderMaterial -> YMaterial c t
+materialUniforms :: RenderMaterial -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
 materialUniforms mat =
-    let col = materialColor   =: (realToFrac <$> mat^.matColor.to linearV4)
+    let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
+              textureMatrix   =: ( (fmap.fmap) realToFrac $ calcModelMatrix $ mat^.matTransformation )
         tex = materialTexture =: (mat^.matTexture)
     in ShaderData col tex
