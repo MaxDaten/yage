@@ -151,7 +151,6 @@ instance HasResources vert (GeoMaterial ResourceMaterial) (GeoMaterial RenderMat
     requestResources = mapM requestResources
 
 
-
 instance FramebufferSpec GeoPassChannels RenderTargets where
     fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} = 
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0

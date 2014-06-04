@@ -34,8 +34,8 @@ yDeferredLighting viewport scene =
     in do
     base        `runRenderPass`  ( toGeoEntity scene <$> scene^.sceneEntities )
     
-    lighting    `runRenderPass`  ( toLitEntity <$> scene^.sceneEnvironment.envLights )
+    lighting    `runRenderPass`  ( toLitEntity       <$> scene^.sceneEnvironment.envLights )
     
-    atmosphere  `runRenderPass`  ( toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
+    atmosphere  `runRenderPass`  ( toSkyEntity       <$> scene^.sceneEnvironment.envSky.to toList )
     
-    final       `runRenderPass`  [ toScrEntity  $  Pass.Screen viewport ]
+    final       `runRenderPass`  [ toScrEntity        $  Pass.Screen viewport ]
