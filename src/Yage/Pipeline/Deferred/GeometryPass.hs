@@ -101,9 +101,9 @@ geoPass viewport scene = PassDescr
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
-                           { gAlbedoChannel = Texture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
-                           , gNormalChannel = Texture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
-                           , gDepthChannel  = Texture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
+                           { gAlbedoChannel = mkTexture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
+                           , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
+                           , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
                            }
     
     geoShaderData   :: GeoPerFrame 
@@ -134,7 +134,7 @@ toGeoEntity scene ent = toRenderEntity shaderData ent
 defaultGeoMaterial :: GeoMaterial ResourceMaterial
 defaultGeoMaterial = 
     let albedoMat = defaultMaterialSRGB
-        normalMat = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ Texture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
+        normalMat = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
     in GeoMaterial albedoMat normalMat
 
 

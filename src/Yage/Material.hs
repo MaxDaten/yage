@@ -75,7 +75,7 @@ mkMaterialF color textureF = Material color textureF idTransformation
 defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
 defaultMaterial ctr = 
     let color   = opaque white
-        texture = TexturePure $ Texture "WHITEDUMMY" $ Texture2D (whiteDummy ctr)
+        texture = TexturePure $ Texture "WHITEDUMMY" def $ Texture2D (whiteDummy ctr)
     in mkMaterial color texture
 
 
@@ -118,8 +118,8 @@ instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
         
         let cubeImgs = cubeTexs & mapped %~ ( getTextureImg . textureData )
-            Just ( Texture baseName _ ) = firstOf traverse $ cubeTexs
-        return $ mat & matTexture .~ ( Texture (baseName ++ "-Cube") $ TextureCube cubeImgs )
+            Just ( Texture baseName conf _ ) = firstOf traverse $ cubeTexs
+        return $ mat & matTexture .~ Texture (baseName ++ "-Cube") conf (TextureCube cubeImgs)
         
         where
         getTextureImg (Texture2D img) = img

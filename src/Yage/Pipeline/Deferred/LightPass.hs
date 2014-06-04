@@ -92,7 +92,7 @@ lightPass base viewport scene =
     vpgl            = fromIntegral <$> viewport
     outSpec         = mkTextureSpec' (viewport^.vpSize) GL.RGB
     
-    lightTex        = Texture "lbuffer" $ TextureBuffer GL.Texture2D outSpec
+    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D outSpec
 
     lightShaderData :: LitPerFrame
     lightShaderData = ShaderData lightUniforms attributeTextures
