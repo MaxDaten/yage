@@ -117,15 +117,16 @@ geoPass viewport scene = PassDescr
 Geo Pass Utils
 --}
 
-toGeoEntity :: GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
-toGeoEntity ent = toRenderEntity shaderData ent
+toGeoEntity :: GeoPassScene env -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
+toGeoEntity scene ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
                  materialUniforms (ent^.materials.albedoMaterial) `append`
                  materialUniforms (ent^.materials.normalMaterial)
     uniforms =
         let modelM       = calcModelMatrix $ ent^.transformation
-            normalM      = (adjoint <$> (inv33 . fromTransformation $ modelM) {--<|> Just eye3--}) ^?!_Just
+            viewM        = (fmap . fmap) realToFrac (scene^.sceneCamera.cameraHandle.to camMatrix)
+            normalM      = (adjoint <$> (inv33 . fromTransformation $ viewM !*! modelM) {--<|> Just eye3--}) ^?!_Just
         in modelMatrix       =: ((fmap . fmap) realToFrac modelM)           <+>
            normalMatrix      =: ((fmap . fmap) realToFrac normalM)
 

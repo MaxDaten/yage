@@ -32,7 +32,7 @@ yDeferredLighting viewport scene =
         final      = Pass.screenPass (Pass.lBufferChannel . renderTargets $ lighting) viewport
         --final      = Pass.screenPass (Pass.gNormalChannel . renderTargets $ base) viewport
     in do
-    base        `runRenderPass`  ( toGeoEntity <$> scene^.sceneEntities )
+    base        `runRenderPass`  ( toGeoEntity scene <$> scene^.sceneEntities )
     
     lighting    `runRenderPass`  ( toLitEntity <$> scene^.sceneEnvironment.envLights )
     
