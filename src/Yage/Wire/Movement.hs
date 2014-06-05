@@ -55,7 +55,7 @@ rotationByVelocity !xMap !yMap =
 
 
 cameraMovement :: (Real t) =>
-               V3 Float -> MovementKeys -> YageWire t (CameraHandle) (CameraHandle)
+               V3 Float -> MovementKeys -> YageWire t Camera Camera
 cameraMovement startPos (MovementKeys left right forw backw) =
     let acc         = 2
         toLeft      = -xAxis
@@ -74,11 +74,11 @@ cameraMovement startPos (MovementKeys left right forw backw) =
 
 
 cameraRotation :: (Real t) => 
-               V2 Float -> YageWire t (CameraHandle) (CameraHandle)
+               V2 Float -> YageWire t Camera Camera
 cameraRotation mouseSensitivity =
     proc cam -> do
         velV <- arr ((-mouseSensitivity) * ) . (whileKeyDown Key'LeftShift . mouseVelocity <|> 0) -< () -- counter clock wise
         x    <- integral 0                   -< velV^._x
         y    <- integrateBounded (-90, 90) 0 -< velV^._y
-        returnA -< cam `pan`  x
-                       `tilt` y
+        returnA -< cam & cameraHandle %~ flip pan x
+                       & cameraHandle %~ flip tilt y

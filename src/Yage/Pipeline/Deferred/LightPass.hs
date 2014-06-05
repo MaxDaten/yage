@@ -150,18 +150,19 @@ toLitEntity :: LitEntityDraw -> RenderEntity LitVertex LitPerEnity
 toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
     where
     uniforms =
-        modelMatrix =: theModelMatrix  <+>
-        lightAttributes light
+        modelMatrix =: ((fmap.fmap) realToFrac $ ent^.transformation.transformationMatrix) <+>
+        lightAttributes
     
-    theModelMatrix = (fmap.fmap) realToFrac $ calcModelMatrix $ ent^.transformation
 
-    lightAttributes :: Light -> Uniforms YLightAttributes
-    lightAttributes Light{lightType,lightAttribs} = case lightType of
-        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                    <+>
-                             U.lightRadius   =: (realToFrac <$> pLightRadius)                      <+>
-                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttribs)           <+>
-                             U.lightAtten    =: (realToFrac <$> lAttrAttenuation lightAttribs)     <+>
-                             U.lightSpecExp  =: (realToFrac $ lAttrSpecularExp lightAttribs)
+    lightAttributes :: Uniforms YLightAttributes
+    lightAttributes = 
+        let lightAttr = lightAttribs light
+        in case lightType light of
+        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                 <+>
+                             U.lightRadius   =: (realToFrac <$> pLightRadius)                   <+>
+                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr)           <+>
+                             U.lightAtten    =: (realToFrac <$> lAttrAttenuation lightAttr)     <+>
+                             U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr)
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
         OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 

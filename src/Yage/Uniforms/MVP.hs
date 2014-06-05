@@ -31,7 +31,7 @@ type YZProjRatio       = "ZProjRatio"           ::: V2 GLfloat
 type YFieldOfView      = "Fovy"                 ::: GLfloat
 
 
-type PerspectiveUniforms = [YViewMatrix, YVPMatrix]
+type PerspectiveUniforms = [ YViewMatrix, YVPMatrix ]
 
 {--
 Fields

@@ -11,6 +11,7 @@ import Yage.Prelude
 import Yage.Lens
 
 import Yage.Rendering.Viewport
+import Yage.Rendering.Transformation
 
 import qualified Graphics.GLUtil.Camera3D            as Cam
 import Graphics.GLUtil.Camera3D            as Cam (camMatrix)
@@ -34,21 +35,52 @@ data Camera =
 
 deriving instance Show CameraHandle
 
+mkCameraFps :: (Double, Double) -> Float -> Camera
+mkCameraFps (near,far) fov = Camera3D Cam.fpsCamera (CameraPlanes near far) fov
+
+mkCamera2d :: CameraHandle -> (Double, Double) -> Camera
+mkCamera2d hnd (near,far) = Camera2D hnd (CameraPlanes near far)
 
 cameraHandle :: Lens' Camera CameraHandle
-cameraHandle f (Camera3D hnd planes fov) = fmap (\h -> Camera3D h planes fov) (f hnd)
-cameraHandle f (Camera2D hnd planes) = fmap (`Camera2D` planes) (f hnd)
+cameraHandle = lens getHandle setHandle where
+    getHandle ( Camera3D hnd _ _ ) = hnd
+    getHandle ( Camera2D hnd _   ) = hnd
+    
+    setHandle ( Camera3D _ planes fov ) hnd = Camera3D hnd planes fov
+    setHandle ( Camera2D _ planes     ) hnd = Camera2D hnd planes
+
 
 cameraPlanes :: Lens' Camera CameraPlanes
-cameraPlanes f (Camera3D hnd planes fov) = fmap (\p -> Camera3D hnd p fov) (f planes)
-cameraPlanes f (Camera2D hnd planes) = fmap (Camera2D hnd) (f planes)
+cameraPlanes = lens getPlanes setPlanes where
+    getPlanes ( Camera3D _ planes _ ) = planes
+    getPlanes ( Camera2D _ planes   ) = planes
+    
+    setPlanes ( Camera3D hnd _ fov ) planes = Camera3D hnd planes fov
+    setPlanes ( Camera2D hnd _     ) planes = Camera2D hnd planes
 
-cameraLocation :: Lens' CameraHandle (V3 Float)
-cameraLocation f (cam@Cam.Camera{Cam.location})= fmap (\l -> cam{Cam.location = l}) (f location)
 
-cameraOrientation :: Lens' CameraHandle (Quaternion Float)
-cameraOrientation f (cam@Cam.Camera{Cam.orientation}) = fmap (\o -> cam{Cam.orientation = o}) (f orientation)
+cameraTransformation :: Lens' Camera (Transformation Float)
+cameraTransformation = cameraHandle.handleTransformation
 
+cameraLocation :: Lens' Camera (V3 Float)
+cameraLocation = cameraTransformation.transPosition
+
+cameraOrientation :: Lens' Camera (Quaternion Float)
+cameraOrientation = cameraTransformation.transOrientation
+
+handleTransformation :: Lens' CameraHandle (Transformation Float)
+handleTransformation = lens getTransformation setTransformation
+    where
+    getTransformation Cam.Camera{Cam.orientation, Cam.location} 
+        = Transformation location orientation 1
+    
+    setTransformation hnd Transformation{ _transPosition, _transOrientation } 
+        = hnd { Cam.orientation = _transOrientation
+              , Cam.location    = _transPosition
+              }
+
+cameraMatrix :: Getter Camera (M44 Float)
+cameraMatrix = cameraHandle.to Cam.camMatrix 
 
 -- | for chaining like:
 -- >>> cam `dolly` movement
@@ -75,7 +107,6 @@ rollRad = flip Cam.rollRad
 
 roll :: CameraHandle -> Float -> CameraHandle
 roll = flip Cam.roll
-
 
 
 

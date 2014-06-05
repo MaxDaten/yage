@@ -124,15 +124,19 @@ toGeoEntity scene ent = toRenderEntity shaderData ent
                  materialUniforms (ent^.materials.albedoMaterial) `append`
                  materialUniforms (ent^.materials.normalMaterial)
     uniforms =
-        let modelM       = calcModelMatrix $ ent^.transformation
-            viewM        = (fmap . fmap) realToFrac (scene^.sceneCamera.cameraHandle.to camMatrix)
-            normalM      = (adjoint <$> (inv33 . fromTransformation $ viewM !*! modelM) {--<|> Just eye3--}) ^?!_Just
-        in modelMatrix       =: ((fmap . fmap) realToFrac modelM)           <+>
-           normalMatrix      =: ((fmap . fmap) realToFrac normalM)
+        modelMatrix       =: ( ent^.transformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
+        normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
+
+    theNormalMatrix :: M33 Float
+    theNormalMatrix = 
+        let invCam        = scene^.sceneCamera & cameraTransformation %~ inverseTransformation
+            invViewM      = invCam^.cameraMatrix
+            invModelM     = ent^.transformation.to inverseTransformation.transformationMatrix
+        in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 
 
 defaultGeoMaterial :: GeoMaterial ResourceMaterial
-defaultGeoMaterial = 
+defaultGeoMaterial =
     let albedoMat = defaultMaterialSRGB
         normalMat = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
     in GeoMaterial albedoMat normalMat

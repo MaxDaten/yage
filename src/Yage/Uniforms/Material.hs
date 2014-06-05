@@ -83,6 +83,6 @@ Utility
 materialUniforms :: RenderMaterial -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
 materialUniforms mat =
     let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
-              textureMatrix   =: ( (fmap.fmap) realToFrac $ calcModelMatrix $ mat^.matTransformation )
+              textureMatrix   =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
         tex = materialTexture =: (mat^.matTexture)
     in ShaderData col tex
