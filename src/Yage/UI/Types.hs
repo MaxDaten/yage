@@ -15,15 +15,6 @@ import           Yage.Core.Application as Core (Key(..), KeyState(..), MouseButt
 import           Linear
 ---------------------------------------------------------------------------------------------------
 
-data MovementKeys = MovementKeys
-    { _moveLeft      :: Key
-    , _moveRight     :: Key
-    , _moveForward   :: Key
-    , _moveBackward  :: Key
-    } 
-    deriving ( Show, Typeable )
-
-
 data MouseButtonEvent = MouseButtonEvent !MouseButton !MouseButtonState !ModifierKeys
     deriving (Show, Typeable)
 

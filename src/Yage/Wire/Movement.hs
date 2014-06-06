@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE Arrows #-}
 module Yage.Wire.Movement where
 
@@ -14,6 +15,8 @@ import Yage.Wire.Input
 import FRP.Netwire as Netwire hiding (loop, left, right)
 
 import Yage.Camera
+
+type Movement3d a = V3 a
 {--
 -- Movement
 --}
@@ -53,31 +56,71 @@ rotationByVelocity !xMap !yMap =
     in combineOrientations . applyOrientations . integral 0
 
 
+{--
+flyCamera :: Real t => 
+          V3 Float -> 
+          -- ^ camera world start position
+          Movement (YageWire t ) -> 
+          -- ^ MovementKey direction mapping 
+          YageWire t a (V2 Float) ->
+          -- ^ mouse rotational velocity source
+          YageWire t Camera Camera
+flyCamera start keys = cameraMovement start keys . cameraRotation
+--}
+--leftA      <- pure ( toLeft   ) . whileKeyDown left  <|> 0 -< ()
+--        rightA     <- pure ( toRight  ) . whileKeyDown right <|> 0 -< ()
+--        forwardA   <- pure ( forward  ) . whileKeyDown forw  <|> 0 -< ()
+--        backwardA  <- pure ( backward ) . whileKeyDown backw <|> 0 -< ()
+--        let trans  = leftA + rightA + forwardA + backwardA
 
-cameraMovement :: (Real t) =>
-               V3 Float -> MovementKeys -> YageWire t Camera Camera
-cameraMovement startPos (MovementKeys left right forw backw) =
-    let acc         = 2
-        toLeft      = -xAxis
-        toRight     =  xAxis
-        forward     = -zAxis
-        backward    =  zAxis
-    in proc cam -> do
-        leftA      <- pure ( toLeft   ) . whileKeyDown left  <|> 0 -< ()
-        rightA     <- pure ( toRight  ) . whileKeyDown right <|> 0 -< ()
-        forwardA   <- pure ( forward  ) . whileKeyDown forw  <|> 0 -< ()
-        backwardA  <- pure ( backward ) . whileKeyDown backw <|> 0 -< ()
-        let trans  = leftA + rightA + forwardA + backwardA
-            r      = (cam^.cameraOrientation)
-        transV  <- integral startPos -< acc *^ normalize $ r `rotate` trans 
-        returnA -< (cam & cameraLocation .~ transV)
+-- | planar movement in a 3d space
+wasdMovement :: (Real t, Num a) => V2 a -> YageWire t () (V3 a)
+wasdMovement (V2 xVel zVel) =
+    let pos = V3 ( whileKeyDown Key'D . pure xVel ) ( hold . never ) ( whileKeyDown Key'S . pure zVel ) <&> (<|> 0)
+        neg = V3 ( whileKeyDown Key'A . pure xVel ) ( hold . never ) ( whileKeyDown Key'W . pure zVel ) <&> (<|> 0)
+    in wire3d $ liftA2 (+) (pos) (negate <$> neg)
 
 
-cameraRotation :: (Real t) => 
-               V2 Float -> YageWire t Camera Camera
-cameraRotation mouseSensitivity =
+
+
+wire3d :: V3 (YageWire t a b) -> YageWire t a (V3 b)
+wire3d (V3 xw yw zw) = V3 <$> xw <*> yw <*> zw
+
+
+
+translationWire :: Num a =>
+    M33 a ->
+    -- ^ the orthogonal basis
+    V3 (YageWire t () a) ->
+    -- ^ the signal source for each basis component
+    YageWire t () (V3 a)
+    -- ^ the resulting translation in the space
+translationWire basis = liftA2 (!*) (pure basis) . wire3d
+
+
+
+cameraMovement :: Real t =>
+    V3 Float ->
+    -- ^ starting position
+    YageWire t () (V3 Float) ->
+    -- ^ the source of the current translation velocity
+    YageWire t Camera Camera
+    -- ^ updates the camera translation
+cameraMovement startPos movementSource =
     proc cam -> do
-        velV <- arr ((-mouseSensitivity) * ) . (whileKeyDown Key'LeftShift . mouseVelocity <|> 0) -< () -- counter clock wise
+        trans       <- movementSource    -< ()
+        worldTrans  <- integral startPos -< (cam^.cameraOrientation) `rotate` trans
+        returnA -< cam & cameraLocation .~ worldTrans
+
+-- mouseVelocity sens 
+
+-- arr ((-mouseSensitivity) * ) . ( velcoityModif . mouseVelocity <|> 0 )
+cameraRotation :: (Real t) => 
+               YageWire t () (V2 Float) -> 
+               YageWire t Camera Camera
+cameraRotation velocitySource =
+    proc cam -> do
+        velV <- velocitySource -< () -- counter clock wise
         x    <- integral 0                   -< velV^._x
         y    <- integrateBounded (-90, 90) 0 -< velV^._y
         returnA -< cam & cameraHandle %~ flip pan x
