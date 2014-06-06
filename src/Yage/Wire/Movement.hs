@@ -16,7 +16,6 @@ import FRP.Netwire as Netwire hiding (loop, left, right)
 
 import Yage.Camera
 
-type Movement3d a = V3 a
 {--
 -- Movement
 --}
@@ -55,23 +54,6 @@ rotationByVelocity !xMap !yMap =
         combineOrientations = arr (\(!qu, !qr) -> qu * qr)
     in combineOrientations . applyOrientations . integral 0
 
-
-{--
-flyCamera :: Real t => 
-          V3 Float -> 
-          -- ^ camera world start position
-          Movement (YageWire t ) -> 
-          -- ^ MovementKey direction mapping 
-          YageWire t a (V2 Float) ->
-          -- ^ mouse rotational velocity source
-          YageWire t Camera Camera
-flyCamera start keys = cameraMovement start keys . cameraRotation
---}
---leftA      <- pure ( toLeft   ) . whileKeyDown left  <|> 0 -< ()
---        rightA     <- pure ( toRight  ) . whileKeyDown right <|> 0 -< ()
---        forwardA   <- pure ( forward  ) . whileKeyDown forw  <|> 0 -< ()
---        backwardA  <- pure ( backward ) . whileKeyDown backw <|> 0 -< ()
---        let trans  = leftA + rightA + forwardA + backwardA
 
 -- | planar movement in a 3d space
 wasdMovement :: (Real t, Num a) => V2 a -> YageWire t () (V3 a)
