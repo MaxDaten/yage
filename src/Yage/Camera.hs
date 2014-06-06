@@ -35,11 +35,16 @@ data Camera =
 
 deriving instance Show CameraHandle
 
-mkCameraFps :: (Double, Double) -> Float -> Camera
-mkCameraFps (near,far) fov = Camera3D Cam.fpsCamera (CameraPlanes near far) fov
+
+mkCameraFps :: Float -> (Double, Double) -> Transformation Float -> Camera
+mkCameraFps fov (near,far) trans = 
+    Camera3D Cam.fpsCamera (CameraPlanes near far) fov
+        & cameraTransformation .~ trans
+
 
 mkCamera2d :: CameraHandle -> (Double, Double) -> Camera
 mkCamera2d hnd (near,far) = Camera2D hnd (CameraPlanes near far)
+
 
 cameraHandle :: Lens' Camera CameraHandle
 cameraHandle = lens getHandle setHandle where
