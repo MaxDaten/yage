@@ -124,14 +124,14 @@ toGeoEntity scene ent = toRenderEntity shaderData ent
                  materialUniforms (ent^.materials.albedoMaterial) `append`
                  materialUniforms (ent^.materials.normalMaterial)
     uniforms =
-        modelMatrix       =: ( ent^.transformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
+        modelMatrix       =: ( ent^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
         normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
 
     theNormalMatrix :: M33 Float
     theNormalMatrix = 
         let invCam        = scene^.sceneCamera & cameraTransformation %~ inverseTransformation
             invViewM      = invCam^.cameraMatrix
-            invModelM     = ent^.transformation.to inverseTransformation.transformationMatrix
+            invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 
 

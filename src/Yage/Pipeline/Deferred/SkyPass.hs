@@ -69,7 +69,7 @@ toSkyEntity sky = toRenderEntity shData sky
     where
     shData   :: SkyPerEntity
     shData   = ShaderData uniforms RNil `append` material
-    uniforms = modelMatrix =: ( sky^.transformation.transformationMatrix & traverse.traverse %~ realToFrac )
+    uniforms = modelMatrix =: ( sky^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )
 
     material :: YSkyData
     material = materialUniforms $ sky^.materials

@@ -33,10 +33,10 @@ import           Yage.Rendering                 hiding (P3)
 import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity
-    { _renderData      :: !mesh
-    , _materials       :: !mat
-    , _transformation  :: !( Transformation Float )
-    , _drawSettings    :: !GLDrawSettings
+    { _renderData            :: !mesh
+    , _materials             :: !mat
+    , _entityTransformation  :: !( Transformation Float )
+    , _drawSettings          :: !GLDrawSettings
     }
 
 makeLenses ''Entity
@@ -102,14 +102,14 @@ mkCameraHandle = Cam.Camera
 ## Entity Shortcuts
 --}
 
-entityPosition    :: Lens' (Entity vert mat) (Position Float)
-entityPosition    = transformation.transPosition
+entityPosition    :: Lens' (Entity vert mat) (V3 Float)
+entityPosition    = entityTransformation.transPosition
 
-entityScale       :: Lens' (Entity vert mat) (Scale Float)
-entityScale       = transformation.transScale
+entityScale       :: Lens' (Entity vert mat) (V3 Float)
+entityScale       = entityTransformation.transScale
 
-entityOrientation :: Lens' (Entity vert mat) (Orientation Float)
-entityOrientation = transformation.transOrientation
+entityOrientation :: Lens' (Entity vert mat) (Quaternion Float)
+entityOrientation = entityTransformation.transOrientation
 
 
 instance ( HasResources vert ent ent', HasResources vert env env' ) => 
@@ -124,7 +124,7 @@ instance ( HasResources vert mat mat', HasResources vert mesh mesh' ) =>
     requestResources entity = 
         Entity <$> ( requestResources $ entity^.renderData )
                <*> ( requestResources $ entity^.materials )
-               <*> ( pure $ entity^.transformation )
+               <*> ( pure $ entity^.entityTransformation )
                <*> ( pure $ entity^.drawSettings )
 
 
@@ -168,9 +168,9 @@ toRenderEntity shaderData ent =
 basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource geo) mat
 basicEntity =
     Entity 
-        { _renderData     = MeshPure emptyMesh
-        , _materials      = def
-        , _transformation = idTransformation
-        , _drawSettings   = GLDrawSettings GL.Triangles (Just GL.Back)
+        { _renderData           = MeshPure emptyMesh
+        , _materials            = def
+        , _entityTransformation = idTransformation
+        , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
         }
 

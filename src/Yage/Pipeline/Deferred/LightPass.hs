@@ -150,7 +150,7 @@ toLitEntity :: LitEntityDraw -> RenderEntity LitVertex LitPerEnity
 toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
     where
     uniforms =
-        modelMatrix =: ((fmap.fmap) realToFrac $ ent^.transformation.transformationMatrix) <+>
+        modelMatrix =: ((fmap.fmap) realToFrac $ ent^.entityTransformation.transformationMatrix) <+>
         lightAttributes
     
 
