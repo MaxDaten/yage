@@ -16,6 +16,8 @@ import Yage.Rendering.Transformation as Material
 import Yage.Rendering.Resources      as Material
 import Yage.Resources
 
+import Linear (V3, Quaternion)
+
 
 
 type MaterialTexture = TextureResource 
@@ -89,6 +91,19 @@ singleMaterial = lens getter setter
     getter = runIdentity . _matTexture 
     setter mat tex = mat & matTexture .~ ( pure tex )
 
+
+--  Lens Shortcuts
+
+stpFactor :: Lens' (Material tex) (V3 Double)
+stpFactor = matTransformation.transScale
+
+stpOffset :: Lens' (Material tex) (V3 Double)
+stpOffset = matTransformation.transPosition
+
+stpOrientation :: Lens' (Material tex) (Quaternion Double)
+stpOrientation = matTransformation.transOrientation
+
+-- Instances
 
 instance Applicative Material where
     pure tex = (runIdentity <$> defaultMaterialSRGB) & matTexture .~ tex
