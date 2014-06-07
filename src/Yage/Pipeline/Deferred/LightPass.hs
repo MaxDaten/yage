@@ -118,22 +118,15 @@ lightPass base viewport scene =
 
 mkLight :: Light -> LitEntityRes
 mkLight light = 
-    let (vol, trans) = lightData
-        lightEnt     = Entity vol () trans (GLDrawSettings GL.Triangles (Just GL.Front))
+    let vol           = lightData
+        lightEnt     = Entity vol () idTransformation (GLDrawSettings GL.Triangles (Just GL.Front))
     in LightEntity lightEnt light 
     where
+    lightData :: Mesh LitVertex
     lightData = case lightType light of
-        p@Pointlight{}    -> pLightVolume p
-        Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
-        OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
-    
-    pLightVolume Pointlight{..} 
-        = ( meshFromVertexList "plight" . vertices . triangles $ geoSphere 2 1
-          , idTransformation & transPosition .~ (realToFrac <$> pLightPosition)
-                             & transScale    .~ (realToFrac <$> pLightRadius)
-          )
-    pLightVolume _ = error "Yage.Pipeline.Deferred.Light.mkLight: unsupported light type" 
-
+        Pointlight{}      -> meshFromVertexList "plight" . vertices . triangles $ geoSphere 2 1
+        Spotlight{}       -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
+        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
 
 
 instance FramebufferSpec LitPassChannels RenderTargets where
@@ -157,12 +150,13 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
     lightAttributes :: Uniforms YLightAttributes
     lightAttributes = 
         let lightAttr = lightAttribs light
+            (attConst, attLinear, attQuad) = lAttrAttenuation lightAttr
         in case lightType light of
-        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> pLightPosition)                 <+>
-                             U.lightRadius   =: (realToFrac <$> pLightRadius)                   <+>
-                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr)           <+>
-                             U.lightAtten    =: (realToFrac <$> lAttrAttenuation lightAttr)     <+>
-                             U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr)
+        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> ent^.entityPosition )                 <+>
+                             U.lightRadius   =: (realToFrac <$> ent^.entityScale )                    <+>
+                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr )                <+>
+                             U.lightAtten    =: (realToFrac <$> V3 attConst attLinear attQuad )       <+>
+                             U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr )
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
-        OmniDirectional _ -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 

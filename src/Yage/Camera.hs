@@ -14,9 +14,10 @@ import Yage.Rendering.Viewport
 import Yage.Rendering.Transformation
 
 import qualified Graphics.GLUtil.Camera3D            as Cam
-import Graphics.GLUtil.Camera3D            as Cam (camMatrix)
+import           Graphics.GLUtil.Camera3D            as Cam (camMatrix)
 
-import Linear
+import           Linear                              hiding (lerp, slerp)
+import qualified Linear                              (lerp, slerp)
 
 
 type CameraHandle = Cam.Camera Float
@@ -62,6 +63,12 @@ cameraPlanes = lens getPlanes setPlanes where
     
     setPlanes ( Camera3D hnd _ fov ) planes = Camera3D hnd planes fov
     setPlanes ( Camera2D hnd _     ) planes = Camera2D hnd planes
+
+
+-- | apply a function of the fov ith the camera is a `Camera3D`
+withFov :: (Float -> Float) -> Camera -> Camera
+withFov f (Camera3D hnd planes fov) = Camera3D hnd planes (f fov)
+withFov _ cam = cam
 
 
 cameraTransformation :: Lens' Camera (Transformation Float)
@@ -143,4 +150,33 @@ orthographicMatrix l r t b n f =
        ( V4 0        (2/(t-b)) 0             (-(t+b)/(t-b)) )
        ( V4 0        0         ((-2)/(f-n))  (-(f+n)/(f-n)) )
        ( V4 0        0         0             1              )
+
+
+instance LinearInterpolatable CameraHandle where
+    lerp alpha u v = let linLerp = Linear.lerp (realToFrac alpha) in
+        Cam.Camera 
+            { Cam.forward       = linLerp      (Cam.forward u)      (Cam.forward v)
+            , Cam.upward        = linLerp      (Cam.upward u)       (Cam.upward v)
+            , Cam.rightward     = linLerp      (Cam.rightward u)    (Cam.rightward v)
+            , Cam.orientation   = Linear.slerp (Cam.orientation u)  (Cam.orientation v) (realToFrac alpha)
+            , Cam.location      = linLerp      (Cam.location u)     (Cam.location v)
+            }
+
+instance LinearInterpolatable CameraPlanes where
+    lerp alpha u v = let linLerp = Linear.lerp (realToFrac alpha) in
+        CameraPlanes
+            { _camZFar  = (linLerp (V1 $ u^.camZFar) (V1 $ v^.camZFar))^._x
+            , _camZNear = (linLerp (V1 $ u^.camZNear) (V1 $ v^.camZNear))^._x
+            }
+
+instance LinearInterpolatable Camera where
+    lerp alpha u v =
+        lerpedFov u v & cameraHandle .~ lerp alpha (u^.cameraHandle) (v^.cameraHandle)
+                      & cameraPlanes .~ lerp alpha (u^.cameraPlanes) (v^.cameraPlanes)
+        where
+        lerpedFov (Camera3D _ _ ufov) (Camera3D _ _ vfov) = withFov (const $ (Linear.lerp (realToFrac alpha) (V1 ufov) (V1 vfov))^._x) u
+        lerpedFov (Camera2D _ _)      (Camera2D _ _)      = u
+        -- FIXME: this should be a good reason to split Camera3D and Camers2D
+        lerpedFov _ _ = error "can't interpolate Camera3D with Camera2D or vice versa!"
+
 
