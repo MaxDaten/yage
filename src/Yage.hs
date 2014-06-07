@@ -44,7 +44,7 @@ data YageResources = YageResources
 data YageTiming = YageTiming
     { _totalTime        :: !Double
     , _loopSession      :: !(YageSession NominalDiffTime)
-    , _accumulator      :: !Double
+    , _remainderAccum   :: !Double
     }
 
 data YageSimulation time scene = YageSimulation
@@ -125,10 +125,10 @@ yageLoop :: (Real time, HasResources GeoVertex wScene rScene) =>
 yageLoop win oldState = do
     inputSt                 <- io $! atomically $ readModifyTVar (oldState^.inputState) clearEvents
     (frameDT, newSession)   <- io $ stepSession $ oldState^.timing.loopSession
-    let iaccum              = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.accumulator
+    let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
     
     -- step our global timing to integrate our simulation
-    ( ( newSim, newAccum ), simTime ) <- ioTime $ simulate iaccum ( oldState^.simulation ) inputSt
+    ( ( newSim, newRemainder ), simTime ) <- ioTime $ simulate currentRemainder ( oldState^.simulation ) inputSt
     
     newLoopState <- processRendering $ newSim^.simScene
     
@@ -142,16 +142,16 @@ yageLoop win oldState = do
     return $! newLoopState  
         & simulation              .~ newSim
         & timing.loopSession      .~ newSession
-        & timing.accumulator      .~ newAccum
+        & timing.remainderAccum   .~ newRemainder
     
     where
     -- | logic simulation
     -- selects small time increments and
-    simulate accum sim input
-        | accum < ( sim^.simDeltaT ) = return ( sim, accum )
+    simulate remainder sim input
+        | remainder < ( sim^.simDeltaT ) = return ( sim, remainder )
         | otherwise = do
             sim' <- stepSimulation sim input
-            simulate ( accum - sim^.simDeltaT ) sim' input 
+            simulate ( remainder - sim^.simDeltaT ) sim' input 
 
     -- perform one step in simulation
     stepSimulation sim input = do
