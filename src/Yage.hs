@@ -96,7 +96,7 @@ instance EventCtr (YageLoopState t a b) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: ( HasResources GeoVertex scene' scene, Real time ) => 
+yageMain :: ( HasResources GeoVertex scene' scene, LinearInterpolatable scene', Real time ) => 
          String -> 
          ApplicationConfig ->
          WindowConfig -> 
@@ -118,7 +118,7 @@ yageMain title appConf winConf sim thePipeline dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (Real time, HasResources GeoVertex wScene rScene) => 
+yageLoop :: (Real time, HasResources GeoVertex wScene rScene, LinearInterpolatable wScene) => 
          Window ->
          YageLoopState time wScene rScene -> 
          Application AnyException (YageLoopState time wScene rScene)
@@ -128,9 +128,9 @@ yageLoop win oldState = do
     let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
     
     -- step our global timing to integrate our simulation
-    ( ( newSim, newRemainder ), simTime ) <- ioTime $ simulate currentRemainder ( oldState^.simulation ) inputSt
+    ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ simulate currentRemainder ( oldState^.simulation ) inputSt
     
-    newLoopState <- processRendering $ newSim^.simScene
+    newLoopState <- processRendering $ renderSim^.simScene
     
     setDevStuff (newLoopState^.renderStats) simTime
     
@@ -145,13 +145,16 @@ yageLoop win oldState = do
         & timing.remainderAccum   .~ newRemainder
     
     where
+    
     -- | logic simulation
-    -- selects small time increments and
-    simulate remainder sim input
-        | remainder < ( sim^.simDeltaT ) = return ( sim, remainder )
+    -- selects small time increments and perform simulation steps to catch up withe the frame time
+    simulate remainder sim input = simulate' remainder sim sim input
+    
+    simulate' remainder currentSim prevSim input
+        | remainder < ( currentSim^.simDeltaT ) = return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
         | otherwise = do
-            sim' <- stepSimulation sim input
-            simulate ( remainder - sim^.simDeltaT ) sim' input 
+            nextSim <- stepSimulation currentSim input
+            simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim input 
 
     -- perform one step in simulation
     stepSimulation sim input = do
@@ -224,4 +227,5 @@ readModifyTVar tvar f = do
     modifyTVar' tvar f
     return var
 
-
+instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
+    lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)

@@ -28,8 +28,7 @@ import qualified Graphics.GLUtil.Camera3D       as Cam
 
 import           Yage.Rendering.Transformation
 import           Yage.Rendering.RenderEntity
-import           Yage.Rendering                 hiding (P3)
-
+import           Yage.Rendering                 hiding (P3, lerp)
 import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity
@@ -105,11 +104,35 @@ mkCameraHandle = Cam.Camera
 entityPosition    :: Lens' (Entity vert mat) (V3 Float)
 entityPosition    = entityTransformation.transPosition
 
+
 entityScale       :: Lens' (Entity vert mat) (V3 Float)
 entityScale       = entityTransformation.transScale
 
+
 entityOrientation :: Lens' (Entity vert mat) (Quaternion Float)
 entityOrientation = entityTransformation.transOrientation
+
+
+lightEntity :: Lens' (LightEntity mesh) (Entity mesh ())
+lightEntity = lens getter setter where
+  getter (LightEntity entity _) = entity
+  setter (LightEntity _ light) entity = LightEntity entity light
+
+
+entityLight :: Lens' (LightEntity mesh) Light
+entityLight = lens getter setter where
+  getter (LightEntity _ light) = light
+  setter (LightEntity entity _) light = LightEntity entity light
+
+
+lightPosition :: Lens' (LightEntity mesh) (V3 Float)
+lightPosition = lightEntity.entityPosition
+
+lightOrientation :: Lens' (LightEntity mesh) (Quaternion Float)
+lightOrientation = lightEntity.entityOrientation
+
+lightRadius :: Lens' (LightEntity mesh) (V3 Float)
+lightRadius = lightEntity.entityScale
 
 
 instance ( HasResources vert ent ent', HasResources vert env env' ) => 
@@ -140,6 +163,10 @@ instance ( HasResources vert mesh mesh' ) =>
          requestResources (LightEntity ent light) =
             LightEntity <$> requestResources ent
                         <*> pure light
+
+instance Bifunctor Scene where
+    bimap entFunc envFunc scene = scene & sceneEntities    .~ (fmap entFunc $ scene^.sceneEntities)
+                                        & sceneEnvironment %~ envFunc
 
 {--
 
@@ -174,3 +201,24 @@ basicEntity =
         , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
         }
 
+
+-- TODO: Material Interpolation?
+instance LinearInterpolatable (Entity a b) where
+    lerp alpha u v = u & entityTransformation .~ lerp alpha (u^.entityTransformation) (v^.entityTransformation)
+
+
+instance (LinearInterpolatable ent, LinearInterpolatable env) => LinearInterpolatable (Scene ent env) where
+    lerp alpha u v = 
+        u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
+          & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)
+          & sceneCamera      .~ lerp alpha (u^.sceneCamera) (v^.sceneCamera)
+
+instance (LinearInterpolatable lit, LinearInterpolatable sky) => LinearInterpolatable (Environment lit sky) where
+    lerp alpha u v =
+        u & envLights  .~ zipWith (lerp alpha) (u^.envLights) (v^.envLights)
+          & envSky     .~ (lerp alpha <$> u^.envSky <*> v^.envSky )
+          & envAmbient .~ (lerp alpha (u^.envAmbient) (v^.envAmbient))
+
+instance LinearInterpolatable (LightEntity mesh) where
+    lerp alpha (LightEntity eu lu) (LightEntity ev lv) = LightEntity (lerp alpha eu ev) (lerp alpha lu lv)
+ 
