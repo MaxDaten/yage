@@ -52,7 +52,7 @@ geometryFromOBJ obj
     createFaceVert _ = error "Yage.Geometry.Formats.Obj: invalid Face in OBJ"
 
     mkFaceVertex :: References -> OBJFaceVertex
-    mkFaceVertex ((VertexIndex vi):(TextureIndex ti):_) = FaceVertex (vi-1) (ti-1)
+    mkFaceVertex ((OBJVertexIndex vi):(OBJTextureIndex ti):_) = FaceVertex (vi-1) (ti-1)
     mkFaceVertex _ = error "Yage.Geometry.Formats.Obj.mkFaceVertex: invalid index order"
 
 

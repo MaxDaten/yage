@@ -43,10 +43,10 @@ squareOBJ :: OBJ
 squareOBJ = mempty & vertexData.geometricVertices .~ V.fromList [ V3 0 2 0, V3 0 0 0, V3 2 0 0, V3 2 2 0 ]
                    & vertexData.vertexNormals     .~ V.fromList [ V3 0 0 1 ]
                    & vertexData.textureVertices   .~ V.fromList [ V2 0 0  , V2 0 1  , V2 1 0  , V2 1 1 ]
-                   & elements.faces .~ V.singleton [[ VertexIndex 1, TextureIndex 1, NormalIndex 1 ]
-                                                   ,[ VertexIndex 2, TextureIndex 2, NormalIndex 1 ]
-                                                   ,[ VertexIndex 3, TextureIndex 4, NormalIndex 1 ]
-                                                   ,[ VertexIndex 4, TextureIndex 3, NormalIndex 1 ]
+                   & elements.faces .~ V.singleton [[ OBJVertexIndex 1, OBJTextureIndex 1, OBJNormalIndex 1 ]
+                                                   ,[ OBJVertexIndex 2, OBJTextureIndex 2, OBJNormalIndex 1 ]
+                                                   ,[ OBJVertexIndex 3, OBJTextureIndex 4, OBJNormalIndex 1 ]
+                                                   ,[ OBJVertexIndex 4, OBJTextureIndex 3, OBJNormalIndex 1 ]
                                                    ]
 
 

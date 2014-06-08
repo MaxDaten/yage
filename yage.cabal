@@ -124,6 +124,8 @@ library
                         , bytestring        == 0.10.*
                         , data-default
 
+                        , deepseq           == 1.3.*
+                        , deepseq-generics  == 0.1.*
 
                         , stm               == 2.4.*
                         , tuple             == 0.2.*
@@ -238,3 +240,18 @@ test-suite parsing-obj
     , hspec
     , QuickCheck
 
+executable obj-parser-criterion
+  if flag(library-only)
+      Buildable: False
+  main-is: OBJParserCriterion.hs
+  default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude
+  hs-source-dirs:
+      test/bench
+  ghc-options: -Wall -rtsopts
+  build-depends:
+    base == 4.*,
+    yage,
+    yage-contrib,
+    criterion == 0.8.*,
+    transformers
