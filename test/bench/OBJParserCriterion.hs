@@ -6,7 +6,7 @@ import Yage.Formats.Obj.Parser
 criterion :: IO ()
 criterion = defaultMain
     [ bgroup "parseOBJFile"
-        [ bench "very simple cube"   $ nfIO (parseOBJFile $ "test" </> "res" </> "cube.obj")
+        [ bench "very simple cube"   $ nfIO (parseOBJFile $ "test" </> "res" </> "teapot.obj")
         --, bench ""
         ]
     ]

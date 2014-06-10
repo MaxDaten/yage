@@ -394,7 +394,7 @@ s group_number
     there is no difference between values greater than 0.
 
 > data GroupNumber = On Int | Off deriving ( Show )
-> smoothingGroup :: Parser GroupNumber
+> smoothingGroup :: OBJParser t GroupNumber
 > smoothingGroup = do
 >   string "s "
 >   onOrOff <$> int <|> (string "off" >> return Off)
@@ -431,25 +431,25 @@ concat and prepending
 
 > negativeInt = char '-' <:> number
 
-> int :: Parsec ByteString u Int 
+> int :: OBJParser t Int 
 > int = fmap rd $ negativeInt <|> positiveInt <|> number
 >   where rd = read :: String -> Int
 
-> int' :: Parsec ByteString u String
+> int' :: OBJParser t String
 > int' = negativeInt <|> positiveInt <|> number
 
-> float :: Parsec ByteString u Float
+> float :: OBJParser t Float
 > float = fmap rd $ int' <++> decimal <++> e
 >     where rd       = read :: String -> Float
 >           decimal  = option "" $ char '.' <:> number
 >           e        = option "" $ oneOf "eE" <:> int'
 
-> v3 :: Parsec ByteString u (V3 Float)
+> v3 :: OBJParser t (V3 Float)
 > v3 = V3 <$> (spaces >> float)
 >         <*> (spaces >> float) 
 >         <*> (spaces >> float)
 
-> v2 :: Parsec ByteString u (V2 Float)
+> v2 :: OBJParser t (V2 Float)
 > v2 = V2 <$> (spaces >> float)
 >         <*> (spaces >> float)
 
@@ -477,10 +477,10 @@ texture vertices, and vertex normals in a file.
     # 4 normals
 
 > type Comment = String 
-> comment :: Parsec ByteString u Comment
+> comment :: OBJParser t Comment
 > comment = char '#' >> manyTill anyChar eol
 
-> eol :: Parsec ByteString u String
+> eol :: OBJParser t String
 > eol = try (string "\n\r")
 >   <|> try (string "\r\n")
 >   <|> string "\n"
