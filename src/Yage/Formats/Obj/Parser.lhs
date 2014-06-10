@@ -500,12 +500,12 @@ texture vertices, and vertex normals in a file.
 >   getState
 >   where
 >       line :: OBJParser t () 
->       line = try ( geovertex     >>= \v -> modifyState (vertexData.geometricVertices %~ (`snoc` v)) )
->          <|> try ( vertexnormal  >>= \n -> modifyState (vertexData.vertexNormals     %~ (`snoc` n)) )
->          <|> try ( texvertex     >>= \t -> modifyState (vertexData.textureVertices   %~ (`snoc` t)) )
->          <|> try ( faceElements  >>= \f -> modifyState (elements.faces               %~ (`snoc` f)) )
->          <|> try ( lineElements  >>= \l -> modifyState (elements.lines               %~ (`snoc` l)) )
->          <|> try ( pointElements >>= \p -> modifyState (elements.points              %~ (`snoc` p)) )
+>       line = try ( many1 geovertex     >>= \vs -> modifyState (vertexData.geometricVertices %~ (++ fromList vs)) )
+>          <|> try ( many1 vertexnormal  >>= \ns -> modifyState (vertexData.vertexNormals     %~ (++ fromList ns)) )
+>          <|> try ( many1 texvertex     >>= \ts -> modifyState (vertexData.textureVertices   %~ (++ fromList ts)) )
+>          <|> try ( many1 faceElements  >>= \fs -> modifyState (elements.faces               %~ (++ fromList fs)) )
+>          <|> try ( many1 lineElements  >>= \ls -> modifyState (elements.lines               %~ (++ fromList ls)) )
+>          <|> try ( many1 pointElements >>= \ps -> modifyState (elements.points              %~ (++ fromList ps)) )
 >          <|> try ( objectName    >>= \n -> modifyState (name ?~ n) )
 >          <|> try ( comment       >>= \c -> modifyState (comments <>~ [c]) )
 >          <|> (blankline >> return ())
