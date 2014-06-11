@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.0.4
+version:             0.0.5
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -131,7 +131,7 @@ library
                         , tuple             == 0.2.*
                         , mtl               == 2.1.*
                         , text              >= 0.11
-                        , parsec            == 3.1.5
+                        , attoparsec        == 0.12.*
 
                         , lens              >= 3.9
                         , colour            >= 2.3.3
@@ -222,11 +222,10 @@ test-suite parsing-obj
   type:
       exitcode-stdio-1.0
   main-is:
-      ObjParsing.hs
+      ObjParsingTest.hs
   hs-source-dirs:
       test
-  ghc-options:
-      -Wall -Werror
+  ghc-options:         -Wall -threaded -O2
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
 
@@ -234,6 +233,8 @@ test-suite parsing-obj
       base          == 4.*
     , yage-contrib
     , yage
+    , bytestring
+    , attoparsec
 
     , vector
     
@@ -244,6 +245,7 @@ executable obj-parser-criterion
   if flag(library-only)
       Buildable: False
   main-is: OBJParserCriterion.hs
+  ghc-options:        -threaded -O2
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
   hs-source-dirs:
@@ -253,5 +255,11 @@ executable obj-parser-criterion
     base == 4.*,
     yage,
     yage-contrib,
+    vector,
+    parsec,
+    linear,
+    generic-deriving,
+    deepseq-generics,
+    bytestring,
     criterion == 0.8.*,
     transformers

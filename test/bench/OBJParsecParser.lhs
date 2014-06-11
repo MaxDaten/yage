@@ -2,20 +2,19 @@ not the full spec of the obj format, just the supported parts are included
 in general free-form is not supported!
 full spec: http://www.martinreddy.net/gfx/3d/OBJ.spec
 
-> {-# LANGUAGE DeriveGeneric       #-}
-> {-# LANGUAGE OverloadedStrings   #-}
-> {-# LANGUAGE TemplateHaskell     #-}
+> {-# LANGUAGE DeriveGeneric   #-}
+> {-# LANGUAGE TemplateHaskell #-}
 > {-# OPTIONS_GHC -fno-warn-unused-do-bind -fno-warn-missing-signatures #-}
-> module Yage.Formats.Obj.Parser where
+> module OBJParsecParser where
 
-> import Yage.Prelude   hiding ((<|>), (<>), try, Index, snoc, lines, ByteString, readFile, group)
+> import Yage.Prelude   hiding ((<|>), try, Index, snoc, lines, ByteString, readFile)
 > import Yage.Lens      hiding (Index, elements)
 
 > import qualified Data.Vector as V
-> import Data.ByteString (ByteString, readFile)
-> import Data.Attoparsec.ByteString
-> import qualified Data.Attoparsec.ByteString.Char8 as B
-> import Control.Applicative
+> import Text.Parsec hiding (Line)
+> import Text.Parsec.ByteString.Lazy
+> import Data.ByteString.Lazy hiding (zipWith, snoc)
+> import Text.Read
 > import Linear
 > import Linear.DeepSeq ()
 
@@ -34,8 +33,8 @@ obj Parsing
 
 > data OBJVertexData = OBJVertexData
 >   { _geometricVertices :: (V.Vector GeoVertex)
->   , _vertexNormals     :: (V.Vector NormalVertex)
->   , _textureVertices   :: (V.Vector TextureVertex)
+>   , _textureVertices   :: (V.Vector TexVertex)
+>   , _vertexNormals     :: (V.Vector VertexNormal)
 >   } deriving ( Show, Eq, Generic )
 
 > data OBJElements = OBJElements
@@ -45,7 +44,7 @@ obj Parsing
 >   } deriving ( Show, Eq, Generic )
 
 
-> type OBJParser a = Parser a
+> type OBJParser t = GenParser t OBJ
 
 File Structure
 --------------
@@ -109,13 +108,10 @@ Vertex Data
     negative values may result in an undefined point in a curve or
     surface.
 
-> newtype GeoVertex = GeoVertex { unGeoVertex :: V3 Double }
->   deriving ( Show, Ord, Eq, Generic )
+> type GeoVertex = V3 Float
 
-> geovertex :: OBJParser GeoVertex
-> geovertex = GeoVertex <$> ( B.char 'v' *> B.skipSpace *> v3 )
-
-> geovertexLine = geovertex <* manyTill B.anyChar B.endOfLine
+> geovertex :: OBJParser t GeoVertex
+> geovertex = string "v " >> spaces >> v3
 
 - vn i j k
 
@@ -133,13 +129,10 @@ Vertex Data
     i j k are the i, j, and k coordinates for the vertex normal. They
     are **floating point** numbers.
 
-> newtype NormalVertex = NormalVertex { unNormalVertex :: V3 Double }
->   deriving ( Show, Eq, Ord, Generic )
+> type VertexNormal = V3 Float
 
-> normalvertex :: OBJParser NormalVertex
-> normalvertex = NormalVertex <$> ( "vn" *> B.skipSpace *> v3 )
-
-> normalvertexLine = normalvertex <* manyTill B.anyChar B.endOfLine
+> vertexnormal :: OBJParser t VertexNormal
+> vertexnormal = string "vn " >> spaces >> v3
 
 - vt u v w
 
@@ -161,13 +154,12 @@ Vertex Data
 
     w is a value for the _depth_ of the texture. The default is 0.
 
-> newtype TextureVertex = TextureVertex { unTextureVertex :: V2 Double }
->   deriving ( Show, Eq, Ord, Generic )
+> type TexVertex = V2 Float
 
-> texvertex :: OBJParser TextureVertex
-> texvertex = TextureVertex <$> ( "vt " *> B.skipSpace *> v2 )
+> texvertex :: OBJParser t TexVertex
+> texvertex = string "vt " >> spaces >> v2
 
-> texvertexLine = texvertex <* manyTill B.anyChar B.endOfLine
+
 
 Elements
 ~~~~~~~~
@@ -249,9 +241,8 @@ The following is an example of an illegal statement.
     f 1/1/1 2/2/2 3//3 4//4
 
 > data OBJIndex      = OBJVertexIndex Int | OBJTextureIndex Int | OBJNormalIndex Int
->   deriving ( Show, Eq, Ord, Generic )
-> newtype References = References { unReference :: [OBJIndex] }
->   deriving ( Show, Eq, Ord, Generic )
+>   deriving ( Show, Eq, Generic )
+> type References = [OBJIndex]
 
 
 Syntax
@@ -274,9 +265,8 @@ geometry.
 
 
 > type Point = [OBJIndex]
-> pointLine :: OBJParser Point
-> pointLine = B.char 'p' *> B.skipSpace *> manyTill (B.skipSpace *> pointIdx) B.endOfLine
->   where pointIdx = OBJVertexIndex <$> B.signed B.decimal
+> pointElements :: OBJParser t Point
+> pointElements = string "p " >> manyTill (spaces >> OBJVertexIndex <$> int) eol
 
 
 - l  v1/vt1   v2/vt2   v3/vt3 . . .
@@ -302,11 +292,10 @@ geometry.
     vt is the reference number for a texture vertex in the line
     element. It must always follow the first slash.
 
-> newtype Line = Line { unLine :: [References] }
->   deriving ( Show, Eq, Ord, Generic )
-> lineLine :: OBJParser Line
-> lineLine = Line <$> ( B.char 'l' *> B.skipSpace *> manyTill (B.skipSpace *> lineIdxs) B.endOfLine )
->   where lineIdxs = References <$> zipWith ($) [OBJVertexIndex, OBJTextureIndex] <$> B.signed B.decimal `sepBy1` (B.char '/')
+> type Line = [References]
+> lineElements :: OBJParser t Line
+> lineElements = string "l " >> manyTill (spaces >> idxs <$> int `sepBy1` (char '/')) eol
+>   where idxs = zipWith ($) [OBJVertexIndex, OBJTextureIndex] 
 
 - f  v1/vt1/vn1   v2/vt2/vn2   v3/vt3/vn3 . . .
 
@@ -345,11 +334,10 @@ geometry.
     are assigned in the f statement, the texture map is ignored when
     the element is rendered.
 
-> newtype Face = Face { unFace :: [References] }
->   deriving ( Show, Eq, Ord, Generic )
-> faceLine :: OBJParser Face
-> faceLine = Face <$> ( B.char 'f' *> B.skipSpace *> manyTill (B.skipSpace *> faceIdxs ) B.endOfLine )
->   where faceIdxs = References <$> zipWith ($) [OBJVertexIndex, OBJTextureIndex, OBJNormalIndex] <$> B.signed B.decimal `sepBy1` (B.char '/')
+> type Face = [References]
+> faceElements :: OBJParser t Face
+> faceElements = string "f " >> manyTill (spaces >> idxs <$> int `sepBy1` (char '/')) eol
+>   where idxs = zipWith ($) [OBJVertexIndex, OBJTextureIndex, OBJNormalIndex]
 
 
 Grouping
@@ -379,12 +367,9 @@ Syntax
     combinations of letters and numbers are accepted for group names.
     The default group name is default.
 
-> newtype Group = Group { unGroup :: ByteString }
->   deriving ( Show, Eq, Ord, Generic )
-> groupLine :: OBJParser [Group]
-> groupLine = fmap Group <$> filter (not.null) <$> ( B.char 'g' *> skipWhile B.isHorizontalSpace *> idents <* B.endOfLine ) where
->   idents = (takeTill B.isSpace_w8) `B.sepBy1` (takeWhile1 B.isHorizontalSpace)
-
+> type Group = String
+> group :: OBJParser t [Group]
+> group = string "g " >> many1 (spaces >> identifier)
 
 s group_number
 
@@ -408,12 +393,13 @@ s group_number
     free-form surfaces, smoothing groups are either turned on or off;
     there is no difference between values greater than 0.
 
-> newtype SmoothingGroup = SmoothingGroup { unSmoothingGroup :: Int }
->   deriving ( Show, Eq, Ord, Generic )
-> smoothingGroup :: OBJParser SmoothingGroup
-> smoothingGroup = SmoothingGroup <$> ( B.char 's' *> B.skipSpace *> (B.decimal <|> ("off" *> pure 0)) )
-
-> smoothingGroupLine = smoothingGroup <* B.manyTill B.space B.endOfLine
+> data GroupNumber = On Int | Off deriving ( Show )
+> smoothingGroup :: OBJParser t GroupNumber
+> smoothingGroup = do
+>   string "s "
+>   onOrOff <$> int <|> (string "off" >> return Off)
+>   where onOrOff 0 = Off
+>         onOrOff i = On i
 
 o object_name
 
@@ -425,10 +411,9 @@ o object_name
 
     object_name is the user-defined object name. There is no default.
 
-> newtype ObjectName = ObjectName { unObjectName :: ByteString }
->   deriving ( Show, Eq, Ord, Generic )
-> objectName :: OBJParser ObjectName
-> objectName = ObjectName <$> (B.char 'o' *> identifier <* B.endOfLine)
+> type ObjectName = String
+> objectName :: OBJParser t ObjectName
+> objectName = string "o " >> identifier
 
 
 https://www.fpcomplete.com/school/to-infinity-and-beyond/pick-of-the-week/parsing-floats-with-parsec
@@ -437,22 +422,42 @@ Small atomic parser
 
 concat and prepending
 
+> (<++>) a b = (++) <$> a <*> b
+> (<:>) a b = (:) <$> a <*> b
+
+> number = many1 digit
+
+> positiveInt = char '+' *> number
+
+> negativeInt = char '-' <:> number
+
+> int :: OBJParser t Int 
+> int = fmap rd $ negativeInt <|> positiveInt <|> number
+>   where rd = read :: String -> Int
+
+> int' :: OBJParser t String
+> int' = negativeInt <|> positiveInt <|> number
+
+> float :: OBJParser t Float
+> float = fmap rd $ int' <++> decimal <++> e
+>     where rd       = read :: String -> Float
+>           decimal  = option "" $ char '.' <:> number
+>           e        = option "" $ oneOf "eE" <:> int'
+
+> v3 :: OBJParser t (V3 Float)
+> v3 = V3 <$> (spaces >> float)
+>         <*> (spaces >> float) 
+>         <*> (spaces >> float)
+
+> v2 :: OBJParser t (V2 Float)
+> v2 = V2 <$> (spaces >> float)
+>         <*> (spaces >> float)
+
+> identifier = many1 (alphaNum <|> char '_')
 
 
-> v3 :: OBJParser (V3 Double)
-> v3 = V3 <$> (many B.space  *> B.double)
->         <*> (many1 B.space *> B.double) 
->         <*> (many1 B.space *> B.double)
+> blankline = eol <|> (spaces >> eol) <|> string "\0"
 
-> v2 :: OBJParser (V2 Double)
-> v2 = V2 <$> (many B.space  *> B.double)
->         <*> (many1 B.space *> B.double)
-
-> identifier = takeTill B.isHorizontalSpace
-
-> blankline = B.skipSpace
-
-> skipLine = manyTill B.anyChar B.endOfLine *> pure ()
 
 Comments
 
@@ -471,43 +476,45 @@ texture vertices, and vertex normals in a file.
     # 4 texture vertices
     # 4 normals
 
-> type Comment = ByteString 
-> commentLine :: OBJParser Comment
-> commentLine = B.char '#' *> skipWhile B.isHorizontalSpace *> takeTill B.isEndOfLine <* B.endOfLine
+> type Comment = String 
+> comment :: OBJParser t Comment
+> comment = char '#' >> manyTill anyChar eol
 
+> eol :: OBJParser t String
+> eol = try (string "\n\r")
+>   <|> try (string "\r\n")
+>   <|> string "\n"
+>   <|> string "\r"
+
+> skipLine = manyTill anyChar eol >> return ()
 
 > makeLenses ''OBJElements
 > makeLenses ''OBJVertexData
 > makeLenses ''OBJ
 
 
-> parseOBJ :: OBJParser OBJ
-> parseOBJ = mconcat <$> many1 objChunk where
->   objChunk        = commentChunk
->                   <|> geometricChunk 
->                   <|> normalChunk
->                   <|> textureChunk
->                   <|> faceChunk
->                   <|> lineChunk
->                   <|> pointChunk
->                   <|> (skipLine *> pure mempty)
->   commentChunk    = setP comments <$> chunk commentLine
->   geometricChunk  = setP (vertexData.geometricVertices) . fromList <$> chunk geovertexLine
->   normalChunk     = setP (vertexData.vertexNormals) . fromList     <$> chunk normalvertexLine
->   textureChunk    = setP (vertexData.textureVertices) . fromList   <$> chunk texvertexLine
->   faceChunk       = setP (elements.faces) . fromList <$> chunk faceLine
->   lineChunk       = setP (elements.lines) . fromList <$> chunk lineLine
->   pointChunk      = setP (elements.points) .fromList <$> chunk pointLine
-
-> chunk lineparser = many1 (lineparser <* B.skipSpace)
-> setP l x = set l x mempty
-
-
+> parseOBJ :: OBJParser t OBJ
+> parseOBJ = do
+>   many1 (line)
+>   eof
+>   getState
+>   where
+>       line :: OBJParser t () 
+>       line = try ( many1 geovertex     >>= \vs -> modifyState (vertexData.geometricVertices %~ (++ fromList vs)) )
+>          <|> try ( many1 vertexnormal  >>= \ns -> modifyState (vertexData.vertexNormals     %~ (++ fromList ns)) )
+>          <|> try ( many1 texvertex     >>= \ts -> modifyState (vertexData.textureVertices   %~ (++ fromList ts)) )
+>          <|> try ( many1 faceElements  >>= \fs -> modifyState (elements.faces               %~ (++ fromList fs)) )
+>          <|> try ( many1 lineElements  >>= \ls -> modifyState (elements.lines               %~ (++ fromList ls)) )
+>          <|> try ( many1 pointElements >>= \ps -> modifyState (elements.points              %~ (++ fromList ps)) )
+>          <|> try ( objectName    >>= \n -> modifyState (name ?~ n) )
+>          <|> try ( comment       >>= \c -> modifyState (comments <>~ [c]) )
+>          <|> (blankline >> return ())
+>          <|> skipLine
 
 > parseOBJFile :: FilePath -> IO OBJ
 > parseOBJFile filepath = do
->   result <- parseOnly parseOBJ <$> readFile (fpToString filepath)
->   case result of
+>   input <- readFile $ fpToString filepath
+>   case runParser parseOBJ mempty (fpToString filepath) input of
 >       Left err -> error $ show err
 >       Right y  -> return y
 
@@ -521,21 +528,8 @@ texture vertices, and vertex normals in a file.
 > instance Monoid OBJ where
 >   mempty  = memptydefault
 >   mappend = mappenddefault
-> -- currently not the best monoid definition (need more like Last)
-> instance Monoid ObjectName where
->   mempty  = memptydefault
->   mappend = mappenddefault
 
 > instance NFData OBJIndex      where rnf = genericRnf
-> instance NFData GeoVertex     where rnf = genericRnf
-> instance NFData NormalVertex  where rnf = genericRnf
-> instance NFData Face          where rnf = genericRnf
-> instance NFData Line          where rnf = genericRnf
-> instance NFData References    where rnf = genericRnf
-> instance NFData Group         where rnf = genericRnf
-> instance NFData SmoothingGroup where rnf = genericRnf
-> instance NFData ObjectName    where rnf = genericRnf
-> instance NFData TextureVertex where rnf = genericRnf
 > instance NFData OBJVertexData where rnf = genericRnf
 > instance NFData OBJElements   where rnf = genericRnf
 > instance NFData OBJ           where rnf = genericRnf

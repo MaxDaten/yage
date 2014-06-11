@@ -3,7 +3,7 @@
 {-# LANGUAGE ParallelListComp   #-}
 module Yage.Formats.Obj
     ( module Yage.Formats.Obj
-    , module Yage.Formats.Obj.Parser
+    , module Yage.Formats.Obj.Parser, module OBJ
     ) where
 
 import Yage.Prelude hiding (any, toList)
@@ -11,7 +11,7 @@ import Yage.Lens hiding (elements)
 import Yage.Math
 import qualified Data.Vector as V
 import Yage.Formats.Obj.Parser hiding (Face)
-import qualified Yage.Formats.Obj.Parser as OBJ (Face)
+import qualified Yage.Formats.Obj.Parser as OBJ (Face(..))
 import Yage.Geometry.Elements
 import Yage.Geometry
 
@@ -39,20 +39,20 @@ geometryFromOBJ obj
     in (vertGeo, texGeo)
 
     where
-    verts   = obj^.vertexData.geometricVertices
-    texs    = obj^.vertexData.textureVertices
+    verts   = V.map (fmap realToFrac . unGeoVertex)     $ obj^.vertexData.geometricVertices
+    texs    = V.map (fmap realToFrac . unTextureVertex) $ obj^.vertexData.textureVertices
     elems   = obj^.elements.faces
     
     triFaces :: V.Vector (Triangle OBJFaceVertex)
     triFaces = V.concatMap createFaceVert elems
     
     createFaceVert :: OBJ.Face -> V.Vector (Triangle OBJFaceVertex)
-    createFaceVert (a:b:c:d:[]) = V.fromList . triangles $ Face (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c) (mkFaceVertex d)
-    createFaceVert (a:b:c:[])   = V.singleton $ Triangle (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c)
+    createFaceVert (OBJ.Face (a:b:c:d:[])) = V.fromList . triangles $ Face (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c) (mkFaceVertex d)
+    createFaceVert (OBJ.Face (a:b:c:[]))   = V.singleton $ Triangle (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c)
     createFaceVert _ = error "Yage.Geometry.Formats.Obj: invalid Face in OBJ"
 
     mkFaceVertex :: References -> OBJFaceVertex
-    mkFaceVertex ((OBJVertexIndex vi):(OBJTextureIndex ti):_) = FaceVertex (vi-1) (ti-1)
+    mkFaceVertex (References ((OBJVertexIndex vi):(OBJTextureIndex ti):_)) = FaceVertex (vi-1) (ti-1)
     mkFaceVertex _ = error "Yage.Geometry.Formats.Obj.mkFaceVertex: invalid index order"
 
 
