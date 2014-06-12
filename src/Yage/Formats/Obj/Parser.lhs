@@ -27,22 +27,25 @@ obj Parsing
 
 > data OBJ = OBJ
 >   { _vertexData   :: OBJVertexData
->   , _elements     :: OBJElements
+>   , _groups       :: Map ByteString SmoothingGroups
 >   , _comments     :: [Comment]
 >   , _name         :: Maybe ObjectName
->   } deriving ( Show, Eq, Generic )
+>   } deriving ( Show, Ord, Eq, Generic )
 
 > data OBJVertexData = OBJVertexData
 >   { _geometricVertices :: (V.Vector GeoVertex)
 >   , _vertexNormals     :: (V.Vector NormalVertex)
 >   , _textureVertices   :: (V.Vector TextureVertex)
->   } deriving ( Show, Eq, Generic )
+>   } deriving ( Show, Ord, Eq, Generic )
 
 > data OBJElements = OBJElements
 >   { _points     :: (V.Vector Point)
 >   , _lines      :: (V.Vector Line)
 >   , _faces      :: (V.Vector Face) 
->   } deriving ( Show, Eq, Generic )
+>   } deriving ( Show, Ord, Eq, Generic )
+
+> newtype SmoothingGroups = SmoothingGroups { unSmoothingGroups :: IntMap OBJElements }
+>   deriving ( Show, Ord, Eq, Generic )
 
 
 > type OBJParser a = Parser a
@@ -172,81 +175,81 @@ Vertex Data
 Elements
 ~~~~~~~~
 
-For polygonal geometry, the element types available in the .obj file
-are:
-- points
-- lines
-- faces
+    For polygonal geometry, the element types available in the .obj file
+    are:
+    - points
+    - lines
+    - faces
 
 
-Referencing vertex data
-~~~~~~~~~~~~~~~~~~~~~~~
+    Referencing vertex data
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-For all elements, reference numbers are used to identify geometric
-vertices, texture vertices, vertex normals.
+    For all elements, reference numbers are used to identify geometric
+    vertices, texture vertices, vertex normals.
 
-Each of these types of vertices is numbered separately, starting with
-1. This means that the first geometric vertex in the file is 1, the
-second is 2, and so on. The first texture vertex in the file is 1, the
-second is 2, and so on. The numbering continues sequentially throughout
-the entire file. Frequently, files have _multiple_ lists of vertex data.
-This numbering sequence continues even when vertex data is separated by
-other data.
+    Each of these types of vertices is numbered separately, starting with
+    1. This means that the first geometric vertex in the file is 1, the
+    second is 2, and so on. The first texture vertex in the file is 1, the
+    second is 2, and so on. The numbering continues sequentially throughout
+    the entire file. Frequently, files have _multiple_ lists of vertex data.
+    This numbering sequence continues even when vertex data is separated by
+    other data.
 
-In addition to counting vertices down from the top of the first list in
-the file, you can also count vertices back up the list from an
-element's position in the file. When you count up the list from an
-element, the reference numbers are negative. A reference number of -1
-indicates the vertex immediately above the element. A reference number
-of -2 indicates two references above and so on.
+    In addition to counting vertices down from the top of the first list in
+    the file, you can also count vertices back up the list from an
+    element's position in the file. When you count up the list from an
+    element, the reference numbers are negative. A reference number of -1
+    indicates the vertex immediately above the element. A reference number
+    of -2 indicates two references above and so on.
 
-Referencing groups of vertices
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Referencing groups of vertices
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some elements, such as faces and surfaces, may have a triplet of
-numbers that reference vertex data.These numbers are the reference
-numbers for a geometric vertex, a texture vertex, and a vertex normal.
+    Some elements, such as faces and surfaces, may have a triplet of
+    numbers that reference vertex data.These numbers are the reference
+    numbers for a geometric vertex, a texture vertex, and a vertex normal.
 
-Each triplet of numbers specifies a geometric vertex, texture vertex,
-and vertex normal. The reference numbers must be in order and must
-separated by slashes (/).
+    Each triplet of numbers specifies a geometric vertex, texture vertex,
+    and vertex normal. The reference numbers must be in order and must
+    separated by slashes (/).
 
-- The first reference number is the geometric vertex.
+    - The first reference number is the geometric vertex.
 
-- The second reference number is the texture vertex. It follows
-    the first slash.
+    - The second reference number is the texture vertex. It follows
+        the first slash.
 
-- The third reference number is the vertex normal. It follows the
-    second slash.
+    - The third reference number is the vertex normal. It follows the
+        second slash.
 
-There is no space between numbers and the slashes. There may be more
-than one series of geometric vertex/texture vertex/vertex normal
-numbers on a line.
+    There is no space between numbers and the slashes. There may be more
+    than one series of geometric vertex/texture vertex/vertex normal
+    numbers on a line.
 
-The following is a portion of a sample file for a four-sided face
-element:
+    The following is a portion of a sample file for a four-sided face
+    element:
 
-    f 1/1/1 2/2/2 3/3/3 4/4/4
+        f 1/1/1 2/2/2 3/3/3 4/4/4
 
-Using v, vt, and vn to represent geometric vertices, texture vertices,
-and vertex normals, the statement would read:
+    Using v, vt, and vn to represent geometric vertices, texture vertices,
+    and vertex normals, the statement would read:
 
-    f v/vt/vn v/vt/vn v/vt/vn v/vt/vn
+        f v/vt/vn v/vt/vn v/vt/vn v/vt/vn
 
-If there are only vertices and vertex normals for a face element (no
-texture vertices), you would enter two slashes (//). For example, to
-specify only the vertex and vertex normal reference numbers, you would
-enter:
+    If there are only vertices and vertex normals for a face element (no
+    texture vertices), you would enter two slashes (//). For example, to
+    specify only the vertex and vertex normal reference numbers, you would
+    enter:
 
-    f 1//1 2//2 3//3 4//4
+        f 1//1 2//2 3//3 4//4
 
-When you are using a series of triplets, you must be _consistent_ in the
-way you reference the vertex data. For example, it is illegal to give
-vertex normals for some vertices, but not all.
+    When you are using a series of triplets, you must be _consistent_ in the
+    way you reference the vertex data. For example, it is illegal to give
+    vertex normals for some vertices, but not all.
 
-The following is an example of an illegal statement.
+    The following is an example of an illegal statement.
 
-    f 1/1/1 2/2/2 3//3 4//4
+        f 1/1/1 2/2/2 3//3 4//4
 
 > data OBJIndex      = OBJVertexIndex Int | OBJTextureIndex Int | OBJNormalIndex Int
 >   deriving ( Show, Eq, Ord, Generic )
@@ -348,7 +351,7 @@ geometry.
 > newtype Face = Face { unFace :: [References] }
 >   deriving ( Show, Eq, Ord, Generic )
 > faceLine :: OBJParser Face
-> faceLine = Face <$> ( B.char 'f' *> B.skipSpace *> manyTill (B.skipSpace *> faceIdxs ) B.endOfLine )
+> faceLine = Face <$> ( B.char 'f' *> B.skipSpace *> manyTill (skipHSpace *> faceIdxs <* skipHSpace ) B.endOfLine )
 >   where faceIdxs = References <$> zipWith ($) [OBJVertexIndex, OBJTextureIndex, OBJNormalIndex] <$> B.signed B.decimal `sepBy1` (B.char '/')
 
 
@@ -382,7 +385,7 @@ Syntax
 > newtype Group = Group { unGroup :: ByteString }
 >   deriving ( Show, Eq, Ord, Generic )
 > groupLine :: OBJParser [Group]
-> groupLine = fmap Group <$> filter (not.null) <$> ( B.char 'g' *> skipWhile B.isHorizontalSpace *> idents <* B.endOfLine ) where
+> groupLine = fmap Group <$> filter (not.null) <$> ( B.char 'g' *> skipHSpace *> idents <* B.endOfLine ) where
 >   idents = (takeTill B.isSpace_w8) `B.sepBy1` (takeWhile1 B.isHorizontalSpace)
 
 
@@ -452,28 +455,29 @@ concat and prepending
 
 > blankline = B.skipSpace
 
+> skipHSpace = skipWhile B.isHorizontalSpace
 > skipLine = manyTill B.anyChar B.endOfLine *> pure ()
 
 Comments
 
-Comments can appear anywhere in an .obj file. They are used to annotate
-the file; they are not processed.
+    Comments can appear anywhere in an .obj file. They are used to annotate
+    the file; they are not processed.
 
-Here is an example:
+    Here is an example:
 
-    # this is a comment
+        # this is a comment
 
-The Model program automatically inserts comments when it creates .obj
-files. For example, it reports the number of geometric vertices,
-texture vertices, and vertex normals in a file.
+    The Model program automatically inserts comments when it creates .obj
+    files. For example, it reports the number of geometric vertices,
+    texture vertices, and vertex normals in a file.
 
-    # 4 vertices
-    # 4 texture vertices
-    # 4 normals
+        # 4 vertices
+        # 4 texture vertices
+        # 4 normals
 
 > type Comment = ByteString 
 > commentLine :: OBJParser Comment
-> commentLine = B.char '#' *> skipWhile B.isHorizontalSpace *> takeTill B.isEndOfLine <* B.endOfLine
+> commentLine = B.char '#' *> skipHSpace *> takeTill B.isEndOfLine <* B.endOfLine
 
 
 > makeLenses ''OBJElements
@@ -482,32 +486,44 @@ texture vertices, and vertex normals in a file.
 
 
 > parseOBJ :: OBJParser OBJ
-> parseOBJ = mconcat <$> many1 objChunk where
->   objChunk        = commentChunk
->                   <|> geometricChunk 
->                   <|> normalChunk
->                   <|> textureChunk
->                   <|> faceChunk
->                   <|> lineChunk
->                   <|> pointChunk
->                   <|> (skipLine *> pure mempty)
->   commentChunk    = setP comments <$> chunk commentLine
->   geometricChunk  = setP (vertexData.geometricVertices) . fromList <$> chunk geovertexLine
->   normalChunk     = setP (vertexData.vertexNormals) . fromList     <$> chunk normalvertexLine
->   textureChunk    = setP (vertexData.textureVertices) . fromList   <$> chunk texvertexLine
->   faceChunk       = setP (elements.faces) . fromList <$> chunk faceLine
->   lineChunk       = setP (elements.lines) . fromList <$> chunk lineLine
->   pointChunk      = setP (elements.points) .fromList <$> chunk pointLine
-
-> chunk lineparser = many1 (lineparser <* B.skipSpace)
-> setP l x = set l x mempty
-
+> parseOBJ = parseChunks (SmoothingGroup 0) [Group "default"]  where
+>   parseChunks sgrp grps = mconcat <$> many1 (objChunk sgrp grps)
+>   objChunk sgrp ogrps = 
+>           commentChunk
+>       <|> geometricChunk 
+>       <|> normalChunk
+>       <|> textureChunk
+>       <|> faceChunk sgrp ogrps
+>       <|> lineChunk sgrp ogrps
+>       <|> pointChunk sgrp ogrps
+>       <|> (groupLine >>= parseChunks sgrp)
+>       <|> (smoothingGroupLine >>= flip parseChunks ogrps)
+>       <|> (skipLine *> pure mempty)
+>   commentChunk    = setM comments . filter (not.null) <$> chunk commentLine
+>   geometricChunk  = setM (vertexData.geometricVertices) . fromList <$> chunk geovertexLine
+>   normalChunk     = setM (vertexData.vertexNormals)     . fromList <$> chunk normalvertexLine
+>   textureChunk    = setM (vertexData.textureVertices)   . fromList <$> chunk texvertexLine
+>
+>   faceChunk s grps  = addElems s grps faces <$> chunk faceLine
+>   lineChunk s  grps = addElems s grps lines  <$> chunk lineLine
+>   pointChunk s grps = addElems s grps points <$> chunk pointLine
+>
+>   chunk lineparser = many1 (lineparser <* B.skipSpace)
+>   -- | add elemets to currently selected groups
+>   addElems s grps l es = 
+>       let elems = mempty & l .~ (fromList es)
+>       in setGroups s grps elems
+>   setGroups (SmoothingGroup s) grps elems = 
+>       let smooths = SmoothingGroups $ mempty & at s ?~ elems
+>       in mempty & groups .~ foldr (appendToGroup smooths) mempty (map unGroup grps)
+>   appendToGroup smoothMap grp grpMap = unionWith mappend grpMap (mempty & at grp ?~ smoothMap)
+>   setM l x = set l x mempty
 
 
 > parseOBJFile :: FilePath -> IO OBJ
 > parseOBJFile filepath = do
->   result <- parseOnly parseOBJ <$> readFile (fpToString filepath)
->   case result of
+>   inputBS <- readFile (fpToString filepath)
+>   case parseOnly parseOBJ (inputBS <> "\n") of
 >       Left err -> error $ show err
 >       Right y  -> return y
 
@@ -518,24 +534,31 @@ texture vertices, and vertex normals in a file.
 > instance Monoid OBJVertexData where
 >   mempty  = memptydefault
 >   mappend = mappenddefault
+> instance Monoid SmoothingGroups where
+>   mempty = memptydefault
+>   mappend (SmoothingGroups a) (SmoothingGroups b) = SmoothingGroups $ unionWith mappend a b
 > instance Monoid OBJ where
 >   mempty  = memptydefault
->   mappend = mappenddefault
+>   mappend a b = a & vertexData <>~ b^.vertexData
+>                   & comments   <>~ b^.comments
+>                   & name       <>~ b^.name
+>                   & groups     .~ unionWith mappend (a^.groups) (b^.groups)
 > -- currently not the best monoid definition (need more like Last)
 > instance Monoid ObjectName where
 >   mempty  = memptydefault
 >   mappend = mappenddefault
 
-> instance NFData OBJIndex      where rnf = genericRnf
-> instance NFData GeoVertex     where rnf = genericRnf
-> instance NFData NormalVertex  where rnf = genericRnf
-> instance NFData Face          where rnf = genericRnf
-> instance NFData Line          where rnf = genericRnf
-> instance NFData References    where rnf = genericRnf
-> instance NFData Group         where rnf = genericRnf
-> instance NFData SmoothingGroup where rnf = genericRnf
-> instance NFData ObjectName    where rnf = genericRnf
-> instance NFData TextureVertex where rnf = genericRnf
-> instance NFData OBJVertexData where rnf = genericRnf
-> instance NFData OBJElements   where rnf = genericRnf
-> instance NFData OBJ           where rnf = genericRnf
+> instance NFData OBJIndex          where rnf = genericRnf
+> instance NFData GeoVertex         where rnf = genericRnf
+> instance NFData NormalVertex      where rnf = genericRnf
+> instance NFData Face              where rnf = genericRnf
+> instance NFData Line              where rnf = genericRnf
+> instance NFData References        where rnf = genericRnf
+> instance NFData Group             where rnf = genericRnf
+> instance NFData SmoothingGroup    where rnf = genericRnf
+> instance NFData ObjectName        where rnf = genericRnf
+> instance NFData TextureVertex     where rnf = genericRnf
+> instance NFData OBJVertexData     where rnf = genericRnf
+> instance NFData OBJElements       where rnf = genericRnf
+> instance NFData SmoothingGroups   where rnf = genericRnf
+> instance NFData OBJ               where rnf = genericRnf

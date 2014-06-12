@@ -41,7 +41,7 @@ geometryFromOBJ obj
     where
     verts   = V.map (fmap realToFrac . unGeoVertex)     $ obj^.vertexData.geometricVertices
     texs    = V.map (fmap realToFrac . unTextureVertex) $ obj^.vertexData.textureVertices
-    elems   = obj^.elements.faces
+    elems   = error "undefined" -- undefined -- obj^.elements.faces
     
     triFaces :: V.Vector (Triangle OBJFaceVertex)
     triFaces = V.concatMap createFaceVert elems

@@ -15,6 +15,9 @@ criterion = defaultMain
         [ bench "attoparsec" $ nfIO (A.parseOBJFile $ "test" </> "res" </> "head.obj")
         -- , bench "parsec" $ nfIO (P.parseOBJFile $ "test" </> "res" </> "head.obj") -- to slow ;)
         ]
+    , bgroup "cube with groups"
+        [ bench "attoparsec" $ nfIO (A.parseOBJFile $ "test" </> "res" </> "cube_groups.obj")
+        ]
     ]
 
 main :: IO ()
