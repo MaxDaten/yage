@@ -1,6 +1,6 @@
-{-# LANGUAGE TupleSections      #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE ParallelListComp   #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# LANGUAGE TupleSections               #-}
+{-# LANGUAGE DeriveGeneric               #-}
 module Yage.Formats.Obj
     ( module Yage.Formats.Obj
     , module Yage.Formats.Obj.Parser, module OBJ
@@ -10,11 +10,11 @@ import Yage.Prelude hiding (any, toList)
 import Yage.Lens hiding (elements)
 import Yage.Math
 import qualified Data.Vector as V
+
 import Yage.Formats.Obj.Parser hiding (Face)
 import qualified Yage.Formats.Obj.Parser as OBJ (Face(..))
-import Yage.Geometry.Elements
+import Yage.Geometry.Elements hiding (Surface)
 import Yage.Geometry
-
 
 
 
@@ -30,21 +30,30 @@ data OBJFaceVertex = FaceVertex
     , fTextureIndex :: !TexIdx
     }
 
-geometryFromOBJ :: OBJ -> (PosGeo, TexGeo)
+newtype GeometryGroup = GeometryGroup { geometryGroups :: Map ByteString (PosGeo, TexGeo) }
+    deriving ( Show, Eq, Ord, Generic )
+
+geometryFromOBJ :: OBJ -> GeometryGroup
 geometryFromOBJ obj 
     | not $ hasTextureCoords obj  = error "OBJ is missing neccessary texture coords"
-    | otherwise =
-    let vertGeo = Geometry verts (V.map (fmap fVertexIndex) triFaces)
-        texGeo  = Geometry texs  (V.map (fmap fTextureIndex) triFaces)
-    in (vertGeo, texGeo)
+    | otherwise = GeometryGroup $ map groupToGeos (obj^.groups)
 
     where
+    -- TODO : extract only verts/texs for this group
+    groupToGeos :: SmoothingGroups -> (PosGeo, TexGeo)
+    groupToGeos (SmoothingGroups surfsMap) = 
+        let surfs = foldr ( \elems -> facesToIdxTri $ elems^.faces ) V.empty surfsMap
+        in ( Geometry verts $ V.map (fmap.fmap $ fVertexIndex) surfs
+           , Geometry texs  $ V.map (fmap.fmap $ fTextureIndex) surfs
+           )
+
     verts   = V.map (fmap realToFrac . unGeoVertex)     $ obj^.vertexData.geometricVertices
     texs    = V.map (fmap realToFrac . unTextureVertex) $ obj^.vertexData.textureVertices
-    elems   = error "undefined" -- undefined -- obj^.elements.faces
     
-    triFaces :: V.Vector (Triangle OBJFaceVertex)
-    triFaces = V.concatMap createFaceVert elems
+    facesToIdxTri :: V.Vector OBJ.Face -> 
+                    (V.Vector (GeoSurface (Triangle OBJFaceVertex))) -> 
+                    (V.Vector (GeoSurface (Triangle OBJFaceVertex)))
+    facesToIdxTri faces vertices = vertices `V.snoc` V.concatMap createFaceVert faces
     
     createFaceVert :: OBJ.Face -> V.Vector (Triangle OBJFaceVertex)
     createFaceVert (OBJ.Face (a:b:c:d:[])) = V.fromList . triangles $ Face (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c) (mkFaceVertex d)
@@ -56,7 +65,7 @@ geometryFromOBJ obj
     mkFaceVertex _ = error "Yage.Geometry.Formats.Obj.mkFaceVertex: invalid index order"
 
 
-geometryFromOBJFile :: FilePath -> IO (PosGeo, TexGeo)
+geometryFromOBJFile :: FilePath -> IO GeometryGroup
 geometryFromOBJFile file = geometryFromOBJ <$> parseOBJFile file
 
 

@@ -30,7 +30,7 @@ type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 type LitPerEntityTex    = '[ ]
 type LitPerEnity        = ShaderData LitPerEntityUni LitPerEntityTex
 
-type LitVertex          = Y'P3 GLfloat
+type LitVertex          = Vertex (Y'P3 GLfloat)
 
 data LitPassChannels = LitPassChannels
     { lBufferChannel :: Texture 
@@ -59,10 +59,6 @@ lightPass base viewport scene =
                                 }
     , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
     , passPerFrameData   = lightShaderData
-    -- , passGlobalTextures = [ TextureDefinition (0, "albedo") gAlbedoChannel
-    --                       , TextureDefinition (1, "normal") gNormalChannel
-    --                       , TextureDefinition (2, "depth") gDepthChannel
-    --                       ]
     , passPreRendering   = io $ do
         GL.viewport     GL.$= toGLViewport viewport
         let AmbientLight ambientColor = scene^.sceneEnvironment.envAmbient
@@ -124,7 +120,7 @@ mkLight light =
     where
     lightData :: Mesh LitVertex
     lightData = case lightType light of
-        Pointlight{}      -> meshFromVertexList "plight" . vertices . triangles $ geoSphere 2 1
+        Pointlight{}      -> mkFromVerticesF "plight" . vertices . triangles $ geoSphere 2 1
         Spotlight{}       -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
 

@@ -105,7 +105,7 @@ library
                         , yage-contrib    >= 0.0.0.3
                         , yage-core       >= 0.0.2
                         , yage-rendering  >= 0.0.4
-                        , yage-geometry   >= 0.0.0.1
+                        , yage-geometry   >= 0.0.0.2
 
                         , OpenGL            >= 2.9      &&    < 3
                         , OpenGLRaw         >= 1.4      &&    < 1.6
