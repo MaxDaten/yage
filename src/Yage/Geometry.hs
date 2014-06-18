@@ -80,7 +80,7 @@ ytexture2 = Field
 
 
 -- | 
-packGeos :: forall a v. (Epsilon a, Floating a) => 
+packGeos :: forall a v. ( Epsilon a, Floating a ) => 
           (Pos a -> Tex a -> TBN a -> v) -> 
           TriGeo (Pos a) -> 
           TriGeo (Tex a) -> 
@@ -89,16 +89,18 @@ packGeos :: forall a v. (Epsilon a, Floating a) =>
 packGeos vertexFormat posG texG tbnG
     | not compatibleSurfaces = error "packGeos: invalid surfaces"
     | otherwise = Geometry
-        { _geoVertices = V.concatMap (V.concatMap (V.fromList . toList . fmap emitVertex)) surfaceIndices
-        , _geoSurfaces = V.generate (V.length surfaceIndices) genSurfaces
+        { _geoVertices = V.concatMap (V.concatMap (V.fromList . toList . fmap emitVertex)) surfacesIndices
+        , _geoSurfaces = fst $ V.foldl' reindexSurfaces (V.empty, 0) surfacesIndices
         } 
     where
 
-    surfaceIndices = V.zipWith3 (V.zipWith3 mergeIndices) (posG^.geoSurfaces) (texG^.geoSurfaces) (tbnG^.geoSurfaces)
+    surfacesIndices = V.zipWith3 (V.zipWith3 mergeIndices) (posG^.geoSurfaces) (texG^.geoSurfaces) (tbnG^.geoSurfaces)
 
-    genSurfaces surfaceIndex = 
-        let surfaceLength = V.length $ V.unsafeIndex surfaceIndices surfaceIndex
-        in V.generate surfaceLength $ \i -> Triangle (i*3) (i*3+1) (i*3+2)
+    -- not the best implementation
+    reindexSurfaces (surfsAccum, offset) surface =
+      let surfLength = V.length surface
+          mkTriangle i = Triangle (i*3+offset) (i*3+offset+1) (i*3+offset+2)
+      in ( surfsAccum `V.snoc` ( V.generate surfLength mkTriangle ), offset + surfLength * 3 )
 
     emitVertex :: (Int, Int, Int) -> v
     emitVertex (vertIdx, texIdx, ntIdx) =
@@ -118,7 +120,7 @@ packGeos vertexFormat posG texG tbnG
         in posSurfaces == texSurfaces && posSurfaces == normSurfaces
 
 
-buildTriGeo :: (Foldable f, HasTriangles t, Epsilon a, Floating a) => 
+buildTriGeo :: ( Foldable f, HasTriangles t, Epsilon a, Floating a ) => 
                ( Pos a -> Tex a -> TBN a -> v ) 
             -> f (t (Pos a)) 
             -> f (t (Tex a)) 
