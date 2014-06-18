@@ -509,14 +509,18 @@ Comments
 >   pointChunk s grps = addElems s grps points <$> chunk pointLine
 >
 >   chunk lineparser = many1 (lineparser <* B.skipSpace)
+>
 >   -- | add elemets to currently selected groups
 >   addElems s grps l es = 
 >       let elems = mempty & l .~ (fromList es)
 >       in setGroups s grps elems
+>
 >   setGroups (SmoothingGroup s) grps elems = 
 >       let smooths = SmoothingGroups $ mempty & at s ?~ elems
 >       in mempty & groups .~ foldr (appendToGroup smooths) mempty (map unGroup grps)
+>
 >   appendToGroup smoothMap grp grpMap = unionWith mappend grpMap (mempty & at grp ?~ smoothMap)
+>
 >   setM l x = set l x mempty
 
 

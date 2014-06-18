@@ -33,6 +33,8 @@ data OBJFaceVertex = FaceVertex
 newtype GeometryGroup = GeometryGroup { geometryGroups :: Map ByteString (PosGeo, TexGeo) }
     deriving ( Show, Eq, Ord, Generic )
 
+
+-- TODO reindex and sparse vertices
 geometryFromOBJ :: OBJ -> GeometryGroup
 geometryFromOBJ obj 
     | not $ hasTextureCoords obj  = error "OBJ is missing neccessary texture coords"
@@ -42,7 +44,7 @@ geometryFromOBJ obj
     -- TODO : extract only verts/texs for this group
     groupToGeos :: SmoothingGroups -> (PosGeo, TexGeo)
     groupToGeos (SmoothingGroups surfsMap) = 
-        let surfs = foldr ( \elems -> facesToIdxTri $ elems^.faces ) V.empty surfsMap
+        let surfs = foldl' ( \accum elems -> facesToIdxTri accum (elems^.faces) ) V.empty surfsMap
         in ( Geometry verts $ V.map (fmap.fmap $ fVertexIndex) surfs
            , Geometry texs  $ V.map (fmap.fmap $ fTextureIndex) surfs
            )
@@ -50,10 +52,10 @@ geometryFromOBJ obj
     verts   = V.map (fmap realToFrac . unGeoVertex)     $ obj^.vertexData.geometricVertices
     texs    = V.map (fmap realToFrac . unTextureVertex) $ obj^.vertexData.textureVertices
     
-    facesToIdxTri :: V.Vector OBJ.Face -> 
-                    (V.Vector (GeoSurface (Triangle OBJFaceVertex))) -> 
-                    (V.Vector (GeoSurface (Triangle OBJFaceVertex)))
-    facesToIdxTri faces vertices = vertices `V.snoc` V.concatMap createFaceVert faces
+    facesToIdxTri :: (V.Vector (GeoSurface (Triangle OBJFaceVertex))) ->
+                     V.Vector OBJ.Face ->  
+                     (V.Vector (GeoSurface (Triangle OBJFaceVertex)))
+    facesToIdxTri vertices faces = vertices `V.snoc` V.concatMap createFaceVert faces
     
     createFaceVert :: OBJ.Face -> V.Vector (Triangle OBJFaceVertex)
     createFaceVert (OBJ.Face (a:b:c:d:[])) = V.fromList . triangles $ Face (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c) (mkFaceVertex d)
