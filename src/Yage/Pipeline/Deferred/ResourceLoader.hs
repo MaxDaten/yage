@@ -35,21 +35,21 @@ deferredResourceLoader = mkResourceLoader fromInternal
         ytangentZ  =: ( realToFrac <$> ( rGet ytangentZ internal  :: V4 Float ) )
 
 
-mkResourceLoader :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)
+mkResourceLoader :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)
 mkResourceLoader fromInternal = ResourceLoader
     { objLoader = loadOBJ fromInternal
     , ygmLoader = loadYGM fromInternal
     }
 
 
-loadOBJ :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
 loadOBJ fromInternal (filepath,subSelection) = do
     OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
     let geos            = M.toList . M.filterWithKey (isSelected subSelection) . M.mapKeys decodeUtf8 $ geoGroup
         tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
         packed          = zipWith packer geos tbnGeos
         mesh            = emptyMesh & meshId .~ fpToText filepath
-    return $ foldr (flip appendGeometry) mesh packed
+    return $ foldl' appendGeometry mesh packed
     where
     converter p t n = fromInternal $ YGM.internalFormat p t n
     

@@ -90,6 +90,7 @@ packGeos vertexFormat posG texG tbnG
     | not compatibleSurfaces = error "packGeos: invalid surfaces"
     | otherwise = Geometry
         { _geoVertices = V.concatMap (V.concatMap (V.fromList . toList . fmap emitVertex)) surfacesIndices
+        -- trivial indices, just like [[0..n], [n+1..m], ...]
         , _geoSurfaces = fst $ V.foldl' reindexSurfaces (V.empty, 0) surfacesIndices
         } 
     where
