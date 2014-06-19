@@ -55,7 +55,7 @@ geometryFromOBJ obj
     facesToIdxTri :: (V.Vector (GeoSurface (Triangle OBJFaceVertex))) ->
                      V.Vector OBJ.Face ->  
                      (V.Vector (GeoSurface (Triangle OBJFaceVertex)))
-    facesToIdxTri vertices faces = vertices `V.snoc` V.concatMap createFaceVert faces
+    facesToIdxTri vertices faces = vertices `V.snoc` (GeoSurface $ V.concatMap createFaceVert faces)
     
     createFaceVert :: OBJ.Face -> V.Vector (Triangle OBJFaceVertex)
     createFaceVert (OBJ.Face (a:b:c:d:[])) = V.fromList . triangles $ Face (mkFaceVertex a) (mkFaceVertex b) (mkFaceVertex c) (mkFaceVertex d)

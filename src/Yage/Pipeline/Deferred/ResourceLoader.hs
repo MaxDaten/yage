@@ -62,7 +62,9 @@ loadOBJ fromInternal (filepath,subSelection) = do
 
 
 loadYGM :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
-loadYGM fromInternal (filepath,_subs) = toMesh <$> YGM.ygmFromFile filepath
-    where toMesh ygm = meshFromTriGeo ( YGM.ygmName ygm ) $ fromInternal <$> YGM.ygmModel ygm
+loadYGM fromInternal (filepath,_subs) = toMesh <$> YGM.ygmFromFile filepath where 
+    toMesh ygm = 
+        let geoMap = (fmap fromInternal) <$> YGM.ygmModels ygm
+        in mkMeshFromGeometries ( YGM.ygmName ygm ) geoMap
 
 

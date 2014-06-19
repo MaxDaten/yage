@@ -10,6 +10,7 @@ module Yage.Formats.Ygm
     ) where
 
 import Yage.Prelude
+import qualified Yage.Text as TF
 import Yage.Lens
 
 import Data.Binary
@@ -25,8 +26,8 @@ import Linear
 type InternalFormat a = Y'P3TX2TN a
 type YGMFormat = InternalFormat Float
 data YGM = YGM
-    { ygmName  :: Text
-    , ygmModel :: TriGeo (Vertex YGMFormat)
+    { ygmName   :: Text
+    , ygmModels :: Map Text (TriGeo (Vertex YGMFormat))
     } deriving ( Eq, Typeable, Generic )
 
 
@@ -52,10 +53,10 @@ internalFormat pos tex tangentBasis@(V3 t _b n) =
     basisSign = if det33 tangentBasis < 0 then -1.0 else 1.0
 
 
-sameModel :: YGM -> YGM -> Bool
-sameModel a b = (ygmModel a) == (ygmModel b) 
+sameModels :: YGM -> YGM -> Bool
+sameModels a b = (ygmModels a) == (ygmModels b) 
 
 instance Show YGM where
-    show YGM{ygmName} = format "YGM {name = {0}}" [show ygmName]
+    show YGM{ygmName, ygmModels} = show $ TF.format "YGM {name = {}, groups={}}" (TF.Shown ygmName, TF.Shown ygmModels)
 
 instance Binary YGM

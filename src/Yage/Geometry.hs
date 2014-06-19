@@ -95,13 +95,13 @@ packGeos vertexFormat posG texG tbnG
         } 
     where
 
-    surfacesIndices = V.zipWith3 (V.zipWith3 mergeIndices) (posG^.geoSurfaces) (texG^.geoSurfaces) (tbnG^.geoSurfaces)
+    surfacesIndices = V.zipWith3 (\(GeoSurface p) (GeoSurface t) (GeoSurface n) -> V.zipWith3 mergeIndices p t n) (posG^.geoSurfaces) (texG^.geoSurfaces) (tbnG^.geoSurfaces)
 
     -- not the best implementation
     reindexSurfaces (surfsAccum, offset) surface =
       let surfLength = V.length surface
           mkTriangle i = Triangle (i*3+offset) (i*3+offset+1) (i*3+offset+2)
-      in ( surfsAccum `V.snoc` ( V.generate surfLength mkTriangle ), offset + surfLength * 3 )
+      in ( surfsAccum `V.snoc` ( GeoSurface $ V.generate surfLength mkTriangle ), offset + surfLength * 3 )
 
     emitVertex :: (Int, Int, Int) -> v
     emitVertex (vertIdx, texIdx, ntIdx) =
@@ -115,9 +115,9 @@ packGeos vertexFormat posG texG tbnG
     norms = tbnG^.geoVertices
 
     compatibleSurfaces =
-        let posSurfaces  = posG^.geoSurfaces^..traverse.to length
-            texSurfaces  = texG^.geoSurfaces^..traverse.to length
-            normSurfaces = tbnG^.geoSurfaces^..traverse.to length
+        let posSurfaces  = posG^.geoSurfaces^..traverse.to (length.unGeoSurface)
+            texSurfaces  = texG^.geoSurfaces^..traverse.to (length.unGeoSurface)
+            normSurfaces = tbnG^.geoSurfaces^..traverse.to (length.unGeoSurface)
         in posSurfaces == texSurfaces && posSurfaces == normSurfaces
 
 
