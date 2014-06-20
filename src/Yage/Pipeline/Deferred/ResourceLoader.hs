@@ -73,7 +73,7 @@ loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile fi
         | otherwise = 
             let geoMap = convertVertices <$> M.filterWithKey (isSelected subSelection) ygmModels
                 mesh   = emptyMesh & meshId .~ ygmName
-            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (k, geo)) mesh ( geoMap `using` parTraversable rdeepseq )
+            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (k, geo)) mesh geoMap
 
     convertVertices = geoVertices %~ map fromInternal
 
