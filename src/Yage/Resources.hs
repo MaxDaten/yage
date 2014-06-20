@@ -177,8 +177,3 @@ instance HasResources vert Texture Texture where
 
 instance HasResources vert () () where
     requestResources _ = return ()
-
-{--
-instance (Traversable f, HasResources vert a a') => HasResources vert (f a) (f a') where
-    requestResources = mapM requestResources
---}
