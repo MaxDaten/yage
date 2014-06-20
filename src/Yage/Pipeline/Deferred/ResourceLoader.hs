@@ -11,7 +11,8 @@ import Yage.Geometry
 
 import                  Foreign.C.Types.Binary           ()
 import                  Data.Vinyl.Instances             ()
-import                  Data.Map                         as M ( toList, filterWithKey, mapKeys )
+import                  Data.Map                         as M ( toList, filterWithKey, mapKeys, keysSet )
+import qualified        Data.Set                         as S
 
 import                  Yage.Rendering.Mesh
 
@@ -45,26 +46,36 @@ mkResourceLoader fromInternal = ResourceLoader
 loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
 loadOBJ fromInternal (filepath,subSelection) = do
     OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
-    let geos            = M.toList . M.filterWithKey (isSelected subSelection) . M.mapKeys decodeUtf8 $ geoGroup
-        tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
-        packed          = zipWith packer geos tbnGeos
-        mesh            = emptyMesh & meshId .~ fpToText filepath
-    return $ foldl' appendGeometry mesh packed
+    createMesh $ M.mapKeys decodeUtf8 geoGroup
+    
     where
+    
+    createMesh geoGroup
+        | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
+        | otherwise = do
+            let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
+                tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
+                packed          = zipWith packer geos tbnGeos
+                mesh            = emptyMesh & meshId .~ fpToText filepath
+            return $ foldl' appendGeometry mesh packed
+    
     converter p t n = fromInternal $ YGM.internalFormat p t n
     
     packer (ident, (pos, tex)) (_,tbn) = (ident, packGeos converter pos tex tbn)
-    
-    isSelected []        _ _   = True
-    isSelected selection key _ = key `elem` selection
-
 
 
 
 loadYGM :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
-loadYGM fromInternal (filepath,_subs) = toMesh <$> YGM.ygmFromFile filepath where 
-    toMesh ygm = 
-        let geoMap = (fmap fromInternal) <$> YGM.ygmModels ygm
-        in mkMeshFromGeometries ( YGM.ygmName ygm ) geoMap
+loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
+    createMesh YGM.YGM{..} 
+        | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
+        | otherwise = mkMeshFromGeometries ygmName $ M.filterWithKey (isSelected subSelection) $ fmap fromInternal <$> ygmModels
+
+isSelected :: SubMeshSelection -> Text -> a -> Bool
+isSelected selection key _ | S.null selection = True
+                           | otherwise = key `S.member` selection
 
 
+
+isValidSelection :: SubMeshSelection -> Map Text a -> Bool
+isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet theMap)

@@ -10,7 +10,6 @@ module Yage.Formats.Ygm
     ) where
 
 import Yage.Prelude
-import qualified Yage.Text as TF
 import Yage.Lens
 
 import Data.Binary
@@ -57,6 +56,6 @@ sameModels :: YGM -> YGM -> Bool
 sameModels a b = (ygmModels a) == (ygmModels b) 
 
 instance Show YGM where
-    show YGM{ygmName, ygmModels} = show $ TF.format "YGM {name = {}, groups={}}" (TF.Shown ygmName, TF.Shown ygmModels)
+    show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown ygmModels)
 
 instance Binary YGM

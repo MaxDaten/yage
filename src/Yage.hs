@@ -13,7 +13,6 @@ module Yage
 
 import             Yage.Prelude                    as YagePrelude
 import             Yage.Lens                       as Lens hiding ( Index )
-import qualified   Yage.Text                       as TF
 ---------------------------------------------------------------------------------------------------
 import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
@@ -136,8 +135,8 @@ yageLoop win oldState = do
     
 
     -- log loaded resources and render trace
-    traverse_ (noticeM . format "[ResourceLog]: {0}" . singleton) (newLoopState^.renderStats.resourceLog)
-    traverse_ (noticeM . format "[RenderTrace]: {0}" . singleton) (newLoopState^.renderStats.renderLog.rlTrace)
+    traverse_ ( noticeM . show . format "[ResourceLog]: {}" . Only . Shown ) (newLoopState^.renderStats.resourceLog)
+    traverse_ ( noticeM . show . format "[RenderTrace]: {}" . Only . Shown ) (newLoopState^.renderStats.renderLog.rlTrace)
     
     return $! newLoopState  
         & simulation              .~ newSim
@@ -188,14 +187,14 @@ yageLoop win oldState = do
     setDevStuff stats simTime = do
         title   <- gets appTitle
         gcTime  <- gets appGCTime
-        setWindowTitle win $ TF.unpack $ 
-            TF.format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
+        setWindowTitle win $ unpack $ 
+            format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
             ( title
-            , TF.fixed 4 $ 1000 * simTime
-            , TF.fixed 4 $ 1000 * stats^.resourcingTime
-            , TF.fixed 4 $ 1000 * stats^.renderingTime
-            , TF.fixed 4 $ 1000 * gcTime
-            , TF.fixed 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
+            , fixed 4 $ 1000 * simTime
+            , fixed 4 $ 1000 * stats^.resourcingTime
+            , fixed 4 $ 1000 * stats^.renderingTime
+            , fixed 4 $ 1000 * gcTime
+            , fixed 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
             )
 
 

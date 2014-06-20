@@ -103,7 +103,7 @@ library
                         DeriveFoldable
 
   build-depends:          base            <  5
-                        , yage-contrib    == 0.0.0.3
+                        , yage-contrib    == 0.0.1.0
                         , yage-core       == 0.0.2.0
                         , yage-rendering  == 0.0.4.0
                         , yage-geometry   == 0.0.0.2
@@ -214,7 +214,7 @@ executable obj2ygm
 
   build-depends:        base            <  5
                       , yage
-                      , yage-contrib    == 0.0.0.3
+                      , yage-contrib    == 0.0.1.0
                       , yage-geometry   == 0.0.0.2
 
                       , containers      == 0.5.*

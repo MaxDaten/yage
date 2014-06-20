@@ -9,9 +9,10 @@ module Yage.Resources
     ( YageResources, runYageResources
     , ResourceLoader(..), ResourceRegistry
     , MeshResource (..), MeshFileType(..), TextureResource(..), HasResources(..)
-    , MeshFilePath, SubItem
+    , MeshFilePath, SubMeshSelection
     , requestMeshResource, requestTextureResource
     , initialRegistry
+    , mkSelection
     ) where
 
 import           Yage.Lens
@@ -24,6 +25,7 @@ import           Codec.Picture
 
 import           Control.Monad.RWS.Strict hiding (mapM)
 import qualified Data.Map.Strict          as M
+import qualified Data.Set                 as S
 
 import           Yage.Rendering.Mesh
 import           Yage.Rendering.Resources hiding (loadedTextures)
@@ -41,15 +43,14 @@ data MeshFileType =
       OBJFile
     | YGMFile
 
-type SubItem = Text
 {--
 data Selection =
       SelectAll
     | IncludeSelection [Text]
     | ExcludeSelection [Text]
 --}
-
-type MeshFilePath = (FilePath, [SubItem])
+type SubMeshSelection = S.Set Text
+type MeshFilePath = (FilePath, SubMeshSelection)
 data MeshResource vert = 
       MeshFile MeshFilePath MeshFileType
     | MeshPure (Mesh vert)
@@ -147,7 +148,7 @@ loadMesh' loader path = do
 hashPath :: MeshFilePath -> XXHash
 hashPath (filepath, subs) = 
     let pathBS = encodeUtf8 . fpToText $ filepath
-    in xxHash' (concat $ pathBS:(map encodeUtf8 subs)) 
+    in xxHash' (concat $ pathBS:(map encodeUtf8 $ S.toList subs)) 
 
 initialRegistry :: ResourceRegistry geo
 initialRegistry = ResourceRegistry M.empty T.empty
@@ -158,6 +159,9 @@ meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 textures :: Lens' (ResourceRegistry geo) (T.Trie Texture)
 textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
 
+
+mkSelection :: [ Text ] -> SubMeshSelection
+mkSelection = S.fromList
 
 instance HasResources vert (MeshResource vert) (Mesh vert) where
     requestResources = requestMeshResource

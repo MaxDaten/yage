@@ -39,7 +39,7 @@ constColorPx = constColorImage 1
 
 subImage :: (Pixel a) => Image a -> ImagePosition -> Image a -> Image a
 subImage sub atPx@(V2 atX atY) target
-    | not subImageFit = error $ format "sub image does not fit at \"{0}\" in target image" [show atPx]
+    | not subImageFit = error $ unpack $ format "sub image does not fit at \"{}\" in target image" (Only $ Shown atPx)
     | otherwise   = generateImage includeRegionImg (imageWidth target) (imageHeight target)
     where
         includeRegionImg px py =

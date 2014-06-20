@@ -17,11 +17,11 @@ import qualified Yage.Formats.Obj as OBJ
 
 main :: IO ()
 main = do
-    importFile <- fpFromText . head <$> getArgs
-    let subSelection = []
+    importFile   <- fpFromText . head <$> getArgs
+    subSelection <- tail <$> getArgs
 
-    print $ "import...: " ++ show importFile
-    OBJ.GeometryGroup geoMap <- printIOTime $ OBJ.geometryFromOBJFile importFile
+    print $ "import... (lazy):" ++ show importFile
+    OBJ.GeometryGroup geoMap <- printIOTime $! OBJ.geometryFromOBJFile importFile
     let name        = fpToText . basename $ importFile
         exportFile  = basename importFile <.> "ygm"
         
@@ -36,7 +36,7 @@ main = do
     printIOTime $ YGM.ygmToFile exportFile ygm
 
     fileCheck <- printIOTime $ YGM.ygmFromFile exportFile
-    print $ format "file correct: {0}" [show $ fileCheck == ygm]
+    printTF "file correct: {0}" (Only $ Shown $ fileCheck == ygm)
     
     where
 
