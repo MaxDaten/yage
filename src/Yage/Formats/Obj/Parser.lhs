@@ -20,7 +20,6 @@ full spec: http://www.martinreddy.net/gfx/3d/OBJ.spec
 > import Linear.DeepSeq ()
 
 > import Generics.Deriving.Monoid
-> import Control.DeepSeq.Generics
 
 obj Parsing
 ===========
