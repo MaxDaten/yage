@@ -104,15 +104,15 @@ loadTextureFile f = do
 
     registry <- get
     res <- maybe
-            (load $ fpToString f)
+            (printIOTime load)
             return
             (registry^.textures.at filepath)
 
     put $ registry & textures.at filepath ?~ res
     return res
     where
-    load path = io $ do
-        eImg <- (fromDynamic =<<) <$> readImage path
+    load = io $ do
+        eImg <- (fromDynamic =<<) <$> readImage (fpToString f)
         case eImg of
             Left err    -> error err
             Right img   -> return $ mkTexture (fromStrict $ fpToText f) $ Texture2D img
@@ -129,7 +129,7 @@ loadMesh' loader path = do
     let xhash = hashPath path
     registry <- get
     res <- maybe
-            load
+            (printIOTime load)
             return
             (registry^.meshes.at xhash)
 

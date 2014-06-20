@@ -17,6 +17,7 @@ import Data.Text.Binary as Bin ()
 import Data.Vinyl.Instances ()
 import Codec.Compression.GZip
 import qualified Data.ByteString.Lazy as B
+import Control.Parallel.Strategies
 
 import Yage.Geometry
 import Linear
@@ -34,7 +35,9 @@ ygmToFile :: FilePath -> YGM -> IO ()
 ygmToFile name = B.writeFile (fpToString name) . compress . encode
 
 ygmFromFile :: FilePath -> IO YGM
-ygmFromFile path = decode . decompress <$> (B.readFile $ fpToString path)
+ygmFromFile path = do
+    ygm <- decode . decompress <$> (B.readFile $ fpToString path)
+    return ygm { ygmModels = ygmModels ygm `using` parTraversable rdeepseq }
 
 
 internalFormat :: ( Real a, Fractional a, Fractional b ) => 
@@ -59,3 +62,5 @@ instance Show YGM where
     show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown ygmModels)
 
 instance Binary YGM
+
+instance NFData YGM where rnf = genericRnf

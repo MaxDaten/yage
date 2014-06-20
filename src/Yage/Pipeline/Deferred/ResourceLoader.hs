@@ -10,18 +10,19 @@ import Yage.Resources
 import Yage.Geometry
 
 import                  Foreign.C.Types.Binary           ()
+import                  Foreign.C.Types.DeepSeq          ()
 import                  Data.Vinyl.Instances             ()
-import                  Data.Map                         as M ( toList, filterWithKey, mapKeys, keysSet )
+import qualified        Data.Map                         as M
 import qualified        Data.Set                         as S
 
 import                  Yage.Rendering.Mesh
-
 
 import qualified        Yage.Formats.Obj                 as OBJ
 import qualified        Yage.Formats.Ygm                 as YGM
 
 import                  Yage.Pipeline.Deferred.GeometryPass
 
+import                  Control.Parallel.Strategies
 import                  Linear
 
 
@@ -36,7 +37,7 @@ deferredResourceLoader = mkResourceLoader fromInternal
         ytangentZ  =: ( realToFrac <$> ( rGet ytangentZ internal  :: V4 Float ) )
 
 
-mkResourceLoader :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)
+mkResourceLoader :: ( Storable (Vertex v), NFData (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)
 mkResourceLoader fromInternal = ResourceLoader
     { objLoader = loadOBJ fromInternal
     , ygmLoader = loadYGM fromInternal
@@ -65,17 +66,24 @@ loadOBJ fromInternal (filepath,subSelection) = do
 
 
 
-loadYGM :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadYGM :: ( Storable (Vertex v), NFData (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
 loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
     createMesh YGM.YGM{..} 
         | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
-        | otherwise = mkMeshFromGeometries ygmName $ M.filterWithKey (isSelected subSelection) $ fmap fromInternal <$> ygmModels
+        | otherwise = 
+            let geoMap = convertVertices <$> M.filterWithKey (isSelected subSelection) ygmModels
+                mesh   = emptyMesh & meshId .~ ygmName
+            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (k, geo)) mesh ( geoMap `using` parTraversable rdeepseq )
+
+    convertVertices = geoVertices %~ map fromInternal
+
 
 isSelected :: SubMeshSelection -> Text -> a -> Bool
 isSelected selection key _ | S.null selection = True
                            | otherwise = key `S.member` selection
-
+{-# INLINE isSelected #-}
 
 
 isValidSelection :: SubMeshSelection -> Map Text a -> Bool
 isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet theMap)
+{-# INLINE isValidSelection #-}
