@@ -34,7 +34,7 @@ type GeoPerEntityUni   = [ YModelMatrix
 type GeoPerEntityTex   = [ YAlbedoTex, YNormalTex ]
 type GeoPerEntity      = ShaderData GeoPerEntityUni GeoPerEntityTex
 
-type GeoVertex         = Y'P3TX2TN GLfloat
+type GeoVertex         = Vertex (Y'P3TX2TN GLfloat)
 
 data GeoPassChannels = GeoPassChannels
     { gAlbedoChannel :: Texture

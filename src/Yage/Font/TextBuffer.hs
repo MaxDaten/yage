@@ -6,7 +6,7 @@
 module Yage.Font.TextBuffer where
 
 import           Yage.Prelude              hiding (Text)
-import           Yage.Lens
+import           Yage.Lens                 hiding (cons)
 
 import           Yage.Math
 -----------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ type GlyphVertex = Y'P2TX2C4 GLfloat
 type Caret = V2 Double
 data TextBuffer = TextBuffer
     { _tbufTexture :: FontTexture
-    , _tbufMesh    :: Mesh GlyphVertex
+    , _tbufMesh    :: Mesh (Vertex GlyphVertex)
     , _tbufCaret   :: Caret
     , _tbufText    :: Text
     } deriving ( Typeable )
@@ -75,20 +75,26 @@ pushChar tbuf c =
             & tbufText      <>~ T.singleton c
     where
         getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c
+        
         aux mesh (Just fdata@(glyph, _region)) =
-            let fTex          = tbuf^.tbufTexture
-                caret         = tbuf^.tbufCaret 
+            let fTex            = tbuf^.tbufTexture
+                caret           = tbuf^.tbufCaret 
 
-                metric        = glyphMetrics glyph
-                vSpace        = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
+                metric          = glyphMetrics glyph
+                vSpace          = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
 
-                advance       = vSpace * fromI (glyHoriAdvance metric)
-                norm@(normX,_)= pxNorm . fontDescr $ tbuf^.tbufTexture.font
+                advance         = vSpace * fromI (glyHoriAdvance metric)
+                norm@(normX,_)  = pxNorm . fontDescr $ tbuf^.tbufTexture.font
 
-                texDim        = textureDimension $ fTex^.fontMap
+                texDim          = textureDimension $ fTex^.fontMap
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-                glyphVerts    = makeGlypMesh caret fdata texDim norm
-            in (caret & _x +~ advance / normX, mesh `pushToBack` (V.fromList glyphVerts))
+                glyphVerts      = makeGlypMesh caret fdata texDim norm
+                glypIdx         :: V.Vector Int
+                glypIdx         = V.fromList [0, 1, 2, 0, 2, 3]
+                glypComp        = makeComponent (c `cons` (pack . show $ caret)) glypIdx
+            in ( caret & _x +~ advance / normX
+               , mesh `appendComponent` (glypComp, V.fromList glyphVerts)
+               )
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- FIXME: WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
 

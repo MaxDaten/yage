@@ -1,8 +1,9 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans     #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
-{-# LANGUAGE FlexibleContexts, NoMonomorphismRestriction #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE FlexibleContexts         #-}
+{-# LANGUAGE DeriveDataTypeable       #-}
+{-# LANGUAGE PackageImports           #-}
+{-# LANGUAGE ScopedTypeVariables      #-}
 module Yage.Geometry
     ( module Vertex
     , module Geometry
@@ -11,6 +12,8 @@ module Yage.Geometry
     ) where
 
 import                  Yage.Prelude                     hiding (toList)
+import                  Yage.Lens
+
 import                  Data.Vinyl
 import qualified        Data.Vector                      as V
 import                  Data.Foldable                    (toList)
@@ -76,56 +79,63 @@ ytexture2 :: YTexture2 a
 ytexture2 = Field
 
 
---{--
-packGeos :: (Epsilon a, Floating a) => 
+-- | 
+packGeos :: forall a v. ( Epsilon a, Floating a ) => 
           (Pos a -> Tex a -> TBN a -> v) -> 
           TriGeo (Pos a) -> 
           TriGeo (Tex a) -> 
           TriGeo (TBN a) ->
           TriGeo v
-packGeos vertexFormat posG texG tbnG 
-    | sameLength = error "can't merge geos, invalid number of elements"
-    | otherwise =
-        let mergedIdxs = V.zipWith3 mergeIndices (geoElements posG) (geoElements texG) (geoElements tbnG)
-            vs         = V.concatMap ( V.fromList . toList . (fmap emitVertex) ) mergedIdxs
-        in Geometry { geoVertices = vs
-                    , geoElements = V.generate (length mergedIdxs) ( \i -> Triangle (i*3) (i*3+1) (i*3+2) )
-                    }
+packGeos vertexFormat posG texG tbnG
+    | not compatibleSurfaces = error "packGeos: invalid surfaces"
+    | otherwise = Geometry
+        { _geoVertices = V.concatMap (V.concatMap (V.fromList . toList . fmap emitVertex)) surfacesIndices
+        -- trivial indices, just like [[0..n], [n+1..m], ...]
+        , _geoSurfaces = fst $ V.foldl' reindexSurfaces (V.empty, 0) surfacesIndices
+        } 
     where
 
+    surfacesIndices = V.zipWith3 (\(GeoSurface p) (GeoSurface t) (GeoSurface n) -> V.zipWith3 mergeIndices p t n) (posG^.geoSurfaces) (texG^.geoSurfaces) (tbnG^.geoSurfaces)
+
+    -- not the best implementation
+    reindexSurfaces (surfsAccum, offset) surface =
+      let surfLength = V.length surface
+          mkTriangle i = Triangle (i*3+offset) (i*3+offset+1) (i*3+offset+2)
+      in ( surfsAccum `V.snoc` ( GeoSurface $ V.generate surfLength mkTriangle ), offset + surfLength * 3 )
+
+    emitVertex :: (Int, Int, Int) -> v
     emitVertex (vertIdx, texIdx, ntIdx) =
         vertexFormat (verts V.! vertIdx) (texs V.! texIdx) (norms V.! ntIdx)
 
     mergeIndices :: Triangle Int -> Triangle Int -> Triangle Int -> Triangle (Int, Int, Int)
     mergeIndices p tx tn  = (,,) <$> p <*> tx <*> tn
 
-    verts = geoVertices posG
-    texs  = geoVertices texG
-    norms = geoVertices tbnG
+    verts = posG^.geoVertices
+    texs  = texG^.geoVertices
+    norms = tbnG^.geoVertices
 
-    sameLength =
-        let lp = length $ geoElements posG
-            lt = length $ geoElements texG
-            ln = length $ geoElements tbnG
-        in lp /= lt || ln /= lt || lp /= ln
+    compatibleSurfaces =
+        let posSurfaces  = posG^.geoSurfaces^..traverse.to (length.unGeoSurface)
+            texSurfaces  = texG^.geoSurfaces^..traverse.to (length.unGeoSurface)
+            normSurfaces = tbnG^.geoSurfaces^..traverse.to (length.unGeoSurface)
+        in posSurfaces == texSurfaces && posSurfaces == normSurfaces
 
 
-buildTriGeo :: (Foldable f, HasTriangles t, Epsilon a, Floating a) => 
+buildTriGeo :: ( Foldable f, HasTriangles t, Epsilon a, Floating a ) => 
                ( Pos a -> Tex a -> TBN a -> v ) 
             -> f (t (Pos a)) 
             -> f (t (Tex a)) 
             -> TriGeo v 
 buildTriGeo vertexFormat pos tex =
-    let posGeo = makeSimpleTriGeo' pos
-        texGeo = makeSimpleTriGeo' tex
-        tbnGeo = calcTangentSpaces posGeo texGeo
-    in packGeos vertexFormat posGeo texGeo tbnGeo
+    let posGeo = makeSimpleTriGeoF pos
+        texGeo = makeSimpleTriGeoF tex
+    in packGeos vertexFormat posGeo texGeo $ calcTangentSpaces posGeo texGeo
 
 
 buildMesh :: ( Epsilon a, Floating a
              , HasTriangles t, HasSurfaces s, Storable (Vertex v)
              , IElem (YPosition3 a) vert, IElem (YTexture2 a) vert ) => 
-          ( Pos a -> Tex a -> TBN a -> (Vertex v) ) -> String -> s (t (Vertex vert)) -> Mesh v
+          ( Pos a -> Tex a -> TBN a -> (Vertex v) ) -> Text -> s (t (Vertex vert)) -> Mesh (Vertex v)
 buildMesh vertexFormat name geo = 
     let vs     = concatMap (concatMap (vertices . triangles) . getSurface) $ surfaces geo
         posGeo = makeSimpleTriGeo $ V.map (rGet yposition3) $ V.fromList vs

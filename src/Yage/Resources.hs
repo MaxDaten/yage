@@ -9,8 +9,10 @@ module Yage.Resources
     ( YageResources, runYageResources
     , ResourceLoader(..), ResourceRegistry
     , MeshResource (..), MeshFileType(..), TextureResource(..), HasResources(..)
+    , MeshFilePath, SubMeshSelection
     , requestMeshResource, requestTextureResource
     , initialRegistry
+    , mkSelection
     ) where
 
 import           Yage.Lens
@@ -23,6 +25,7 @@ import           Codec.Picture
 
 import           Control.Monad.RWS.Strict hiding (mapM)
 import qualified Data.Map.Strict          as M
+import qualified Data.Set                 as S
 
 import           Yage.Rendering.Mesh
 import           Yage.Rendering.Resources hiding (loadedTextures)
@@ -40,9 +43,16 @@ data MeshFileType =
       OBJFile
     | YGMFile
 
-
+{--
+data Selection =
+      SelectAll
+    | IncludeSelection [Text]
+    | ExcludeSelection [Text]
+--}
+type SubMeshSelection = S.Set Text
+type MeshFilePath = (FilePath, SubMeshSelection)
 data MeshResource vert = 
-      MeshFile FilePath MeshFileType
+      MeshFile MeshFilePath MeshFileType
     | MeshPure (Mesh vert)
 
 
@@ -53,7 +63,7 @@ data TextureResource =
 
 type YageResources vert = RWST (ResourceLoader vert) () (ResourceRegistry vert) IO
 
-type MeshLoader vert = FilePath -> IO (Mesh vert)
+type MeshLoader vert = MeshFilePath -> IO (Mesh vert)
 
 
 type ResourceLoaderAccessor vert = ResourceLoader vert -> MeshLoader vert
@@ -79,7 +89,7 @@ runYageResources loader yr st = do
 
 
 requestMeshResource :: MeshResource vert -> YageResources vert (Mesh vert)
-requestMeshResource (MeshFile filepath meshType) = loadMeshFile meshType filepath
+requestMeshResource (MeshFile path meshType) = loadMeshFile meshType path
 requestMeshResource (MeshPure mesh) = return mesh
 
 
@@ -108,15 +118,15 @@ loadTextureFile f = do
             Right img   -> return $ mkTexture (fromStrict $ fpToText f) $ Texture2D img
 
 
-loadMeshFile :: MeshFileType -> FilePath -> YageResources vert (Mesh vert)
+loadMeshFile :: MeshFileType -> MeshFilePath -> YageResources vert (Mesh vert)
 loadMeshFile = \case
     YGMFile -> loadMesh' ygmLoader
     OBJFile -> loadMesh' objLoader
 
 
-loadMesh' :: ResourceLoaderAccessor vert -> FilePath -> YageResources vert (Mesh vert)
-loadMesh' loader filepath = do
-    xhash <- xxHash <$> readFile filepath
+loadMesh' :: ResourceLoaderAccessor vert -> MeshFilePath -> YageResources vert (Mesh vert)
+loadMesh' loader path = do
+    let xhash = hashPath path
     registry <- get
     res <- maybe
             load
@@ -128,12 +138,17 @@ loadMesh' loader filepath = do
 
     where
     load = do
-        l <- (asks loader)
-        io $ l filepath
+        l <- asks loader
+        io $ l path
 
 {--
 ## Utility
 --}
+
+hashPath :: MeshFilePath -> XXHash
+hashPath (filepath, subs) = 
+    let pathBS = encodeUtf8 . fpToText $ filepath
+    in xxHash' (concat $ pathBS:(map encodeUtf8 $ S.toList subs)) 
 
 initialRegistry :: ResourceRegistry geo
 initialRegistry = ResourceRegistry M.empty T.empty
@@ -144,6 +159,9 @@ meshes = lens loadedMeshes (\r m -> r{ loadedMeshes = m })
 textures :: Lens' (ResourceRegistry geo) (T.Trie Texture)
 textures = lens loadedTextures (\r t -> r{ loadedTextures = t })
 
+
+mkSelection :: [ Text ] -> SubMeshSelection
+mkSelection = S.fromList
 
 instance HasResources vert (MeshResource vert) (Mesh vert) where
     requestResources = requestMeshResource

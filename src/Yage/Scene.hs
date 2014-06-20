@@ -192,7 +192,7 @@ toRenderEntity shaderData ent =
 --      the default `Material` as `TexSRGB8`
 --      id Transformation
 --      settings for triangle primitive rendering and back-face culling
-basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource geo) mat
+basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource (Vertex geo)) mat
 basicEntity =
     Entity 
         { _renderData           = MeshPure emptyMesh

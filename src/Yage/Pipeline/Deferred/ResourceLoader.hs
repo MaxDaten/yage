@@ -4,12 +4,15 @@
 module Yage.Pipeline.Deferred.ResourceLoader where
 
 import Yage.Prelude hiding (toList)
+import Yage.Lens
 
 import Yage.Resources
 import Yage.Geometry
 
 import                  Foreign.C.Types.Binary           ()
 import                  Data.Vinyl.Instances             ()
+import                  Data.Map                         as M ( toList, filterWithKey, mapKeys, keysSet )
+import qualified        Data.Set                         as S
 
 import                  Yage.Rendering.Mesh
 
@@ -25,7 +28,7 @@ import                  Linear
 deferredResourceLoader :: ResourceLoader GeoVertex
 deferredResourceLoader = mkResourceLoader fromInternal
     where
-    fromInternal :: Vertex YGM.YGMFormat -> Vertex GeoVertex
+    fromInternal :: Vertex YGM.YGMFormat -> GeoVertex
     fromInternal internal =
         yposition3 =: ( realToFrac <$> ( rGet yposition3 internal :: V3 Float ) ) <+>
         ytexture2  =: ( realToFrac <$> ( rGet ytexture2 internal  :: V2 Float ) ) <+>
@@ -33,24 +36,46 @@ deferredResourceLoader = mkResourceLoader fromInternal
         ytangentZ  =: ( realToFrac <$> ( rGet ytangentZ internal  :: V4 Float ) )
 
 
-mkResourceLoader :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader v
+mkResourceLoader :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)
 mkResourceLoader fromInternal = ResourceLoader
     { objLoader = loadOBJ fromInternal
     , ygmLoader = loadYGM fromInternal
     }
 
 
-loadOBJ :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> FilePath -> IO (Mesh v)
-loadOBJ fromInternal path = do
-    (posGeo, texGeo) <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile path
-    let tbnGeo          = calcTangentSpaces posGeo texGeo
-        convert p t tbn = fromInternal $ YGM.internalFormat p t tbn
-        packed          = packGeos convert posGeo texGeo tbnGeo
-    return $ meshFromTriGeo ( fpToString path ) packed
+loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadOBJ fromInternal (filepath,subSelection) = do
+    OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
+    createMesh $ M.mapKeys decodeUtf8 geoGroup
+    
+    where
+    
+    createMesh geoGroup
+        | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
+        | otherwise = do
+            let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
+                tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
+                packed          = zipWith packer geos tbnGeos
+                mesh            = emptyMesh & meshId .~ fpToText filepath
+            return $ foldl' appendGeometry mesh packed
+    
+    converter p t n = fromInternal $ YGM.internalFormat p t n
+    
+    packer (ident, (pos, tex)) (_,tbn) = (ident, packGeos converter pos tex tbn)
 
 
-loadYGM :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> FilePath -> IO (Mesh v)
-loadYGM fromInternal path = toMesh <$> YGM.ygmFromFile path
-    where toMesh ygm = meshFromTriGeo ( unpack $ YGM.ygmName ygm ) $ fromInternal <$> YGM.ygmModel ygm
+
+loadYGM :: Storable (Vertex v) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
+    createMesh YGM.YGM{..} 
+        | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
+        | otherwise = mkMeshFromGeometries ygmName $ M.filterWithKey (isSelected subSelection) $ fmap fromInternal <$> ygmModels
+
+isSelected :: SubMeshSelection -> Text -> a -> Bool
+isSelected selection key _ | S.null selection = True
+                           | otherwise = key `S.member` selection
 
 
+
+isValidSelection :: SubMeshSelection -> Map Text a -> Bool
+isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet theMap)
