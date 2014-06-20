@@ -80,7 +80,7 @@ library
     ghc-options:        -threaded -O0
   
   if flag(dev)
-    ghc-options:        -Wall -Werror
+    ghc-options:        -Wall
 
 --  ghc-prof-options:     -rtsopts -prof -auto-all
   default-language:     Haskell2010
