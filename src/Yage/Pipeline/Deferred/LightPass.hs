@@ -51,8 +51,8 @@ type LitEntityDraw   = LitEntityT Mesh
 
 type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
-lightPass :: GeometryPass -> Viewport Int -> LitPassScene ent sky -> LightPass
-lightPass base viewport scene =
+lightPass :: GeometryPass -> Viewport Int -> Camera -> (Environment LitEntityDraw sky) -> LightPass
+lightPass base viewport camera environment =
     let GeoPassChannels{..} = renderTargets base
     in PassDescr
     { passTarget         = RenderTarget "light-fbo" $ LitPassChannels
@@ -63,7 +63,7 @@ lightPass base viewport scene =
     , passPerFrameData   = lightShaderData
     , passPreRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
-        let AmbientLight ambientColor = scene^.sceneEnvironment.envAmbient
+        let AmbientLight ambientColor = environment^.envAmbient
             V3 r g b                  = realToFrac <$> ambientColor
         GL.clearColor   GL.$= GL.Color4 r g b 0
         
@@ -86,7 +86,6 @@ lightPass base viewport scene =
 
     where
     
-    sceneCam        = scene^.sceneCamera
     vpgl            = fromIntegral <$> viewport
     lightSpec       = mkTextureSpec (viewport^.viewportWH) GL.Float GL.RGB GL.RGB32F
     
@@ -97,13 +96,13 @@ lightPass base viewport scene =
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
-        let zNearFar@(V2 near far)      = realToFrac <$> V2 (-sceneCam^.cameraPlanes^.camZNear) (-sceneCam^.cameraPlanes^.camZFar)
+        let zNearFar@(V2 near far)      = realToFrac <$> V2 (-camera^.cameraPlanes^.camZNear) (-camera^.cameraPlanes^.camZFar)
             zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
             fvp                         = vpgl
             dim                         = vpgl^.viewportWH
             theGamma                    = realToFrac $ viewport^.viewportGamma
         in
-        perspectiveUniforms fvp sceneCam     <+>
+        perspectiveUniforms fvp camera     <+>
         viewportDim      =: dim              <+>
         zNearFarPlane    =: zNearFar         <+>
         zProjRatio       =: zProj            <+>

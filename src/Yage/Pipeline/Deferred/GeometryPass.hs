@@ -65,14 +65,14 @@ type GeometryPass = PassDescr
                         GeoVertex
 
 
-type GeoPassScene env = Scene GeoEntityDraw env
+type GeoPassScene env = Scene Camera GeoEntityDraw env
 
 {--
 Pass Description
 --}
 
-geoPass :: Viewport Int -> GeoPassScene env -> GeometryPass
-geoPass viewport scene = PassDescr
+geoPass :: Viewport Int -> Camera -> GeometryPass
+geoPass viewport camera = PassDescr
     { passTarget         = geoTarget
     , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
     , passPerFrameData   = geoShaderData
@@ -95,7 +95,6 @@ geoPass viewport scene = PassDescr
     }
 
     where
-    sceneCam        = scene^.sceneCamera
     glvp            = fromIntegral <$> viewport
     baseSpec        = mkTextureSpec' (glvp^.viewportWH) GL.RGBA
     depthSpec       = mkTextureSpec' (glvp^.viewportWH) GL.DepthComponent
@@ -109,8 +108,8 @@ geoPass viewport scene = PassDescr
     
     geoShaderData   :: GeoPerFrame 
     geoShaderData   =
-        let zfar    = - (realToFrac $ sceneCam^.cameraPlanes.camZFar)
-            uniform = perspectiveUniforms glvp sceneCam  <+>
+        let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
+            uniform = perspectiveUniforms glvp camera  <+>
                       zFarPlane        =: zfar
         in ShaderData uniform mempty
 
@@ -118,8 +117,8 @@ geoPass viewport scene = PassDescr
 Geo Pass Utils
 --}
 
-toGeoEntity :: GeoPassScene env -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
-toGeoEntity scene ent = toRenderEntity shaderData ent
+toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
+toGeoEntity camera ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
                  materialUniforms (ent^.materials.albedoMaterial) `append`
@@ -130,7 +129,7 @@ toGeoEntity scene ent = toRenderEntity shaderData ent
 
     theNormalMatrix :: M33 Float
     theNormalMatrix = 
-        let invCam        = scene^.sceneCamera & cameraTransformation %~ inverseTransformation
+        let invCam        = camera & cameraTransformation %~ inverseTransformation
             invViewM      = invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33

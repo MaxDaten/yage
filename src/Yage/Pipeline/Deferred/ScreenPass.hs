@@ -10,6 +10,7 @@ import Yage.Geometry3D
 
 import Yage.Scene
 import Yage.Transformation
+import Yage.HDR
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
@@ -20,7 +21,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 newtype Screen = Screen (Viewport Int)
 
-type SrcPerFrameUni    = '[ YProjectionMatrix ]
+type SrcPerFrameUni    = '[ YProjectionMatrix, YExposure, YExposureBias, YInverseGamma ]
 type SrcPerFrame       = ShaderData SrcPerFrameUni '[ YScreenTex ]
 
 type SrcPerEntity      = ShaderData '[ YModelMatrix ] '[]
@@ -34,8 +35,8 @@ type ScreenPass        = PassDescr
                             ScrVertex
 
 
-screenPass :: Texture -> Viewport Int -> ScreenPass
-screenPass toScreen viewport = PassDescr
+screenPass :: Texture -> Viewport Int -> HDRCamera -> ScreenPass
+screenPass toScreen viewport hdr = PassDescr
     { passTarget         = defaultRenderTarget
     , passShader         = ShaderResource "res/glsl/pass/screenPass.vert" "res/glsl/pass/screenPass.frag"
     , passPerFrameData   = ShaderData screenUniforms screenTextures
@@ -62,7 +63,10 @@ screenPass toScreen viewport = PassDescr
 
     screenUniforms :: Uniforms SrcPerFrameUni
     screenUniforms =
-        projectionMatrix =: projectionMatrix2D 0 10 glVP
+        projectionMatrix =: projectionMatrix2D 0 10 glVP <+>
+        U.exposure         =: (realToFrac $ hdr^.hdrExposure)           <+>
+        U.exposureBias     =: (realToFrac $ hdr^.hdrExposureBias)       <+>
+        U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma))
 
     screenTextures :: Textures '[YScreenTex]
     screenTextures = Field =: toScreen

@@ -11,6 +11,7 @@ import           Yage.Scene
 import           Yage.Viewport
 import           Yage.Uniforms
 import           Yage.Material
+import           Yage.HDR
 
 import           Yage.Pipeline.Deferred.LightPass
 
@@ -38,11 +39,11 @@ type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
 type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
-skyPass :: LightPass -> Viewport Int -> LitPassScene ent SkyEntityDraw -> SkyPass
-skyPass lighting viewport scene = PassDescr
+skyPass :: LightPass -> Viewport Int -> Camera -> SkyPass
+skyPass lighting viewport camera = PassDescr
     { passTarget         = passTarget lighting
     , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
-    , passPerFrameData   = ShaderData (perspectiveUniforms viewport (scene^.sceneCamera)) mempty
+    , passPerFrameData   = ShaderData (perspectiveUniforms viewport camera) mempty
     , passPreRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
         --GL.clearColor   GL.$= GL.Color4 0 0 0 0
