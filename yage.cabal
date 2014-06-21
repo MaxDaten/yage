@@ -69,6 +69,7 @@ library
                         Yage.Pipeline.Deferred.LightPass
                         Yage.Pipeline.Deferred.SkyPass
                         Yage.Pipeline.Deferred.ScreenPass
+                        Yage.Pipeline.Deferred.DownsamplePass
                         
                         Yage.Pipeline.Deferred.ResourceLoader
   other-modules:        Paths_yage
