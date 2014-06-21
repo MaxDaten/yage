@@ -12,9 +12,9 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.Images                   as Material
 import Yage.Color                    as Material
-import Yage.Rendering.Transformation as Material
 import Yage.Rendering.Resources      as Material
 import Yage.Resources
+import Yage.Transformation           as Material
 
 import Linear (V3, Quaternion)
 

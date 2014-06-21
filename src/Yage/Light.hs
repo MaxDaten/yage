@@ -3,7 +3,7 @@ module Yage.Light where
 
 import Yage.Prelude
 
-import Yage.Rendering.Transformation
+import Yage.Transformation
 import Linear hiding (lerp)
 import qualified Linear (lerp)
 

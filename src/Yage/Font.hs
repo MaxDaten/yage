@@ -13,11 +13,10 @@ import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, lo
 import Yage.Prelude
 import Yage.Lens
 
+import Yage.Transformation
+import Yage.Rendering
 import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
-
-import           Yage.Rendering
---import           Yage.Rendering.Shader
 
 import           Yage.Uniforms.MVP
 

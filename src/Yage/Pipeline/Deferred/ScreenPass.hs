@@ -9,6 +9,7 @@ import Yage.Geometry
 import Yage.Geometry3D
 
 import Yage.Scene
+import Yage.Transformation
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 

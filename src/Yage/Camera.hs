@@ -9,7 +9,7 @@ module Yage.Camera
 import Yage.Prelude
 import Yage.Lens
 
-import Yage.Rendering.Transformation
+import Yage.Transformation
 
 import qualified Graphics.GLUtil.Camera3D            as Cam
 

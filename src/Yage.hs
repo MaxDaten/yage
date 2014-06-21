@@ -30,6 +30,8 @@ import             Yage.Pipeline.Deferred
 import             Yage.UI
 import             Yage.Scene                      hiding (YageResources)
 import             Yage.Viewport                   (Viewport(..))
+import             Yage.Transformation
+
 
 ---------------------------------------------------------------------------------------------------
 

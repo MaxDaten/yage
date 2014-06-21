@@ -15,20 +15,20 @@ module Yage.Scene
     ) where
 
 
-import           Yage.Prelude                   hiding (mapM)
+import           Yage.Prelude                   hiding ( mapM )
 import           Yage.Lens
 
 import           Yage.Camera
 import           Yage.Light
 import           Yage.Resources                 as Res
-import           Yage.Geometry                  hiding (Face)
+import           Yage.Geometry                  hiding ( Face )
 
 import           Data.Traversable               (mapM)
 import qualified Graphics.GLUtil.Camera3D       as Cam
 
-import           Yage.Rendering.Transformation
 import           Yage.Rendering.RenderEntity
-import           Yage.Rendering                 hiding (P3, lerp)
+import           Yage.Rendering                 hiding ( P3 )
+import           Yage.Transformation
 import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity

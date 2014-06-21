@@ -15,6 +15,7 @@ import Yage.Uniforms as U
 import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
+import Yage.Transformation
 
 import Yage.Rendering hiding (P3)
 import Yage.Rendering.Textures              (mkTextureSpec)
