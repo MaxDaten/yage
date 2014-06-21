@@ -42,11 +42,14 @@ library
                         Yage.Images
                         Yage.Color
                         Yage.Geometry
+                        Yage.Viewport
+                        Yage.HDR
                         
                         Yage.Uniforms
                         Yage.Uniforms.Material
                         Yage.Uniforms.Light
                         Yage.Uniforms.MVP
+                        Yage.Uniforms.Camera
 
                         Yage.Formats.Obj.Parser
                         Yage.Formats.Obj
@@ -99,8 +102,11 @@ library
                         ConstraintKinds
 
                         StandaloneDeriving
+                        DeriveFunctor
+                        DeriveDataTypeable
                         DeriveTraversable
                         DeriveFoldable
+                        DeriveGeneric
 
   build-depends:          base            <  5
                         , yage-contrib    == 0.0.1.0

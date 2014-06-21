@@ -8,6 +8,7 @@ import           Yage.Lens
 import           Yage.Rendering                     hiding (P3)
 
 import           Yage.Scene
+import           Yage.Viewport
 import           Yage.Uniforms
 import           Yage.Material
 
@@ -37,13 +38,13 @@ type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
 type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
-skyPass :: LightPass -> ViewportI -> LitPassScene ent SkyEntityDraw -> SkyPass
+skyPass :: LightPass -> Viewport Int -> LitPassScene ent SkyEntityDraw -> SkyPass
 skyPass lighting viewport scene = PassDescr
     { passTarget         = passTarget lighting
     , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
     , passPerFrameData   = ShaderData (perspectiveUniforms viewport (scene^.sceneCamera)) mempty
     , passPreRendering   = io $ do
-        GL.viewport     GL.$= toGLViewport viewport
+        GL.viewport     GL.$= viewport^.glViewport
         --GL.clearColor   GL.$= GL.Color4 0 0 0 0
         
         GL.depthFunc    GL.$= Just GL.Less

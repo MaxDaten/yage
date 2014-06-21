@@ -8,10 +8,10 @@ import Yage.Lens
 import Data.Vinyl
 import Graphics.Rendering.OpenGL (GLfloat, GLint)
 
-import Yage.Rendering.Viewport
+import Yage.Camera
+import Yage.Viewport as VP
 import Yage.Rendering.Shader
 
-import Yage.Camera
 
 
 type YProjectionMatrix = "ProjMatrix"           ::: M44 GLfloat
@@ -82,8 +82,11 @@ Utility
 
 perspectiveUniforms :: (Integral a) => Viewport a -> Camera -> Uniforms PerspectiveUniforms
 perspectiveUniforms vp cam =
-    let projM = cameraProjectionMatrix cam (fromIntegral <$> vp)
-        viewM = (fmap . fmap) realToFrac (cam^.cameraHandle.to camMatrix)
+    let near  = realToFrac $ cam^.cameraZNear
+        far   = realToFrac $ cam^.cameraZFar
+        fov   = realToFrac $ cam^.cameraFov
+        projM = projectionMatrix3D near far fov (fromIntegral <$> vp) :: M44 GLfloat
+        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)           :: M44 GLfloat
         vpM   = projM !*! viewM
     in viewMatrix       =: viewM <+>
        vpMatrix         =: vpM

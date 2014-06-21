@@ -29,6 +29,7 @@ import             Yage.Pipeline.Deferred
 
 import             Yage.UI
 import             Yage.Scene                      hiding (YageResources)
+import             Yage.Viewport                   (Viewport(..))
 
 ---------------------------------------------------------------------------------------------------
 
@@ -177,7 +178,7 @@ yageLoop win oldState = do
     renderTheScene renderScene resourceState = do
         let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
-        (res', stats)   <- runRenderSystem ( thePipeline ( Viewport 0 $ winSt^.fbSize ) renderScene ) 
+        (res', stats)   <- runRenderSystem ( thePipeline ( Viewport 0 (winSt^.fbSize) 2.2 ) renderScene ) 
                                            ( resourceState^.loadedResources.rhiResources )
         return $ resourceState & loadedResources.rhiResources .~ res'
                                & renderStats                  .~ stats

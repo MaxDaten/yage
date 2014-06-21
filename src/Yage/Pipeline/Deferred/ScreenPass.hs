@@ -9,15 +9,15 @@ import Yage.Geometry
 import Yage.Geometry3D
 
 import Yage.Scene
-import Yage.Camera
-import Yage.Uniforms
+import Yage.Uniforms as U
+import Yage.Viewport as VP
 
 import Yage.Rendering hiding (P3)
 
 import qualified Graphics.Rendering.OpenGL as GL
 
 
-newtype Screen = Screen ViewportI
+newtype Screen = Screen (Viewport Int)
 
 type SrcPerFrameUni    = '[ YProjectionMatrix ]
 type SrcPerFrame       = ShaderData SrcPerFrameUni '[ YScreenTex ]
@@ -33,14 +33,14 @@ type ScreenPass        = PassDescr
                             ScrVertex
 
 
-screenPass :: Texture -> ViewportI -> ScreenPass
+screenPass :: Texture -> Viewport Int -> ScreenPass
 screenPass toScreen viewport = PassDescr
     { passTarget         = defaultRenderTarget
     , passShader         = ShaderResource "res/glsl/pass/screenPass.vert" "res/glsl/pass/screenPass.frag"
     , passPerFrameData   = ShaderData screenUniforms screenTextures
     , passPreRendering   = io $ do
         -- our 0/0 is top left (y-Axis is flipped)
-        GL.viewport     GL.$= toGLViewport viewport
+        GL.viewport     GL.$= viewport^.glViewport
         GL.clearColor   GL.$= GL.Color4 1 1 1 0
         
         GL.depthFunc    GL.$= Nothing    -- TODO to init
@@ -61,7 +61,7 @@ screenPass toScreen viewport = PassDescr
 
     screenUniforms :: Uniforms SrcPerFrameUni
     screenUniforms =
-        projectionMatrix =: (cameraProjectionMatrix (Camera2D fpsCamera $ CameraPlanes 0 10) glVP :: M44 GL.GLfloat)
+        U.projectionMatrix =: (VP.projectionMatrix2D 0 10 glVP :: M44 GL.GLfloat)
 
     screenTextures :: Textures '[YScreenTex]
     screenTextures = Field =: toScreen
@@ -73,7 +73,7 @@ toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) 
     uniforms =
         -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
-        let dim           = realToFrac <$> vp^.vpSize
+        let dim           = realToFrac <$> vp^.viewportWH
             trans         = idTransformation & transPosition._xy .~ 0.5 * dim
                                              & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
             scaleM       = kronecker . point $ trans^.transScale

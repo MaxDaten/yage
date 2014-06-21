@@ -13,16 +13,17 @@ import Yage.Geometry as Geometry
 import Yage.Geometry3D
 import Yage.Uniforms as U
 import Yage.Camera
+import Yage.Viewport
 import Yage.Scene
 
 import Yage.Rendering hiding (P3)
-import Yage.Rendering.Textures              (mkTextureSpec')
+import Yage.Rendering.Textures              (mkTextureSpec)
 
 import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex ]
 type LitPerFrame        = ShaderData LitPerFrameUni LitPerFrameTex
 
@@ -49,7 +50,7 @@ type LitEntityDraw   = LitEntityT Mesh
 
 type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
-lightPass :: GeometryPass -> ViewportI -> LitPassScene ent sky -> LightPass
+lightPass :: GeometryPass -> Viewport Int -> LitPassScene ent sky -> LightPass
 lightPass base viewport scene =
     let GeoPassChannels{..} = renderTargets base
     in PassDescr
@@ -60,7 +61,7 @@ lightPass base viewport scene =
     , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
     , passPerFrameData   = lightShaderData
     , passPreRendering   = io $ do
-        GL.viewport     GL.$= toGLViewport viewport
+        GL.viewport     GL.$= viewport^.glViewport
         let AmbientLight ambientColor = scene^.sceneEnvironment.envAmbient
             V3 r g b                  = realToFrac <$> ambientColor
         GL.clearColor   GL.$= GL.Color4 r g b 0
@@ -86,9 +87,9 @@ lightPass base viewport scene =
     
     sceneCam        = scene^.sceneCamera
     vpgl            = fromIntegral <$> viewport
-    outSpec         = mkTextureSpec' (viewport^.vpSize) GL.RGB
+    lightSpec       = mkTextureSpec (viewport^.viewportWH) GL.Float GL.RGB GL.RGB32F
     
-    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D outSpec
+    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
 
     lightShaderData :: LitPerFrame
     lightShaderData = ShaderData lightUniforms attributeTextures
@@ -98,12 +99,14 @@ lightPass base viewport scene =
         let zNearFar@(V2 near far)      = realToFrac <$> V2 (-sceneCam^.cameraPlanes^.camZNear) (-sceneCam^.cameraPlanes^.camZFar)
             zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
             fvp                         = vpgl
-            dim                         = vpgl^.vpSize
+            dim                         = vpgl^.viewportWH
+            theGamma                    = realToFrac $ viewport^.viewportGamma
         in
         perspectiveUniforms fvp sceneCam     <+>
         viewportDim      =: dim              <+>
         zNearFarPlane    =: zNearFar         <+>
-        zProjRatio       =: zProj
+        zProjRatio       =: zProj            <+>
+        gamma            =: theGamma
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =

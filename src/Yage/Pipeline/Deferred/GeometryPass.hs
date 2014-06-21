@@ -12,6 +12,7 @@ import Yage.Math
 import Yage.Geometry as Geometry
 import Yage.Uniforms as Uniforms
 import Yage.Camera
+import Yage.Viewport
 import Yage.Scene
 import Yage.Material
 
@@ -70,13 +71,13 @@ type GeoPassScene env = Scene GeoEntityDraw env
 Pass Description
 --}
 
-geoPass :: ViewportI -> GeoPassScene env -> GeometryPass
+geoPass :: Viewport Int -> GeoPassScene env -> GeometryPass
 geoPass viewport scene = PassDescr
     { passTarget         = geoTarget
     , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
     , passPerFrameData   = geoShaderData
     , passPreRendering   = io $ do
-        GL.viewport     GL.$= toGLViewport viewport
+        GL.viewport     GL.$= (viewport^.glViewport)
         GL.clearColor   GL.$= GL.Color4 0 0 0 0
         
         GL.depthFunc    GL.$= Just GL.Less
@@ -96,8 +97,8 @@ geoPass viewport scene = PassDescr
     where
     sceneCam        = scene^.sceneCamera
     glvp            = fromIntegral <$> viewport
-    baseSpec        = mkTextureSpec' (glvp^.vpSize) GL.RGBA
-    depthSpec       = mkTextureSpec' (glvp^.vpSize) GL.DepthComponent
+    baseSpec        = mkTextureSpec' (glvp^.viewportWH) GL.RGBA
+    depthSpec       = mkTextureSpec' (glvp^.viewportWH) GL.DepthComponent
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
