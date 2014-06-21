@@ -61,7 +61,7 @@ screenPass toScreen viewport = PassDescr
 
     screenUniforms :: Uniforms SrcPerFrameUni
     screenUniforms =
-        U.projectionMatrix =: (VP.projectionMatrix2D 0 10 glVP :: M44 GL.GLfloat)
+        projectionMatrix =: projectionMatrix2D 0 10 glVP
 
     screenTextures :: Textures '[YScreenTex]
     screenTextures = Field =: toScreen
@@ -92,16 +92,4 @@ toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) 
     addQuadTex _ = error "not a quad"
 
     settings = GLDrawSettings GL.Triangles (Just GL.Back)
---}
 
-
-
-{--
-
-instance Renderable Screen ScrVertex where
-    renderDefinition _ = 
-        let q    = (vertices . triangles $ addQuadTex $ quad 1) :: [Vertex ScrVertex]
-            mesh = meshFromVertexList "YAGE:SCREEN" q
-        in RenderEntity mesh  []
-
---}
