@@ -6,4 +6,4 @@ import Yage.Rendering
 import Yage.Viewport
 
 
-type YageRenderSystem scene = Viewport Int -> scene -> RenderSystem ()
+type YageRenderSystem scene a = Viewport Int -> scene -> RenderSystem a

@@ -59,11 +59,10 @@ screenPass toScreen toAdd viewport hdr = PassDescr
     }
     where
 
-    glVP =  (realToFrac) <$> viewport
 
     screenUniforms :: Uniforms SrcPerFrameUni
     screenUniforms =
-        projectionMatrix =: projectionMatrix2D 0 10 glVP <+>
+        projectionMatrix =: projectionMatrix2D 0 10 (fromIntegral <$> viewport^.rectangle)   <+>
         U.exposure         =: (realToFrac $ hdr^.hdrExposure)           <+>
         U.exposureBias     =: (realToFrac $ hdr^.hdrExposureBias)       <+>
         U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma))
@@ -80,7 +79,7 @@ toScrEntity (Screen vp)= RenderEntity screenMesh ( ShaderData uniforms mempty ) 
     uniforms =
         -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
-        let dim           = realToFrac <$> vp^.viewportWH
+        let dim           = realToFrac <$> vp^.rectangle.extend
             trans         = idTransformation & transPosition._xy .~ 0.5 * dim
                                              & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
             scaleM       = kronecker . point $ trans^.transScale

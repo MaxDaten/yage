@@ -80,13 +80,13 @@ fieldOfView = Field
 Utility
 --}
 
-perspectiveUniforms :: (Integral a) => Viewport a -> Camera -> Uniforms PerspectiveUniforms
+perspectiveUniforms :: Viewport Int -> Camera -> Uniforms PerspectiveUniforms
 perspectiveUniforms vp cam =
     let near  = realToFrac $ cam^.cameraZNear
         far   = realToFrac $ cam^.cameraZFar
         fov   = realToFrac $ cam^.cameraFov
-        projM = projectionMatrix3D near far fov (fromIntegral <$> vp) :: M44 GLfloat
-        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)           :: M44 GLfloat
+        projM = projectionMatrix3D near far fov (fromIntegral <$> vp^.viewportRect) :: M44 GLfloat
+        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)                       :: M44 GLfloat
         vpM   = projM !*! viewM
     in viewMatrix       =: viewM <+>
        vpMatrix         =: vpM

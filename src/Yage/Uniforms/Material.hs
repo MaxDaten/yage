@@ -57,7 +57,7 @@ textureMatrix = Field
 
 textureSizeField :: Texture -> Uniforms '[ YTextureSize ]
 textureSizeField tex = 
-    let size = fromIntegral <$> (texSpecDimension . textureSpec $ tex) :: V2 GLfloat
+    let size = fromIntegral <$> (texSpecDimension $ tex^.textureSpec) :: V2 GLfloat
     in Field =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))
 
 

@@ -65,6 +65,8 @@ library
                         Yage.Pipeline.Deferred
                         Yage.Pipeline.Types
                         
+                        Yage.Pipeline.Deferred.Common
+                        Yage.Pipeline.Deferred.HDR
                         Yage.Pipeline.Deferred.GeometryPass
                         Yage.Pipeline.Deferred.LightPass
                         Yage.Pipeline.Deferred.SkyPass
@@ -78,6 +80,8 @@ library
                         Yage.Wire.Types
                         
                         Yage.UI.Types
+
+  ghc-options:          -j8
 
   if flag(perf)
     ghc-options:        -threaded -O2
@@ -114,7 +118,7 @@ library
                         , yage-contrib    == 0.0.1.0
                         , yage-core       == 0.0.2.0
                         , yage-rendering  == 0.0.4.0
-                        , yage-geometry   == 0.0.0.2
+                        , yage-geometry   == 0.0.0.3
 
                         , OpenGL            >= 2.9      &&    < 3
                         , OpenGLRaw         >= 1.4      &&    < 1.6
@@ -204,6 +208,7 @@ executable obj2ygm
   main-is:              OBJ2YGM.hs
 
   -- other-modules:        Yage.Examples.Shared
+  ghc-options:          -j8
 
   if flag(perf)
       ghc-options:      -threaded -O2
@@ -222,7 +227,7 @@ executable obj2ygm
   build-depends:        base            <  5
                       , yage
                       , yage-contrib    == 0.0.1.0
-                      , yage-geometry   == 0.0.0.2
+                      , yage-geometry   == 0.0.0.3
 
                       , containers      == 0.5.*
 

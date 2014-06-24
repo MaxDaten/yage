@@ -29,7 +29,7 @@ import             Yage.Pipeline.Deferred
 
 import             Yage.UI
 import             Yage.Scene                      hiding (YageResources)
-import             Yage.Viewport                   (Viewport(..))
+import             Yage.Viewport                   (Viewport(..), Rectangle(..))
 import             Yage.Transformation
 
 
@@ -59,7 +59,7 @@ data YageSimulation time scene = YageSimulation
 data YageLoopState time wScene rScene = YageLoopState
     { _loadedResources  :: !YageResources
     , _simulation       :: !(YageSimulation time wScene)
-    , _pipeline         :: YageRenderSystem rScene
+    , _pipeline         :: YageRenderSystem rScene ()
     , _timing           :: !YageTiming
     , _inputState       :: TVar InputState
     , _renderStats      :: RStatistics
@@ -103,7 +103,7 @@ yageMain :: ( HasResources GeoVertex scene' scene, LinearInterpolatable scene', 
          ApplicationConfig ->
          WindowConfig -> 
          YageWire time () scene' -> 
-         YageRenderSystem scene ->
+         YageRenderSystem scene () ->
          time -> IO ()
 yageMain title appConf winConf sim thePipeline dt = 
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
@@ -180,7 +180,8 @@ yageLoop win oldState = do
     renderTheScene renderScene resourceState = do
         let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
-        (res', stats)   <- runRenderSystem ( thePipeline ( Viewport 0 (winSt^.fbSize) 2.2 ) renderScene ) 
+        let rect        = Rectangle 0 $ winSt^.fbSize
+        (res', stats)   <- runRenderSystem ( thePipeline ( Viewport rect 2.2 ) renderScene ) 
                                            ( resourceState^.loadedResources.rhiResources )
         return $ resourceState & loadedResources.rhiResources .~ res'
                                & renderStats                  .~ stats
@@ -202,7 +203,7 @@ yageLoop win oldState = do
 
 
 initialization :: YageSimulation time wScene
-               -> YageRenderSystem rScene
+               -> YageRenderSystem rScene ()
                -> TVar InputState
                -> YageLoopState time wScene rScene
 initialization sim thePipeline tInputState = 

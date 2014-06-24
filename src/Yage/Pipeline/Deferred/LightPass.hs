@@ -87,7 +87,7 @@ lightPass base viewport camera environment =
     where
     
     vpgl            = fromIntegral <$> viewport
-    lightSpec       = mkTextureSpec (viewport^.viewportWH) GL.Float GL.RGB GL.RGB32F
+    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
     
     lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
 
@@ -96,13 +96,12 @@ lightPass base viewport camera environment =
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
-        let zNearFar@(V2 near far)      = realToFrac <$> V2 (-camera^.cameraPlanes^.camZNear) (-camera^.cameraPlanes^.camZFar)
-            zProj                       = V2 ( far / (far - near)) ((-far * near) / (far - near))
-            fvp                         = vpgl
-            dim                         = vpgl^.viewportWH
-            theGamma                    = realToFrac $ viewport^.viewportGamma
+        let zNearFar@(V2 near far)  = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
+            zProj                   = V2 ( far / (far - near)) ((-far * near) / (far - near))
+            dim                     = fromIntegral <$> vpgl^.rectangle.extend
+            theGamma                = realToFrac $ viewport^.viewportGamma
         in
-        perspectiveUniforms fvp camera     <+>
+        perspectiveUniforms vpgl camera     <+>
         viewportDim      =: dim              <+>
         zNearFarPlane    =: zNearFar         <+>
         zProjRatio       =: zProj            <+>

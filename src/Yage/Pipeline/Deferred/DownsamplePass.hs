@@ -13,8 +13,8 @@ import Yage.Uniforms as U
 import Yage.Viewport as VP
 
 import Yage.Rendering hiding (P3)
-import Yage.Rendering.Textures              (mkTextureSpec)
 
+import Yage.Pipeline.Deferred.Common
 
 import qualified Graphics.Rendering.OpenGL as GL
 
@@ -26,63 +26,40 @@ type DSPerEntity      = ShaderData '[ YModelMatrix ] '[]
 
 type DSVertex         = Vertex (Y'P3TX2 GLfloat)
 
-type DownsamplePass    = PassDescr 
+type DownsamplePass    = YageDeferredPass 
                             SingleRenderTarget
                             DSPerFrame
                             DSPerEntity
                             DSVertex
 
 
-downsamplePass :: Texture -> Viewport Int -> DownsamplePass
-downsamplePass toDownsample targetSize = PassDescr
-    { passTarget         = downsampleTarget
-    , passShader         = ShaderResource "res/glsl/pass/downsamplePass.vert" "res/glsl/pass/downsamplePass.frag"
-    , passPerFrameData   = ShaderData screenUniforms screenTextures
-    , passPreRendering   = io $ do
-        -- our 0/0 is top left (y-Axis is flipped)
-        GL.viewport     GL.$= targetSize^.glViewport
-        GL.clearColor   GL.$= GL.Color4 1 1 1 0
-        
-        GL.depthFunc    GL.$= Nothing    -- TODO to init
-        GL.depthMask    GL.$= GL.Disabled
-        
-        GL.blend        GL.$= GL.Disabled
-
-        GL.cullFace     GL.$= Just GL.Back
-        GL.frontFace    GL.$= GL.CCW
-        GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-        
-        GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-    , passPostRendering  = return ()
-    }
+downsamplePass :: Texture -> RenderTarget SingleRenderTarget -> DownsamplePass
+downsamplePass toDownsample target =
+    let shaderRes   = ShaderResource "res/glsl/pass/downsamplePass.vert" "res/glsl/pass/downsamplePass.frag"
+        shaderData  = ShaderData sampleUniforms sampleTextures
+    in passPreset target (target^.asRectangle) (shaderRes, shaderData)
+    
     where
 
-    glVP =  (realToFrac) <$> targetSize
 
-    screenUniforms :: Uniforms DSPerFrameUni
-    screenUniforms =
-        projectionMatrix =: projectionMatrix2D 0 1 glVP <+>
+    sampleUniforms :: Uniforms DSPerFrameUni
+    sampleUniforms =
+        projectionMatrix =: projectionMatrix2D 0.0 1.0 (fromIntegral <$> target^.asRectangle) <+>
         textureSizeField toDownsample
 
 
-    screenTextures :: Textures '[ YDownsampleTex ]
-    screenTextures = 
+    sampleTextures :: Textures '[ YDownsampleTex ]
+    sampleTextures = 
         Field =: toDownsample
 
-    downsampleTarget        = RenderTarget "downpass-fbo" 
-                                $ SingleRenderTarget
-                                $ mkTexture "downsampleBuffer" $ TextureBuffer GL.Texture2D 
-                                $ mkTextureSpec (targetSize^.viewportWH) GL.Float GL.RGB GL.RGB32F
 
-
-
-quadTarget :: Viewport Int -> RenderEntity DSVertex DSPerEntity
-quadTarget viewport = RenderEntity quadMesh ( ShaderData uniforms mempty ) settings
+quadTarget :: V2 Int -> V2 Int -> RenderEntity DSVertex DSPerEntity
+quadTarget _ wh = RenderEntity quadMesh ( ShaderData uniforms mempty ) settings
     where
     uniforms =
         -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
-        let dim           = realToFrac <$> viewport^.viewportWH
+        let dim           = realToFrac <$> wh
             trans         = idTransformation & transPosition._xy .~ 0.5 * dim
                                              & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
             scaleM       = kronecker . point $ trans^.transScale
@@ -101,4 +78,3 @@ quadTarget viewport = RenderEntity quadMesh ( ShaderData uniforms mempty ) setti
     addQuadTex _ = error "not a quad"
 
     settings = GLDrawSettings GL.Triangles (Just GL.Back)
-

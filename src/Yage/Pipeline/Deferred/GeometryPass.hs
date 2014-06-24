@@ -96,8 +96,8 @@ geoPass viewport camera = PassDescr
 
     where
     glvp            = fromIntegral <$> viewport
-    baseSpec        = mkTextureSpec' (glvp^.viewportWH) GL.RGBA
-    depthSpec       = mkTextureSpec' (glvp^.viewportWH) GL.DepthComponent
+    baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
+    depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
