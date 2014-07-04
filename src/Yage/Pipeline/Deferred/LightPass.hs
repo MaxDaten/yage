@@ -20,6 +20,7 @@ import Yage.Transformation
 import Yage.Rendering hiding (P3)
 import Yage.Rendering.Textures              (mkTextureSpec)
 
+import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
@@ -39,7 +40,7 @@ data LitPassChannels = LitPassChannels
     , lDepthChannel  :: Texture
     }
 
-type LightPass = PassDescr
+type LightPass = YageDeferredPass
                     LitPassChannels
                     LitPerFrame
                     LitPerEnity
@@ -53,15 +54,46 @@ type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
 lightPass :: GeometryPass -> Viewport Int -> Camera -> (Environment LitEntityDraw sky) -> LightPass
 lightPass base viewport camera environment =
-    let GeoPassChannels{..} = renderTargets base
-    in PassDescr
-    { passTarget         = RenderTarget "light-fbo" $ LitPassChannels
+    let shaderRes   = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
+    in (passPreset target (viewport^.rectangle) (shaderRes, shaderData))
+        { passPreRendering = preRendering }
+    
+    where
+    
+    target = 
+        let GeoPassChannels{..} = renderTargets base
+        in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
                                 }
-    , passShader         = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
-    , passPerFrameData   = lightShaderData
-    , passPreRendering   = io $ do
+    
+    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
+    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
+
+    shaderData :: LitPerFrame
+    shaderData = ShaderData lightUniforms attributeTextures
+
+    
+    lightUniforms   :: Uniforms LitPerFrameUni
+    lightUniforms   =
+        let zNearFar@(V2 near far)  = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
+            zProj                   = V2 ( far / (far - near)) ((-far * near) / (far - near))
+            dim                     = fromIntegral <$> viewport^.rectangle.extend
+            theGamma                = realToFrac $ viewport^.viewportGamma
+        in
+        perspectiveUniforms viewport camera     <+>
+        viewportDim      =: dim              <+>
+        zNearFarPlane    =: zNearFar         <+>
+        zProjRatio       =: zProj            <+>
+        gamma            =: theGamma
+
+    attributeTextures :: Textures LitPerFrameTex
+    attributeTextures =
+        materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
+        materialTexture =: (gNormalChannel $ renderTargets base)    <+>
+        materialTexture =: (gDepthChannel  $ renderTargets base)
+    
+    preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
         let AmbientLight ambientColor = environment^.envAmbient
             V3 r g b                  = realToFrac <$> ambientColor
@@ -80,38 +112,7 @@ lightPass base viewport camera environment =
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
         
         GL.clear        [ GL.ColorBuffer ]
-        -- print "setup correct lighting params"
-    , passPostRendering  = return ()
-    }
 
-    where
-    
-    vpgl            = fromIntegral <$> viewport
-    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
-    
-    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
-
-    lightShaderData :: LitPerFrame
-    lightShaderData = ShaderData lightUniforms attributeTextures
-
-    lightUniforms   :: Uniforms LitPerFrameUni
-    lightUniforms   =
-        let zNearFar@(V2 near far)  = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
-            zProj                   = V2 ( far / (far - near)) ((-far * near) / (far - near))
-            dim                     = fromIntegral <$> vpgl^.rectangle.extend
-            theGamma                = realToFrac $ viewport^.viewportGamma
-        in
-        perspectiveUniforms vpgl camera     <+>
-        viewportDim      =: dim              <+>
-        zNearFarPlane    =: zNearFar         <+>
-        zProjRatio       =: zProj            <+>
-        gamma            =: theGamma
-
-    attributeTextures :: Textures LitPerFrameTex
-    attributeTextures =
-        materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
-        materialTexture =: (gNormalChannel $ renderTargets base)    <+>
-        materialTexture =: (gDepthChannel  $ renderTargets base)
 
 
 mkLight :: Light -> LitEntityRes

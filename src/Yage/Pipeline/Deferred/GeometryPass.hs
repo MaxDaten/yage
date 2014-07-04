@@ -19,6 +19,7 @@ import Yage.Material
 import Yage.Rendering
 
 import qualified Graphics.Rendering.OpenGL as GL
+import Yage.Pipeline.Deferred.Common
 
 
 type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
@@ -58,7 +59,7 @@ type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
 -- | Resource descripte entity
 type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
 
-type GeometryPass = PassDescr
+type GeometryPass = YageDeferredPass
                         GeoPassChannels 
                         GeoPerFrame 
                         GeoPerEntity
@@ -72,32 +73,20 @@ Pass Description
 --}
 
 geoPass :: Viewport Int -> Camera -> GeometryPass
-geoPass viewport camera = PassDescr
-    { passTarget         = geoTarget
-    , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
-    , passPerFrameData   = geoShaderData
-    , passPreRendering   = io $ do
-        GL.viewport     GL.$= (viewport^.glViewport)
-        GL.clearColor   GL.$= GL.Color4 0 0 0 0
-        
-        GL.depthFunc    GL.$= Just GL.Less
-        GL.depthMask    GL.$= GL.Enabled
-        
-        GL.blend        GL.$= GL.Disabled
-
-        GL.cullFace     GL.$= Just GL.Back
-        GL.frontFace    GL.$= GL.CCW
-        GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-
-        -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
-        GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-    , passPostRendering  = return ()
-    }
+geoPass viewport camera = 
+    passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
 
     where
-    glvp            = fromIntegral <$> viewport
-    baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
+    shaderRes = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
+
+    shaderData :: GeoPerFrame 
+    shaderData =
+        let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
+            uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
+                      zFarPlane        =: zfar
+        in ShaderData uniform mempty
+
+    
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
@@ -105,13 +94,9 @@ geoPass viewport camera = PassDescr
                            , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
                            , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
                            }
-    
-    geoShaderData   :: GeoPerFrame 
-    geoShaderData   =
-        let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
-            uniform = perspectiveUniforms glvp camera  <+>
-                      zFarPlane        =: zfar
-        in ShaderData uniform mempty
+
+    baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
+    depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
 
 {--
 Geo Pass Utils

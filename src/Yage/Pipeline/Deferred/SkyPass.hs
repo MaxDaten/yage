@@ -13,6 +13,7 @@ import           Yage.Uniforms
 import           Yage.Material
 import           Yage.HDR
 
+import           Yage.Pipeline.Deferred.Common
 import           Yage.Pipeline.Deferred.LightPass
 
 import qualified Graphics.Rendering.OpenGL          as GL
@@ -40,11 +41,15 @@ type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
 skyPass :: LightPass -> Viewport Int -> Camera -> SkyPass
-skyPass lighting viewport camera = PassDescr
-    { passTarget         = passTarget lighting
-    , passShader         = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
-    , passPerFrameData   = ShaderData (perspectiveUniforms viewport camera) mempty
-    , passPreRendering   = io $ do
+skyPass lighting viewport camera =
+    let shaderRes = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
+        shaderData = ShaderData (perspectiveUniforms viewport camera) mempty
+    in (passPreset (passTarget lighting) (viewport^.rectangle) (shaderRes, shaderData))
+        { passPreRendering = preRendering }
+    
+    where
+    
+    preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
         --GL.clearColor   GL.$= GL.Color4 0 0 0 0
         
@@ -57,13 +62,6 @@ skyPass lighting viewport camera = PassDescr
         -- we are looking from the inside into the sky box direction
         GL.frontFace    GL.$= GL.CW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-
-        --GL.polygonMode  GL.$= (GL.Line, GL.Line)
-        --GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-        --GL.depthFunc    GL.$= Nothing
-        --GL.depthMask    GL.$= GL.Disabled
-    , passPostRendering  = return ()
-    }
 
 
 toSkyEntity :: SkyEntityDraw -> RenderEntity LitVertex SkyPerEntity
