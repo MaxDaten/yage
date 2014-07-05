@@ -3,7 +3,6 @@ module Yage.Pipeline.Deferred.Common where
 
 import Yage.Prelude
 import Yage.Lens
-import Data.Text.Lazy.Lens
 
 import Yage.Viewport
 import Yage.Geometry
@@ -26,11 +25,11 @@ passPreset :: RenderTarget target ->
               (ShaderResource, frameData) -> 
               YageDeferredPass target frameData ent vert
 passPreset target rect (shaderRes, frameData) = PassDescr
-    { passTarget         = target
-    , passShader         = shaderRes
-    , passPerFrameData   = frameData
+    { _passTarget         = target
+    , _passShader         = shaderRes
+    , _passPerFrameData   = frameData
     -- config
-    , passPreRendering   = io $ do
+    , _passPreRendering   = io $ do
         GL.viewport     GL.$= (rect^.glViewport)
         GL.clearColor   GL.$= GL.Color4 0 0 0 0
         
@@ -45,13 +44,15 @@ passPreset target rect (shaderRes, frameData) = PassDescr
 
         -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
         GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-    , passPostRendering  = return ()
+    , _passPostRendering  = return ()
     }
+
+
 
 deviceViewportPx :: Getter SingleRenderTarget (Viewport Int)
 deviceViewportPx = to getter where
     getter target =
-        let size = texSpecDimension $ target^.textureSpec
+        let size = target^.textureSpec.texSpecDimension
         in Viewport (Rectangle 0 size) 2.2
 
 
@@ -86,10 +87,9 @@ targetEntity hasRect =
     settings = GLDrawSettings GL.Triangles (Just GL.Back)
 
 
-
 -- | specs: GL.Float GL.RGB GL.RGB32F
-mkSingleTargetHDR32 :: LText -> V2 Int -> RenderTarget SingleRenderTarget
-mkSingleTargetHDR32 name size = RenderTarget (name^.unpacked ++ "-fbo") 
+mkSingleTargetHDR32 :: ByteString -> V2 Int -> RenderTarget SingleRenderTarget
+mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo") 
     $ SingleRenderTarget 
     $ mkTexture (name ++ "-buffer") $ TextureBuffer GL.Texture2D 
     $ mkTextureSpec size GL.Float GL.RGB GL.RGB32F

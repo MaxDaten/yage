@@ -55,8 +55,8 @@ type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 lightPass :: GeometryPass -> Viewport Int -> Camera -> (Environment LitEntityDraw sky) -> LightPass
 lightPass base viewport camera environment =
     let shaderRes   = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
-    in (passPreset target (viewport^.rectangle) (shaderRes, shaderData))
-        { passPreRendering = preRendering }
+    in passPreset target (viewport^.rectangle) (shaderRes, shaderData)
+       & passPreRendering .~ preRendering
     
     where
     

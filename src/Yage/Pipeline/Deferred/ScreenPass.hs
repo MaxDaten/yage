@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
 module Yage.Pipeline.Deferred.ScreenPass where
 
 import Yage.Prelude
@@ -14,13 +15,14 @@ import Yage.Viewport as VP
 import Yage.Rendering hiding (P3)
 
 import  Yage.Pipeline.Deferred.Common
+import  Yage.Pipeline.Deferred.Sampler
 import qualified Graphics.Rendering.OpenGL as GL
 
 
 newtype Screen = Screen (Viewport Int)
 
-type SrcPerFrameUni    = '[ YProjectionMatrix, YExposure, YExposureBias, YInverseGamma ]
-type SrcPerFrame       = ShaderData SrcPerFrameUni [ YScreenTex, YAddTex ]
+type SrcPerFrameUni    = SamplerUniforms ++ [ YExposure, YExposureBias, YInverseGamma, YWhitePoint ]
+type SrcPerFrame       = ShaderData SrcPerFrameUni '[ TextureUniform "ScreenTexture" ]
 
 type SrcPerEntity      = ShaderData '[ YModelMatrix ] '[]
 
@@ -33,26 +35,22 @@ type ScreenPass        = YageDeferredPass
                             ScrVertex
 
 
-screenPass :: Texture -> Texture -> Viewport Int -> HDRCamera -> ScreenPass
-screenPass toScreen toAdd viewport hdr = 
-    let shaderRes   = ShaderResource "res/glsl/pass/screenPass.vert" "res/glsl/pass/screenPass.frag"
-        shaderData  = ShaderData screenUniforms screenTextures
-    in (passPreset defaultRenderTarget (viewport^.rectangle) (shaderRes, shaderData))
-        { passPreRendering = preRender }
+screenPass :: Texture -> Viewport Int -> HDRCamera -> ScreenPass
+screenPass toScreen viewport hdr = 
+    let sampler = samplerPass toScreen defaultRenderTarget (viewport^.rectangle) "res/glsl/pass/screenPass.frag"
+    in sampler
+        & passPerFrameData.shaderUniforms <<+>~ screenUniforms
+        & passPreRendering .~ preRender
 
     where
 
-    screenUniforms :: Uniforms SrcPerFrameUni
+    screenUniforms :: Uniforms [ YExposure, YExposureBias, YInverseGamma, YWhitePoint ]
     screenUniforms =
-        projectionMatrix   =: projectionMatrix2D 0 10 (fromIntegral <$> viewport^.rectangle)   <+>
-        U.exposure         =: (realToFrac $ hdr^.hdrExposure)           <+>
-        U.exposureBias     =: (realToFrac $ hdr^.hdrExposureBias)       <+>
-        U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma))
+        U.exposure         =: (realToFrac $ hdr^.hdrExposure)               <+>
+        U.exposureBias     =: (realToFrac $ hdr^.hdrExposureBias)           <+>
+        U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma)) <+>
+        U.whitePoint       =: (realToFrac $ hdr^.hdrWhitePoint)
 
-    screenTextures :: Textures [ YScreenTex, YAddTex ]
-    screenTextures = 
-        Field =: toScreen <+>
-        Field =: toAdd
 
     preRender :: Renderer ()
     preRender = io $ do
@@ -68,6 +66,5 @@ screenPass toScreen toAdd viewport hdr =
         GL.cullFace     GL.$= Just GL.Back
         GL.frontFace    GL.$= GL.CCW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-        
         GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
 

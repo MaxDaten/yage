@@ -44,8 +44,8 @@ skyPass :: LightPass -> Viewport Int -> Camera -> SkyPass
 skyPass lighting viewport camera =
     let shaderRes = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
         shaderData = ShaderData (perspectiveUniforms viewport camera) mempty
-    in (passPreset (passTarget lighting) (viewport^.rectangle) (shaderRes, shaderData))
-        { passPreRendering = preRendering }
+    in passPreset (lighting^.passTarget) (viewport^.rectangle) (shaderRes, shaderData)
+        & passPreRendering .~ preRendering
     
     where
     

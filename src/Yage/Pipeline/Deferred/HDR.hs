@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds, TypeOperators #-}
 module Yage.Pipeline.Deferred.HDR where
 
 import Yage.Prelude
@@ -8,10 +9,14 @@ import Yage.Viewport
 import Yage.HDR
 import Yage.Scene
 import Yage.Pipeline.Types
+import Yage.Uniforms as U
+
+
+import Yage.Pipeline.Deferred.Common
+import Yage.Pipeline.Deferred.Sampler
 import qualified Yage.Pipeline.Deferred.LightPass       as L
 import qualified Yage.Pipeline.Deferred.GeometryPass    as G
 import qualified Yage.Pipeline.Deferred.DownsamplePass  as D
-import qualified Yage.Core.OpenGL as GL
 
 
 type HDRScene ent sky = Scene HDRCamera ent (Environment L.LitEntityDraw sky)
@@ -23,18 +28,65 @@ hdrLightingPass geometryPass viewport scene =
         lights      = scene^.sceneEnvironment.envLights
     in do
         lightPass  `runRenderPass` (L.toLitEntity <$> lights)
-        bloomedTex <- brightPass 4 lightTex
-        return $ bloomedTex
+        bloomedTex <- bloomPass 4 =<< brightFilter lightTex (scene^.sceneCamera.hdrWhitePoint)
+        (1.0, lightTex) `additiveCompose` (1.0, bloomedTex)
         -- filter
         -- downsample-bloom
         -- compose
 
 
+type BrightPass = YageDeferredPass 
+                            SingleRenderTarget
+                            (ShaderData ( SamplerUniforms ++ '[ YWhitePoint ] ) '[ TextureUniform "FilterTexture" ])
+                            TargetData
+                            TargetVertex
+brightFilter :: Texture -> Float -> RenderSystem Texture
+brightFilter tex whitePoint =
+    let target      = mkSingleTextureTarget $ tex & textureId <>~ "-brightPass"
+        bright      :: BrightPass
+        bright      = samplerPass tex target (target^.asRectangle) "res/glsl/pass/brightFilter.frag"
+                        & passPerFrameData.shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
 
-brightPass :: Int -> Texture -> RenderSystem Texture
-brightPass samples tex = do
+    in do
+        bright `runRenderPass` [ targetEntity tex ]
+        return $ target^.targetTexture
+
+
+bloomPass :: Int -> Texture -> RenderSystem Texture
+bloomPass samples tex = do
     t1 <- D.downsample 2 tex
     t2 <- D.downsample 4 tex
     t3 <- D.downsample 8 tex
     t4 <- D.downsample 16 tex
-    return t4
+    a <- (1.0, t1) `additiveCompose` (1.0, t2)
+    b <- (1.0, t3) `additiveCompose` (1.0, t4)
+    (1.0, a) `additiveCompose` (1.0, b)
+
+
+type AddUniforms = SamplerUniforms ++ [ "BaseWeight" ::: GLfloat
+                                      , "AddWeight" ::: GLfloat 
+                                      ]
+type AddTextures = [ TextureUniform "BaseTexture", TextureUniform "AddTexture" ]
+type AddFrameData = ShaderData AddUniforms AddTextures
+type AdditiveComposePass = YageDeferredPass 
+                            SingleRenderTarget
+                            AddFrameData
+                            TargetData
+                            TargetVertex
+-- | inplace additive
+-- adds second argument texture to first argument 
+additiveCompose :: (Float, Texture) -> (Float, Texture) -> RenderSystem Texture
+additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
+    let target          = mkSingleTextureTarget $ baseTex & textureId <>~ ("+" ++ toAdd^.textureId)
+        
+        additivePass    :: AdditiveComposePass
+        additivePass    = samplerPass baseTex target (target^.asRectangle) "res/glsl/pass/addCompose.frag"
+                            & passPerFrameData.shaderTextures <<+>~ Field =: toAdd
+                            & passPerFrameData.shaderUniforms <<+>~ uniforms
+    in do
+        additivePass `runRenderPass` [ targetEntity baseTex ]
+        return $ target^.targetTexture
+
+    where
+
+    uniforms = Field =: realToFrac baseWeight <+> Field =: realToFrac addWeight

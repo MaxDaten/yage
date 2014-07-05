@@ -41,10 +41,8 @@ type YSkyTex            = YMaterialTex "SkyTexture"
 type YSkyMaterial       = YMaterialUni "SkyColor" "SkyTextureMatrix"
 type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 
-type YScreenTex         = YMaterialTex "ScreenTexture"
 type YAddTex            = YMaterialTex "AddTexture"
-type YDownsampleTex     = YMaterialTex "DownsampleTexture"
-
+type YWhitePoint        = "WhitePoint" ::: GLfloat
 
 materialColor :: YMaterialColor c
 materialColor = Field
@@ -57,9 +55,12 @@ textureMatrix = Field
 
 textureSizeField :: Texture -> Uniforms '[ YTextureSize ]
 textureSizeField tex = 
-    let size = fromIntegral <$> (texSpecDimension $ tex^.textureSpec) :: V2 GLfloat
+    let size = fromIntegral <$> (tex^.textureSpec.texSpecDimension) :: V2 GLfloat
     in Field =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))
 
+
+whitePoint :: YWhitePoint
+whitePoint = Field
 
 {--
 Utility

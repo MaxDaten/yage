@@ -132,7 +132,7 @@ instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
     requestResources mat = do
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
         
-        let cubeImgs = cubeTexs & mapped %~ ( getTextureImg . textureData )
+        let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
             Just ( Texture baseName conf _ ) = firstOf traverse $ cubeTexs
         return $ mat & matTexture .~ Texture (baseName ++ "-Cube") conf (TextureCube cubeImgs)
         

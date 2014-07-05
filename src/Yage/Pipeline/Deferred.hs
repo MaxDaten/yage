@@ -34,23 +34,19 @@ yDeferredLighting viewport scene =
     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
         cam                           = scene^.sceneCamera.hdrCamera
         base                          = Pass.geoPass viewport cam
-        lighting                      = Pass.lightPass base viewport cam (scene^.sceneEnvironment)
-        atmosphere                    = Pass.skyPass lighting viewport cam
-
-        lightTex                      = Pass.lBufferChannel . renderTargets $ lighting
-
-        final addTex                  = Pass.screenPass lightTex addTex viewport (scene^.sceneCamera)
+        final toScreen                = Pass.screenPass toScreen viewport (scene^.sceneCamera)
         --final      = Pass.screenPass (Pass.gNormalChannel . renderTargets $ base) viewport
     in do
     base        `runRenderPass`  ( toGeoEntity cam   <$> scene^.sceneEntities )
     
-    lighting    `runRenderPass`  ( toLitEntity       <$> scene^.sceneEnvironment.envLights )
+    hdrTex <- hdrLightingPass base viewport scene
+    -- lighting    `runRenderPass`  ( toLitEntity       <$> scene^.sceneEnvironment.envLights )
     
-    atmosphere  `runRenderPass`  ( toSkyEntity       <$> scene^.sceneEnvironment.envSky.to toList )
+    -- atmosphere  `runRenderPass`  ( toSkyEntity       <$> scene^.sceneEnvironment.envSky.to toList )
     
-    bloomTex    <- downsample 4 lightTex
+    -- bloomTex    <- downsample 4 lightTex
 
-    final bloomTex `runRenderPass`  [ targetEntity $ viewport^.rectangle ]
+    final hdrTex `runRenderPass`  [ targetEntity $ viewport^.rectangle ]
 
 
 {--

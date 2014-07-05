@@ -14,6 +14,7 @@ data HDRCamera = HDRCamera
     { _hdrCamera       :: Camera
     , _hdrExposure     :: Float
     , _hdrExposureBias :: Float
+    , _hdrWhitePoint   :: Float
     } deriving ( Show, Eq, Ord, Generic )
 
 makeLenses ''HDRCamera
@@ -23,3 +24,4 @@ instance LinearInterpolatable HDRCamera where
         u & hdrCamera       .~ lerp alpha (u^.hdrCamera) (v^.hdrCamera)
           & hdrExposure     .~ lerp alpha (u^.hdrExposure) (v^.hdrExposure)
           & hdrExposureBias .~ lerp alpha (u^.hdrExposureBias) (v^.hdrExposureBias)
+          & hdrWhitePoint   .~ lerp alpha (u^.hdrWhitePoint) (v^.hdrWhitePoint)
