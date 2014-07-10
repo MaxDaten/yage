@@ -66,5 +66,4 @@ screenPass toScreen viewport hdr =
         GL.cullFace     GL.$= Just GL.Back
         GL.frontFace    GL.$= GL.CCW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-        GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
 

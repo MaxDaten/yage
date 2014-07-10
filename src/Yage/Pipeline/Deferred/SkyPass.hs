@@ -51,7 +51,6 @@ skyPass lighting viewport camera =
     
     preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
-        --GL.clearColor   GL.$= GL.Color4 0 0 0 0
         
         GL.depthFunc    GL.$= Just GL.Less
         GL.depthMask    GL.$= GL.Enabled

@@ -74,7 +74,9 @@ Pass Description
 
 geoPass :: Viewport Int -> Camera -> GeometryPass
 geoPass viewport camera = 
-    passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
+    let thePass    = passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
+        clearBuffer = (thePass^.passPreRendering) >> io (GL.clear [ GL.DepthBuffer ])
+    in thePass & passPreRendering .~ clearBuffer
 
     where
     shaderRes = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"

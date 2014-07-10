@@ -43,7 +43,8 @@ passPreset target rect (shaderRes, frameData) = PassDescr
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
         -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
-        GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
+        -- GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
+        -- GL.clear        [ GL.DepthBuffer ]
     , _passPostRendering  = return ()
     }
 
