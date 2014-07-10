@@ -5,7 +5,7 @@ import Yage.Lens
 import Data.ByteString.Lens
 import Yage.Math
 
-
+import Control.Applicative (liftA)
 import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
@@ -25,10 +25,9 @@ type DownsamplePass    = YageDeferredPass
 
 
 
-downsample :: Int -> Texture -> RenderSystem Texture
-downsample downfactor toDownsample = 
-    let inSize   = toDownsample^.textureSpec.texSpecDimension
-        outSize  = floor <$> ((fromIntegral <$> inSize) ^/ (fromIntegral downfactor :: Double))
+downsampleBoxed5x5 :: Int -> Texture -> RenderSystem Texture
+downsampleBoxed5x5 downfactor toDownsample = 
+    let outSize  = liftA (`div` downfactor) $ toDownsample^.textureSpec.texSpecDimension
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
         

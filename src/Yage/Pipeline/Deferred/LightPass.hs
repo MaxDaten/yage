@@ -151,10 +151,10 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
         let lightAttr = lightAttribs light
             (attConst, attLinear, attQuad) = lAttrAttenuation lightAttr
         in case lightType light of
-        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> ent^.entityPosition )                 <+>
-                             U.lightRadius   =: (realToFrac <$> ent^.entityScale )                    <+>
-                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr )                <+>
-                             U.lightAtten    =: (realToFrac <$> V3 attConst attLinear attQuad )       <+>
+        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> ent^.entityPosition )                   <+>
+                             U.lightRadius   =: (realToFrac <$> ent^.entityScale )                      <+>
+                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr )                  <+>
+                             U.lightAtten    =: (realToFrac <$> V3 attConst attLinear (1.0/(attQuad**2.0)) ) <+>
                              U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr )
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"

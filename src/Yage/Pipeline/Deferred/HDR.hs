@@ -1,8 +1,11 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
 module Yage.Pipeline.Deferred.HDR where
 
-import Yage.Prelude
+import Yage.Prelude hiding (toList)
 import Yage.Lens
+
+import Data.Foldable (toList)
 
 import Yage.Rendering
 import Yage.Viewport
@@ -11,28 +14,36 @@ import Yage.Scene
 import Yage.Pipeline.Types
 import Yage.Uniforms as U
 
+import qualified Yage.Core.OpenGL as GL
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 import qualified Yage.Pipeline.Deferred.LightPass       as L
 import qualified Yage.Pipeline.Deferred.GeometryPass    as G
 import qualified Yage.Pipeline.Deferred.DownsamplePass  as D
+import qualified Yage.Pipeline.Deferred.SkyPass         as S
+import Yage.Pipeline.Deferred.GaussFilter
 
 
-type HDRScene ent sky = Scene HDRCamera ent (Environment L.LitEntityDraw sky)
-hdrLightingPass :: G.GeometryPass -> YageRenderSystem (HDRScene ent sky) Texture
+type HDRScene ent = Scene HDRCamera ent (Environment L.LitEntityDraw S.SkyEntityDraw)
+hdrLightingPass :: G.GeometryPass -> YageRenderSystem (HDRScene ent) Texture
 hdrLightingPass geometryPass viewport scene = 
-    let cam         = scene^.sceneCamera.hdrCamera
-        lightPass   = L.lightPass geometryPass viewport cam (scene^.sceneEnvironment)
-        lightTex    = L.lBufferChannel . renderTargets $ lightPass
-        lights      = scene^.sceneEnvironment.envLights
+    let cam             = scene^.sceneCamera.hdrCamera
+        bloomSettings   = scene^.sceneCamera.hdrBloomSettings
+        
+        lightPass       = L.lightPass geometryPass viewport cam (scene^.sceneEnvironment)
+        lightTex        = L.lBufferChannel . renderTargets $ lightPass
+        lights          = scene^.sceneEnvironment.envLights
+
+        atmosphere      = S.skyPass lightPass viewport cam
     in do
-        lightPass  `runRenderPass` (L.toLitEntity <$> lights)
-        bloomedTex <- bloomPass 4 =<< brightFilter lightTex (scene^.sceneCamera.hdrWhitePoint)
-        (1.0, lightTex) `additiveCompose` (1.0, bloomedTex)
-        -- filter
-        -- downsample-bloom
-        -- compose
+        lightPass  `runRenderPass` ( L.toLitEntity <$> lights )
+        atmosphere `runRenderPass` ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
+
+        bloomedTex <- brightFilter lightTex ( scene^.sceneCamera.hdrWhitePoint )
+                      >>= D.downsampleBoxed5x5 ( bloomSettings^.bloomPreDownsampling ) 
+                      >>= bloomPass ( bloomSettings^.bloomGaussPasses ) 
+        (1.0, lightTex) `additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
 
 
 type BrightPass = YageDeferredPass 
@@ -54,13 +65,9 @@ brightFilter tex whitePoint =
 
 bloomPass :: Int -> Texture -> RenderSystem Texture
 bloomPass samples tex = do
-    t1 <- D.downsample 2 tex
-    t2 <- D.downsample 4 tex
-    t3 <- D.downsample 8 tex
-    t4 <- D.downsample 16 tex
-    a <- (1.0, t1) `additiveCompose` (1.0, t2)
-    b <- (1.0, t3) `additiveCompose` (1.0, t4)
-    (1.0, a) `additiveCompose` (1.0, b)
+    let clampedTex = tex & textureConfig.texConfWrapping  .~ TextureWrapping GL.Mirrored GL.Clamp
+                         & textureConfig.texConfFiltering .~ TextureFiltering GL.Linear' Nothing GL.Linear'
+    foldM (flip.const $ gaussFilter) clampedTex [0..samples-1]
 
 
 type AddUniforms = SamplerUniforms ++ [ "BaseWeight" ::: GLfloat
