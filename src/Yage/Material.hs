@@ -12,9 +12,9 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.Images                   as Material
 import Yage.Color                    as Material
-import Yage.Rendering.Transformation as Material
 import Yage.Rendering.Resources      as Material
 import Yage.Resources
+import Yage.Transformation           as Material
 
 import Linear (V3, Quaternion)
 
@@ -132,7 +132,7 @@ instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
     requestResources mat = do
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
         
-        let cubeImgs = cubeTexs & mapped %~ ( getTextureImg . textureData )
+        let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
             Just ( Texture baseName conf _ ) = firstOf traverse $ cubeTexs
         return $ mat & matTexture .~ Texture (baseName ++ "-Cube") conf (TextureCube cubeImgs)
         

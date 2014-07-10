@@ -22,7 +22,6 @@ import qualified        Yage.Formats.Ygm                 as YGM
 
 import                  Yage.Pipeline.Deferred.GeometryPass
 
-import                  Control.Parallel.Strategies
 import                  Linear
 
 

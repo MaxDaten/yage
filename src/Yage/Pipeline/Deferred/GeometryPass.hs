@@ -12,12 +12,14 @@ import Yage.Math
 import Yage.Geometry as Geometry
 import Yage.Uniforms as Uniforms
 import Yage.Camera
+import Yage.Viewport
 import Yage.Scene
 import Yage.Material
 
 import Yage.Rendering
 
 import qualified Graphics.Rendering.OpenGL as GL
+import Yage.Pipeline.Deferred.Common
 
 
 type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
@@ -57,47 +59,34 @@ type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
 -- | Resource descripte entity
 type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
 
-type GeometryPass = PassDescr
+type GeometryPass = YageDeferredPass
                         GeoPassChannels 
                         GeoPerFrame 
                         GeoPerEntity
                         GeoVertex
 
 
-type GeoPassScene env = Scene GeoEntityDraw env
+type GeoPassScene env = Scene Camera GeoEntityDraw env
 
 {--
 Pass Description
 --}
 
-geoPass :: ViewportI -> GeoPassScene env -> GeometryPass
-geoPass viewport scene = PassDescr
-    { passTarget         = geoTarget
-    , passShader         = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
-    , passPerFrameData   = geoShaderData
-    , passPreRendering   = io $ do
-        GL.viewport     GL.$= toGLViewport viewport
-        GL.clearColor   GL.$= GL.Color4 0 0 0 0
-        
-        GL.depthFunc    GL.$= Just GL.Less
-        GL.depthMask    GL.$= GL.Enabled
-        
-        GL.blend        GL.$= GL.Disabled
-
-        GL.cullFace     GL.$= Just GL.Back
-        GL.frontFace    GL.$= GL.CCW
-        GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-
-        -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
-        GL.clear        [ GL.ColorBuffer, GL.DepthBuffer ]
-    , passPostRendering  = return ()
-    }
+geoPass :: Viewport Int -> Camera -> GeometryPass
+geoPass viewport camera = 
+    passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
 
     where
-    sceneCam        = scene^.sceneCamera
-    glvp            = fromIntegral <$> viewport
-    baseSpec        = mkTextureSpec' (glvp^.vpSize) GL.RGBA
-    depthSpec       = mkTextureSpec' (glvp^.vpSize) GL.DepthComponent
+    shaderRes = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
+
+    shaderData :: GeoPerFrame 
+    shaderData =
+        let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
+            uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
+                      zFarPlane        =: zfar
+        in ShaderData uniform mempty
+
+    
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
@@ -105,20 +94,16 @@ geoPass viewport scene = PassDescr
                            , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
                            , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
                            }
-    
-    geoShaderData   :: GeoPerFrame 
-    geoShaderData   =
-        let zfar    = - (realToFrac $ sceneCam^.cameraPlanes.camZFar)
-            uniform = perspectiveUniforms glvp sceneCam  <+>
-                      zFarPlane        =: zfar
-        in ShaderData uniform mempty
+
+    baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
+    depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
 
 {--
 Geo Pass Utils
 --}
 
-toGeoEntity :: GeoPassScene env -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
-toGeoEntity scene ent = toRenderEntity shaderData ent
+toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
+toGeoEntity camera ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
                  materialUniforms (ent^.materials.albedoMaterial) `append`
@@ -129,7 +114,7 @@ toGeoEntity scene ent = toRenderEntity shaderData ent
 
     theNormalMatrix :: M33 Float
     theNormalMatrix = 
-        let invCam        = scene^.sceneCamera & cameraTransformation %~ inverseTransformation
+        let invCam        = camera & cameraTransformation %~ inverseTransformation
             invViewM      = invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33

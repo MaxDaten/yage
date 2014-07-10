@@ -115,7 +115,7 @@ loadTextureFile f = do
         eImg <- (fromDynamic =<<) <$> readImage (fpToString f)
         case eImg of
             Left err    -> error err
-            Right img   -> return $ mkTexture (fromStrict $ fpToText f) $ Texture2D img
+            Right img   -> return $ mkTexture (encodeUtf8 $ fpToText f) $ Texture2D img
 
 
 loadMeshFile :: MeshFileType -> MeshFilePath -> YageResources vert (Mesh vert)

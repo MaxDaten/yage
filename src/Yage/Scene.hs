@@ -15,20 +15,20 @@ module Yage.Scene
     ) where
 
 
-import           Yage.Prelude                   hiding (mapM)
+import           Yage.Prelude                   hiding ( mapM )
 import           Yage.Lens
 
 import           Yage.Camera
 import           Yage.Light
 import           Yage.Resources                 as Res
-import           Yage.Geometry                  hiding (Face)
+import           Yage.Geometry                  hiding ( Face )
 
 import           Data.Traversable               (mapM)
 import qualified Graphics.GLUtil.Camera3D       as Cam
 
-import           Yage.Rendering.Transformation
 import           Yage.Rendering.RenderEntity
-import           Yage.Rendering                 hiding (P3, lerp)
+import           Yage.Rendering                 hiding ( P3 )
+import           Yage.Transformation
 import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity
@@ -53,10 +53,10 @@ makeLenses ''Environment
 
 
 
-data Scene ent env = Scene
+data Scene cam ent env = Scene
     { _sceneEntities    :: [ ent ]
     , _sceneEnvironment :: env
-    , _sceneCamera      :: Camera
+    , _sceneCamera      :: cam
     } deriving ( Functor )
 
 makeLenses ''Scene
@@ -66,7 +66,7 @@ makeLenses ''Scene
 ## Structure access
 --}
 
-emptyScene :: Camera -> Scene ent (Environment lit skymat)
+emptyScene :: cam -> Scene cam ent (Environment lit skymat)
 emptyScene = Scene [] emptyEnvironment
 
 
@@ -74,23 +74,23 @@ emptyEnvironment :: Environment lit mat
 emptyEnvironment = Environment [] Nothing (AmbientLight 0)
 
 
-addEntity :: Scene ent env -> ent -> Scene ent env
+addEntity :: Scene cam ent env -> ent -> Scene cam ent env
 addEntity scene ent = scene & sceneEntities <>~ [ent]
 
 
-addLight :: Scene ent (Environment lit mat) -> lit -> Scene ent (Environment lit mat)
+addLight :: Scene cam ent (Environment lit mat) -> lit -> Scene cam ent (Environment lit mat)
 addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
 
 
-entitiesCount :: Scene ent (Environment l m) -> Int
+entitiesCount :: Scene cam ent (Environment l m) -> Int
 entitiesCount = length . _sceneEntities
 
 
-lightCount :: Scene ent (Environment l m) -> Int
+lightCount :: Scene cam ent (Environment l m) -> Int
 lightCount = length . _envLights . _sceneEnvironment
 
 
-sceneSky :: Lens' (Scene ent (Environment lit sky)) (Maybe sky)
+sceneSky :: Lens' (Scene cam ent (Environment lit sky)) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
 
@@ -136,7 +136,7 @@ lightRadius = lightEntity.entityScale
 
 
 instance ( HasResources vert ent ent', HasResources vert env env' ) => 
-        HasResources vert (Scene ent env) (Scene ent' env') where
+        HasResources vert (Scene cam ent env) (Scene cam ent' env') where
     requestResources scene =
         Scene   <$> ( mapM requestResources $ scene^.sceneEntities )
                 <*> ( requestResources $ scene^.sceneEnvironment )
@@ -164,7 +164,7 @@ instance ( HasResources vert mesh mesh' ) =>
             LightEntity <$> requestResources ent
                         <*> pure light
 
-instance Bifunctor Scene where
+instance Bifunctor (Scene cam) where
     bimap entFunc envFunc scene = scene & sceneEntities    .~ (fmap entFunc $ scene^.sceneEntities)
                                         & sceneEnvironment %~ envFunc
 
@@ -207,7 +207,7 @@ instance LinearInterpolatable (Entity a b) where
     lerp alpha u v = u & entityTransformation .~ lerp alpha (u^.entityTransformation) (v^.entityTransformation)
 
 
-instance (LinearInterpolatable ent, LinearInterpolatable env) => LinearInterpolatable (Scene ent env) where
+instance (LinearInterpolatable cam, LinearInterpolatable ent, LinearInterpolatable env) => LinearInterpolatable (Scene cam ent env) where
     lerp alpha u v = 
         u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)

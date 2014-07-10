@@ -86,7 +86,7 @@ pushChar tbuf c =
                 advance         = vSpace * fromI (glyHoriAdvance metric)
                 norm@(normX,_)  = pxNorm . fontDescr $ tbuf^.tbufTexture.font
 
-                texDim          = textureDimension $ fTex^.fontMap
+                texDim          = fTex^.fontMap.textureDimension
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
                 glyphVerts      = makeGlypMesh caret fdata texDim norm
                 glypIdx         :: V.Vector Int

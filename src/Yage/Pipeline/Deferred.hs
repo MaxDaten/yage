@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings          #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleContexts           #-}
 module Yage.Pipeline.Deferred
@@ -10,8 +10,10 @@ module Yage.Pipeline.Deferred
 import Yage.Prelude
 import Yage.Lens
 
-import Yage.Scene
 import Yage.Rendering
+import Yage.Scene
+import Yage.Viewport
+import Yage.HDR
 
 import Yage.Pipeline.Types
 
@@ -20,22 +22,27 @@ import Yage.Pipeline.Deferred.GeometryPass    as Pass
 import Yage.Pipeline.Deferred.LightPass       as Pass
 import Yage.Pipeline.Deferred.SkyPass         as Pass
 import Yage.Pipeline.Deferred.ScreenPass      as Pass
+import Yage.Pipeline.Deferred.DownsamplePass  as Pass
+import Yage.Pipeline.Deferred.HDR             as Pass
+import Yage.Pipeline.Deferred.Common          as Pass
 
 type DeferredEnvironment = Environment Pass.LitEntityDraw Pass.SkyEntityDraw
-type DeferredScene       = Scene GeoEntityDraw DeferredEnvironment 
+type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment 
 
-yDeferredLighting :: YageRenderSystem DeferredScene
+yDeferredLighting :: YageRenderSystem DeferredScene ()
 yDeferredLighting viewport scene = 
-    let base       = Pass.geoPass viewport scene
-        lighting   = Pass.lightPass base viewport scene
-        atmosphere = Pass.skyPass lighting viewport scene
-        final      = Pass.screenPass (Pass.lBufferChannel . renderTargets $ lighting) viewport
-        --final      = Pass.screenPass (Pass.gNormalChannel . renderTargets $ base) viewport
+    let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
+        cam                           = scene^.sceneCamera.hdrCamera
+        base                          = Pass.geoPass viewport cam
+        final toScreen                = Pass.screenPass toScreen viewport (scene^.sceneCamera)
     in do
-    base        `runRenderPass`  ( toGeoEntity scene <$> scene^.sceneEntities )
+    base        `runRenderPass`  ( toGeoEntity cam   <$> scene^.sceneEntities )
     
-    lighting    `runRenderPass`  ( toLitEntity       <$> scene^.sceneEnvironment.envLights )
-    
-    atmosphere  `runRenderPass`  ( toSkyEntity       <$> scene^.sceneEnvironment.envSky.to toList )
-    
-    final       `runRenderPass`  [ toScrEntity        $  Pass.Screen viewport ]
+    hdrTex <- hdrLightingPass base viewport scene
+
+    final hdrTex `runRenderPass`  [ targetEntity $ viewport^.rectangle ]
+
+
+{--
+--}
+

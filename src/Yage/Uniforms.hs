@@ -5,6 +5,7 @@ module Yage.Uniforms
 import Yage.Uniforms.Light                      as Uniforms
 import Yage.Uniforms.MVP                        as Uniforms
 import Yage.Uniforms.Material                   as Uniforms
+import Yage.Uniforms.Camera                     as Uniforms
 
 import Yage.Rendering.Shader                    as Uniforms
 
