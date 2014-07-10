@@ -2,16 +2,13 @@ module Yage.Pipeline.Deferred.GaussFilter where
 
 import Yage.Prelude
 import Yage.Lens
-import Data.ByteString.Lens
 
 
-import Control.Applicative (liftA)
 import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
 import Yage.Rendering hiding (P3)
-import Yage.Rendering.Textures (texSpecDimension)
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler

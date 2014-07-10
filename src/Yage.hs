@@ -198,7 +198,7 @@ yageLoop win oldState = do
             , fixed 4 $ 1000 * stats^.resourcingTime
             , fixed 4 $ 1000 * stats^.renderingTime
             , fixed 4 $ 1000 * gcTime
-            , fixed 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
+            , prec 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
             )
 
 

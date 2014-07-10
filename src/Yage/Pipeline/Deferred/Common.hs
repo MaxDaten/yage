@@ -88,6 +88,7 @@ targetEntity hasRect =
 
 
 -- | specs: GL.Float GL.RGB GL.RGB32F
+-- see @mkTargetTexture
 mkSingleTargetHDR32 :: ByteString -> V2 Int -> RenderTarget SingleRenderTarget
 mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo") 
     $ SingleRenderTarget 

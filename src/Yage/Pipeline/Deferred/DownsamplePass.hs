@@ -3,7 +3,6 @@ module Yage.Pipeline.Deferred.DownsamplePass where
 import Yage.Prelude
 import Yage.Lens
 import Data.ByteString.Lens
-import Yage.Math
 
 import Control.Applicative (liftA)
 import Yage.Scene
