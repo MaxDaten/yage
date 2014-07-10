@@ -14,8 +14,6 @@ import Yage.Scene
 import Yage.Pipeline.Types
 import Yage.Uniforms as U
 
-import qualified Yage.Core.OpenGL as GL
-
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 import qualified Yage.Pipeline.Deferred.LightPass       as L
@@ -64,10 +62,7 @@ brightFilter tex whitePoint =
 
 
 bloomPass :: Int -> Texture -> RenderSystem Texture
-bloomPass samples tex = do
-    let clampedTex = tex & textureConfig.texConfWrapping  .~ TextureWrapping GL.Mirrored GL.Clamp
-                         & textureConfig.texConfFiltering .~ TextureFiltering GL.Linear' Nothing GL.Linear'
-    foldM (flip.const $ gaussFilter) clampedTex [0..samples-1]
+bloomPass samples tex = foldM (flip.const $ gaussFilter) tex [0..samples-1]
 
 
 type AddUniforms = SamplerUniforms ++ [ "BaseWeight" ::: GLfloat

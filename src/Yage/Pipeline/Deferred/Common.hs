@@ -91,5 +91,21 @@ targetEntity hasRect =
 mkSingleTargetHDR32 :: ByteString -> V2 Int -> RenderTarget SingleRenderTarget
 mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo") 
     $ SingleRenderTarget 
-    $ mkTexture (name ++ "-buffer") $ TextureBuffer GL.Texture2D 
+    $ mkTargetTexture (name ++ "-buffer")
     $ mkTextureSpec size GL.Float GL.RGB GL.RGB32F
+
+
+-- | creates a `Texture` for a RenderTarget with some recommended settings:
+--
+-- - no MipMap generation (expensive for targets every frame)
+-- - linear mip/mag filter
+-- - clamping to edge
+-- - repetition repeated
+mkTargetTexture :: ByteString -> BufferSpec -> Texture
+mkTargetTexture name spec = 
+    let tex = mkTexture name $ TextureBuffer GL.Texture2D spec
+    in tex & textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
+           & textureConfig.texConfFiltering.texMinFilter     .~ GL.Linear'
+           & textureConfig.texConfFiltering.texMagFilter     .~ GL.Linear'
+           & textureConfig.texConfWrapping.texWrapRepetition .~ GL.Repeated
+           & textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
