@@ -20,7 +20,7 @@ data LightAttributes where
     LightAttributes ::
         { lAttrColor          :: V4 Double
         , lAttrAttenuation    :: (Double, Double, Double) 
-        -- ^ constant, linear, quadric
+        -- ^ constant, linear, quadric (1/d^2)
         , lAttrSpecularExp    :: Double
         -- ^ 0..128: 0 big smooth highlight, 128 tiny hard highlight
         } -> LightAttributes
