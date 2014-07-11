@@ -84,6 +84,8 @@ library
                         Yage.UI.Types
 
   ghc-options:          -j8
+  ghc-prof-options:     -rtsopts -Wall -prof
+
 
   if flag(perf)
     ghc-options:        -threaded -O2
@@ -93,7 +95,6 @@ library
   if flag(dev)
     ghc-options:        -Wall
 
---  ghc-prof-options:     -rtsopts -prof -auto-all
   default-language:     Haskell2010
   default-extensions:   
                         NoImplicitPrelude
@@ -211,6 +212,8 @@ executable obj2ygm
 
   -- other-modules:        Yage.Examples.Shared
   ghc-options:          -j8
+  ghc-prof-options:     -rtsopts -Wall -prof -auto-all
+
 
   if flag(perf)
       ghc-options:      -threaded -O2
@@ -243,6 +246,8 @@ test-suite parsing-obj
   hs-source-dirs:
       test
   ghc-options:         -Wall -threaded -O2
+  ghc-prof-options:     -rtsopts -Wall -prof -auto-all
+
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
 

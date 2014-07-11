@@ -13,6 +13,7 @@ import           Yage.Math
 import qualified Data.Vector.Storable      as V
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as T
+import           Data.ByteString.Lens
 -----------------------------------------------------------------------------------------
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
@@ -91,7 +92,7 @@ pushChar tbuf c =
                 glyphVerts      = makeGlypMesh caret fdata texDim norm
                 glypIdx         :: V.Vector Int
                 glypIdx         = V.fromList [0, 1, 2, 0, 2, 3]
-                glypComp        = makeComponent (c `cons` (pack . show $ caret)) glypIdx
+                glypComp        = makeComponent ((c:show caret)^.packedChars) glypIdx
             in ( caret & _x +~ advance / normX
                , mesh `appendComponent` (glypComp, V.fromList glyphVerts)
                )

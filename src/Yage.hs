@@ -150,7 +150,7 @@ yageLoop win oldState = do
     
     -- | logic simulation
     -- selects small time increments and perform simulation steps to catch up withe the frame time
-    simulate remainder sim input = simulate' remainder sim sim input
+    simulate remainder sim input = {-# SCC simulate #-} simulate' remainder sim sim input
     
     simulate' remainder currentSim prevSim input
         | remainder < ( currentSim^.simDeltaT ) = return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
@@ -170,14 +170,14 @@ yageLoop win oldState = do
     -- | loading resources & rendering
     processRendering (Left err)    = ( criticalM $ "err:" ++ show err ) >> return oldState
     processRendering (Right scene) = do
-        (renderScene, newFileRes) <- runYageResources 
+        (renderScene, newFileRes) <- {-# SCC resources #-} runYageResources 
                                       ( oldState^.loadedResources.resourceLoader )
                                       ( requestResources scene )
                                       ( oldState^.loadedResources.resourceRegistry )
         renderTheScene renderScene $ oldState & loadedResources.resourceRegistry .~ newFileRes
 
 
-    renderTheScene renderScene resourceState = do
+    renderTheScene renderScene resourceState = {-# SCC rendering #-} do
         let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
         let rect        = Rectangle 0 $ winSt^.fbSize

@@ -56,12 +56,12 @@ loadOBJ fromInternal (filepath,subSelection) = do
             let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
                 tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
                 packed          = zipWith packer geos tbnGeos
-                mesh            = emptyMesh & meshId .~ fpToText filepath
+                mesh            = emptyMesh & meshId .~ (encodeUtf8 $ fpToText filepath)
             return $ foldl' appendGeometry mesh packed
     
     converter p t n = fromInternal $ YGM.internalFormat p t n
     
-    packer (ident, (pos, tex)) (_,tbn) = (ident, packGeos converter pos tex tbn)
+    packer (ident, (pos, tex)) (_,tbn) = (encodeUtf8 ident, packGeos converter pos tex tbn)
 
 
 
@@ -71,8 +71,8 @@ loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile fi
         | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
         | otherwise = 
             let geoMap = convertVertices <$> M.filterWithKey (isSelected subSelection) ygmModels
-                mesh   = emptyMesh & meshId .~ ygmName
-            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (k, geo)) mesh geoMap
+                mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
+            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (encodeUtf8 k, geo)) mesh geoMap
 
     convertVertices = geoVertices %~ map fromInternal
 

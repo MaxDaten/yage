@@ -135,7 +135,7 @@ buildTriGeo vertexFormat pos tex =
 buildMesh :: ( Epsilon a, Floating a
              , HasTriangles t, HasSurfaces s, Storable (Vertex v)
              , IElem (YPosition3 a) vert, IElem (YTexture2 a) vert ) => 
-          ( Pos a -> Tex a -> TBN a -> (Vertex v) ) -> Text -> s (t (Vertex vert)) -> Mesh (Vertex v)
+          ( Pos a -> Tex a -> TBN a -> (Vertex v) ) -> ByteString -> s (t (Vertex vert)) -> Mesh (Vertex v)
 buildMesh vertexFormat name geo = 
     let vs     = concatMap (concatMap (vertices . triangles) . getSurface) $ surfaces geo
         posGeo = makeSimpleTriGeo $ V.map (rGet yposition3) $ V.fromList vs

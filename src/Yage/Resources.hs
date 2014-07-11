@@ -104,7 +104,7 @@ loadTextureFile f = do
 
     registry <- get
     res <- maybe
-            (printIOTime load)
+            (load)
             return
             (registry^.textures.at filepath)
 
