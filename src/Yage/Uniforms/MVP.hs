@@ -5,7 +5,7 @@ import Yage.Prelude
 import Yage.Math
 import Yage.Lens
 
-import Data.Vinyl
+import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL (GLfloat, GLint)
 
 import Yage.Camera
@@ -37,44 +37,44 @@ type PerspectiveUniforms = [ YViewMatrix, YVPMatrix ]
 Fields
 --}
 
-normalMatrix :: YNormalMatrix
-normalMatrix = Field
+normalMatrix :: SField YNormalMatrix
+normalMatrix = SField
 
-projectionMatrix :: YProjectionMatrix
-projectionMatrix = Field
+projectionMatrix :: SField YProjectionMatrix
+projectionMatrix = SField
 
-viewMatrix :: YViewMatrix
-viewMatrix = Field
+viewMatrix :: SField YViewMatrix
+viewMatrix = SField
 
-modelMatrix :: YModelMatrix
-modelMatrix = Field
+modelMatrix :: SField YModelMatrix
+modelMatrix = SField
 
-vpMatrix :: YVPMatrix
-vpMatrix = Field
+vpMatrix :: SField YVPMatrix
+vpMatrix = SField
 
-mvpMatrix :: YMVPMatrix
-mvpMatrix = Field
+mvpMatrix :: SField YMVPMatrix
+mvpMatrix = SField
 
-viewportDim :: YViewportDim
-viewportDim = Field
+viewportDim :: SField YViewportDim
+viewportDim = SField
 
-eyePosition :: YEyePosition
-eyePosition = Field
+eyePosition :: SField YEyePosition
+eyePosition = SField
 
-zNearPlane :: YZNearPlane
-zNearPlane = Field
+zNearPlane :: SField YZNearPlane
+zNearPlane = SField
 
-zFarPlane :: YZFarPlane
-zFarPlane = Field
+zFarPlane :: SField YZFarPlane
+zFarPlane = SField
 
-zNearFarPlane :: YZNearFarPlane
-zNearFarPlane = Field
+zNearFarPlane :: SField YZNearFarPlane
+zNearFarPlane = SField
 
-zProjRatio :: YZProjRatio
-zProjRatio = Field
+zProjRatio :: SField YZProjRatio
+zProjRatio = SField
 
-fieldOfView :: YFieldOfView
-fieldOfView = Field
+fieldOfView :: SField YFieldOfView
+fieldOfView = SField
 
 {--
 Utility

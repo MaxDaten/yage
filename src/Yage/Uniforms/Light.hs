@@ -3,7 +3,7 @@
 module Yage.Uniforms.Light where
 
 
-import Data.Vinyl
+import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL            (GLfloat)
 import Linear
 
@@ -21,18 +21,18 @@ type YLightAttributes    = [ YLightPosition, YLightRadius
                            ]
 
 
-lightPosition :: YLightPosition
-lightPosition = Field
+lightPosition :: SField YLightPosition
+lightPosition = SField
 
-lightRadius :: YLightRadius
-lightRadius = Field
+lightRadius :: SField YLightRadius
+lightRadius = SField
 
-lightColor :: YLightColor
-lightColor = Field
+lightColor :: SField YLightColor
+lightColor = SField
 
-lightAtten :: YLightAttenuation
-lightAtten = Field
+lightAtten :: SField YLightAttenuation
+lightAtten = SField
 
-lightSpecExp :: YSpecularExp
-lightSpecExp = Field
+lightSpecExp :: SField YSpecularExp
+lightSpecExp = SField
 

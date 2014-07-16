@@ -13,7 +13,7 @@ type SamplerUniforms = [ YProjectionMatrix, YTextureSize ]
 type SamplerData t = ShaderData SamplerUniforms '[ TextureUniform t ]
 type YageTextureSampler mrt t = YageDeferredPass mrt (SamplerData t) TargetData TargetVertex
 
-samplerPass :: Texture -> RenderTarget mrt -> Rectangle Int -> FilePath -> YageTextureSampler mrt t
+samplerPass :: (KnownSymbol t) => Texture -> RenderTarget mrt -> Rectangle Int -> FilePath -> YageTextureSampler mrt t
 samplerPass toSample target targetRectangle sampler =
     let shaderRes   = ShaderResource "res/glsl/pass/renderToRect.vert" sampler
         shaderData  = ShaderData sampleUniforms sampleTextures
@@ -26,6 +26,6 @@ samplerPass toSample target targetRectangle sampler =
         projectionMatrix =: projectionMatrix2D 0.0 1.0 (fromIntegral <$> targetRectangle) <+>
         textureSizeField toSample
 
-    sampleTextures :: Textures '[ TextureUniform t ]
+    sampleTextures :: (KnownSymbol t) => Textures '[ TextureUniform t ]
     sampleTextures = 
-        Field =: toSample
+        SField =: toSample

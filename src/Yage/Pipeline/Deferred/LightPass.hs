@@ -17,7 +17,7 @@ import Yage.Viewport
 import Yage.Scene
 import Yage.Transformation
 
-import Yage.Rendering hiding (P3)
+import Yage.Rendering
 import Yage.Rendering.Textures              (mkTextureSpec)
 
 import Yage.Pipeline.Deferred.Common
@@ -123,7 +123,7 @@ mkLight light =
     where
     lightData :: Mesh LitVertex
     lightData = case lightType light of
-        Pointlight{}      -> mkFromVerticesF "plight" . vertices . triangles $ geoSphere 2 1
+        Pointlight{}      -> mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
         Spotlight{}       -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
 
@@ -159,3 +159,10 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 
+
+
+instance Implicit (FieldNames LitPerFrameTex) where
+    implicitly = 
+        SField =: "AlbedoTexture" <+>
+        SField =: "NormalTexture" <+>
+        SField =: "DepthTexture"

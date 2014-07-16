@@ -8,7 +8,7 @@ import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
-import Yage.Rendering hiding (P3)
+import Yage.Rendering
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
@@ -37,3 +37,7 @@ gaussFilter toSample =
         gaussX `runRenderPass` [ targetEntity targetX ]
         gaussY `runRenderPass` [ targetEntity targetY ]
         return $ targetY^.targetTexture
+
+
+instance Implicit (FieldNames '[ TextureUniform "SamplingTexture" ]) where
+    implicitly = SField =: "SamplingTexture"

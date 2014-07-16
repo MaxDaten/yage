@@ -83,7 +83,7 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
         
         additivePass    :: AdditiveComposePass
         additivePass    = samplerPass baseTex target (target^.asRectangle) "res/glsl/pass/addCompose.frag"
-                            & passPerFrameData.shaderTextures <<+>~ Field =: toAdd
+                            & passPerFrameData.shaderTextures <<+>~ SField =: toAdd
                             & passPerFrameData.shaderUniforms <<+>~ uniforms
     in do
         additivePass `runRenderPass` [ targetEntity baseTex ]
@@ -91,4 +91,13 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
 
     where
 
-    uniforms = Field =: realToFrac baseWeight <+> Field =: realToFrac addWeight
+    uniforms = SField =: realToFrac baseWeight <+> SField =: realToFrac addWeight
+
+
+instance Implicit (FieldNames '[ TextureUniform "FilterTexture" ]) where
+    implicitly = SField =: "FilterTexture"
+
+instance Implicit ( FieldNames AddTextures ) where
+    implicitly = 
+        SField =: "BaseTexture" <+>
+        SField =: "AddTexture"

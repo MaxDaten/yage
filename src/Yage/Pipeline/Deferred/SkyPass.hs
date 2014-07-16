@@ -5,7 +5,7 @@ module Yage.Pipeline.Deferred.SkyPass where
 import           Yage.Prelude
 import           Yage.Lens
 
-import           Yage.Rendering                     hiding (P3)
+import           Yage.Rendering
 
 import           Yage.Scene
 import           Yage.Viewport
@@ -72,3 +72,7 @@ toSkyEntity sky = toRenderEntity shData sky
 
     material :: YSkyData
     material = materialUniforms $ sky^.materials
+
+
+instance Implicit (FieldNames SkyTextures) where
+    implicitly = SField =: "SkyTexture"

@@ -12,9 +12,11 @@ module Yage.Formats.Ygm
 import Yage.Prelude
 import Yage.Lens
 
+import Data.Map (keys)
 import Data.Binary
 import Data.Text.Binary as Bin ()
 import Data.Vinyl.Instances ()
+
 import Codec.Compression.GZip
 import qualified Data.ByteString.Lazy as B
 import Control.Parallel.Strategies
@@ -46,10 +48,10 @@ internalFormat :: ( Real a, Fractional a, Fractional b ) =>
                TBN a ->
                Vertex (InternalFormat b)
 internalFormat pos tex tangentBasis@(V3 t _b n) =
-    yposition3 =: ( realToFrac <$> pos )      <+>
-    ytexture2  =: ( realToFrac <$> tex )      <+>
-    ytangentX  =: ( realToFrac <$> t )        <+>
-    ytangentZ  =: ( realToFrac <$> normal )
+    position3 =: ( realToFrac <$> pos )      <+>
+    texture2  =: ( realToFrac <$> tex )      <+>
+    tangentX  =: ( realToFrac <$> t )        <+>
+    tangentZ  =: ( realToFrac <$> normal )
     where
     normal    = vector n & _w .~ basisSign
     basisSign = if det33 tangentBasis < 0 then -1.0 else 1.0
@@ -59,7 +61,7 @@ sameModels :: YGM -> YGM -> Bool
 sameModels a b = (ygmModels a) == (ygmModels b) 
 
 instance Show YGM where
-    show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown ygmModels)
+    show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown $ keys ygmModels)
 
 instance Binary YGM
 

@@ -18,7 +18,7 @@ import           Data.ByteString.Lens
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
-import           Yage.Geometry             (Y'P2TX2C4)
+import           Yage.Geometry
 import           Yage.Images
 -----------------------------------------------------------------------------------------
 import           Yage.Font.FontTexture
@@ -119,8 +119,8 @@ makeGlypMesh caret (gly, region) dim' (normX, normY) =
             w        = fromI glyWidth / normX
             h        = fromI glyHeight / normY
 
-            V2 u0 v0 = (fromI <$> region^.topLeft)     / dim
-            V2 u1 v1 = (fromI <$> region^.bottomRight) / dim
+            V2 u0 v0 = (fromI <$> region^.xy1) / dim
+            V2 u1 v1 = (fromI <$> region^.xy2) / dim
         in [ vert leftX     topY       u0 v1
            , vert leftX     (topY - h) u0 v0
            , vert (leftX+w) (topY - h) u1 v0

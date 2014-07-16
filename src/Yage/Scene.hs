@@ -27,7 +27,7 @@ import           Data.Traversable               (mapM)
 import qualified Graphics.GLUtil.Camera3D       as Cam
 
 import           Yage.Rendering.RenderEntity
-import           Yage.Rendering                 hiding ( P3 )
+import           Yage.Rendering
 import           Yage.Transformation
 import qualified Graphics.Rendering.OpenGL      as GL
 

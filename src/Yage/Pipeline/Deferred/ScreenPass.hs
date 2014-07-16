@@ -12,7 +12,7 @@ import Yage.HDR
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
-import Yage.Rendering hiding (P3)
+import Yage.Rendering
 
 import  Yage.Pipeline.Deferred.Common
 import  Yage.Pipeline.Deferred.Sampler
@@ -67,3 +67,5 @@ screenPass toScreen viewport hdr =
         GL.frontFace    GL.$= GL.CCW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
+instance (Implicit (FieldNames '[TextureUniform "ScreenTexture"])) where
+    implicitly = SField =: "ScreenTexture"

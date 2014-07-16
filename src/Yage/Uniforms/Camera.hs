@@ -3,7 +3,7 @@
 module Yage.Uniforms.Camera where
 
 
-import Data.Vinyl
+import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL            (GLfloat)
 
 
@@ -15,15 +15,15 @@ type YInverseGamma  = "InverseGamma"    ::: GLfloat
 
 
 
-exposure :: YExposure
-exposure = Field
+exposure :: SField YExposure
+exposure = SField
 
-exposureBias :: YExposureBias
-exposureBias = Field
+exposureBias :: SField YExposureBias
+exposureBias = SField
 
-gamma :: YGamma
-gamma = Field
+gamma :: SField YGamma
+gamma = SField
 
-inverseGamma :: YInverseGamma
-inverseGamma = Field
+inverseGamma :: SField YInverseGamma
+inverseGamma = SField
 

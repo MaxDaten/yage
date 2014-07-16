@@ -30,10 +30,10 @@ deferredResourceLoader = mkResourceLoader fromInternal
     where
     fromInternal :: Vertex YGM.YGMFormat -> GeoVertex
     fromInternal internal =
-        yposition3 =: ( realToFrac <$> ( rGet yposition3 internal :: V3 Float ) ) <+>
-        ytexture2  =: ( realToFrac <$> ( rGet ytexture2 internal  :: V2 Float ) ) <+>
-        ytangentX  =: ( realToFrac <$> ( rGet ytangentX internal  :: V3 Float ) ) <+>
-        ytangentZ  =: ( realToFrac <$> ( rGet ytangentZ internal  :: V4 Float ) )
+        position3 =: ( realToFrac <$> ( rGet position3 internal :: V3 Float ) ) <+>
+        texture2  =: ( realToFrac <$> ( rGet texture2 internal  :: V2 Float ) ) <+>
+        tangentX  =: ( realToFrac <$> ( rGet tangentX internal  :: V3 Float ) ) <+>
+        tangentZ  =: ( realToFrac <$> ( rGet tangentZ internal  :: V4 Float ) )
 
 
 mkResourceLoader :: ( Storable (Vertex v), NFData (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> ResourceLoader (Vertex v)

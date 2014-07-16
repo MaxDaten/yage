@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds, TypeOperators #-}
+{-# LANGUAGE KindSignatures #-}
 -- | Uniforms fo Materials & Textures
 module Yage.Uniforms.Material where
 
@@ -6,7 +7,7 @@ module Yage.Uniforms.Material where
 import Yage.Prelude
 import Yage.Lens
 
-import Data.Vinyl
+import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL            (GLfloat)
 import Linear
 
@@ -15,14 +16,13 @@ import Yage.Rendering.Shader
 import Yage.Material
 
 
-
 type YMaterialData m t = ShaderData m '[t]
 
 type YMaterialUni c m   = [ YMaterialColor c, YTextureMatrix m ]
 
-type YMaterialColor c   = c ::: V4 GLfloat
+type YMaterialColor c   = (c::Symbol) ::: V4 GLfloat
 type YMaterialTex t     = TextureUniform t
-type YTextureMatrix m   = m ::: M44 GLfloat
+type YTextureMatrix m   = (m::Symbol) ::: M44 GLfloat
 
 type YTextureSize       = "TextureSize" ::: V4 GLfloat
 
@@ -44,29 +44,29 @@ type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 type YAddTex            = YMaterialTex "AddTexture"
 type YWhitePoint        = "WhitePoint" ::: GLfloat
 
-materialColor :: YMaterialColor c
-materialColor = Field
+materialColor :: (KnownSymbol c) => SField (YMaterialColor c)
+materialColor = SField
 
-materialTexture :: TextureUniform t
-materialTexture = Field
+materialTexture :: KnownSymbol t => SField (TextureUniform t)
+materialTexture = SField
 
-textureMatrix :: YTextureMatrix m
-textureMatrix = Field
+textureMatrix :: KnownSymbol m => SField (YTextureMatrix m)
+textureMatrix = SField
 
 textureSizeField :: Texture -> Uniforms '[ YTextureSize ]
 textureSizeField tex = 
     let size = fromIntegral <$> (tex^.textureSpec.texSpecDimension) :: V2 GLfloat
-    in Field =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))
+    in SField =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))
 
 
-whitePoint :: YWhitePoint
-whitePoint = Field
+whitePoint :: SField YWhitePoint
+whitePoint = SField
 
 {--
 Utility
 --}
 
-materialUniforms :: RenderMaterial -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
+materialUniforms :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
 materialUniforms mat =
     let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
               textureMatrix   =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )

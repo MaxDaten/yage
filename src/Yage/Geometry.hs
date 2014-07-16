@@ -15,24 +15,24 @@ import                  Yage.Prelude                     hiding (toList)
 import                  Yage.Lens
 
 import                  Data.Vinyl
+import                  Data.Vinyl.Universe.Field
 import qualified        Data.Vector                      as V
 import                  Data.Foldable                    (toList)
-
-import                  Yage.Geometry.Vertex             as Vertex
 
 import "yage-geometry"  Yage.Geometry                    as Geometry
 
 import                  Linear
 import                  Yage.Rendering.Mesh
+import                  Yage.Rendering.Vertex            as Vertex
 
 
-type YPosition3 a = Position3 "vPosition" a
-type YPosition2 a = Position2 "vPosition" a
-type YTexture2  a = Texture2  "vTexture"  a
-type YTangentX  a = Tangent3  "vTangentX" a
-type YTangentY  a = Tangent3  "vTangentY" a
-type YTangentZ  a = Tangent4  "vTangentZ" a
-type YColor4    a = Color4    "vColor"    a
+type YPosition3 a = "vPosition" ::: V3 a
+type YPosition2 a = "vPosition" ::: V2 a
+type YTexture2  a = "vTexture"  ::: V2 a
+type YTangentX  a = "vTangentX" ::: V3 a
+type YTangentY  a = "vTangentY" ::: V3 a
+type YTangentZ  a = "vTangentZ" ::: V4 a
+type YColor4    a = "vColor"    ::: V4 a
 
 
 -- 3D
@@ -66,17 +66,23 @@ type Y'P2TX2C4 a   = [ YPosition2 a
                      , YColor4 a
                      ]
 
-ytangentX :: YTangentX a
-ytangentX = Field
+tangentX :: SField (YTangentX a)
+tangentX = SField
 
-ytangentZ :: YTangentZ a
-ytangentZ = Field
+tangentZ :: SField (YTangentZ a)
+tangentZ = SField
 
-yposition3 :: YPosition3 a
-yposition3 = Field
+position3 :: SField (YPosition3 a)
+position3 = SField
 
-ytexture2 :: YTexture2 a
-ytexture2 = Field
+position2 :: SField (YPosition2 a)
+position2 = SField
+
+texture2 :: SField (YTexture2 a)
+texture2 = SField
+
+color4 :: SField (YColor4 a)
+color4 = SField
 
 
 -- | 
@@ -138,8 +144,8 @@ buildMesh :: ( Epsilon a, Floating a
           ( Pos a -> Tex a -> TBN a -> (Vertex v) ) -> ByteString -> s (t (Vertex vert)) -> Mesh (Vertex v)
 buildMesh vertexFormat name geo = 
     let vs     = concatMap (concatMap (vertices . triangles) . getSurface) $ surfaces geo
-        posGeo = makeSimpleTriGeo $ V.map (rGet yposition3) $ V.fromList vs
-        texGeo = makeSimpleTriGeo $ V.map (rGet ytexture2)  $ V.fromList vs
+        posGeo = makeSimpleTriGeo $ V.map (rGet position3) $ V.fromList vs
+        texGeo = makeSimpleTriGeo $ V.map (rGet texture2)  $ V.fromList vs
         tbnGeo = calcTangentSpaces posGeo texGeo
         
         triGeo = packGeos vertexFormat posGeo texGeo tbnGeo

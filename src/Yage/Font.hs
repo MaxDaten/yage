@@ -21,7 +21,7 @@ import Yage.Font.TextBuffer as TB
 import           Yage.Uniforms.MVP
 
 
-type FontUniforms       = PerspectiveUniforms ++ '[YModelMatrix ]
+type FontUniforms       = PerspectiveUniforms ++ '[ YModelMatrix ]
 type FontTextureField   = '[TextureUniform "FontTexture"]
 type FontShaderData     = ShaderData FontUniforms FontTextureField
 

@@ -9,7 +9,6 @@ import Data.Proxy
 import qualified Data.Map as M
 
 
-import Yage.Geometry.Vertex
 import "yage" Yage.Geometry
 import qualified Yage.Formats.Ygm as YGM
 import Yage.Formats.Ygm ()

@@ -101,8 +101,8 @@ insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
     
     -- perfectly fits
     | (a^.regionRect.extend) == nodeRegion^.extend    = let padding = a^.regionPadding
-                                                            rect    = nodeRegion & topLeft     +~ pure padding
-                                                                                 & bottomRight -~ pure padding
+                                                            rect    = nodeRegion & xy1  +~ pure padding
+                                                                                 & xy2  -~ pure padding
                                                         in Right $ Filled (a & regionRect .~ rect)
     
     -- split region in one half fitting and retaining region, then insert into the half fitting one
@@ -193,8 +193,8 @@ getAtlasPixel atlas x y =
     in get mReg
     where
         get (Just region) = pixelAt (region^.regionData)
-                                    (x - region^.regionRect.topLeft._x)
-                                    (y - region^.regionRect.topLeft._y)
+                                    (x - region^.regionRect.xy1._x)
+                                    (y - region^.regionRect.xy1._y)
         get _             = atlas^.background
 
 
@@ -209,11 +209,11 @@ splitRect toSplit toFit =
         direction = if dw > dh then SplitVertical else SplitHorizontal
     in split direction
     where
-        split SplitVertical     = ( toSplit & bottomRight._x -~ (toFit^.width - 1)
-                                  , toSplit & topLeft._x     +~ (toFit^.width)
+        split SplitVertical     = ( toSplit & xy2._x -~ (toFit^.width - 1)
+                                  , toSplit & xy1._x +~ (toFit^.width)
                                   )
-        split SplitHorizontal   = ( toSplit & bottomRight._y +~ (toFit^.height - 1)
-                                  , toSplit & topLeft._y     -~ toFit^.height 
+        split SplitHorizontal   = ( toSplit & xy2._y +~ (toFit^.height - 1)
+                                  , toSplit & xy1._y -~ toFit^.height 
                                   )
 
 

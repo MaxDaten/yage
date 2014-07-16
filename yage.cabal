@@ -128,7 +128,7 @@ library
                         , GLUtil            >= 0.7.1
                         , time              == 1.4.*
                         , typography-ft2    >= 0.1
-                        , vinyl             == 0.3
+                        , vinyl             == 0.4.*
                         
                         , containers        == 0.5.*
                         , generic-deriving  == 1.6.*
@@ -148,7 +148,7 @@ library
                         , text              >= 0.11
                         , attoparsec        == 0.12.*
 
-                        , lens              == 4.2
+                        , lens              == 4.3.*
                         , colour            >= 2.3.3
                         , linear            == 1.10.*
                         , netwire           >= 5

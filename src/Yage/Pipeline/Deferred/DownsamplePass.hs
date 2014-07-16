@@ -9,7 +9,7 @@ import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
-import Yage.Rendering hiding (P3)
+import Yage.Rendering
 import Yage.Rendering.Textures (texSpecDimension)
 
 import Yage.Pipeline.Deferred.Common
@@ -35,3 +35,7 @@ downsampleBoxed5x5 downfactor toDownsample =
     in do
         downsamplePass `runRenderPass` [ targetEntity target ]
         return $ target^.targetTexture
+
+
+instance Implicit (FieldNames '[ TextureUniform "DownsampleTexture" ]) where
+    implicitly = SField =: "DownsampleTexture"
