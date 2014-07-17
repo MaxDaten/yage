@@ -66,7 +66,4 @@ imageRectangle img = Rectangle 0 $ imageDimension img
 
 
 imageByAreaCompare :: Image a -> Image a -> Ordering
-imageByAreaCompare a b =
-    let rA = imageRectangle a
-        rB = imageRectangle b
-    in rA `compareArea` rB
+imageByAreaCompare = compare `on` (^.to imageRectangle.area)

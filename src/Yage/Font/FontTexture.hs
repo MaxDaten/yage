@@ -10,12 +10,13 @@ module Yage.Font.FontTexture
 import Yage.Prelude hiding (Text)
 import Yage.Lens
 
+import System.IO.Unsafe (unsafePerformIO)
 
 import Yage.Data.List (piz)
 import Data.Map hiding (map, null)
 
 import Graphics.Font as FT
-import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontname), loadFont)
+import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontName), loadFont)
 
 import Yage.Images
 import Yage.Texture.Atlas
@@ -59,9 +60,11 @@ makeFontTexture font markup filedAtlas =
 
 generateFontTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
 generateFontTexture font markup mode chars emptyAtlas =
-    let imgs          = sortBy descArea $ map (generateCharImg font mode) chars `piz` chars
+    let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
         (err, atlas)  = insertImages imgs emptyAtlas
-    in if null err then Right $ makeFontTexture font markup atlas else error $ show err 
+    in if null err 
+        then Right $ makeFontTexture font markup atlas 
+        else error $ show err 
     where
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 

@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.0.5
+version:             0.1.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -83,7 +83,7 @@ library
                         
                         Yage.UI.Types
 
-  ghc-options:          -j8
+  ghc-options:          -j8 -fno-warn-orphans
   ghc-prof-options:     -rtsopts -Wall -prof
 
 
@@ -127,7 +127,7 @@ library
                         , OpenGLRaw         >= 1.4      &&    < 1.6
                         , GLUtil            >= 0.7.1
                         , time              == 1.4.*
-                        , typography-ft2    >= 0.1
+                        , typography-ft2    == 0.2.*
                         , vinyl             == 0.4.*
                         
                         , containers        == 0.5.*
@@ -172,8 +172,9 @@ executable textureAtlas
                         , lens
                         , JuicyPixels
                         , containers
-
-                        , random      >= 1
+                        , MonadRandom
+                        , random
+                        , text
 
     default-language:     Haskell2010
     default-extensions:   
@@ -181,12 +182,12 @@ executable textureAtlas
 
 -------------------------------------------------------------------------------
 
-executable fontAtlas
+executable fontAtlasGen
     if flag(library-only)
       Buildable: False
 
-    hs-source-dirs:     test/manuals
-    main-is:            FontAtlas.hs
+    hs-source-dirs:     fontAtlasGen
+    main-is:            FontAtlasGen.hs
 
     build-depends:        base
                         , yage

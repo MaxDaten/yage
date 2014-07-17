@@ -43,7 +43,7 @@ makeLenses ''AtlasRegion
 
 type AtlasTree i a = Tree TextureRegion (AtlasRegion i a)
 data TextureAtlas i a = TextureAtlas
-    { _atlasSize    :: (Int, Int)
+    { _atlasSizePx  :: V2 Int
     , _atlasRegions :: AtlasTree i a
     , _regionIds    :: Set i
     , _background   :: a
@@ -65,31 +65,44 @@ filledLeaf ident img padding =
     in Filled (AtlasRegion rect padding ident img)
 
 
-emptyAtlas :: Int -> Int -> a -> Int -> TextureAtlas i a
-emptyAtlas width height background padding =
+-- | creates an empty atlas
+emptyAtlas :: Int
+           -- ^ `widthPx` in pixels (1..w)
+           -> Int
+           -- ^ `heightPx` in pixels (1..h)
+           -> a
+           -- ^ `background` color-value
+           -> Int
+           -- ^ `paddingPx` for each element added to the atlas
+           -> TextureAtlas i a
+           -- ^ empty atlas
+emptyAtlas widthPx heightPx background paddingPx =
     let root = Node rect Nil Nil
-        rect = Rectangle 0 (V2 width height)
+        rect = Rectangle 0 (V2 (widthPx-1) (heightPx-1))
     in TextureAtlas
-    { _atlasSize    = (width, height)
+    { _atlasSizePx  = V2 widthPx heightPx
     , _atlasRegions = root
     , _regionIds    = empty
     , _background   = background
-    , _padding      = padding
+    , _padding      = paddingPx
     }
 
 
 insertImage :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (AtlasError i) (TextureAtlas i a)
 insertImage ident img atlas =
     if atlas^.regionIds.contains ident
-    then Left $ AlreadyContained ident
-    else either (const $ Left NoSpace) Right $ insert ident img atlas
+        then Left $ AlreadyContained ident
+        else either (const $ Left NoSpace) Right $ insert ident img atlas
+    
     where
-        insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
-        insert ident img atlas =
-            let regions  = insertNode (filledLeaf ident img (atlas^.padding)) (atlas^.atlasRegions)
-                newAtlas =  atlasRegions .~ regions^.chosen $
-                            regionIds    %~ (contains ident .~ isRight regions) $ atlas
-            in either (const $ Left atlas) (const $ Right newAtlas) regions
+    
+    insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
+    insert ident img atlas =
+        let regions  = insertNode (filledLeaf ident img (atlas^.padding)) (atlas^.atlasRegions)
+            newAtlas = atlas & atlasRegions .~ regions^.chosen
+                             & regionIds    %~ (contains ident .~ isRight regions)
+        in either (const $ Left atlas) (const $ Right newAtlas) regions
+
 
 
 insertNode :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTree i a)
@@ -97,10 +110,10 @@ insertNode :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTre
 insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
     
     -- insert rect to big
-    | not $ (a^.regionRect) `fits` nodeRegion         = Left tree
+    | not $ (a^.regionRect ) `fits` nodeRegion       = Left tree
     
     -- perfectly fits
-    | (a^.regionRect.extend) == nodeRegion^.extend    = let padding = a^.regionPadding
+    | a^.regionRect.extend == nodeRegion^.extend    =   let padding = a^.regionPadding
                                                             rect    = nodeRegion & xy1  +~ pure padding
                                                                                  & xy2  -~ pure padding
                                                         in Right $ Filled (a & regionRect .~ rect)
@@ -109,8 +122,11 @@ insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
     | otherwise =
         let (leftRegion, rightRegion) = over both emptyNode $ splitRect nodeRegion (a^.regionRect)
         in insertNode filled $ Node nodeRegion leftRegion rightRegion
+
 insertNode _ (Filled a)             = Left $ Filled a
+
 insertNode _ Nil                    = Left Nil
+
 insertNode node tree@(Node _ l r)   = case insertNode node l of
                                         Right l' -> Right $ setLeft l' tree
                                         Left _   -> flip setRight tree <$> insertNode node r
@@ -151,12 +167,14 @@ insertImages ((ident, img):imgs) atlas =
 
 regionMap :: (Ord i) => TextureAtlas i a -> RegionMap i
 regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
+    
     where
-        collectFilled :: (Ord i) => AtlasRegion i a -> Map i TextureRegion -> Map i TextureRegion
-        collectFilled region =
-                let ident = region^.regionId
-                    rect  = region^.regionRect
-                in at ident ?~ rect
+    
+    collectFilled :: (Ord i) => AtlasRegion i a -> Map i TextureRegion -> Map i TextureRegion
+    collectFilled region =
+            let ident = region^.regionId
+                rect  = region^.regionRect
+            in at ident ?~ rect
 
 
 isInNode :: AtlasTree i a -> Int -> Int -> Bool
@@ -199,23 +217,22 @@ getAtlasPixel atlas x y =
 
 
 atlasToImage :: (Pixel a) => TextureAtlas i a -> Image a
-atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSize._1) (atlas^.atlasSize._2)
+atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSizePx._x) (atlas^.atlasSizePx._y)
 
 
 splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)
 splitRect toSplit toFit =
-    let dw        = toSplit^.width - toFit^.width
-        dh        = toSplit^.height - toFit^.height
-        direction = if dw > dh then SplitVertical else SplitHorizontal
-    in split direction
-    where
-        split SplitVertical     = ( toSplit & xy2._x -~ (toFit^.width - 1)
-                                  , toSplit & xy1._x +~ (toFit^.width)
-                                  )
-        split SplitHorizontal   = ( toSplit & xy2._y +~ (toFit^.height - 1)
-                                  , toSplit & xy1._y -~ toFit^.height 
-                                  )
-
+    let direction = if dw > dh then SplitVertical else SplitHorizontal
+    in split direction where
+    
+    split SplitVertical     = ( toSplit & xy2._x -~ dw
+                              , toSplit & xy1._x +~ ( toFit^.width + 1 )
+                              )
+    split SplitHorizontal   = ( toSplit & xy2._y -~ dh
+                              , toSplit & xy1._y +~ ( toFit^.height + 1 )
+                              )
+    dw = toSplit^.width - toFit^.width
+    dh = toSplit^.height - toFit^.height
 
 instance Foldable.Foldable (Tree region) where
     foldr = foldrWithFilled
