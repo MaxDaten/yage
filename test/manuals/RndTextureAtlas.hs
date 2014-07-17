@@ -22,9 +22,10 @@ import Yage.Texture.Atlas.Builder
 main :: IO ()
 main = do
     printUsage
-    setSeed
+    (seed, imageCount) <- readArgs
+    setSeed seed
     
-    randImgs <- generateRandomImages =<< getImageCount
+    randImgs <- generateRandomImages imageCount
     let bgrnd          = PixelRGB8 0 0 0
         settings       = AtlasSettings (V2 1024 1024) bgrnd 1
         texs           = [(0::Int)..] `zip` randImgs
@@ -55,14 +56,10 @@ printUsage = do
     print "e.g. textureAtlas 12345 73"
 
 
-setSeed :: IO ()
-setSeed = do
-    eSeed <- decimal . (Prelude.!! 0) <$> getArgs
-    case eSeed of
-        Left err        -> error err
-        Right (seed, _) -> do
-            setStdGen $ mkStdGen seed
-            print $ "seed: " ++ show seed
+setSeed :: Int -> IO ()
+setSeed seed = do
+    setStdGen $ mkStdGen seed
+    print $ "seed: " ++ show seed
 
 
 getImageCount :: IO Int
