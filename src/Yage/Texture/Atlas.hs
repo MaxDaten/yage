@@ -13,7 +13,6 @@ import           Yage.Math
 
 
 import qualified Data.Foldable as Foldable
-import qualified Data.Map      as Map
 import           Data.Set      hiding (foldr, null)
 
 import           Yage.Geometry.D2.Rectangle as Rectangle
@@ -42,16 +41,26 @@ makeLenses ''AtlasRegion
 
 
 type AtlasTree i a = Tree TextureRegion (AtlasRegion i a)
-data TextureAtlas i a = TextureAtlas
-    { _atlasSizePx  :: V2 Int
-    , _atlasRegions :: AtlasTree i a
-    , _regionIds    :: Set i
+
+data AtlasSettings a = AtlasSettings
+    { _sizePx       :: V2 Int
+    -- ^ `sizePx` in pixels starting from 1 `V2 [1..w] [1..h]`
     , _background   :: a
-    , _padding      :: Int
+    -- ^ `background` color-value
+    , _paddingPx    :: Int
+    -- ^ `paddingPx` for each element added to the atlas
+    } deriving ( Show, Eq, Ord )
+
+makeLenses ''AtlasSettings
+
+
+data TextureAtlas i a = TextureAtlas
+    { _atlasRegions     :: AtlasTree i a
+    , _regionIds        :: Set i
+    , _atlasSettings    :: AtlasSettings a 
     }
 makeLenses ''TextureAtlas
 
-type RegionMap i = Map i TextureRegion
 
 ---------------------------------------------------------------------------------------------------
 
@@ -66,26 +75,14 @@ filledLeaf ident img padding =
 
 
 -- | creates an empty atlas
-emptyAtlas :: Int
-           -- ^ `widthPx` in pixels (1..w)
-           -> Int
-           -- ^ `heightPx` in pixels (1..h)
-           -> a
-           -- ^ `background` color-value
-           -> Int
-           -- ^ `paddingPx` for each element added to the atlas
+emptyAtlas :: AtlasSettings a
+           -- ^ settings
            -> TextureAtlas i a
            -- ^ empty atlas
-emptyAtlas widthPx heightPx background paddingPx =
-    let root = Node rect Nil Nil
-        rect = Rectangle 0 (V2 (widthPx-1) (heightPx-1))
-    in TextureAtlas
-    { _atlasSizePx  = V2 widthPx heightPx
-    , _atlasRegions = root
-    , _regionIds    = empty
-    , _background   = background
-    , _padding      = paddingPx
-    }
+emptyAtlas settings =
+    let root     = Node rect Nil Nil
+        rect     = Rectangle 0 (settings^.sizePx - 1)
+    in TextureAtlas root empty settings
 
 
 insertImage :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (AtlasError i) (TextureAtlas i a)
@@ -98,7 +95,7 @@ insertImage ident img atlas =
     
     insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
     insert ident img atlas =
-        let regions  = insertNode (filledLeaf ident img (atlas^.padding)) (atlas^.atlasRegions)
+        let regions  = insertNode (filledLeaf ident img (atlas^.atlasSettings.paddingPx)) (atlas^.atlasRegions)
             newAtlas = atlas & atlasRegions .~ regions^.chosen
                              & regionIds    %~ (contains ident .~ isRight regions)
         in either (const $ Left atlas) (const $ Right newAtlas) regions
@@ -149,33 +146,6 @@ foldrWithFilled f = go where
     go z' (Filled a)= f a z'
     go z' (Node _ l r) = go (go z' r) l
 
----------------------------------------------------------------------------------------------------
-
-
-type AtlasResult i a = ([(i, AtlasError i)], TextureAtlas i a)
-
-insertImages :: (Ord i) => [(i, Image a)] -> TextureAtlas i a -> AtlasResult i a
-insertImages [] atlas = ([], atlas)
-insertImages ((ident, img):imgs) atlas =
-    either err success $ insertImage ident img atlas
-    
-    where
-
-    err e       = joinResults (ident, e) (insertImages imgs atlas)
-    success     = insertImages imgs
-    joinResults e (errs, atlas) = (e:errs, atlas)
-
-
-regionMap :: (Ord i) => TextureAtlas i a -> RegionMap i
-regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
-    
-    where
-    
-    collectFilled :: (Ord i) => AtlasRegion i a -> Map i TextureRegion -> Map i TextureRegion
-    collectFilled region =
-        let ident = region^.regionId
-            rect  = region^.regionRect
-        in at ident ?~ rect
 
 
 isInNode :: AtlasTree i a -> Int -> Int -> Bool
@@ -218,11 +188,8 @@ getAtlasPixel atlas x y =
     get (Just region) = pixelAt (region^.regionData)
                                 (x - region^.regionRect.xy1._x)
                                 (y - region^.regionRect.xy1._y)
-    get _             = atlas^.background
+    get _             = atlas^.atlasSettings.background
 
-
-atlasToImage :: (Pixel a) => TextureAtlas i a -> Image a
-atlasToImage atlas = generateImage (getAtlasPixel atlas) (atlas^.atlasSizePx._x) (atlas^.atlasSizePx._y)
 
 
 splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)

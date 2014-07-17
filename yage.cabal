@@ -62,6 +62,8 @@ library
                         Yage.Wire.Analytic
 
                         Yage.Texture.Atlas
+                        Yage.Texture.Atlas.Builder
+
                         Yage.Pipeline.Deferred
                         Yage.Pipeline.Types
                         

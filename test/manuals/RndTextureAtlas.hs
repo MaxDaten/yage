@@ -1,19 +1,22 @@
-{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import qualified Prelude
 
 import Yage.Prelude
+import Yage.Math
+
 import Yage.Data.List (piz)
 import Yage.Images
 
 import Data.Text.Read
 import Control.Monad (when)
-import Yage.Texture.Atlas
 import Codec.Picture
 import System.Random
 import Control.Monad.Random
 
+import Yage.Texture.Atlas
+import Yage.Texture.Atlas.Builder
 
 
 main :: IO ()
@@ -23,14 +26,10 @@ main = do
     
     randImgs <- generateRandomImages =<< getImageCount
     let bgrnd          = PixelRGB8 0 0 0
-        atlas'         = emptyAtlas 1024 1024 bgrnd 1
-        texs           = sortBy (descending imageByAreaCompare) randImgs `piz` ([0..] :: [Int])
-        (errs, atlas)  = insertImages texs atlas'
+        settings       = AtlasSettings (V2 1024 1024) bgrnd 1
+        texs           = [(0::Int)..] `zip` randImgs
 
-    print $ "images:\n" ++ show (map (imageRectangle . snd) texs)
-    print $ "errors:\n" ++ show errs
-    print $ "atlas: \n" ++ show (regionMap atlas)
-    writePng "atlas.png" $ atlasToImage atlas
+    writeNewAtlasPNG settings "atlas.png" texs
 
 
 generateRandomImages :: Int -> IO [Image PixelRGB8]
@@ -53,6 +52,7 @@ printUsage :: IO ()
 printUsage = do
     print "Usage:"
     print "args in this order: seed image-count"
+    print "e.g. textureAtlas 12345 73"
 
 
 setSeed :: IO ()
@@ -63,6 +63,7 @@ setSeed = do
         Right (seed, _) -> do
             setStdGen $ mkStdGen seed
             print $ "seed: " ++ show seed
+
 
 getImageCount :: IO Int
 getImageCount = do
