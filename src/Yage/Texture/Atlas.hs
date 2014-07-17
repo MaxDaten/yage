@@ -144,11 +144,10 @@ setRight _ _ = error "invalid Atlas.hs: setRight"
 
 
 foldrWithFilled :: (a -> b -> b) -> b -> Tree c a -> b
-foldrWithFilled f = go
-    where
-        go z' Nil = z'
-        go z' (Filled a)= f a z'
-        go z' (Node _ l r) = go (go z' r) l
+foldrWithFilled f = go where
+    go z' Nil = z'
+    go z' (Filled a)= f a z'
+    go z' (Node _ l r) = go (go z' r) l
 
 ---------------------------------------------------------------------------------------------------
 
@@ -159,10 +158,12 @@ insertImages :: (Ord i) => [(i, Image a)] -> TextureAtlas i a -> AtlasResult i a
 insertImages [] atlas = ([], atlas)
 insertImages ((ident, img):imgs) atlas =
     either err success $ insertImage ident img atlas
+    
     where
-        err e       = joinResults (ident, e) (insertImages imgs atlas)
-        success     = insertImages imgs
-        joinResults e (errs, atlas) = (e:errs, atlas)
+
+    err e       = joinResults (ident, e) (insertImages imgs atlas)
+    success     = insertImages imgs
+    joinResults e (errs, atlas) = (e:errs, atlas)
 
 
 regionMap :: (Ord i) => TextureAtlas i a -> RegionMap i
@@ -172,9 +173,9 @@ regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
     
     collectFilled :: (Ord i) => AtlasRegion i a -> Map i TextureRegion -> Map i TextureRegion
     collectFilled region =
-            let ident = region^.regionId
-                rect  = region^.regionRect
-            in at ident ?~ rect
+        let ident = region^.regionId
+            rect  = region^.regionRect
+        in at ident ?~ rect
 
 
 isInNode :: AtlasTree i a -> Int -> Int -> Bool
@@ -187,33 +188,37 @@ getFilledAt :: AtlasTree i a -> Int -> Int -> Maybe (AtlasTree i a)
 getFilledAt root@(Node region _l _r) x y
     | region `containsPoint` at   = getNodeIn root
     | otherwise                   = error "out of bounds"
+    
     where
-        at = V2 x y
-        getNodeIn (Node _ Nil Nil)               = Nothing
-        getNodeIn (Filled a)
-            | (a^.regionRect) `containsPoint` at = Just $ Filled a
-            | otherwise                          = Nothing
-        getNodeIn Nil                            = Nothing
-        getNodeIn (Node _ l r)                   = getNodeIn (if isInNode l x y then l else r)
+    
+    at = V2 x y
+    getNodeIn (Node _ Nil Nil)               = Nothing
+    getNodeIn (Filled a)
+        | (a^.regionRect) `containsPoint` at = Just $ Filled a
+        | otherwise                          = Nothing
+    getNodeIn Nil                            = Nothing
+    getNodeIn (Node _ l r)                   = getNodeIn (if isInNode l x y then l else r)
 getFilledAt _ _ _ = error "not a valid root"
 
 
 getRegionAt :: TextureAtlas i a -> Int -> Int -> Maybe (AtlasRegion i a)
 getRegionAt atlas x y = toRegion <$> getFilledAt (atlas^.atlasRegions) x y
+    
     where
-        toRegion (Filled a) = a
-        toRegion _          = error "invalid node"
+
+    toRegion (Filled a) = a
+    toRegion _          = error "invalid node"
 
 
 getAtlasPixel :: (Pixel a) => TextureAtlas i a -> Int -> Int -> a
 getAtlasPixel atlas x y =
     let mReg = getRegionAt atlas x y
-    in get mReg
-    where
-        get (Just region) = pixelAt (region^.regionData)
-                                    (x - region^.regionRect.xy1._x)
-                                    (y - region^.regionRect.xy1._y)
-        get _             = atlas^.background
+    in get mReg where
+    
+    get (Just region) = pixelAt (region^.regionData)
+                                (x - region^.regionRect.xy1._x)
+                                (y - region^.regionRect.xy1._y)
+    get _             = atlas^.background
 
 
 atlasToImage :: (Pixel a) => TextureAtlas i a -> Image a
