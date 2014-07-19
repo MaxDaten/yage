@@ -19,9 +19,6 @@ import Yage.Texture.Atlas.Builder
 
 -------------------------------------------------------------------------------
 
---fontPath  = encodeString $ "res" </> "font" </> "SourceCodePro-Regular.otf"
---atlasFile = "atlas" <.> "png"
-
 main = withNewLibrary $ \lib -> do
     printUsage
     (fontPath::FilePath, atlasFile::FilePath) <- readArgs
