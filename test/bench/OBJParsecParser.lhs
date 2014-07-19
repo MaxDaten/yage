@@ -7,7 +7,7 @@ full spec: http://www.martinreddy.net/gfx/3d/OBJ.spec
 > {-# OPTIONS_GHC -fno-warn-unused-do-bind -fno-warn-missing-signatures #-}
 > module OBJParsecParser where
 
-> import Yage.Prelude   hiding ((<|>), try, Index, snoc, lines, ByteString, readFile)
+> import Yage.Prelude   hiding ((<|>), try, Index, snoc, lines, ByteString, readFile, decimal)
 > import Yage.Lens      hiding (Index, elements)
 
 > import qualified Data.Vector as V
