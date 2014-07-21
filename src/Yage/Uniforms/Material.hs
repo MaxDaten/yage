@@ -24,7 +24,7 @@ type YMaterialColor c   = (c::Symbol) ::: V4 GLfloat
 type YMaterialTex t     = TextureUniform t
 type YTextureMatrix m   = (m::Symbol) ::: M44 GLfloat
 
-type YTextureSize       = "TextureSize" ::: V4 GLfloat
+type YTextureSize t     = (t::Symbol) ::: V4 GLfloat
 
 type YAlbedoTex         = YMaterialTex "AlbedoTexture"
 type YAlbedoMaterial    = YMaterialUni "AlbedoColor" "AlbedoTextureMatrix"
@@ -44,7 +44,7 @@ type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 type YAddTex            = YMaterialTex "AddTexture"
 type YWhitePoint        = "WhitePoint" ::: GLfloat
 
-materialColor :: (KnownSymbol c) => SField (YMaterialColor c)
+materialColor :: KnownSymbol c => SField (YMaterialColor c)
 materialColor = SField
 
 materialTexture :: KnownSymbol t => SField (TextureUniform t)
@@ -53,7 +53,7 @@ materialTexture = SField
 textureMatrix :: KnownSymbol m => SField (YTextureMatrix m)
 textureMatrix = SField
 
-textureSizeField :: Texture -> Uniforms '[ YTextureSize ]
+textureSizeField ::KnownSymbol t => Texture -> Uniforms '[ YTextureSize t ]
 textureSizeField tex = 
     let size = fromIntegral <$> (tex^.textureSpec.texSpecDimension) :: V2 GLfloat
     in SField =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Yage.Pipeline.Deferred.DownsamplePass where
 
 import Yage.Prelude
@@ -9,18 +11,20 @@ import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
 
+import Yage.TH.Shader
+
 import Yage.Rendering
 import Yage.Rendering.Textures (texSpecDimension)
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
-
-type DownsamplePass    = YageDeferredPass 
-                            SingleRenderTarget
-                            (ShaderData SamplerUniforms '[ TextureUniform "DownsampleTexture" ])
-                            TargetData
-                            TargetVertex
+type DownsampleUniforms = [ YProjectionMatrix
+                          , YTextureSize "TextureSize"
+                          , YModelMatrix
+                          ]
+type DownsampleTextures = '[ TextureUniform "DownsampleTexture" ]
+type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUniforms DownsampleTextures
 
 
 
@@ -30,10 +34,19 @@ downsampleBoxed5x5 downfactor toDownsample =
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
         
-        downsamplePass :: DownsamplePass
-        downsamplePass = samplerPass toDownsample target (target^.asRectangle) "res/glsl/pass/boxedFilter5x5.frag"
+        fragment = $(fragmentFile "res/glsl/pass/boxedFilter5x5.frag")
+        
+        downsampleDescr :: DownsamplePass
+        downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragment
+
+
+        downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize"] '[ TextureUniform "DownsampleTexture" ]
+        downsampleData = targetRectangleData (target^.asRectangle) `append`
+                         sampleData toDownsample 
+
+        downsamplePass = runRenderPass downsampleDescr 
     in do
-        downsamplePass `runRenderPass` [ targetEntity target ]
+        downsampleData `downsamplePass` [ targetEntity target ]
         return $ target^.targetTexture
 
 

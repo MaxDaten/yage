@@ -1,5 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Yage.Pipeline.Deferred.HDR where
 
 import Yage.Prelude hiding (toList)
@@ -8,18 +11,16 @@ import Yage.Lens
 import Data.Foldable (toList)
 
 import Yage.Rendering
-import Yage.Viewport
 import Yage.HDR
 import Yage.Scene
 import Yage.Pipeline.Types
-import Yage.Uniforms as U
 
-import Yage.Pipeline.Deferred.Common
-import Yage.Pipeline.Deferred.Sampler
 import qualified Yage.Pipeline.Deferred.LightPass       as L
 import qualified Yage.Pipeline.Deferred.GeometryPass    as G
 import qualified Yage.Pipeline.Deferred.DownsamplePass  as D
 import qualified Yage.Pipeline.Deferred.SkyPass         as S
+import qualified Yage.Pipeline.Deferred.AdditiveCompose as A
+import qualified Yage.Pipeline.Deferred.BrightFilter    as B
 import Yage.Pipeline.Deferred.GaussFilter
 
 
@@ -29,75 +30,24 @@ hdrLightingPass geometryPass viewport scene =
     let cam             = scene^.sceneCamera.hdrCamera
         bloomSettings   = scene^.sceneCamera.hdrBloomSettings
         
-        lightPass       = L.lightPass geometryPass viewport cam (scene^.sceneEnvironment)
-        lightTex        = L.lBufferChannel . renderTargets $ lightPass
+        lightDescr      = L.lightPass geometryPass viewport (scene^.sceneEnvironment)
+        lightData       = L.litPerFrameData geometryPass viewport cam
+
+        lightTex        = L.lBufferChannel . renderTargets $ lightDescr
         lights          = scene^.sceneEnvironment.envLights
+        skyData         = S.skyFrameData viewport cam
 
-        atmosphere      = S.skyPass lightPass viewport cam
+        skyPass         = runRenderPass $ S.skyPass lightDescr viewport
+        lightPass       = runRenderPass lightDescr
     in do
-        lightPass  `runRenderPass` ( L.toLitEntity <$> lights )
-        atmosphere `runRenderPass` ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
+        lightData `lightPass` ( L.toLitEntity <$> lights )
+        skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
-        bloomedTex <- brightFilter lightTex ( scene^.sceneCamera.hdrWhitePoint )
+        bloomedTex <- B.brightFilter lightTex ( scene^.sceneCamera.hdrWhitePoint )
                       >>= D.downsampleBoxed5x5 ( bloomSettings^.bloomPreDownsampling ) 
                       >>= bloomPass ( bloomSettings^.bloomGaussPasses ) 
-        (1.0, lightTex) `additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
-
-
-type BrightPass = YageDeferredPass 
-                            SingleRenderTarget
-                            (ShaderData ( SamplerUniforms ++ '[ YWhitePoint ] ) '[ TextureUniform "FilterTexture" ])
-                            TargetData
-                            TargetVertex
-brightFilter :: Texture -> Float -> RenderSystem Texture
-brightFilter tex whitePoint =
-    let target      = mkSingleTextureTarget $ tex & textureId <>~ "-brightPass"
-        bright      :: BrightPass
-        bright      = samplerPass tex target (target^.asRectangle) "res/glsl/pass/brightFilter.frag"
-                        & passPerFrameData.shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
-
-    in do
-        bright `runRenderPass` [ targetEntity tex ]
-        return $ target^.targetTexture
-
+        (1.0, lightTex) `A.additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
 
 bloomPass :: Int -> Texture -> RenderSystem Texture
 bloomPass samples tex = foldM (flip.const $ gaussFilter) tex [0..samples-1]
 
-
-type AddUniforms = SamplerUniforms ++ [ "BaseWeight" ::: GLfloat
-                                      , "AddWeight" ::: GLfloat 
-                                      ]
-type AddTextures = [ TextureUniform "BaseTexture", TextureUniform "AddTexture" ]
-type AddFrameData = ShaderData AddUniforms AddTextures
-type AdditiveComposePass = YageDeferredPass 
-                            SingleRenderTarget
-                            AddFrameData
-                            TargetData
-                            TargetVertex
--- | inplace additive
--- adds second argument texture to first argument 
-additiveCompose :: (Float, Texture) -> (Float, Texture) -> RenderSystem Texture
-additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
-    let target          = mkSingleTextureTarget $ baseTex & textureId <>~ ("+" ++ toAdd^.textureId)
-        
-        additivePass    :: AdditiveComposePass
-        additivePass    = samplerPass baseTex target (target^.asRectangle) "res/glsl/pass/addCompose.frag"
-                            & passPerFrameData.shaderTextures <<+>~ SField =: toAdd
-                            & passPerFrameData.shaderUniforms <<+>~ uniforms
-    in do
-        additivePass `runRenderPass` [ targetEntity baseTex ]
-        return $ target^.targetTexture
-
-    where
-
-    uniforms = SField =: realToFrac baseWeight <+> SField =: realToFrac addWeight
-
-
-instance Implicit (FieldNames '[ TextureUniform "FilterTexture" ]) where
-    implicitly = SField =: "FilterTexture"
-
-instance Implicit ( FieldNames AddTextures ) where
-    implicitly = 
-        SField =: "BaseTexture" <+>
-        SField =: "AddTexture"

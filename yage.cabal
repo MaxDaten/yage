@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.1.0
+version:             0.2.0.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -74,10 +74,15 @@ library
                         Yage.Pipeline.Deferred.SkyPass
                         Yage.Pipeline.Deferred.ScreenPass
                         Yage.Pipeline.Deferred.DownsamplePass
+                        Yage.Pipeline.Deferred.AdditiveCompose
+                        Yage.Pipeline.Deferred.BrightFilter
                         Yage.Pipeline.Deferred.GaussFilter
                         Yage.Pipeline.Deferred.Sampler
                         
                         Yage.Pipeline.Deferred.ResourceLoader
+
+                        Yage.TH.Shader
+
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
                         Yage.Font.FontTexture
@@ -119,10 +124,13 @@ library
                         DeriveFoldable
                         DeriveGeneric
 
-  build-depends:          base            <  5
+  build-depends:          base              < 5
+                        , template-haskell  < 3
+                        , th-lift-instances == 0.1.3
+                        
                         , yage-contrib    == 0.0.1.0
                         , yage-core       == 0.0.2.0
-                        , yage-rendering  == 0.0.4.0
+                        , yage-rendering  == 0.0.5.0
                         , yage-geometry   == 0.0.0.3
 
                         , OpenGL            >= 2.9      &&    < 3
@@ -130,7 +138,10 @@ library
                         , GLUtil            >= 0.7.1
                         , time              == 1.4.*
                         , typography-ft2    == 0.3.*
+
+                        
                         , vinyl             == 0.4.3
+                        , vinyl-glsl        == 0.1.1.0
                         
                         , containers        == 0.5.*
                         , generic-deriving  == 1.6.*

@@ -29,7 +29,7 @@ data RenderText = RenderText
     { _textIdent        :: Int
     , _textBuffer       :: TextBuffer
     , _textShaderData   :: FontShaderData
-    , _textShader       :: ShaderResource
+    , _textShader       :: ShaderProgramUnit
     , _textTransf       :: Transformation Float
     } deriving ( Typeable )
 

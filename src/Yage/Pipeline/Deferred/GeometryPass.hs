@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans    #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE OverloadedStrings  #-}
@@ -15,6 +16,7 @@ import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
 import Yage.Material
+import Yage.TH.Shader
 
 import Yage.Rendering
 
@@ -23,9 +25,6 @@ import Yage.Pipeline.Deferred.Common
 
 
 type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
-type GeoPerFrameTex    = '[]
-type GeoPerFrame       = ShaderData GeoPerFrameUni GeoPerFrameTex
-
 
 type GeoPerEntityUni   = [ YModelMatrix
                          , YNormalMatrix
@@ -33,10 +32,10 @@ type GeoPerEntityUni   = [ YModelMatrix
                          ++ YAlbedoMaterial 
                          ++ YNormalMaterial
 
-type GeoPerEntityTex   = [ YAlbedoTex, YNormalTex ]
-type GeoPerEntity      = ShaderData GeoPerEntityUni GeoPerEntityTex
-
+type GeoUniforms       = GeoPerFrameUni ++ GeoPerEntityUni
+type GeoTextures       = [ YAlbedoTex, YNormalTex ]
 type GeoVertex         = Vertex (Y'P3TX2TN GLfloat)
+type GeoShader         = Shader GeoUniforms GeoTextures GeoVertex
 
 data GeoPassChannels = GeoPassChannels
     { gAlbedoChannel :: Texture
@@ -59,11 +58,8 @@ type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
 -- | Resource descripte entity
 type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
 
-type GeometryPass = YageDeferredPass
-                        GeoPassChannels 
-                        GeoPerFrame 
-                        GeoPerEntity
-                        GeoVertex
+type GeometryPass = YageDeferredPass GeoPassChannels GeoShader
+                        
 
 
 type GeoPassScene env = Scene Camera GeoEntityDraw env
@@ -72,23 +68,20 @@ type GeoPassScene env = Scene Camera GeoEntityDraw env
 Pass Description
 --}
 
-geoPass :: Viewport Int -> Camera -> GeometryPass
-geoPass viewport camera = 
-    let thePass    = passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
+geoPass :: Viewport Int -> GeometryPass
+geoPass viewport = 
+    let thePass     = passPreset geoTarget (viewport^.rectangle) (ShaderUnit shaderProg)
         clearBuffer = (thePass^.passPreRendering) >> io (GL.clear [ GL.DepthBuffer ])
     in thePass & passPreRendering .~ clearBuffer
 
     where
-    shaderRes = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
 
-    shaderData :: GeoPerFrame 
-    shaderData =
-        let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
-            uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
-                      zFarPlane        =: zfar
-        in ShaderData uniform mempty
-
-    
+    shaderProg = ShaderProgramUnit 
+                 { _shaderName       = "GeometryPas.hs"
+                 , _shaderSources    = [ $(vertexFile "res/glsl/pass/geoPass.vert")^.shaderSource
+                                       , $(fragmentFile "res/glsl/pass/geoPass.frag")^.shaderSource
+                                       ]
+                 }
     
     geoTarget       = RenderTarget "geo-fbo" $
                         GeoPassChannels 
@@ -104,7 +97,15 @@ geoPass viewport camera =
 Geo Pass Utils
 --}
 
-toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex GeoPerEntity
+geoFrameData :: Viewport Int -> Camera -> ShaderData GeoPerFrameUni '[]
+geoFrameData viewport camera = 
+    let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
+        uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
+                  zFarPlane        =: zfar
+    in ShaderData uniform mempty
+
+
+toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex (ShaderData GeoPerEntityUni GeoTextures)
 toGeoEntity camera ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
@@ -151,7 +152,8 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
     fboDepth GeoPassChannels{gDepthChannel} = 
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
 
-instance Implicit (FieldNames GeoPerEntityTex) where
+
+instance Implicit (FieldNames GeoTextures) where
     implicitly = 
         SField =: "AlbedoTexture" <+>
         SField =: "NormalTexture"
