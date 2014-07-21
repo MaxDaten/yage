@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yage.TH.Shader 
     ( module GLSL
-    , module Yage.TH.Shader
+    -- , module Yage.TH.Shader
     ) where
 
 import Yage.Lens

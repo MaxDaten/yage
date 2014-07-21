@@ -36,14 +36,17 @@ downsampleBoxed5x5 downfactor toDownsample =
         
         fragment = $(fragmentFile "res/glsl/pass/boxedFilter5x5.frag")
         
-        downsamplePass :: DownsamplePass
-        downsamplePass = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragment
+        downsampleDescr :: DownsamplePass
+        downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragment
+
 
         downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize"] '[ TextureUniform "DownsampleTexture" ]
         downsampleData = targetRectangleData (target^.asRectangle) `append`
                          sampleData toDownsample 
+
+        downsamplePass = runRenderPass downsampleDescr 
     in do
-        runRenderPass downsamplePass downsampleData [ targetEntity target ]
+        downsampleData `downsamplePass` [ targetEntity target ]
         return $ target^.targetTexture
 
 

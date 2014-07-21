@@ -36,14 +36,14 @@ yDeferredLighting viewport scene =
         base                          = Pass.geoPass viewport
         baseData                      = geoFrameData viewport cam
         
-        final                         = Pass.screenPass viewport
+        finalPass                     = runRenderPass $ Pass.screenPass viewport
         screenData toScreen           = Pass.screenFrameData toScreen viewport (scene^.sceneCamera)
     in do
     runRenderPass base baseData ( toGeoEntity cam   <$> scene^.sceneEntities )
     
     hdrTex <- hdrLightingPass base viewport scene
 
-    runRenderPass final (screenData hdrTex)  [ targetEntity $ viewport^.rectangle ]
+    screenData hdrTex `finalPass` [ targetEntity $ viewport^.rectangle ]
 
 
 {--
