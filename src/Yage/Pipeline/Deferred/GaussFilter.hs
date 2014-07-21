@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yage.Pipeline.Deferred.GaussFilter where
 
 import Yage.Prelude
@@ -7,6 +9,7 @@ import Yage.Lens
 import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
+import Yage.TH.Shader
 
 import Yage.Rendering
 
@@ -30,9 +33,9 @@ gaussFilter toSample =
                                             ( toSample^.textureSpec )
         
         gaussX :: GaussPass
-        gaussX = samplerPass toSample targetX (targetX^.asRectangle) "res/glsl/pass/gaussFilterX.frag"
+        gaussX = samplerPass "Yage.GaussX" toSample targetX (targetX^.asRectangle) $(fragmentSrc "res/glsl/pass/gaussFilterX.frag")
         gaussY :: GaussPass
-        gaussY = samplerPass (targetX^.targetTexture) targetY (targetY^.asRectangle) "res/glsl/pass/gaussFilterY.frag"
+        gaussY = samplerPass "Yage.GaussY" (targetX^.targetTexture) targetY (targetY^.asRectangle) $(fragmentSrc "res/glsl/pass/gaussFilterY.frag")
     in do
         gaussX `runRenderPass` [ targetEntity targetX ]
         gaussY `runRenderPass` [ targetEntity targetY ]

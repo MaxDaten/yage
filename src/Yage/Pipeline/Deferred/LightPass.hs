@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -16,6 +19,7 @@ import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
 import Yage.Transformation
+import Yage.TH.Shader
 
 import Yage.Rendering
 import Yage.Rendering.Textures              (mkTextureSpec)
@@ -54,8 +58,7 @@ type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
 lightPass :: GeometryPass -> Viewport Int -> Camera -> (Environment LitEntityDraw sky) -> LightPass
 lightPass base viewport camera environment =
-    let shaderRes   = ShaderResource "res/glsl/pass/lightPass.vert" "res/glsl/pass/lightPass.frag"
-    in passPreset target (viewport^.rectangle) (shaderRes, shaderData)
+    passPreset target (viewport^.rectangle) (ShaderUnit shaderProg shaderData)
        & passPreRendering .~ preRendering
     
     where
@@ -69,6 +72,13 @@ lightPass base viewport camera environment =
     
     lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
     lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
+
+    shaderProg = ShaderProgramUnit
+                    { _shaderName    = "LightPass.hs"
+                    , _shaderSources = [ $(vertexSrc "res/glsl/pass/lightPass.vert")
+                                       , $(fragmentSrc "res/glsl/pass/lightPass.frag")
+                                       ]
+                    }
 
     shaderData :: LitPerFrame
     shaderData = ShaderData lightUniforms attributeTextures

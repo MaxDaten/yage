@@ -22,13 +22,13 @@ Pass Description
 
 passPreset :: RenderTarget target -> 
               Rectangle Int -> 
-              (ShaderResource, frameData) -> 
+              ShaderUnit frameData -> 
               YageDeferredPass target frameData ent vert
-passPreset target rect (shaderRes, frameData) = PassDescr
+passPreset target rect shader = PassDescr
     { _passTarget         = target
-    , _passShader         = shaderRes
-    , _passPerFrameData   = frameData
-    -- config
+    , _passShader         = shader
+
+    -- TODO : better config
     , _passPreRendering   = io $ do
         GL.viewport     GL.$= (rect^.glViewport)
         GL.clearColor   GL.$= GL.Color4 0 0 0 0

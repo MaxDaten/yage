@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Yage.Pipeline.Deferred.HDR where
 
 import Yage.Prelude hiding (toList)
@@ -13,6 +15,7 @@ import Yage.HDR
 import Yage.Scene
 import Yage.Pipeline.Types
 import Yage.Uniforms as U
+import Yage.TH.Shader
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
@@ -53,8 +56,8 @@ brightFilter :: Texture -> Float -> RenderSystem Texture
 brightFilter tex whitePoint =
     let target      = mkSingleTextureTarget $ tex & textureId <>~ "-brightPass"
         bright      :: BrightPass
-        bright      = samplerPass tex target (target^.asRectangle) "res/glsl/pass/brightFilter.frag"
-                        & passPerFrameData.shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
+        bright      = samplerPass "brightFilter" tex target (target^.asRectangle) $(fragmentSrc "res/glsl/pass/brightFilter.frag")
+                        & passShader.shaderData.shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
 
     in do
         bright `runRenderPass` [ targetEntity tex ]
@@ -82,9 +85,9 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
     let target          = mkSingleTextureTarget $ baseTex & textureId <>~ ("+" ++ toAdd^.textureId)
         
         additivePass    :: AdditiveComposePass
-        additivePass    = samplerPass baseTex target (target^.asRectangle) "res/glsl/pass/addCompose.frag"
-                            & passPerFrameData.shaderTextures <<+>~ SField =: toAdd
-                            & passPerFrameData.shaderUniforms <<+>~ uniforms
+        additivePass    = samplerPass "Yage.AdditiveCompose" baseTex target (target^.asRectangle) $(fragmentSrc "res/glsl/pass/addCompose.frag")
+                            & passShader.shaderData.shaderTextures <<+>~ SField =: toAdd
+                            & passShader.shaderData.shaderUniforms <<+>~ uniforms
     in do
         additivePass `runRenderPass` [ targetEntity baseTex ]
         return $ target^.targetTexture

@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 module Yage.Pipeline.Deferred.SkyPass where
@@ -12,6 +15,7 @@ import           Yage.Viewport
 import           Yage.Uniforms
 import           Yage.Material
 import           Yage.HDR
+import           Yage.TH.Shader
 
 import           Yage.Pipeline.Deferred.Common
 import           Yage.Pipeline.Deferred.LightPass
@@ -42,12 +46,20 @@ type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 skyPass :: LightPass -> Viewport Int -> Camera -> SkyPass
 skyPass lighting viewport camera =
-    let shaderRes = ShaderResource "res/glsl/pass/envPass.vert" "res/glsl/pass/envPass.frag"
-        shaderData = ShaderData (perspectiveUniforms viewport camera) mempty
-    in passPreset (lighting^.passTarget) (viewport^.rectangle) (shaderRes, shaderData)
+    passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg shaderData)
         & passPreRendering .~ preRendering
     
     where
+
+    shaderProg = ShaderProgramUnit
+                    { _shaderName    = "SkyPass.hs"
+                    , _shaderSources = [ $(vertexSrc "res/glsl/pass/envPass.vert")
+                                       , $(fragmentSrc "res/glsl/pass/envPass.frag")
+                                       ]
+                    }
+
+    shaderData = ShaderData (perspectiveUniforms viewport camera) mempty
+
     
     preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport

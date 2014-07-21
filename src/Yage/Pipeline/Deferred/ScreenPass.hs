@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 module Yage.Pipeline.Deferred.ScreenPass where
@@ -11,6 +13,7 @@ import Yage.Scene
 import Yage.HDR
 import Yage.Uniforms as U
 import Yage.Viewport as VP
+import Yage.TH.Shader
 
 import Yage.Rendering
 
@@ -37,9 +40,10 @@ type ScreenPass        = YageDeferredPass
 
 screenPass :: Texture -> Viewport Int -> HDRCamera -> ScreenPass
 screenPass toScreen viewport hdr = 
-    let sampler = samplerPass toScreen defaultRenderTarget (viewport^.rectangle) "res/glsl/pass/screenPass.frag"
+    let fragment = $(fragmentSrc "res/glsl/pass/screenPass.frag")
+        sampler = samplerPass "Yage.ScreenPass" toScreen defaultRenderTarget (viewport^.rectangle) fragment
     in sampler
-        & passPerFrameData.shaderUniforms <<+>~ screenUniforms
+        & passShader.shaderData.shaderUniforms <<+>~ screenUniforms
         & passPreRendering .~ preRender
 
     where
@@ -66,6 +70,8 @@ screenPass toScreen viewport hdr =
         GL.cullFace     GL.$= Just GL.Back
         GL.frontFace    GL.$= GL.CCW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
+
+
 
 instance (Implicit (FieldNames '[TextureUniform "ScreenTexture"])) where
     implicitly = SField =: "ScreenTexture"

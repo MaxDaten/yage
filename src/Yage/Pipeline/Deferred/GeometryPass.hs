@@ -15,6 +15,7 @@ import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
 import Yage.Material
+import Yage.TH.Shader
 
 import Yage.Rendering
 
@@ -74,12 +75,18 @@ Pass Description
 
 geoPass :: Viewport Int -> Camera -> GeometryPass
 geoPass viewport camera = 
-    let thePass    = passPreset geoTarget (viewport^.rectangle) (shaderRes, shaderData)
+    let thePass    = passPreset geoTarget (viewport^.rectangle) (ShaderUnit shaderProg shaderData)
         clearBuffer = (thePass^.passPreRendering) >> io (GL.clear [ GL.DepthBuffer ])
     in thePass & passPreRendering .~ clearBuffer
 
     where
-    shaderRes = ShaderResource "res/glsl/pass/geoPass.vert" "res/glsl/pass/geoPass.frag"
+
+    shaderProg = ShaderProgramUnit 
+                 { _shaderName       = "GeometryPas.hs"
+                 , _shaderSources    = [ $(vertexSrc "res/glsl/pass/geoPass.vert")
+                                       , $(fragmentSrc "res/glsl/pass/geoPass.frag")
+                                       ]
+                 }
 
     shaderData :: GeoPerFrame 
     shaderData =

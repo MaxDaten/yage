@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Yage.Pipeline.Deferred.DownsamplePass where
 
 import Yage.Prelude
@@ -8,6 +11,8 @@ import Control.Applicative (liftA)
 import Yage.Scene
 import Yage.Uniforms as U
 import Yage.Viewport as VP
+
+import Yage.TH.Shader
 
 import Yage.Rendering
 import Yage.Rendering.Textures (texSpecDimension)
@@ -31,7 +36,7 @@ downsampleBoxed5x5 downfactor toDownsample =
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
         
         downsamplePass :: DownsamplePass
-        downsamplePass = samplerPass toDownsample target (target^.asRectangle) "res/glsl/pass/boxedFilter5x5.frag"
+        downsamplePass = samplerPass "Yage.DownsamplePass" toDownsample target (target^.asRectangle) $(fragmentSrc "res/glsl/pass/boxedFilter5x5.frag")
     in do
         downsamplePass `runRenderPass` [ targetEntity target ]
         return $ target^.targetTexture

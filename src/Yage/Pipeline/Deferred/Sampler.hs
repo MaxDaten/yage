@@ -1,23 +1,30 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Yage.Pipeline.Deferred.Sampler where
 
 import Yage.Prelude
+
 
 import Yage.Viewport
 import Yage.Geometry
 import Yage.Uniforms as U
 import Yage.Rendering
 
+import Yage.TH.Shader
 import Yage.Pipeline.Deferred.Common
 
 type SamplerUniforms = [ YProjectionMatrix, YTextureSize ]
 type SamplerData t = ShaderData SamplerUniforms '[ TextureUniform t ]
 type YageTextureSampler mrt t = YageDeferredPass mrt (SamplerData t) TargetData TargetVertex
 
-samplerPass :: (KnownSymbol t) => Texture -> RenderTarget mrt -> Rectangle Int -> FilePath -> YageTextureSampler mrt t
-samplerPass toSample target targetRectangle sampler =
-    let shaderRes   = ShaderResource "res/glsl/pass/renderToRect.vert" sampler
-        shaderData  = ShaderData sampleUniforms sampleTextures
-    in passPreset target targetRectangle (shaderRes, shaderData)
+samplerPass :: (KnownSymbol t) => String -> Texture -> RenderTarget mrt -> Rectangle Int -> ShaderSource -> YageTextureSampler mrt t
+samplerPass debugName toSample target targetRectangle fragSampler =
+    let shaderRes   = ShaderProgramUnit 
+                        { _shaderName       = "Sampler.hs: " ++ debugName
+                        , _shaderSources    = [samplerVert, fragSampler]
+                        } 
+    in passPreset target targetRectangle 
+        $ ShaderUnit shaderRes 
+            $ ShaderData sampleUniforms sampleTextures
     
     where
 
@@ -29,3 +36,8 @@ samplerPass toSample target targetRectangle sampler =
     sampleTextures :: (KnownSymbol t) => Textures '[ TextureUniform t ]
     sampleTextures = 
         SField =: toSample
+
+
+samplerVert :: ShaderSource
+samplerVert = $(vertexSrc "res/glsl/pass/renderToRect.vert")
+

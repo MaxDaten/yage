@@ -180,9 +180,9 @@ loadSky sky = do
 toRenderEntity :: ShaderData u t ->
                   Entity (Mesh vert) mat ->
                   RenderEntity vert (ShaderData u t)
-toRenderEntity shaderData ent =
+toRenderEntity shaderDta ent =
     RenderEntity ( ent^.renderData )
-                 ( shaderData )
+                 ( shaderDta )
                  ( ent^.drawSettings )
 
 
