@@ -33,14 +33,17 @@ yDeferredLighting :: YageRenderSystem DeferredScene ()
 yDeferredLighting viewport scene = 
     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
         cam                           = scene^.sceneCamera.hdrCamera
-        base                          = Pass.geoPass viewport cam
-        final toScreen                = Pass.screenPass toScreen viewport (scene^.sceneCamera)
+        base                          = Pass.geoPass viewport
+        baseData                      = geoFrameData viewport cam
+        
+        final                         = Pass.screenPass viewport
+        screenData toScreen           = Pass.screenFrameData toScreen viewport (scene^.sceneCamera)
     in do
-    base        `runRenderPass`  ( toGeoEntity cam   <$> scene^.sceneEntities )
+    runRenderPass base baseData ( toGeoEntity cam   <$> scene^.sceneEntities )
     
     hdrTex <- hdrLightingPass base viewport scene
 
-    final hdrTex `runRenderPass`  [ targetEntity $ viewport^.rectangle ]
+    runRenderPass final (screenData hdrTex)  [ targetEntity $ viewport^.rectangle ]
 
 
 {--

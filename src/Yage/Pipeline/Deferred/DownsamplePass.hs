@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TemplateHaskell   #-}
 module Yage.Pipeline.Deferred.DownsamplePass where
@@ -20,12 +19,12 @@ import Yage.Rendering.Textures (texSpecDimension)
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
-
-type DownsamplePass    = YageDeferredPass 
-                            SingleRenderTarget
-                            (ShaderData SamplerUniforms '[ TextureUniform "DownsampleTexture" ])
-                            TargetData
-                            TargetVertex
+type DownsampleUniforms = [ YProjectionMatrix
+                          , YTextureSize "TextureSize"
+                          , YModelMatrix
+                          ]
+type DownsampleTextures = '[ TextureUniform "DownsampleTexture" ]
+type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUniforms DownsampleTextures
 
 
 
@@ -35,10 +34,16 @@ downsampleBoxed5x5 downfactor toDownsample =
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
         
+        fragment = $(fragmentFile "res/glsl/pass/boxedFilter5x5.frag")
+        
         downsamplePass :: DownsamplePass
-        downsamplePass = samplerPass "Yage.DownsamplePass" toDownsample target (target^.asRectangle) $(fragmentSrc "res/glsl/pass/boxedFilter5x5.frag")
+        downsamplePass = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragment
+
+        downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize"] '[ TextureUniform "DownsampleTexture" ]
+        downsampleData = targetRectangleData (target^.asRectangle) `append`
+                         sampleData toDownsample 
     in do
-        downsamplePass `runRenderPass` [ targetEntity target ]
+        runRenderPass downsamplePass downsampleData [ targetEntity target ]
         return $ target^.targetTexture
 
 

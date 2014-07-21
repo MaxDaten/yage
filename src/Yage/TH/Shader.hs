@@ -1,39 +1,18 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TemplateHaskell #-}
-module Yage.TH.Shader where
+module Yage.TH.Shader 
+    ( module GLSL
+    , module Yage.TH.Shader
+    ) where
 
-import Yage.Prelude hiding (lift)
-import Yage.TH ()
-
-import Yage.Rendering.Shader
-
-import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
-import Instances.TH.Lift ()
-
-import GLSL
+import Yage.Lens
+import GLSL as GLSL
+import qualified Yage.Rendering.Shader as S
 
 
-shaderSrc :: FilePath -> ShaderType -> Q Exp
-shaderSrc fp ty = 
-    let file = fpToString fp 
-    in [| ShaderSource file ty (unRaw $(glslRawFile file)) |]
+instance S.HasShaderSource (ShaderSource VertexShader) where
+    shaderSource = to get where
+        get (ShaderSource name _ raw) = S.ShaderSource name S.VertexShader raw
 
-vertexSrc :: FilePath -> Q Exp
-vertexSrc fp = [|$(fp `shaderSrc` VertexShader)|]
-    
-
-fragmentSrc :: FilePath -> Q Exp
-fragmentSrc fp = [|$(fp `shaderSrc` FragmentShader)|]
-
-
-instance Lift ShaderSource where
-    lift (ShaderSource name ty src) = [|ShaderSource name ty src|]
-
-instance Lift ShaderType where
-    lift VertexShader           = [|VertexShader|]
-    lift TessControlShader      = [|TessControlShader|]
-    lift TessEvaluationShader   = [|TessEvaluationShader|]
-    lift GeometryShader         = [|GeometryShader|]
-    lift FragmentShader         = [|FragmentShader|]
-    lift ComputeShader          = [|ComputeShader|]
+instance S.HasShaderSource (ShaderSource FragmentShader) where
+    shaderSource = to get where
+        get (ShaderSource name _ raw) = S.ShaderSource name S.FragmentShader raw

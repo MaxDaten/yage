@@ -23,17 +23,13 @@ import           Yage.Pipeline.Deferred.LightPass
 import qualified Graphics.Rendering.OpenGL          as GL
 
 
-type SkyPerFrame      = ShaderData PerspectiveUniforms '[]
+type SkyEntityUni      = '[ YModelMatrix ] ++ YSkyMaterial
 
-type SkyUniforms      = '[ YModelMatrix ] ++ YSkyMaterial
-type SkyTextures      = '[ YSkyTex ]
-type SkyPerEntity     = ShaderData SkyUniforms SkyTextures
 
-type SkyPass = PassDescr
-                    LitPassChannels
-                    SkyPerFrame
-                    SkyPerEntity
-                    LitVertex
+type SkyUni = PerspectiveUniforms ++ SkyEntityUni
+type SkyTextures = '[ YSkyTex ]
+type SkyShader = Shader SkyUni SkyTextures LitVertex
+type SkyPass = PassDescr LitPassChannels SkyShader
 
 
 type SkyMaterialRes = AResourceMaterial Cube
@@ -44,21 +40,20 @@ type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
 type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
-skyPass :: LightPass -> Viewport Int -> Camera -> SkyPass
-skyPass lighting viewport camera =
-    passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg shaderData)
+skyPass :: LightPass -> Viewport Int -> SkyPass
+skyPass lighting viewport =
+    passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg)
         & passPreRendering .~ preRendering
     
     where
 
     shaderProg = ShaderProgramUnit
                     { _shaderName    = "SkyPass.hs"
-                    , _shaderSources = [ $(vertexSrc "res/glsl/pass/envPass.vert")
-                                       , $(fragmentSrc "res/glsl/pass/envPass.frag")
+                    , _shaderSources = [ $(vertexFile "res/glsl/pass/envPass.vert")^.shaderSource
+                                       , $(fragmentFile "res/glsl/pass/envPass.frag")^.shaderSource
                                        ]
                     }
 
-    shaderData = ShaderData (perspectiveUniforms viewport camera) mempty
 
     
     preRendering   = io $ do
@@ -75,10 +70,13 @@ skyPass lighting viewport camera =
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
 
-toSkyEntity :: SkyEntityDraw -> RenderEntity LitVertex SkyPerEntity
+skyFrameData :: Viewport Int -> Camera -> ShaderData PerspectiveUniforms '[]
+skyFrameData viewport camera = ShaderData (perspectiveUniforms viewport camera) mempty
+
+
+toSkyEntity :: SkyEntityDraw -> RenderEntity LitVertex (ShaderData SkyEntityUni SkyTextures)
 toSkyEntity sky = toRenderEntity shData sky
     where
-    shData   :: SkyPerEntity
     shData   = ShaderData uniforms RNil `append` material
     uniforms = modelMatrix =: ( sky^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )
 

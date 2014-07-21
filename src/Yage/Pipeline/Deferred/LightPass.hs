@@ -31,11 +31,8 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex ]
-type LitPerFrame        = ShaderData LitPerFrameUni LitPerFrameTex
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
-type LitPerEntityTex    = '[ ]
-type LitPerEnity        = ShaderData LitPerEntityUni LitPerEntityTex
 
 type LitVertex          = Vertex (Y'P3 GLfloat)
 
@@ -44,11 +41,11 @@ data LitPassChannels = LitPassChannels
     , lDepthChannel  :: Texture
     }
 
-type LightPass = YageDeferredPass
-                    LitPassChannels
-                    LitPerFrame
-                    LitPerEnity
-                    LitVertex
+type LitUni = LitPerFrameUni ++ LitPerEntityUni
+type LitTex = LitPerFrameTex
+type LitShader = Shader LitUni LitTex LitVertex
+
+type LightPass = YageDeferredPass LitPassChannels LitShader
 
 type LitEntityT f    = LightEntity (f LitVertex)
 type LitEntityRes    = LitEntityT Mesh
@@ -56,9 +53,9 @@ type LitEntityDraw   = LitEntityT Mesh
 
 type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
 
-lightPass :: GeometryPass -> Viewport Int -> Camera -> (Environment LitEntityDraw sky) -> LightPass
-lightPass base viewport camera environment =
-    passPreset target (viewport^.rectangle) (ShaderUnit shaderProg shaderData)
+lightPass :: GeometryPass -> Viewport Int -> (Environment LitEntityDraw sky) -> LightPass
+lightPass base viewport environment =
+    passPreset target (viewport^.rectangle) (ShaderUnit shaderProg)
        & passPreRendering .~ preRendering
     
     where
@@ -75,14 +72,35 @@ lightPass base viewport camera environment =
 
     shaderProg = ShaderProgramUnit
                     { _shaderName    = "LightPass.hs"
-                    , _shaderSources = [ $(vertexSrc "res/glsl/pass/lightPass.vert")
-                                       , $(fragmentSrc "res/glsl/pass/lightPass.frag")
+                    , _shaderSources = [ $(vertexFile "res/glsl/pass/lightPass.vert")^.shaderSource
+                                       , $(fragmentFile "res/glsl/pass/lightPass.frag")^.shaderSource
                                        ]
                     }
+    preRendering   = io $ do
+        GL.viewport     GL.$= viewport^.glViewport
+        let AmbientLight ambientColor = environment^.envAmbient
+            V3 r g b                  = realToFrac <$> ambientColor
+        GL.clearColor   GL.$= GL.Color4 r g b 0
+        
+        GL.depthFunc    GL.$= Nothing           -- disable func add
+        GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
+        
+        GL.blend        GL.$= GL.Enabled        --- could reject background frags!
+        GL.blendEquation GL.$= GL.FuncAdd
+        GL.blendFunc    GL.$= (GL.One, GL.One)
 
-    shaderData :: LitPerFrame
-    shaderData = ShaderData lightUniforms attributeTextures
+        -- we reject front faces because of culling if cam is in volume 
+        GL.cullFace     GL.$= Just GL.Front
+        GL.frontFace    GL.$= GL.CCW
+        GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
+        
+        GL.clear        [ GL.ColorBuffer ]
 
+
+
+litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> ShaderData LitPerFrameUni LitPerFrameTex
+litPerFrameData base viewport camera = ShaderData lightUniforms attributeTextures
+    where
     
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
@@ -103,25 +121,6 @@ lightPass base viewport camera environment =
         materialTexture =: (gNormalChannel $ renderTargets base)    <+>
         materialTexture =: (gDepthChannel  $ renderTargets base)
     
-    preRendering   = io $ do
-        GL.viewport     GL.$= viewport^.glViewport
-        let AmbientLight ambientColor = environment^.envAmbient
-            V3 r g b                  = realToFrac <$> ambientColor
-        GL.clearColor   GL.$= GL.Color4 r g b 0
-        
-        GL.depthFunc    GL.$= Nothing           -- disable func add
-        GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
-        
-        GL.blend        GL.$= GL.Enabled        --- could reject background frags!
-        GL.blendEquation GL.$= GL.FuncAdd
-        GL.blendFunc    GL.$= (GL.One, GL.One)
-
-        -- we reject front faces because of culling if cam is in volume 
-        GL.cullFace     GL.$= Just GL.Front
-        GL.frontFace    GL.$= GL.CCW
-        GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-        
-        GL.clear        [ GL.ColorBuffer ]
 
 
 
@@ -148,7 +147,7 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 
-toLitEntity :: LitEntityDraw -> RenderEntity LitVertex LitPerEnity
+toLitEntity :: LitEntityDraw -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
 toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
     where
     uniforms =
