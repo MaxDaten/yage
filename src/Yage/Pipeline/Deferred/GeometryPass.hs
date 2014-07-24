@@ -83,12 +83,12 @@ geoPass viewport =
                                        ]
                  }
     
-    geoTarget       = RenderTarget "geo-fbo" $
-                        GeoPassChannels 
-                           { gAlbedoChannel = mkTexture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
-                           , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
-                           , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
-                           }
+    geoTarget  = RenderTarget "geo-fbo" $
+                    GeoPassChannels 
+                        { gAlbedoChannel = mkTexture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
+                        , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
+                        , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
+                        }
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
     depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
