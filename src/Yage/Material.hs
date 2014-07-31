@@ -20,7 +20,7 @@ import Linear (V3, Quaternion)
 
 
 
-type MaterialTexture = TextureResource 
+type MaterialTexture = TextureResource
 type MaterialColor   = Colour Double
 type MaterialColorA  = AlphaColour Double
 type MaterialPixel   = ColourPixel Double
@@ -49,7 +49,7 @@ zeroNormal = rgb 0.5 0.5 0.5
 
 
 pxTexture :: MaterialPixel pixel => TextureCtr pixel -> MaterialColor -> TextureImage
-pxTexture ctr = mkTextureImg ctr . constColorPx 
+pxTexture ctr = mkTextureImg ctr . constColorPx
 
 
 whiteDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
@@ -75,7 +75,7 @@ mkMaterialF :: MaterialColorA -> f TextureResource -> AResourceMaterial f
 mkMaterialF color textureF = Material color textureF idTransformation
 
 defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
-defaultMaterial ctr = 
+defaultMaterial ctr =
     let color   = opaque white
         texture = TexturePure $ Texture "WHITEDUMMY" def $ Texture2D (whiteDummy ctr)
     in mkMaterial color texture
@@ -88,7 +88,7 @@ defaultMaterialSRGB = defaultMaterial TexSRGB8
 singleMaterial :: Lens' ResourceMaterial TextureResource
 singleMaterial = lens getter setter
     where
-    getter = runIdentity . _matTexture 
+    getter = runIdentity . _matTexture
     setter mat tex = mat & matTexture .~ ( pure tex )
 
 
@@ -131,11 +131,11 @@ instance HasResources vert (AResourceMaterial Identity) RenderMaterial where
 instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
     requestResources mat = do
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
-        
+
         let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
             Just ( Texture baseName conf _ ) = firstOf traverse $ cubeTexs
         return $ mat & matTexture .~ Texture (baseName ++ "-Cube") conf (TextureCube cubeImgs)
-        
+
         where
         getTextureImg (Texture2D img) = img
         getTextureImg _ = error "requestResources: invalid TextureData"

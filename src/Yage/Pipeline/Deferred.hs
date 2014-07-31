@@ -12,8 +12,8 @@ import Yage.Lens
 
 import Yage.Rendering
 import Yage.Scene
-import Yage.Viewport
 import Yage.HDR
+import Yage.UI.GUI
 
 import Yage.Pipeline.Types
 
@@ -25,27 +25,28 @@ import Yage.Pipeline.Deferred.ScreenPass      as Pass
 import Yage.Pipeline.Deferred.DownsamplePass  as Pass
 import Yage.Pipeline.Deferred.HDR             as Pass
 import Yage.Pipeline.Deferred.Common          as Pass
+import Yage.Pipeline.Deferred.GuiPass         as Pass
 
 type DeferredEnvironment = Environment Pass.LitEntityDraw Pass.SkyEntityDraw
-type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment 
+type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment GUI
 
 yDeferredLighting :: YageRenderSystem DeferredScene ()
-yDeferredLighting viewport scene = 
+yDeferredLighting viewport scene =
     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
-        cam                           = scene^.sceneCamera.hdrCamera
-        base                          = Pass.geoPass viewport
-        baseData                      = geoFrameData viewport cam
-        
-        finalPass                     = runRenderPass $ Pass.screenPass viewport
-        screenData toScreen           = Pass.screenFrameData toScreen viewport (scene^.sceneCamera)
+        cam                     = scene^.sceneCamera.hdrCamera
+        baseDescr               = Pass.geoPass viewport
+        runBasePass             = runRenderPass baseDescr
+        baseData                = geoFrameData viewport cam
     in do
-    runRenderPass base baseData ( toGeoEntity cam   <$> scene^.sceneEntities )
-    
-    hdrTex <- hdrLightingPass base viewport scene
+    -- render out our geometric attributes (color, normal, ...)
+    baseData `runBasePass` ( toGeoEntity cam   <$> scene^.sceneEntities )
 
-    screenData hdrTex `finalPass` [ targetEntity $ viewport^.rectangle ]
+    -- calculate lighting based on attributes + bloom & apply tone mapping
+    hdrTex <- Pass.hdrLightingPass baseDescr viewport scene
 
+    -- rendered gui elements (TODO: should be gamma correct)
+    guiTex <- Pass.runGuiPass hdrTex viewport ( scene^.sceneGui )
+    --guiTex <- return $ mkTexture "BLACKDUMMY" $ Texture2D $ blackDummy TexRGB8
 
-{--
---}
-
+    -- bring it to the default render target - the screen
+    Pass.runScreenPass viewport [ hdrTex, guiTex ]

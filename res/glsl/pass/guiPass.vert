@@ -7,13 +7,13 @@ in vec2 vPosition;
 in vec2 vTexture;
 in vec4 vColor;
 
-out vec2 TexCoords;
+out vec2 TextureCoords;
 out vec4 Color;
 
 void main(void)
 {
-    TexCoords       = vTexture;
+    TextureCoords   = vTexture;
     Color           = vColor;
-    mat4 MVPMatrix  = VPMatrix * ModelMatrix;
-    gl_Position     = MVPMatrix * vec4( vPosition, 0.0, 1.0 );
+    gl_Position     = VPMatrix * ModelMatrix * vec4( vPosition, 0.0, 1.0 );
 }
+

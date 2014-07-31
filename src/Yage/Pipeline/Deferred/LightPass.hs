@@ -37,7 +37,7 @@ type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 type LitVertex          = Vertex (Y'P3 GLfloat)
 
 data LitPassChannels = LitPassChannels
-    { lBufferChannel :: Texture 
+    { lBufferChannel :: Texture
     , lDepthChannel  :: Texture
     }
 
@@ -57,16 +57,16 @@ lightPass :: GeometryPass -> Viewport Int -> (Environment LitEntityDraw sky) -> 
 lightPass base viewport environment =
     passPreset target (viewport^.rectangle) (ShaderUnit shaderProg)
        & passPreRendering .~ preRendering
-    
+
     where
-    
-    target = 
+
+    target =
         let GeoPassChannels{..} = renderTargets base
         in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
                                 }
-    
+
     lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
     lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
 
@@ -81,19 +81,19 @@ lightPass base viewport environment =
         let AmbientLight ambientColor = environment^.envAmbient
             V3 r g b                  = realToFrac <$> ambientColor
         GL.clearColor   GL.$= GL.Color4 r g b 0
-        
+
         GL.depthFunc    GL.$= Nothing           -- disable func add
         GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
-        
+
         GL.blend        GL.$= GL.Enabled        --- could reject background frags!
         GL.blendEquation GL.$= GL.FuncAdd
         GL.blendFunc    GL.$= (GL.One, GL.One)
 
-        -- we reject front faces because of culling if cam is in volume 
+        -- we reject front faces because of culling if cam is in volume
         GL.cullFace     GL.$= Just GL.Front
         GL.frontFace    GL.$= GL.CCW
         GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
-        
+
         GL.clear        [ GL.ColorBuffer ]
 
 
@@ -101,7 +101,7 @@ lightPass base viewport environment =
 litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> ShaderData LitPerFrameUni LitPerFrameTex
 litPerFrameData base viewport camera = ShaderData lightUniforms attributeTextures
     where
-    
+
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
         let zNearFar@(V2 near far)  = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
@@ -120,15 +120,15 @@ litPerFrameData base viewport camera = ShaderData lightUniforms attributeTexture
         materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
         materialTexture =: (gNormalChannel $ renderTargets base)    <+>
         materialTexture =: (gDepthChannel  $ renderTargets base)
-    
+
 
 
 
 mkLight :: Light -> LitEntityRes
-mkLight light = 
+mkLight light =
     let vol           = lightData
         lightEnt     = Entity vol () idTransformation (GLDrawSettings GL.Triangles (Just GL.Front))
-    in LightEntity lightEnt light 
+    in LightEntity lightEnt light
     where
     lightData :: Mesh LitVertex
     lightData = case lightType light of
@@ -138,11 +138,11 @@ mkLight light =
 
 
 instance FramebufferSpec LitPassChannels RenderTargets where
-    fboColors LitPassChannels{lBufferChannel} = 
+    fboColors LitPassChannels{lBufferChannel} =
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D lBufferChannel 0
-        ] 
-    
-    fboDepth LitPassChannels{lDepthChannel} = 
+        ]
+
+    fboDepth LitPassChannels{lDepthChannel} =
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D lDepthChannel 0
 
 
@@ -153,10 +153,10 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
     uniforms =
         modelMatrix =: ((fmap.fmap) realToFrac $ ent^.entityTransformation.transformationMatrix) <+>
         lightAttributes
-    
+
 
     lightAttributes :: Uniforms YLightAttributes
-    lightAttributes = 
+    lightAttributes =
         let lightAttr = lightAttribs light
             (attConst, attLinear, attQuad) = lAttrAttenuation lightAttr
         in case lightType light of
@@ -171,7 +171,7 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
 
 
 instance Implicit (FieldNames LitPerFrameTex) where
-    implicitly = 
+    implicitly =
         SField =: "AlbedoTexture" <+>
         SField =: "NormalTexture" <+>
         SField =: "DepthTexture"

@@ -2,12 +2,20 @@
 
 uniform sampler2D ElementTexture;
 
-in vec2 TexCoord;
+in vec2 TextureCoords;
 in vec4 Color;
 
-layout (location = 0) out vec4 OutColor;
+layout (location = 0) out vec4 fragColor;
+
+vec4 ElementColor(void)
+{
+    float fontColor = texture( ElementTexture, TextureCoords ).r;
+    return Color * vec4(fontColor);
+}
 
 void main(void)
 {
-    OutColor = Color * texture( ElementTexture, TexCoord );
+    fragColor = ElementColor();
+    // fragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
+

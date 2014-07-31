@@ -80,6 +80,7 @@ fieldOfView = SField
 Utility
 --}
 
+
 perspectiveUniforms :: Viewport Int -> Camera -> Uniforms PerspectiveUniforms
 perspectiveUniforms vp cam =
     let near  = realToFrac $ cam^.cameraZNear
@@ -92,3 +93,11 @@ perspectiveUniforms vp cam =
        vpMatrix         =: vpM
 
 
+--orthographicUniforms :: Viewport Int -> Camera -> Uniforms '[ YVPMatrix ]
+--orthographicUniforms vp cam =
+--    let near  = realToFrac $ cam^.cameraZNear
+--        far   = realToFrac $ cam^.cameraZFar
+--        projM = projectionMatrix2D near far (fromIntegral <$> vp^.viewportRect) :: M44 GLfloat
+--        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)                    :: M44 GLfloat
+--        vpM   = projM !*! viewM
+--    in vpMatrix         =: vpM

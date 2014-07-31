@@ -29,9 +29,9 @@ data CameraPlanes = CameraPlanes
 
 makeLenses ''CameraPlanes
 
-data Camera = Camera 
+data Camera = Camera
     { _cameraHandle :: !CameraHandle
-    , _cameraPlanes :: !CameraPlanes 
+    , _cameraPlanes :: !CameraPlanes
     , _cameraFov    :: !Float
     } deriving ( Show, Eq, Ord, Generic )
 
@@ -39,7 +39,7 @@ makeLenses ''Camera
 
 
 mkCameraFps :: Float -> (Double, Double) -> Transformation Float -> Camera
-mkCameraFps fov (near,far) trans = 
+mkCameraFps fov (near,far) trans =
     Camera Cam.fpsCamera (CameraPlanes near far) fov
         & cameraTransformation .~ trans
 
@@ -54,13 +54,22 @@ cameraLocation = cameraTransformation.transPosition
 cameraOrientation :: Lens' Camera (Quaternion Float)
 cameraOrientation = cameraTransformation.transOrientation
 
+cameraForward :: Lens' Camera (V3 Float)
+cameraForward = lens getter setter where
+    getter cam = Cam.forward $ cam^.cameraHandle
+    setter cam fwd = cam & cameraHandle %~ \hnd -> hnd{ Cam.forward = fwd }
+
+cameraUpward :: Lens' Camera (V3 Float)
+cameraUpward = lens getter setter where
+    getter cam = Cam.upward $ cam^.cameraHandle
+    setter cam up = cam & cameraHandle %~ \hnd -> hnd{ Cam.upward = up }
+
 handleTransformation :: Lens' CameraHandle (Transformation Float)
-handleTransformation = lens getTransformation setTransformation
-    where
-    getTransformation Cam.Camera{Cam.orientation, Cam.location} 
+handleTransformation = lens getter setter where
+    getter Cam.Camera{Cam.orientation, Cam.location}
         = Transformation location orientation 1
-    
-    setTransformation hnd Transformation{ _transPosition, _transOrientation } 
+
+    setter hnd Transformation{ _transPosition, _transOrientation }
         = hnd { Cam.orientation = _transOrientation
               , Cam.location    = _transPosition
               }
@@ -74,13 +83,13 @@ cameraZFar = cameraPlanes.camZFar
 
 
 cameraMatrix :: Getter Camera (M44 Float)
-cameraMatrix = cameraHandle.to Cam.camMatrix 
+cameraMatrix = cameraHandle.to Cam.camMatrix
 
 -- | for chaining like:
 -- >>> cam `dolly` movement
 -- >>>     `pan`   turn
 -- >>>     `tilt`  tilting
--- 
+--
 dolly :: CameraHandle -> V3 Float -> CameraHandle
 dolly = flip Cam.dolly
 
@@ -107,7 +116,7 @@ roll = flip Cam.roll
 
 instance LinearInterpolatable CameraHandle where
     lerp alpha u v = let linLerp = Linear.lerp (realToFrac alpha) in
-        Cam.Camera 
+        Cam.Camera
             { Cam.forward       = linLerp      (Cam.forward u)      (Cam.forward v)
             , Cam.upward        = linLerp      (Cam.upward u)       (Cam.upward v)
             , Cam.rightward     = linLerp      (Cam.rightward u)    (Cam.rightward v)
