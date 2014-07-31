@@ -10,7 +10,7 @@ uniform mat4 ModelMatrix    = mat4(0.0);
 out vec2 VertexUV;
 out vec4 VertexPos;
 
-void main()
+void main(void)
 {
     
     VertexPos   = ProjMatrix * ModelMatrix * vec4(vPosition, 1.0);

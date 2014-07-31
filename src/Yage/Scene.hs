@@ -53,11 +53,12 @@ makeLenses ''Environment
 
 
 
-data Scene cam ent env = Scene
+data Scene cam ent env gui = Scene
     { _sceneEntities    :: [ ent ]
     , _sceneEnvironment :: env
     , _sceneCamera      :: cam
-    } deriving ( Functor )
+    , _sceneGui         :: gui
+    } deriving ( Show )
 
 makeLenses ''Scene
 
@@ -66,31 +67,31 @@ makeLenses ''Scene
 ## Structure access
 --}
 
-emptyScene :: cam -> Scene cam ent (Environment lit skymat)
-emptyScene = Scene [] emptyEnvironment
+emptyScene :: cam -> gui -> Scene cam ent (Environment lit skymat) gui
+emptyScene cam = Scene [] emptyEnvironment cam
 
 
 emptyEnvironment :: Environment lit mat
 emptyEnvironment = Environment [] Nothing (AmbientLight 0)
 
 
-addEntity :: Scene cam ent env -> ent -> Scene cam ent env
+addEntity :: Scene cam ent env dat -> ent -> Scene cam ent env dat
 addEntity scene ent = scene & sceneEntities <>~ [ent]
 
 
-addLight :: Scene cam ent (Environment lit mat) -> lit -> Scene cam ent (Environment lit mat)
+addLight :: Scene cam ent (Environment lit mat) dat -> lit -> Scene cam ent (Environment lit mat) dat
 addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
 
 
-entitiesCount :: Scene cam ent (Environment l m) -> Int
+entitiesCount :: Scene cam ent (Environment l m) dat -> Int
 entitiesCount = length . _sceneEntities
 
 
-lightCount :: Scene cam ent (Environment l m) -> Int
+lightCount :: Scene cam ent (Environment l m) dat -> Int
 lightCount = length . _envLights . _sceneEnvironment
 
 
-sceneSky :: Lens' (Scene cam ent (Environment lit sky)) (Maybe sky)
+sceneSky :: Lens' (Scene cam ent (Environment lit sky) dat) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
 
@@ -135,16 +136,20 @@ lightRadius :: Lens' (LightEntity mesh) (V3 Float)
 lightRadius = lightEntity.entityScale
 
 
-instance ( HasResources vert ent ent', HasResources vert env env' ) => 
-        HasResources vert (Scene cam ent env) (Scene cam ent' env') where
+instance ( HasResources vert ent ent', HasResources vert env env'
+         , HasResources vert gui gui'
+         ) =>
+        HasResources vert (Scene cam ent env gui) (Scene cam ent' env' gui') where
     requestResources scene =
         Scene   <$> ( mapM requestResources $ scene^.sceneEntities )
                 <*> ( requestResources $ scene^.sceneEnvironment )
                 <*> ( pure $ scene^.sceneCamera )
+                <*> ( requestResources $ scene^.sceneGui)
 
-instance ( HasResources vert mat mat', HasResources vert mesh mesh' ) => 
+
+instance ( HasResources vert mat mat', HasResources vert mesh mesh' ) =>
         HasResources vert ( Entity mesh mat ) ( Entity mesh' mat' ) where
-    requestResources entity = 
+    requestResources entity =
         Entity <$> ( requestResources $ entity^.renderData )
                <*> ( requestResources $ entity^.materials )
                <*> ( pure $ entity^.entityTransformation )
@@ -164,25 +169,12 @@ instance ( HasResources vert mesh mesh' ) =>
             LightEntity <$> requestResources ent
                         <*> pure light
 
-instance Bifunctor (Scene cam) where
-    bimap entFunc envFunc scene = scene & sceneEntities    .~ (fmap entFunc $ scene^.sceneEntities)
-                                        & sceneEnvironment %~ envFunc
-
-{--
-
-loadSky :: HasResources vert mat mat' => Sky MeshResource mat -> YageResources vert (Sky Mesh mat')
-loadSky sky = do 
-    loaded <- requestResources (sky^.materials)
-    return $ sky & materials .~ loaded 
---}
-
-
 toRenderEntity :: ShaderData u t ->
                   Entity (Mesh vert) mat ->
                   RenderEntity vert (ShaderData u t)
-toRenderEntity shaderDta ent =
+toRenderEntity shaderData ent =
     RenderEntity ( ent^.renderData )
-                 ( shaderDta )
+                 ( shaderData )
                  ( ent^.drawSettings )
 
 
@@ -194,7 +186,7 @@ toRenderEntity shaderDta ent =
 --      settings for triangle primitive rendering and back-face culling
 basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource (Vertex geo)) mat
 basicEntity =
-    Entity 
+    Entity
         { _renderData           = MeshPure emptyMesh
         , _materials            = def
         , _entityTransformation = idTransformation
@@ -207,8 +199,13 @@ instance LinearInterpolatable (Entity a b) where
     lerp alpha u v = u & entityTransformation .~ lerp alpha (u^.entityTransformation) (v^.entityTransformation)
 
 
-instance (LinearInterpolatable cam, LinearInterpolatable ent, LinearInterpolatable env) => LinearInterpolatable (Scene cam ent env) where
-    lerp alpha u v = 
+instance ( LinearInterpolatable cam
+         , LinearInterpolatable ent
+         , LinearInterpolatable env
+         , LinearInterpolatable dat
+         ) =>
+         LinearInterpolatable (Scene cam ent env dat) where
+    lerp alpha u v =
         u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)
           & sceneCamera      .~ lerp alpha (u^.sceneCamera) (v^.sceneCamera)
@@ -221,4 +218,4 @@ instance (LinearInterpolatable lit, LinearInterpolatable sky) => LinearInterpola
 
 instance LinearInterpolatable (LightEntity mesh) where
     lerp alpha (LightEntity eu lu) (LightEntity ev lv) = LightEntity (lerp alpha eu ev) (lerp alpha lu lv)
- 
+

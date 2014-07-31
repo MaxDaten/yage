@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing        #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -20,7 +21,7 @@ data Viewport a = Viewport
     { _viewportRect   :: Rectangle a
       -- ^ as container for xy and wh, with 0/0 top/left
     , _viewportGamma  :: Float
-    } 
+    }
     deriving ( Typeable, Functor, Show, Eq, Generic )
 
 makeLenses ''Viewport
@@ -34,7 +35,7 @@ instance HasRectangle (Viewport Int) Int where
 glViewport :: HasRectangle t Int => Getter t (GL.Position, GL.Size)
 glViewport = rectangle.to get where
     get :: Rectangle Int -> (GL.Position, GL.Size)
-    get (Rectangle xy wh) = 
+    get (Rectangle xy wh) =
         ( GL.Position ( fromIntegral $ xy^._x ) ( fromIntegral $ xy^._y )
         , GL.Size     ( fromIntegral $ wh^._x ) ( fromIntegral $ wh^._y )
         )
@@ -44,7 +45,7 @@ glViewport = rectangle.to get where
 -- | creates the projectiom matrix for the given viewport
 -- for Camera2D: create an orthographic matrix with origin at the
 -- top left corner of the screen
--- for Camera3D: creates a perspective projection matrix 
+-- for Camera3D: creates a perspective projection matrix
 projectionMatrix3D :: (Conjugate a, Epsilon a, RealFloat a) => a -> a -> a -> Rectangle a -> M44 a
 projectionMatrix3D zNear zFar fov (Rectangle _ wh) = Cam.projectionMatrix
         ( realToFrac fov )
@@ -52,29 +53,38 @@ projectionMatrix3D zNear zFar fov (Rectangle _ wh) = Cam.projectionMatrix
         ( realToFrac $ zNear )
         ( realToFrac $ zFar )
 
-
-projectionMatrix2D :: (Conjugate a, Epsilon a, RealFloat a) => 
-    a -> 
+{--
+projectionMatrix2D :: (Conjugate a, Epsilon a, RealFloat a) =>
+    a ->
     -- ^ zNear
-    a -> 
+    a ->
     -- ^ zFar
     Rectangle a ->
     -- ^ xy wh
     M44 a
     -- ^ projection matrix
-projectionMatrix2D zNear zFar (Rectangle xy wh) =
-    orthographicMatrix -- 0/0 top left
-        ( xy^._x ) 
-        ( xy^._x + wh^._x )
-        ( xy^._y )
-        ( xy^._y + wh^._y )
+projectionMatrix2D zNear zFar (Rectangle xy0 xy1) =
+    orthographicMatrix -- 0/0 bottom left
+        ( xy0^._x ) -- viewport left to left
+        ( xy1^._x ) -- viewport right to right
+        ( xy0^._y ) -- viewport bottom to top
+        ( xy1^._y ) -- viewport top to bottom
         ( realToFrac $ zNear )
         ( realToFrac $ zFar )
+    --orthographicMatrix -- 0/0 bottom left
+    --    ( xy0^._x ) -- viewport left to left
+    --    ( xy1^._x ) -- viewport right to right
+    --    ( xy0^._y ) -- viewport top to bottom
+    --    ( xy1^._y ) -- viewport bottom to top
+    --    ( realToFrac $ zNear )
+    --    ( realToFrac $ zFar )
+--}
 
 
+-- | glOrtho convention
 orthographicMatrix :: (Conjugate a, Epsilon a, RealFloat a)
-                    => a -> a -> a -> a -> a -> a -> M44 a
-orthographicMatrix l r t b n f = 
+                   => a -> a -> a -> a -> a -> a -> M44 a
+orthographicMatrix l r b t n f =
     V4 ( V4 (2/(r-l)) 0        0             (-(r+l)/(r-l)) )
        ( V4 0        (2/(t-b)) 0             (-(t+b)/(t-b)) )
        ( V4 0        0         ((-2)/(f-n))  (-(f+n)/(f-n)) )

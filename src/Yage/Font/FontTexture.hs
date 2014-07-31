@@ -9,6 +9,7 @@ module Yage.Font.FontTexture
 
 import Yage.Prelude hiding (Text)
 import Yage.Lens
+import Data.ByteString.Lens
 
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -16,9 +17,15 @@ import Yage.Data.List (piz)
 import Data.Map hiding (map, null)
 
 import Graphics.Font as FT
-import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font(fontName), loadFont)
+import Graphics.Font as FTExport ( FontLoadMode(..)
+                                 , FontDescriptor(..)
+                                 , Font(fontName)
+                                 , FontLibrary
+                                 , makeLibrary, freeLibrary, withNewLibrary
+                                 , loadFont)
 
 import Yage.Images
+import Yage.Material
 import Yage.Texture.Atlas
 import Yage.Texture.Atlas.Builder
 import Yage.Geometry.D2.Rectangle as Rectangle
@@ -38,7 +45,7 @@ makeLenses ''FontMarkup
 data FontTexture = FontTexture
     { _font              :: Font
     , _charRegionMap     :: Map Char FontData
-    , _fontMap           :: TextureImage
+    , _fontMap           :: Texture
     , _fontDescriptor    :: FontDescriptor
     , _fontMarkup        :: FontMarkup
     } deriving ( Typeable )
@@ -49,11 +56,12 @@ makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char Pixel8 -> FontTexture
 makeFontTexture font markup filedAtlas =
     let glyphM = charMap font
         regionM  = regionMap filedAtlas
+        img      = mkTextureImg TexY8 $ atlasToImage filedAtlas
     in FontTexture
         { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
-        , _fontMap        = mkTextureImg TexY8 $ atlasToImage filedAtlas
-        , _fontDescriptor = fontDescr font 
+        , _fontMap        = Texture (font^.to fontName.packedChars) def $ Texture2D img
+        , _fontDescriptor = fontDescr font
         , _fontMarkup     = markup
         }
     where
@@ -63,9 +71,9 @@ generateFontTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAt
 generateFontTexture font markup mode chars emptyAtlas =
     let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
         (err, atlas)  = insertImages imgs emptyAtlas
-    in if null err 
-        then Right $ makeFontTexture font markup atlas 
-        else error $ show err 
+    in if null err
+        then Right $ makeFontTexture font markup atlas
+        else error $ show err
     where
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 

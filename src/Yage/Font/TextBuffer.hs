@@ -27,12 +27,15 @@ import           Yage.Font.FontTexture
 
 type GlyphVertex = Y'P2TX2C4 GLfloat
 
-type Caret = V2 Double
+type Caret      = V2 Double
+type CharColor  = V4 Float
+
 data TextBuffer = TextBuffer
-    { _tbufTexture :: FontTexture
-    , _tbufMesh    :: Mesh (Vertex GlyphVertex)
-    , _tbufCaret   :: Caret
-    , _tbufText    :: Text
+    { _tbufTexture      :: FontTexture
+    , _tbufMesh         :: Mesh (Vertex GlyphVertex)
+    , _tbufCaret        :: Caret
+    , _tbufCurrentColor :: CharColor
+    , _tbufText         :: Text
     } deriving ( Typeable )
 
 makeLenses ''TextBuffer
@@ -46,10 +49,36 @@ pxNorm (FontDescriptor _ (resX,resY)) = (fromI resX, fromI resY)
 
 
 emptyTextBuffer :: FontTexture -> TextBuffer
-emptyTextBuffer fTex = TextBuffer fTex emptyMesh (V2 0 0) ""
+emptyTextBuffer fTex =
+    TextBuffer
+    { _tbufTexture      = fTex
+    , _tbufMesh         = emptyMesh
+    , _tbufCaret        = 0
+    , _tbufCurrentColor = V4 0.0 0.0 0.0 1.0
+    , _tbufText         = ""
+    }
+
+-- the api
+
+buffText :: Lens' TextBuffer Text
+buffText = lens _tbufText setText
+
+charColor :: Lens' TextBuffer CharColor
+charColor = tbufCurrentColor
+
+setText :: TextBuffer -> Text -> TextBuffer
+setText = writeText . clearTextBuffer
+
+writeText :: TextBuffer -> Text -> TextBuffer
+writeText = T.foldl pushChar
+
 
 clearTextBuffer :: TextBuffer -> TextBuffer
-clearTextBuffer fTex = emptyTextBuffer (fTex^.tbufTexture)
+clearTextBuffer fTex =
+    emptyTextBuffer (fTex^.tbufTexture)
+        & tbufCurrentColor .~ (fTex^.tbufCurrentColor)
+
+-- function mostly for internal use
 
 pushChar :: TextBuffer -> Char -> TextBuffer
 pushChar tbuf '\n' =
@@ -59,12 +88,12 @@ pushChar tbuf '\n' =
         lineH           = hSpace * fromI (lineHeight face)
         em              = fromI $ unitsPerEM face
         (_, ptY)        = over both fromI $ tbuf^.tbufTexture.fontDescriptor.to charSize
-    -- line height is in font units, 
+    -- line height is in font units,
     -- this is different to the glyph metric unit (which is 26.6 format) and must
     -- scaled with the underlying dpi
     -- normalize line height with em
     -- line height * ptY = line height in pt (/pixelformat to convert from 26.6 format)
-    in tbufCaret._y -~ lineH / em * ptY / pixelFormat $ 
+    in tbufCaret._y -~ lineH / em * ptY / pixelFormat $
        tbufCaret._x .~ 0
        $ tbuf
 
@@ -76,10 +105,11 @@ pushChar tbuf c =
             & tbufText      <>~ T.singleton c
     where
         getFontDataFor c = tbuf^.tbufTexture.charRegionMap.at c
-        
+
         aux mesh (Just fdata@(glyph, _region)) =
             let fTex            = tbuf^.tbufTexture
-                caret           = tbuf^.tbufCaret 
+                caret           = tbuf^.tbufCaret
+                color           = tbuf^.tbufCurrentColor
 
                 metric          = glyphMetrics glyph
                 vSpace          = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
@@ -87,9 +117,9 @@ pushChar tbuf c =
                 advance         = vSpace * fromI (glyHoriAdvance metric)
                 norm@(normX,_)  = pxNorm . fontDescr $ tbuf^.tbufTexture.font
 
-                texDim          = fTex^.fontMap.textureDimension
+                texDim          = fTex^.fontMap.textureSpec.texSpecDimension
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
-                glyphVerts      = makeGlypMesh caret fdata texDim norm
+                glyphVerts      = makeGlypMesh caret color fdata texDim norm
                 glypIdx         :: V.Vector Int
                 glypIdx         = V.fromList [0, 1, 2, 0, 2, 3]
                 glypComp        = makeComponent ((c:show caret)^.packedChars) glypIdx
@@ -99,15 +129,8 @@ pushChar tbuf c =
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- FIXME: WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
 
-setText :: TextBuffer -> Text -> TextBuffer
-setText = writeText . clearTextBuffer
-
-writeText :: TextBuffer -> Text -> TextBuffer
-writeText = T.foldl pushChar
-
-
-makeGlypMesh :: Caret -> FontData -> V2 Int -> (Double, Double) -> [Vertex GlyphVertex]
-makeGlypMesh caret (gly, region) dim' (normX, normY) =
+makeGlypMesh :: Caret -> CharColor -> FontData -> V2 Int -> (Double, Double) -> [Vertex GlyphVertex]
+makeGlypMesh caret color (gly, region) dim' (normX, normY) =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / normX
             bearingY = fromI glyHoriBearingY / normY
@@ -121,17 +144,25 @@ makeGlypMesh caret (gly, region) dim' (normX, normY) =
 
             V2 u0 v0 = (fromI <$> region^.xy1) / dim
             V2 u1 v1 = (fromI <$> region^.xy2) / dim
-        in [ vert leftX     topY       u0 v1
-           , vert leftX     (topY - h) u0 v0
-           , vert (leftX+w) (topY - h) u1 v0
-           , vert (leftX+w) topY       u1 v1
+        in [ vert leftX     topY       u0 v0
+           , vert leftX     (topY - h) u0 v1
+           , vert (leftX+w) (topY - h) u1 v1
+           , vert (leftX+w) topY       u1 v0
            ]
         where
             vert :: Double -> Double -> Double -> Double -> Vertex GlyphVertex
-            vert x y u v = position2 =: V2 (realToFrac x) (realToFrac y)
-                        <+> texture2 =: V2 (realToFrac u) (realToFrac v)
-                        <+> color4   =: 0
+            vert x y u v = position2 =: (V2 (realToFrac x) (realToFrac y))
+                        <+> texture2 =: (V2 (realToFrac u) (realToFrac v))
+                        <+> color4   =: (fmap realToFrac color)
 
 
 fromI :: (Integral a, Num b) => a -> b
 fromI = fromIntegral
+
+
+instance Show TextBuffer where
+    show tb =
+        show $ format "TextBuffer: font = {}, \"{}\""
+            ( Shown $ fontName $ tb^.tbufTexture.font
+            , Shown $ tb^.tbufText
+            )

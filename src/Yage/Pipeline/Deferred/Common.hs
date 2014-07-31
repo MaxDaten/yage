@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleContexts           #-}
-module Yage.Pipeline.Deferred.Common where
+module Yage.Pipeline.Deferred.Common
+    ( module Yage.Pipeline.Deferred.Common
+    , module Yage.Pipeline.Types
+    ) where
 
 import Yage.Prelude
 import Yage.Lens
@@ -10,19 +13,20 @@ import Yage.Transformation
 import Yage.Uniforms as U
 import Yage.Rendering
 import Yage.Rendering.Textures
+import Yage.Pipeline.Types
 
 import qualified Yage.Core.OpenGL as GL
 
-type YageDeferredPass mrt shader = PassDescr mrt shader 
+type YageDeferredPass mrt shader = PassDescr mrt shader
 
 
 {--
 Pass Description
 --}
 
-passPreset :: RenderTarget target -> 
-              Rectangle Int -> 
-              Shader u t vert -> 
+passPreset :: RenderTarget target ->
+              Rectangle Int ->
+              Shader u t vert ->
               YageDeferredPass target (Shader u t vert)
 passPreset target rect shader = PassDescr
     { _passTarget         = target
@@ -32,10 +36,10 @@ passPreset target rect shader = PassDescr
     , _passPreRendering   = io $ do
         GL.viewport     GL.$= (rect^.glViewport)
         GL.clearColor   GL.$= GL.Color4 0 0 0 0
-        
+
         GL.depthFunc    GL.$= Just GL.Less
         GL.depthMask    GL.$= GL.Enabled
-        
+
         GL.blend        GL.$= GL.Disabled
 
         GL.cullFace     GL.$= Just GL.Back
@@ -79,7 +83,7 @@ targetEntity hasRect =
     quadMesh = mkFromVerticesF "YAGE:TARGETQUAD" . vertices . triangles $ targetFace
 
     targetFace :: Face TargetVertex
-    targetFace = Face    
+    targetFace = Face
         (position3 =: V3 (-0.5) ( 0.5) 0.0 <+> texture2 =: (V2 0 1))
         (position3 =: V3 (-0.5) (-0.5) 0.0 <+> texture2 =: (V2 0 0))
         (position3 =: V3 ( 0.5) (-0.5) 0.0 <+> texture2 =: (V2 1 0))
@@ -91,8 +95,8 @@ targetEntity hasRect =
 -- | specs: GL.Float GL.RGB GL.RGB32F
 -- see @mkTargetTexture
 mkSingleTargetHDR32 :: ByteString -> V2 Int -> RenderTarget SingleRenderTarget
-mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo") 
-    $ SingleRenderTarget 
+mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo")
+    $ SingleRenderTarget
     $ mkTargetTexture (name ++ "-buffer")
     $ mkTextureSpec size GL.Float GL.RGB GL.RGB32F
 
@@ -104,7 +108,7 @@ mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo")
 -- - clamping to edge
 -- - repetition repeated
 mkTargetTexture :: ByteString -> BufferSpec -> Texture
-mkTargetTexture name spec = 
+mkTargetTexture name spec =
     let tex = mkTexture name $ TextureBuffer GL.Texture2D spec
     in tex & textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
            & textureConfig.texConfFiltering.texMinFilter     .~ GL.Linear'
