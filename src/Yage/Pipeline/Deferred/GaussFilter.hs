@@ -23,19 +23,19 @@ type GaussPass = YageTextureSampler SingleRenderTarget GaussUniforms GaussTextur
 
 
 gaussFilter :: Texture -> RenderSystem Texture
-gaussFilter toSample = 
-    let targetX    = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussX" )
-                                            ( toSample^.textureSpec )
-        targetY    = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussY" )
-                                            ( toSample^.textureSpec )
-        
+gaussFilter toSample =
+    let targetX     = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussX" )
+                                             ( toSample^.textureSpec )
+        targetY     = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussY" )
+                                             ( toSample^.textureSpec )
+
         xPass, yPass :: GaussPass
         xData, yData :: SingleSamplerData "TextureSize" "SamplingTexture"
-        xPass = samplerPass "Yage.GaussX" targetX (targetX^.asRectangle) $(fragmentFile "res/glsl/pass/gaussFilterX.frag")
-        xData = singleTextureSampler (targetX^.asRectangle) toSample
+        xPass       = samplerPass "Yage.GaussX" targetX (targetX^.asRectangle) $(fragmentFile "res/glsl/pass/gaussFilterX.frag")
+        xData       = singleTextureSampler (targetX^.asRectangle) toSample
 
-        yPass = samplerPass "Yage.GaussY" targetY (targetY^.asRectangle) $(fragmentFile "res/glsl/pass/gaussFilterY.frag")
-        yData = singleTextureSampler (targetY^.asRectangle) toSample
+        yPass       = samplerPass "Yage.GaussY" targetY (targetY^.asRectangle) $(fragmentFile "res/glsl/pass/gaussFilterY.frag")
+        yData       = singleTextureSampler (targetY^.asRectangle) (targetX^.targetTexture)
     in do
         runRenderPass xPass xData [ targetEntity targetX ]
         runRenderPass yPass yData [ targetEntity targetY ]
