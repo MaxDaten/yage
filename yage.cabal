@@ -44,6 +44,7 @@ library
 
                         Yage.Resources
                         Yage.Material
+                        Yage.Texture
                         Yage.Images
                         Yage.Color
                         Yage.Geometry

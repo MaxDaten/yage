@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE NamedFieldPuns     #-}
 module Yage.Pipeline.Deferred.GuiPass where
 
 import Yage.Prelude
@@ -23,37 +24,47 @@ import Yage.Rendering
 
 import Yage.Pipeline.Deferred.Common
 
-import qualified Graphics.Rendering.OpenGL as GL
+import qualified Yage.Core.OpenGL as GL
 
+type YGUIElementType = "GUIType" ::: GUIElementType
 
 type GUIFrameUniforms  = '[ YVPMatrix ]
 -- shader data for each element in the gui
 type GUIElementTexture = '[ YMaterialTex "ElementTexture" ]
-type GUIElementUniform = '[ YModelMatrix ]
+type GUIElementUniform = '[ YModelMatrix, YGUIElementType ]
 
 -- sum data for element and frame
 type GUITextures = GUIElementTexture
 type GUIUniforms = GUIFrameUniforms ++ GUIElementUniform
-type GUIVertex   = Vertex (Y'P2TX2C4 GLfloat)
+--type GUIVertex   = Vertex (Y'P2TX2C4 GLfloat)
 
 type GUIShader   = Shader GUIUniforms GUITextures GUIVertex
 
-type GUIPass     = YageDeferredPass SingleRenderTarget GUIShader
+type GUIPass     = YageDeferredPass GUIChannels GUIShader
 
+
+data GUIChannels = GUIChannels
+    { guiColor :: Texture
+    , guiDepth :: Renderbuffer
+    }
 
 -- | run
 runGuiPass :: Texture -> YageRenderSystem GUI Texture
 runGuiPass underlayTexture viewport gui = do
     passData `runPass` ( fmap toRenderEntity $ itoList $ gui^.guiElements )
-    return $ target^.targetTexture
+    return $ colorTex
 
     where
 
     passData    :: ShaderData GUIFrameUniforms '[]
-    passData    = orthographicUniforms viewport (gui^.guiCamera) `ShaderData` RNil
+    passData    = orthographicUniforms (gui^.guiCamera) `ShaderData` RNil
 
     texSpec     = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    target      = mkSingleTargetFromSpec "YAGE.GUI" texSpec
+    colorTex    = mkTexture "YAGE.GUI.COLOR" $ TextureBuffer GL.Texture2D texSpec
+    target      = RenderTarget "YAGE.GUI" $ GUIChannels
+                    { guiColor = colorTex
+                    , guiDepth = Renderbuffer "YAGE.GUI.DEPTH" $ mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
+                    }
 
     passDescr   :: GUIPass
     passDescr   = passPreset target (viewport^.rectangle) shader
@@ -75,18 +86,17 @@ runGuiPass underlayTexture viewport gui = do
         GL.blendFunc     GL.$= (GL.One, GL.One)
         GL.blend         GL.$= GL.Enabled
 
-        GL.depthFunc    GL.$= Nothing           -- disable func add
-        GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
-        --GL.clear [ GL.ColorBuffer, GL.DepthBuffer ]
-        GL.clear [ GL.ColorBuffer ]
+        GL.depthFunc    GL.$= Just GL.Less
+        GL.depthMask    GL.$= GL.Enabled
+        GL.clear [ GL.ColorBuffer, GL.DepthBuffer ]
 
     -- | with a projection matrix for origin to the left bottom
-    orthographicUniforms vp cam =
+    orthographicUniforms cam =
         let near              = realToFrac $ cam^.cameraZNear
             far               = realToFrac $ cam^.cameraZFar
-            Rectangle xy0 xy1 = fromIntegral <$> vp^.viewportRect
-            projM             = orthographicMatrix (xy0^._x) (xy1^._x) (xy0^._x) (xy1^._x) near far  :: M44 GLfloat
-            viewM             = (fmap . fmap) realToFrac (cam^.cameraMatrix)                    :: M44 GLfloat
+            Rectangle xy0 xy1 = fromIntegral <$> viewport^.viewportRect
+            projM             = orthographicMatrix (xy0^._x) (xy1^._x) (xy0^._x) (xy1^._y) near far  :: M44 GLfloat
+            viewM             = (fmap . fmap) realToFrac (cam^.cameraMatrix)                         :: M44 GLfloat
             vpM               = projM !*! viewM
         in vpMatrix         =: vpM
 
@@ -95,19 +105,53 @@ toRenderEntity :: (ByteString, GUIElement) -> RenderEntity GUIVertex (ShaderData
 toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
     where
     go (GUIFont buffer transformation) =
-        RenderEntity ( buffer^.tbufMesh )
-                     ( textGUIData buffer transformation )
-                     ( GLDrawSettings GL.Triangles (Just GL.Back) )
-    go guiElem = error $ "unsupported GUIElement: " ++ show guiElem
+        let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
+                       guiType =: TXT
+            textures = SField =: (buffer^.tbufTexture.fontMap)
+            shData   = ShaderData uniforms textures
+        in RenderEntity ( buffer^.tbufMesh )
+                        ( shData )
+                        ( GLDrawSettings GL.Triangles (Just GL.Back) )
+
+    go (GUISDF (mesh, texture) transformation) =
+        let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
+                       guiType =: SDF
+            textures = SField      =: texture
+            shData   = ShaderData uniforms textures
+        in RenderEntity ( mesh )
+                        ( shData )
+                        ( GLDrawSettings GL.Triangles (Just GL.Back) )
+
+    go (GUIImage (mesh, texture) transformation) =
+        let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
+                       guiType =: IMG
+            textures = SField      =: texture
+            shData   = ShaderData uniforms textures
+        in RenderEntity ( mesh )
+                        ( shData )
+                        ( GLDrawSettings GL.Triangles (Just GL.Back) )
+
+guiType :: SField YGUIElementType
+guiType = SField
 
 
-textGUIData :: TextBuffer -> Transformation Float -> ShaderData GUIElementUniform GUIElementTexture
-textGUIData textBuffer transformation =
-    let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix)
-        textures = SField =: (textBuffer^.tbufTexture.fontMap)
-    in ShaderData uniforms textures
+
+instance FramebufferSpec GUIChannels RenderTargets where
+    fboColors GUIChannels{guiColor} =
+        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D guiColor 0
+        ]
+
+    fboDepth GUIChannels{guiDepth} =
+        Just $ Attachment DepthAttachment $ RenderbufferTarget guiDepth
 
 
 instance Implicit (FieldNames GUIElementTexture) where
     implicitly =
         SField =: "ElementTexture"
+
+instance GL.AsUniform GUIElementType where
+    asUniform ty = GL.asUniform ((fromIntegral $ fromEnum ty) :: GL.GLint)
+
+instance GL.HasVariableType GUIElementType where
+    variableType _ = GL.Int'
+

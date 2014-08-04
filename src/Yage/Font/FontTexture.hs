@@ -45,6 +45,7 @@ makeLenses ''FontMarkup
 data FontTexture = FontTexture
     { _font              :: Font
     , _charRegionMap     :: Map Char FontData
+    , _charPadding       :: Int
     , _fontMap           :: Texture
     , _fontDescriptor    :: FontDescriptor
     , _fontMarkup        :: FontMarkup
@@ -60,6 +61,7 @@ makeFontTexture font markup filedAtlas =
     in FontTexture
         { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
+        , _charPadding    = filedAtlas^.atlasSettings.atlPaddingPx
         , _fontMap        = Texture (font^.to fontName.packedChars) def $ Texture2D img
         , _fontDescriptor = fontDescr font
         , _fontMarkup     = markup
@@ -67,8 +69,8 @@ makeFontTexture font markup filedAtlas =
     where
         unionRegionsWithGlyphs = intersectionWith (flip (,))
 
-generateFontTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
-generateFontTexture font markup mode chars emptyAtlas =
+generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
+generateFontBitmapTexture font markup mode chars emptyAtlas =
     let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
         (err, atlas)  = insertImages imgs emptyAtlas
     in if null err
@@ -77,3 +79,6 @@ generateFontTexture font markup mode chars emptyAtlas =
     where
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 
+
+calculateFontNDFTexture :: FontTexture -> Int -> FontTexture
+calculateFontNDFTexture fontTex scalefactor = undefined

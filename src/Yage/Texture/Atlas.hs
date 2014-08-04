@@ -43,11 +43,11 @@ makeLenses ''AtlasRegion
 type AtlasTree i a = Tree TextureRegion (AtlasRegion i a)
 
 data AtlasSettings a = AtlasSettings
-    { _sizePx       :: V2 Int
+    { _atlSizePx       :: V2 Int
     -- ^ `sizePx` in pixels starting from 1 `V2 [1..w] [1..h]`
-    , _background   :: a
+    , _atlBackground   :: a
     -- ^ `background` color-value
-    , _paddingPx    :: Int
+    , _atlPaddingPx    :: Int
     -- ^ `paddingPx` for each element added to the atlas
     } deriving ( Show, Eq, Ord )
 
@@ -57,7 +57,7 @@ makeLenses ''AtlasSettings
 data TextureAtlas i a = TextureAtlas
     { _atlasRegions     :: AtlasTree i a
     , _regionIds        :: Set i
-    , _atlasSettings    :: AtlasSettings a 
+    , _atlasSettings    :: AtlasSettings a
     }
 makeLenses ''TextureAtlas
 
@@ -81,7 +81,7 @@ emptyAtlas :: AtlasSettings a
            -- ^ empty atlas
 emptyAtlas settings =
     let root     = Node rect Nil Nil
-        rect     = Rectangle 0 (settings^.sizePx - 1)
+        rect     = Rectangle 0 (settings^.atlSizePx - 1)
     in TextureAtlas root empty settings
 
 
@@ -90,12 +90,12 @@ insertImage ident img atlas =
     if atlas^.regionIds.contains ident
         then Left $ AlreadyContained ident
         else either (const $ Left NoSpace) Right $ insert ident img atlas
-    
+
     where
-    
+
     insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
     insert ident img atlas =
-        let regions  = insertNode (filledLeaf ident img (atlas^.atlasSettings.paddingPx)) (atlas^.atlasRegions)
+        let regions  = insertNode (filledLeaf ident img (atlas^.atlasSettings.atlPaddingPx)) (atlas^.atlasRegions)
             newAtlas = atlas & atlasRegions .~ regions^.chosen
                              & regionIds    %~ (contains ident .~ isRight regions)
         in either (const $ Left atlas) (const $ Right newAtlas) regions
@@ -105,16 +105,16 @@ insertImage ident img atlas =
 insertNode :: AtlasTree i a -> AtlasTree i a -> Either (AtlasTree i a) (AtlasTree i a)
 -- empty region, split and insert left
 insertNode filled@(Filled a) tree@(Node nodeRegion Nil Nil)
-    
+
     -- insert rect to big
     | not $ (a^.regionRect ) `fits` nodeRegion       = Left tree
-    
+
     -- perfectly fits
     | a^.regionRect.extend == nodeRegion^.extend    =   let padding = a^.regionPadding
                                                             rect    = nodeRegion & xy1  +~ pure padding
                                                                                  & xy2  -~ pure padding
                                                         in Right $ Filled (a & regionRect .~ rect)
-    
+
     -- split region in one half fitting and retaining region, then insert into the half fitting one
     | otherwise =
         let (leftRegion, rightRegion) = over both emptyNode $ splitRect nodeRegion (a^.regionRect)
@@ -158,9 +158,9 @@ getFilledAt :: AtlasTree i a -> Int -> Int -> Maybe (AtlasTree i a)
 getFilledAt root@(Node region _l _r) x y
     | region `containsPoint` at   = getNodeIn root
     | otherwise                   = error "out of bounds"
-    
+
     where
-    
+
     at = V2 x y
     getNodeIn (Node _ Nil Nil)               = Nothing
     getNodeIn (Filled a)
@@ -173,7 +173,7 @@ getFilledAt _ _ _ = error "not a valid root"
 
 getRegionAt :: TextureAtlas i a -> Int -> Int -> Maybe (AtlasRegion i a)
 getRegionAt atlas x y = toRegion <$> getFilledAt (atlas^.atlasRegions) x y
-    
+
     where
 
     toRegion (Filled a) = a
@@ -184,11 +184,11 @@ getAtlasPixel :: (Pixel a) => TextureAtlas i a -> Int -> Int -> a
 getAtlasPixel atlas x y =
     let mReg = getRegionAt atlas x y
     in get mReg where
-    
+
     get (Just region) = pixelAt (region^.regionData)
                                 (x - region^.regionRect.xy1._x)
                                 (y - region^.regionRect.xy1._y)
-    get _             = atlas^.atlasSettings.background
+    get _             = atlas^.atlasSettings.atlBackground
 
 
 
@@ -196,7 +196,7 @@ splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)
 splitRect toSplit toFit =
     let direction = if dw > dh then SplitVertical else SplitHorizontal
     in split direction where
-    
+
     split SplitVertical     = ( toSplit & xy2._x -~ dw
                               , toSplit & xy1._x +~ ( toFit^.width + 1 )
                               )

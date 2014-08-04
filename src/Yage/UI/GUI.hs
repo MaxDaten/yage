@@ -10,14 +10,21 @@ import           Yage.Math               hiding ( lerp )
 
 import           Yage.Font
 import           Yage.Camera
+import           Yage.Geometry
+import           Yage.Rendering
 import           Yage.Transformation
 import qualified Data.Map.Lazy           as M
 import           Yage.Resources
 
+type GUIVertex = Vertex (Y'P2TX2C4 GLfloat)
+
+data GUIElementType = TXT | SDF | IMG
+    deriving ( Show, Enum )
 
 data GUIElement =
-      GUIGraphic -- currently just a place holder
-    | GUIFont TextBuffer (Transformation Float)
+      GUIFont TextBuffer (Transformation Float)
+    | GUISDF (Mesh GUIVertex, Texture) (Transformation Float)
+    | GUIImage (Mesh GUIVertex, Texture) (Transformation Float)
     deriving ( Show )
 
 data GUI = GUI
@@ -44,6 +51,30 @@ mkCameraGui nearFar@(near, _) =
     -- fov is not needed for 2d, viewfield in 2d just defined with ortho-matrix
     mkCameraFps 90 nearFar idTransformation
         & cameraLocation._z .~ realToFrac near
+
+
+guiImageSDF :: Texture -> V4 Float -> V2 Float -> V2 Float -> GUIElement
+guiImageSDF img color pos size =
+    let trans = idTransformation & transScale._xy    .~ size
+                                 & transPosition._xy .~ pos
+    in GUISDF  ( unitColorQuad color, img ) trans
+
+guiImage :: Texture -> V4 Float -> V2 Float -> V2 Float -> GUIElement
+guiImage img color pos size =
+    let trans = idTransformation & transScale._xy    .~ size
+                                 & transPosition._xy .~ pos
+    in GUIImage  ( unitColorQuad color, img ) trans
+
+
+unitColorQuad :: V4 Float -> Mesh GUIVertex
+unitColorQuad color = mkFromVerticesF "GUI.UNIT.QUAD" . vertices . triangles $ targetFace
+    where
+    targetFace  :: Face GUIVertex
+    targetFace  = Face
+        ( position2 =: V2 0 1 <+> texture2 =: V2 0 1 <+> color4 =: (realToFrac <$> color) )
+        ( position2 =: V2 0 0 <+> texture2 =: V2 0 0 <+> color4 =: (realToFrac <$> color) )
+        ( position2 =: V2 1 0 <+> texture2 =: V2 1 0 <+> color4 =: (realToFrac <$> color) )
+        ( position2 =: V2 1 1 <+> texture2 =: V2 1 1 <+> color4 =: (realToFrac <$> color) )
 
 
 instance LinearInterpolatable GUI where

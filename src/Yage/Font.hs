@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing      #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE DeriveDataTypeable   #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
@@ -8,15 +9,29 @@ module Yage.Font
     , module FTExport
     ) where
 
-import Yage.Prelude (Num)
+import Yage.Prelude
 import Yage.Lens
+import Yage.Math (V2(..))
 
 import Graphics.Font as FTExport (FontLoadMode(..), FontDescriptor(..), Font, loadFont)
 import qualified Graphics.Font as F
 
 import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
-
+import Yage.Texture.Atlas
+import Yage.Material as Mat
 
 pt :: Num a => Getter a a
 pt = to F.pt
+
+
+loadFontTexture :: MonadIO m => FilePath -> FontDescriptor -> FontMarkup -> (Int, Int) -> Int -> [Char] -> m FontTexture
+loadFontTexture file descr markup (w,h) padding fontchars = do
+    lib  <- io $ makeLibrary
+    font <- io $ F.loadFont lib ( fpToString file ) descr
+
+    let fontAtlas   :: TextureAtlas Char Mat.Pixel8
+        fontAtlas   = emptyAtlas $ AtlasSettings (V2 w h) (0 :: Mat.Pixel8) padding
+        tex         = FT.generateFontBitmapTexture font markup F.Monochrome fontchars fontAtlas
+
+    either ( \e -> error $ "loadFontTexture: " ++ show e ) ( return ) tex
