@@ -112,8 +112,7 @@ instance LinearInterpolatable GUI where
           & guiElements .~ M.intersectionWith (lerp alpha) (u^.guiElements) (v^.guiElements)
 
 instance LinearInterpolatable GUIElement where
-    -- TODO element based lerping
-    lerp _alpha _u v = v
+    lerp alpha u v = u & elementTransformation .~ lerp alpha (u^.elementTransformation) (v^.elementTransformation)
 
 instance HasResources vert GUI GUI where
     requestResources = return
