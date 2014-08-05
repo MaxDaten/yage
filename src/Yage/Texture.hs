@@ -13,7 +13,6 @@ import Yage.Texture.Atlas as Atlas
 loadTexture2D :: MonadIO m => FilePath -> m Texture
 loadTexture2D filepath = io $ do
     eImg <- (fromDynamic =<<) <$> readImage (fpToString filepath)
-    print $ debugString <$> eImg
     case eImg of
         Left err    -> error err
         Right img   -> return $ mkTexture (encodeUtf8 $ fpToText filepath) $ Texture2D img
