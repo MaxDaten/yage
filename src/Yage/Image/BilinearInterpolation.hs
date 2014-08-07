@@ -20,7 +20,7 @@ bilinear newWidth newHeight img =
         tx       = fromIntegral (width - 1) / fromIntegral newWidth
         ty       = fromIntegral (height - 1) / fromIntegral newHeight
         proxy    = pixelAt img 0 0
-        chs      = traceShowId $ componentCount proxy
+        chs      = componentCount proxy
     in runST $ do
         mImg <- createMutableImage newWidth newHeight proxy
 
@@ -37,7 +37,7 @@ bilinear newWidth newHeight img =
                         c = pixelAtClamp img x     (y+1) ch
                         d = pixelAtClamp img (x+1) (y+1) ch
 
-                        index = traceShowId $ ch + mutablePixelBaseIndex mImg xj yi
+                        index = ch + mutablePixelBaseIndex mImg xj yi
                         interpolate = bilin proxy
                     in M.unsafeWrite (mutableImageData mImg) index $ interpolate dx dy a b c d
 
@@ -63,7 +63,7 @@ pixelAtClamp :: Pixel p => Image p -> Int -> Int -> Int -> (PixelBaseComponent p
 pixelAtClamp img x y c =
     let w     = imageWidth img - 1
         h     = imageHeight img - 1
-        index = c + pixelBaseIndex img (clamp 0 w x) (clamp 0 h y)
+        index = c + pixelBaseIndex img (clamp x 0 w) (clamp y 0 h)
     in V.unsafeIndex (imageData img) index
 {-# INLINE pixelAtClamp #-}
 

@@ -16,24 +16,24 @@ import Control.Wire
 --while = mkPure_ $ event (Left mempty) Right
 
 
-integrateAttenuated :: (Floating a, Ord a, HasTime t s) => 
+integrateAttenuated :: (Floating a, Ord a, HasTime t s) =>
                     a -> a -> Wire s e m a a
 integrateAttenuated a x' = loop
-    where 
+    where
     loop = mkPure $ \ds dx ->
         let dt = realToFrac (dtime ds)
             x  = a * (x' + dt * dx)
         in x' `seq` ( Right x', integrateAttenuated a x )
 
 
-integrateBounded :: (Floating a, Ord a, HasTime t s) 
+integrateBounded :: (Floating a, Ord a, HasTime t s)
                  => (a, a) -> a -> Wire s e m a a
 integrateBounded (lower,upper) = loop
-    where 
+    where
     loop x' = mkPure $ \ds dx ->
         let dt = realToFrac (dtime ds)
             x  = x' + dt * dx
-            n  = clamp upper lower x
+            n  = clamp x lower upper
         in x' `seq` ( Right x', loop n )
 
 
@@ -41,7 +41,7 @@ derivativeF :: (Foldable f, Fractional (f a), RealFloat a, HasTime t s, Monoid e
             => Wire s e m (f a) (f a)
 derivativeF = looping 0
     where
-    looping x' = 
+    looping x' =
         mkPure $ \ds x ->
             let dt  = realToFrac (dtime ds)
                 dx  = (x - x') / dt

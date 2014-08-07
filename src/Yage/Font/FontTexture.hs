@@ -9,7 +9,6 @@ module Yage.Font.FontTexture
 
 import Yage.Prelude hiding (Text)
 import Yage.Lens
-import Yage.Math
 
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -81,19 +80,25 @@ generateFontBitmapTexture font markup mode chars emptyAtlas =
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 
 
-calculateFontSDFTexture :: Int -> Int -> FontTexture -> FontTexture
-calculateFontSDFTexture spread scalefactor fontTex =
-    fontTex & fontMap        %~ scaledSDF
-            & charRegionMap  %~ over (mapped._2) adjustRegion
-    where
-    scaledSDF :: Image Pixel8 -> Image Pixel8
-    scaledSDF img =
-        if scalefactor > 1
-            then bilinear (newSize^._x) (newSize^._y) $ signedDistanceField img spread
-            else signedDistanceField img spread
+sdfFontTexture :: Int -> FontTexture -> FontTexture
+sdfFontTexture spread fontTex =
+    fontTex & fontMap %~ (`signedDistanceField` spread)
 
+
+downscaleFontTexture :: Int -> FontTexture -> FontTexture
+downscaleFontTexture 0 _fontTex = error "invalid scale factor: 0"
+downscaleFontTexture 1 fontTex  = fontTex
+downscaleFontTexture scalefactor fontTex =
+    fontTex & fontMap       %~ scaleImg
+            & charRegionMap %~ over (mapped._2) adjustRegion
+
+    where
+
+    scaleImg img =
+        let (newWidth, newHeight) = ( imageWidth img `div` scalefactor
+                                    , imageHeight img `div` scalefactor
+                                    )
+        in bilinear newWidth newHeight img
 
     adjustRegion :: TextureRegion -> TextureRegion
-    adjustRegion = traceShowId . over mapped (`div` scalefactor) . traceShowId
-
-    newSize = traceShowId $ (fmap (\x -> (x+1) `div` scalefactor) $ fontTex^.fontMap.to imageDimension)
+    adjustRegion = over mapped (`div` scalefactor)

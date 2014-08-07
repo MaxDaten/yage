@@ -4,6 +4,7 @@ module Yage.Image.SDF
     ) where
 
 import Yage.Prelude
+import Yage.Math
 
 import Control.Monad.ST
 import Codec.Picture
@@ -37,11 +38,9 @@ signedNearDistance bitmap spread x y =
         signing   = if activeSide == Inside then id else negate
         dist      = maybe (signing maxDist) (signing . sqrt . fromIntegral) msqr
         val       = round $ (dist + maxDist) / (2.0 * maxDist) * upperPx
-    in clamp maxBound minBound val
+    in clamp val minBound maxBound
 
     where
-    clamp upper lower = min upper . max lower
-
 
     activeSide      = toInside $ pixelAt bitmap x y
     toInside px     = if px == maxBound then Inside else Outside
