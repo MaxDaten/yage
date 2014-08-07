@@ -143,10 +143,11 @@ makeGlypMesh caret color (gly, region) dim' (normX, normY) =
 
             V2 u0 v0 = (fromI <$> region^.xy1) / dim
             V2 u1 v1 = (fromI <$> region^.xy2) / dim
-        in [ vert leftX     topY       u0 v0
-           , vert leftX     (topY - h) u0 v1
-           , vert (leftX+w) (topY - h) u1 v1
-           , vert (leftX+w) topY       u1 v0
+        -- origin of gl-textures is bottom left
+        in [ vert leftX     topY       u0 (1 - v0)
+           , vert leftX     (topY - h) u0 (1 - v1)
+           , vert (leftX+w) (topY - h) u1 (1 - v1)
+           , vert (leftX+w) topY       u1 (1 - v0)
            ]
         where
             vert :: Double -> Double -> Double -> Double -> Vertex GlyphVertex
