@@ -57,6 +57,9 @@ library
                         Yage.Uniforms.Light
                         Yage.Uniforms.MVP
                         Yage.Uniforms.Camera
+                        
+                        Yage.Image.SDF
+                        Yage.Image.BilinearInterpolation
 
                         Yage.Formats.Obj.Parser
                         Yage.Formats.Obj
@@ -160,6 +163,7 @@ library
                         , data-default
 
                         , parallel          == 3.2.*
+                        , monad-loops       == 0.4.2.*
 
                         , stm               == 2.4.*
                         , tuple             == 0.2.*
@@ -174,7 +178,6 @@ library
 
                         , JuicyPixels       >= 3
                         , zlib              == 0.5.*
-                        
 
 -------------------------------------------------------------------------------
 

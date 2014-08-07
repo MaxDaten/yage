@@ -13,7 +13,6 @@ import           Yage.Math
 import qualified Data.Vector.Storable      as V
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as T
-import           Data.ByteString.Lens
 -----------------------------------------------------------------------------------------
 import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
@@ -117,7 +116,7 @@ pushChar tbuf c =
                 advance         = vSpace * fromI (glyHoriAdvance metric)
                 norm@(normX,_)  = pxNorm . fontDescr $ tbuf^.tbufTexture.font
 
-                texDim          = fTex^.fontMap.textureSpec.texSpecDimension
+                texDim          = fmap (+1) $ imageDimension $ fTex^.fontMap
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
                 glyphVerts      = makeGlypMesh caret color fdata texDim norm
                 glypIdx         :: V.Vector Int

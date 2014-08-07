@@ -4,7 +4,6 @@ module Yage.Pipeline.Deferred.DownsamplePass where
 
 import Yage.Prelude
 import Yage.Lens
-import Data.ByteString.Lens
 
 import Control.Applicative (liftA)
 import Yage.Scene
@@ -29,22 +28,22 @@ type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUnifor
 
 
 downsampleBoxed5x5 :: Int -> Texture -> RenderSystem Texture
-downsampleBoxed5x5 downfactor toDownsample = 
+downsampleBoxed5x5 downfactor toDownsample =
     let outSize  = liftA (`div` downfactor) $ toDownsample^.textureSpec.texSpecDimension
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
-        
+
         fragment = $(fragmentFile "res/glsl/pass/boxedFilter5x5.frag")
-        
+
         downsampleDescr :: DownsamplePass
         downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragment
 
 
         downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize"] '[ TextureUniform "DownsampleTexture" ]
         downsampleData = targetRectangleData (target^.asRectangle) `append`
-                         sampleData toDownsample 
+                         sampleData toDownsample
 
-        downsamplePass = runRenderPass downsampleDescr 
+        downsamplePass = runRenderPass downsampleDescr
     in do
         downsampleData `downsamplePass` [ targetEntity target ]
         return $ target^.targetTexture

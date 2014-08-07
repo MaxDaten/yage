@@ -18,6 +18,7 @@ import Yage.Camera
 import Yage.TH.Shader
 
 
+
 import Yage.UI.GUI
 
 import Yage.Rendering
@@ -105,9 +106,12 @@ toRenderEntity :: (ByteString, GUIElement) -> RenderEntity GUIVertex (ShaderData
 toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
     where
     go (GUIFont buffer transformation) =
-        let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
+        let imgTex   = mkTextureImg TexY8 $ buffer^.tbufTexture.fontMap
+            tex      = mkTexture (buffer^.tbufTexture.font.to fontName.packedChars) $ Texture2D imgTex
+
+            uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
                        guiType =: TXT
-            textures = SField =: (buffer^.tbufTexture.fontMap)
+            textures = SField =: tex
             shData   = ShaderData uniforms textures
         in RenderEntity ( buffer^.tbufMesh )
                         ( shData )
