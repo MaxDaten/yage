@@ -27,6 +27,8 @@ main = withNewLibrary $ \lib -> do
             { charSize = (0, 20^.to pt)
             , deviceRes = (300, 300)
             }
+        bgrnd          = 0 :: Pixel8
+        settings       = AtlasSettings (2^11) bgrnd 10
 
 
     printTF "start loading font-file: {}\n" (Only $ Shown fontPath)
@@ -38,11 +40,7 @@ main = withNewLibrary $ \lib -> do
 
     printTF "loaded chars: {}\n" (Only $ Shown $ length imgs)
 
-    let bgrnd          = 0 :: Pixel8
-        settings       = AtlasSettings (2^11) bgrnd 10
-        eAtlas         = newTextureAtlas settings imgs
-
-    case eAtlas of
+    case  newTextureAtlas settings imgs of
         Left errs   -> printTF "errors: {}\n" (Only $ Shown errs)
         Right atlas -> do
             printTF "write atlas img to {}\n" (Only $ Shown atlasFile)

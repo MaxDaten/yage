@@ -72,15 +72,20 @@ makeFontTexture font markup textureAtlas =
         unionRegionsWithGlyphs = intersectionWith (flip (,))
 
 
-generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> Builder.AtlasSettings Pixel8 -> Either [(Char, Builder.AtlasError Char)] FontTexture
+generateFontBitmapTexture
+    :: Font ->
+       FontMarkup ->
+       FontLoadMode ->
+       [Char] ->
+       Builder.AtlasSettings Pixel8 ->
+       Either [(Char, Builder.AtlasError Char)] FontTexture
 generateFontBitmapTexture font markup mode chars settings =
-    let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
-        (err, atlas)  = Builder.newImageAtlas settings imgs
-    in if null err
-        then Right $ makeFontTexture font markup $ Builder.buildTextureAtlas atlas
-        else error $ show err
+    let imgs    = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
+    in makeFontTexture font markup <$> Builder.newTextureAtlas settings imgs
+
     where
-        descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
+
+    descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 
 
 sdfFontTexture :: Int -> FontTexture -> FontTexture
