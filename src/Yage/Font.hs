@@ -18,7 +18,7 @@ import qualified Graphics.Font as F
 
 import Yage.Font.FontTexture as FT
 import Yage.Font.TextBuffer as TB
-import Yage.Texture.Atlas
+import Yage.Texture.Atlas.Builder
 import Yage.Material as Mat
 
 pt :: Num a => Getter a a
@@ -30,8 +30,7 @@ loadFontTexture file descr markup (w,h) padding fontchars = do
     lib  <- io $ makeLibrary
     font <- io $ F.loadFont lib ( fpToString file ) descr
 
-    let fontAtlas   :: TextureAtlas Char Mat.Pixel8
-        fontAtlas   = emptyAtlas $ AtlasSettings (V2 w h) (0 :: Mat.Pixel8) padding
-        tex         = FT.generateFontBitmapTexture font markup F.Monochrome fontchars fontAtlas
+    let settings   = AtlasSettings (V2 w h) (0 :: Mat.Pixel8) padding
+        tex        = FT.generateFontBitmapTexture font markup F.Monochrome fontchars settings
 
     either ( \e -> error $ "loadFontTexture: " ++ show e ) ( return ) tex

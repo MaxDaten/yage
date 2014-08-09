@@ -60,7 +60,7 @@ makeFontTexture font markup filedAtlas =
     in FontTexture
         { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
-        , _charPadding    = filedAtlas^.atlasSettings.atlPaddingPx
+        , _charPadding    = filedAtlas^.atlasData.atlPaddingPx
         , _fontMap        = atlasToImage filedAtlas
         , _fontDescriptor = fontDescr font
         , _fontMarkup     = markup
@@ -69,10 +69,10 @@ makeFontTexture font markup filedAtlas =
         unionRegionsWithGlyphs = intersectionWith (flip (,))
 
 
-generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
-generateFontBitmapTexture font markup mode chars emptyAtlas =
+generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> AtlasSettings Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
+generateFontBitmapTexture font markup mode chars settings =
     let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
-        (err, atlas)  = insertImages imgs emptyAtlas
+        (err, atlas)  = newAtlas settings imgs
     in if null err
         then Right $ makeFontTexture font markup atlas
         else error $ show err

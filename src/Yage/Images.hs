@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yage.Images
   ( module Yage.Images
   , module Tex
@@ -19,6 +20,8 @@ import Yage.Geometry.D2.Rectangle
 type ImageDimension = V2 Int
 type ImagePosition = V2 Int
 
+instance GetRectangle (Image p) Int where
+    asRectangle = to imageRectangle
 
 constImage :: Pixel a => ImageDimension -> a -> Image a
 constImage (V2 w h) value = generateImage (const . const $ value) w h
@@ -50,7 +53,7 @@ subImage sub atPx@(V2 atX atY) target
             else pixelAt target px py
 
         subRegion :: Rectangle Int
-        subRegion = imageRectangle sub `translate` atPx
+        subRegion = (sub^.asRectangle) `translate` atPx
         subImageFit
           = imageWidth target  >= imageWidth sub + atX  &&
             imageHeight target >= imageHeight sub + atY
