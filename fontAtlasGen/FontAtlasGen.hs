@@ -22,27 +22,33 @@ import Yage.Texture.Atlas.Builder
 main = withNewLibrary $ \lib -> do
     printUsage
     (fontPath::FilePath, atlasFile::FilePath) <- readArgs
-    
+
     let descr = FontDescriptor
             { charSize = (0, 20^.to pt)
             , deviceRes = (300, 300)
             }
-    
+
 
     printTF "start loading font-file: {}\n" (Only $ Shown fontPath)
     font <- loadFont lib (fpToString fontPath) descr
 
-    
+
     printTF "generate char bitmaps for {}\n" (Only $ Shown $ fontName font)
     imgs <- toList <$> generateAllCharImgs font Monochrome
-    
+
     printTF "loaded chars: {}\n" (Only $ Shown $ length imgs)
 
     let bgrnd          = 0 :: Pixel8
         settings       = AtlasSettings (2^11) bgrnd 10
+        (errs, atlas)  = newAtlas settings imgs
 
-    printTF "write atlas img to {}\n" (Only $ Shown atlasFile)
-    writeNewAtlasPNG settings atlasFile imgs
+    if null errs
+        then do
+            printTF "write atlas img to {}\n" (Only $ Shown atlasFile)
+            writeTextureAtlas atlasFile atlas
+
+        else printTF "errors: {}\n" (Only $ Shown errs)
+
 
 printUsage :: IO ()
 printUsage = do

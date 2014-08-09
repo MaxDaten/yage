@@ -1,21 +1,27 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell             #-}
+{-# LANGUAGE ScopedTypeVariables         #-}
+{-# LANGUAGE FlexibleContexts            #-}
+{-# LANGUAGE UndecidableInstances            #-}
 module Yage.Texture.Atlas.Builder
     ( module Yage.Texture.Atlas.Builder
     , module Yage.Texture.Atlas
     ) where
 
-import Yage.Prelude
-import Yage.Lens
-import Yage.Math
+import           Yage.Prelude
+import           Yage.Lens hiding ((<.>), (.=))
+import           Yage.Math
 
-import Yage.Images
+import           Yage.Images
 
+import           Data.Aeson              ( ToJSON, FromJSON, (.=), (.:) )
+import qualified Data.Aeson    as JSON
+import           Text.Read
 
 import qualified Data.Map      as Map
 
-import Yage.Texture.Atlas
+import           Yage.Texture.Atlas
+import           Filesystem.Path.CurrentOS
 
 
 ---------------------------------------------------------------------------------------------------
@@ -36,6 +42,23 @@ type TextureAtlas i px = Atlas i (AtlasSettings px) (Image px)
 
 type AtlasResult i a = ([(i, AtlasError i)], TextureAtlas i a)
 type RegionMap i = Map i TextureRegion
+
+data AtlasJSON i = AtlasJSON
+    { textureFile :: FilePath
+    , regions     :: RegionMap i
+    } deriving ( Show, Eq, Generic )
+
+
+instance Show i => ToJSON (AtlasJSON i) where
+    toJSON AtlasJSON{..} = JSON.object [ "textureFile" .= fpToText textureFile, "regions" .= Map.mapKeys show regions ]
+
+instance ( Read i, Ord i ) => FromJSON (AtlasJSON i) where
+    parseJSON (JSON.Object v) = do
+        fp        <- decodeString <$> v .: "textureFile"
+        regionmap <- Map.mapKeys read <$> v .: "regions"
+        return $ AtlasJSON fp regionmap
+
+    parseJSON _ = mzero
 
 
 ---------------------------------------------------------------------------------------------------
@@ -60,6 +83,7 @@ regionMap atlas = foldrWithFilled collectFilled Map.empty $ atlas^.atlasRegions
         let ident = region^.regionId
             rect  = region^.regionRect
         in at ident ?~ rect
+
 
 ---------------------------------------------------------------------------------------------------
 
@@ -112,12 +136,17 @@ atlasToImage atlas =
                   (atlas^.atlasData.atlSizePx._y)
 
 
-writeNewAtlasPNG :: (Ord i, PngSavable a, Pixel a, Show i)
-                 => AtlasSettings a
-                 -> FilePath
-                 -> [(i, Image a)]
-                 -> IO ()
-writeNewAtlasPNG settings filepath idTexs =
-    case newAtlas settings idTexs of
-        ([], atlas) -> writePng (fpToString filepath) $ atlasToImage atlas
-        (err, _)    -> error $ show err
+-- | TODO : archive
+writeTextureAtlas :: ( Pixel a, PngSavable a, Ord i, Show i ) => FilePath -> TextureAtlas i a -> IO ()
+writeTextureAtlas filepath atlas =
+    let filepathPNG  = replaceExtension filepath "png"
+        filepathJSON = replaceExtension filepath "json.yat"
+    in do
+        writePng (fpToString filepathPNG) $ atlasToImage atlas
+        writeRegionMapJSON filepathJSON $ AtlasJSON { textureFile = filename filepathPNG
+                                                    , regions     = regionMap atlas
+                                                    }
+
+
+writeRegionMapJSON :: ToJSON (AtlasJSON i) => FilePath -> AtlasJSON i -> IO ()
+writeRegionMapJSON filePath atlasJson = writeFile filePath (JSON.encode atlasJson)

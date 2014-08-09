@@ -24,13 +24,15 @@ main = do
     printUsage
     (seed, imageCount) <- readArgs
     setSeed seed
-    
+
     randImgs <- generateRandomImages imageCount
     let bgrnd          = PixelRGB8 0 0 0
         settings       = AtlasSettings (V2 1024 1024) bgrnd 1
         texs           = [(0::Int)..] `zip` randImgs
+        (errs, atlas)  = newAtlas settings texs
 
-    writeNewAtlasPNG settings "atlas.png" texs
+    unless (null errs) $ print errs
+    writeTextureAtlas "atlas.png" atlas
 
 
 generateRandomImages :: Int -> IO [Image PixelRGB8]
@@ -38,9 +40,9 @@ generateRandomImages count = replicateM count generateRandomImg
     where
     generateRandomImg = do
         -- because our background color is black we set our lower color bound a bit up
-        color <- PixelRGB8 <$> getRandomR (60, 254) 
-                           <*> getRandomR (60, 254) 
-                           <*> getRandomR (60, 254) 
+        color <- PixelRGB8 <$> getRandomR (60, 254)
+                           <*> getRandomR (60, 254)
+                           <*> getRandomR (60, 254)
         makeImg color
             <$> getRandomR (5, 200)
             <*> getRandomR (5, 200)
