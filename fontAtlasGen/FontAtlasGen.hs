@@ -40,14 +40,13 @@ main = withNewLibrary $ \lib -> do
 
     let bgrnd          = 0 :: Pixel8
         settings       = AtlasSettings (2^11) bgrnd 10
-        (errs, atlas)  = newAtlas settings imgs
+        eAtlas         = newTextureAtlas settings imgs
 
-    if null errs
-        then do
+    case eAtlas of
+        Left errs   -> printTF "errors: {}\n" (Only $ Shown errs)
+        Right atlas -> do
             printTF "write atlas img to {}\n" (Only $ Shown atlasFile)
             writeTextureAtlas atlasFile atlas
-
-        else printTF "errors: {}\n" (Only $ Shown errs)
 
 
 printUsage :: IO ()

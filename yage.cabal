@@ -75,6 +75,7 @@ library
 
                         Yage.Texture.Atlas
                         Yage.Texture.Atlas.Builder
+                        Yage.Texture.TextureAtlas
 
                         Yage.Pipeline.Deferred
                         Yage.Pipeline.Types

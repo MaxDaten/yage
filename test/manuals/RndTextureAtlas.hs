@@ -29,10 +29,9 @@ main = do
     let bgrnd          = PixelRGB8 0 0 0
         settings       = AtlasSettings (V2 1024 1024) bgrnd 1
         texs           = [(0::Int)..] `zip` randImgs
-        (errs, atlas)  = newAtlas settings texs
+        eAtlas         = newTextureAtlas settings texs
 
-    unless (null errs) $ print errs
-    writeTextureAtlas "atlas.png" atlas
+    either print (writeTextureAtlas "atlas.png") eAtlas
 
 
 generateRandomImages :: Int -> IO [Image PixelRGB8]

@@ -26,8 +26,10 @@ import Graphics.Font as FTExport ( FontLoadMode(..)
 
 import Yage.Images
 import Yage.Image.SDF
-import Yage.Texture.Atlas
-import Yage.Texture.Atlas.Builder
+
+import Yage.Texture.TextureAtlas
+import qualified Yage.Texture.Atlas.Builder as Builder
+
 import Yage.Geometry.D2.Rectangle as Rectangle
 
 
@@ -53,15 +55,16 @@ data FontTexture = FontTexture
 
 makeLenses ''FontTexture
 
-makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char Pixel8 -> FontTexture
-makeFontTexture font markup filedAtlas =
+makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char (Image Pixel8) -> FontTexture
+makeFontTexture font markup textureAtlas =
     let glyphM   = charMap font
-        regionM  = regionMap filedAtlas
+        regionM  = textureAtlas^.atlasRegions
     in FontTexture
         { _font           = font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
-        , _charPadding    = filedAtlas^.atlasData.atlPaddingPx
-        , _fontMap        = atlasToImage filedAtlas
+        , _charPadding    = textureAtlas^.atlasPadding
+        , _fontMap        = textureAtlas^.atlasImage
+        -- ^ the image as a backend for the font
         , _fontDescriptor = fontDescr font
         , _fontMarkup     = markup
         }
@@ -69,12 +72,12 @@ makeFontTexture font markup filedAtlas =
         unionRegionsWithGlyphs = intersectionWith (flip (,))
 
 
-generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> AtlasSettings Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
+generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> Builder.AtlasSettings Pixel8 -> Either [(Char, Builder.AtlasError Char)] FontTexture
 generateFontBitmapTexture font markup mode chars settings =
     let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
-        (err, atlas)  = newAtlas settings imgs
+        (err, atlas)  = Builder.newImageAtlas settings imgs
     in if null err
-        then Right $ makeFontTexture font markup atlas
+        then Right $ makeFontTexture font markup $ Builder.buildTextureAtlas atlas
         else error $ show err
     where
         descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
