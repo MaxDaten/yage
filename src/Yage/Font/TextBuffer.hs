@@ -81,11 +81,11 @@ clearTextBuffer fTex =
 
 pushChar :: TextBuffer -> Char -> TextBuffer
 pushChar tbuf '\n' =
-    let face            = tbuf^.tbufTexture.fontFace
-        hSpace          = tbuf^.tbufTexture.fontMarkup.verticalSpacing
+    let face            = tbuf^.tbufTexture.fontMetric.fontFace
+        hSpace          = tbuf^.tbufTexture.fontMetric.fontMarkup.verticalSpacing
         lineH           = hSpace * fromI (lineHeight face)
         em              = fromI $ unitsPerEM face
-        (_, ptY)        = over both fromI $ tbuf^.tbufTexture.fontDescriptor.to charSize
+        (_, ptY)        = over both fromI $ tbuf^.tbufTexture.fontMetric.fontDescriptor.to charSize
     -- line height is in font units,
     -- this is different to the glyph metric unit (which is 26.6 format) and must
     -- scaled with the underlying dpi
@@ -110,10 +110,10 @@ pushChar tbuf c =
                 color           = tbuf^.tbufCurrentColor
 
                 metric          = glyphMetrics glyph
-                vSpace          = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
+                vSpace          = tbuf^.tbufTexture.fontMetric.fontMarkup.horizontalSpacing
 
                 advance         = vSpace * fromI (glyHoriAdvance metric)
-                norm@(normX,_)  = tbuf^.tbufTexture.fontDescriptor.to pxNorm
+                norm@(normX,_)  = tbuf^.tbufTexture.fontMetric.fontDescriptor.to pxNorm
 
                 texDim          = fmap (+1) $ imageDimension $ fTex^.fontMap
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
@@ -162,6 +162,6 @@ fromI = fromIntegral
 instance Show TextBuffer where
     show tb =
         show $ format "TextBuffer: font = {}, \"{}\""
-            ( Shown $ tb^.tbufTexture.fontName
+            ( Shown $ tb^.tbufTexture.fontMetric.fontName
             , Shown $ tb^.tbufText
             )

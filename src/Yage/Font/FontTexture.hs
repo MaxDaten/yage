@@ -44,16 +44,22 @@ data FontMarkup = FontMarkup
 
 makeLenses ''FontMarkup
 
-
-data FontTexture = FontTexture
+data FontMetric = FontMetric
     { _fontName          :: !String
-    , _charRegionMap     :: !(Map Char CharData)
-    , _charPadding       :: !Int
-    , _fontMap           :: !(Image Pixel8)
     , _fontDescriptor    :: !FontDescriptor
     , _fontMarkup        :: !FontMarkup
     , _fontFace          :: !FontFace
-    } deriving ( Typeable )
+    } deriving ( Show, Eq, Generic )
+
+makeLenses ''FontMetric
+
+data FontTexture = FontTexture
+    { _fontMetric        :: !FontMetric
+    , _fontMap           :: !(Image Pixel8)
+    -- ^ the image as a backend for the font
+    , _charRegionMap     :: !(Map Char CharData)
+    , _charPadding       :: !Int
+    } deriving ( Typeable, Generic )
 
 makeLenses ''FontTexture
 
@@ -63,14 +69,15 @@ makeFontTexture font markup textureAtlas =
     let glyphM   = charMap font
         regionM  = textureAtlas^.atlasRegions
     in FontTexture
-        { _fontName       = FT.fontName font
-        , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
+        { _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
         , _charPadding    = textureAtlas^.atlasPadding
         , _fontMap        = textureAtlas^.atlasImage
-        -- ^ the image as a backend for the font
-        , _fontDescriptor = fontDescr font
-        , _fontMarkup     = markup
-        , _fontFace       = snd $ FT.fontFace font
+        , _fontMetric     = FontMetric
+                            { _fontName       = FT.fontName font
+                            , _fontDescriptor = fontDescr font
+                            , _fontMarkup     = markup
+                            , _fontFace       = snd $ FT.fontFace font
+                            }
         }
     where
         unionRegionsWithGlyphs = intersectionWith (flip (,))
@@ -122,11 +129,8 @@ instance Show FontTexture where
         unpack $ format (
             "FontTexture { fontName: {}, loadedChars: {}, padding: {}, image: {}, " ++
             "descriptor: {}, markup: {}, face: {}}"
-            ) ( Shown _fontName
+            ) ( Shown _fontMetric
               , Shown $ size _charRegionMap
               , Shown _charPadding
               , Shown ( imageWidth _fontMap, imageHeight _fontMap )
-              , Shown _fontDescriptor
-              , Shown _fontMarkup
-              , Shown $ ( FT.familyName _fontFace ) ++ "-" ++ ( FT.styleName _fontFace )
               )
