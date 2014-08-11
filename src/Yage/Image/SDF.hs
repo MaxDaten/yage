@@ -1,5 +1,6 @@
 module Yage.Image.SDF
     ( signedNearDistance
+    , signedDistanceFieldProgressed
     , signedDistanceField
     ) where
 
@@ -12,6 +13,20 @@ import Codec.Picture.Types
 
 data InOut = Inside | Outside
     deriving (Show, Eq)
+
+
+signedDistanceFieldProgressed :: Image Pixel8 -> Int -> (Int -> IO ()) -> IO (Image Pixel8)
+signedDistanceFieldProgressed bitmap spread incrCall = do
+    let w   = imageWidth bitmap
+        h   = imageHeight bitmap
+
+    img <- createMutableImage w h (minBound :: Pixel8)
+    forM_ [0..h-1] $ \y -> do
+        forM_ [0..w-1] $ \x ->
+            writePixel img x y (signedNearDistance bitmap spread x y)
+        incrCall w
+
+    unsafeFreezeImage img
 
 
 signedDistanceField :: Image Pixel8 -> Int -> Image Pixel8
