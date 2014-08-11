@@ -51,7 +51,7 @@ data GUIChannels = GUIChannels
 
 -- | run
 runGuiPass :: Texture -> YageRenderSystem GUI Texture
-runGuiPass underlayTexture viewport gui = do
+runGuiPass _underlayTexture viewport gui = do
     passData `runPass` ( fmap toRenderEntity $ itoList $ gui^.guiElements )
     return $ colorTex
 
