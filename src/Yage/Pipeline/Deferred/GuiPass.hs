@@ -107,7 +107,7 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
     where
     go (GUIFont buffer transformation) =
         let imgTex   = mkTextureImg TexY8 $ buffer^.tbufTexture.fontMap
-            tex      = mkTexture (buffer^.tbufTexture.font.to fontName.packedChars) $ Texture2D imgTex
+            tex      = mkTexture ( buffer^.tbufTexture.fontName.packedChars ) $ Texture2D imgTex
 
             uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
                        guiType =: TXT

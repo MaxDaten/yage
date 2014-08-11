@@ -9,8 +9,8 @@ import Yage.Math (V2(..))
 import Yage.Images
 import Yage.Font
 
-import Graphics.Font hiding ( pt )
 import Codec.Picture
+import Graphics.Font as F ( generateAllCharImgs, fontName )
 
 import Control.Monad
 import Control.Monad.State
@@ -58,7 +58,7 @@ main = do
         font <- loadFont lib (fpToString fontFile) descr
 
 
-        printTF "generate char bitmaps for {}\n" (Only $ Shown $ fontName font)
+        printTF "generate char bitmaps for {}\n" (Only $ Shown $ F.fontName font)
         imgs <- toList <$> generateAllCharImgs font Monochrome
 
         printTF "loaded chars: {}\n" (Only $ Shown $ length imgs)

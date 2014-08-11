@@ -19,10 +19,11 @@ import Yage.Image.BilinearInterpolation
 import Graphics.Font as FT
 import Graphics.Font as FTExport ( FontLoadMode(..)
                                  , FontDescriptor(..)
-                                 , Font(fontName)
                                  , FontLibrary
+                                 , FontGlyph(..), GlyphMetrics(..), FontFace(..)
                                  , makeLibrary, freeLibrary, withNewLibrary
-                                 , loadFont)
+                                 , loadFont
+                                 )
 
 import Yage.Images
 import Yage.Image.SDF
@@ -35,38 +36,41 @@ import Yage.Geometry.D2.Rectangle as Rectangle
 
 ---------------------------------------------------------------------------------------------------
 
-type FontData = (FontGlyph, TextureRegion)
+type CharData = (FontGlyph, TextureRegion)
 data FontMarkup = FontMarkup
     { _horizontalSpacing :: Double
     , _verticalSpacing   :: Double
-    }
+    } deriving ( Show, Eq, Generic )
 
 makeLenses ''FontMarkup
 
 
 data FontTexture = FontTexture
-    { _font              :: !Font
-    , _charRegionMap     :: !(Map Char FontData)
+    { _fontName          :: !String
+    , _charRegionMap     :: !(Map Char CharData)
     , _charPadding       :: !Int
     , _fontMap           :: !(Image Pixel8)
-    , _fontDescriptor    :: !(FontDescriptor)
-    , _fontMarkup        :: !(FontMarkup)
+    , _fontDescriptor    :: !FontDescriptor
+    , _fontMarkup        :: !FontMarkup
+    , _fontFace          :: !FontFace
     } deriving ( Typeable )
 
 makeLenses ''FontTexture
+
 
 makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char (Image Pixel8) -> FontTexture
 makeFontTexture font markup textureAtlas =
     let glyphM   = charMap font
         regionM  = textureAtlas^.atlasRegions
     in FontTexture
-        { _font           = font
+        { _fontName       = FT.fontName font
         , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
         , _charPadding    = textureAtlas^.atlasPadding
         , _fontMap        = textureAtlas^.atlasImage
         -- ^ the image as a backend for the font
         , _fontDescriptor = fontDescr font
         , _fontMarkup     = markup
+        , _fontFace       = snd $ FT.fontFace font
         }
     where
         unionRegionsWithGlyphs = intersectionWith (flip (,))
@@ -110,3 +114,19 @@ downscaleFontTexture scalefactor fontTex =
 
     adjustRegion :: TextureRegion -> TextureRegion
     adjustRegion = over mapped (`div` scalefactor)
+
+
+
+instance Show FontTexture where
+    show FontTexture{..} =
+        unpack $ format (
+            "FontTexture { fontName: {}, loadedChars: {}, padding: {}, image: {}, " ++
+            "descriptor: {}, markup: {}, face: {}}"
+            ) ( Shown _fontName
+              , Shown $ size _charRegionMap
+              , Shown _charPadding
+              , Shown ( imageWidth _fontMap, imageHeight _fontMap )
+              , Shown _fontDescriptor
+              , Shown _fontMarkup
+              , Shown $ ( FT.familyName _fontFace ) ++ "-" ++ ( FT.styleName _fontFace )
+              )

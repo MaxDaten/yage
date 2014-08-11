@@ -148,7 +148,7 @@ library
                         , OpenGLRaw             >= 1.4      &&    < 1.6
                         , GLUtil                >= 0.7.1
                         , time                  == 1.4.*
-                        , typography-ft2        == 0.3.*
+                        , typography-ft2        == 0.4.*
 
                         
                         , vinyl                 == 0.4.3

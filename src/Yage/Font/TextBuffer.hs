@@ -14,7 +14,7 @@ import qualified Data.Vector.Storable      as V
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as T
 -----------------------------------------------------------------------------------------
-import           Graphics.Font             as FT hiding (height, width)
+-- import           Graphics.Font             as FT hiding (height, width)
 -----------------------------------------------------------------------------------------
 import           Yage.Rendering
 import           Yage.Geometry
@@ -81,8 +81,7 @@ clearTextBuffer fTex =
 
 pushChar :: TextBuffer -> Char -> TextBuffer
 pushChar tbuf '\n' =
-    let face            = fontFace theFont
-        theFont         = tbuf^.tbufTexture.font
+    let face            = tbuf^.tbufTexture.fontFace
         hSpace          = tbuf^.tbufTexture.fontMarkup.verticalSpacing
         lineH           = hSpace * fromI (lineHeight face)
         em              = fromI $ unitsPerEM face
@@ -114,7 +113,7 @@ pushChar tbuf c =
                 vSpace          = tbuf^.tbufTexture.fontMarkup.horizontalSpacing
 
                 advance         = vSpace * fromI (glyHoriAdvance metric)
-                norm@(normX,_)  = pxNorm . fontDescr $ tbuf^.tbufTexture.font
+                norm@(normX,_)  = tbuf^.tbufTexture.fontDescriptor.to pxNorm
 
                 texDim          = fmap (+1) $ imageDimension $ fTex^.fontMap
                 -- (w,h)         = (fromI $ region^.to width, fromI $ region^.to height)
@@ -128,7 +127,7 @@ pushChar tbuf c =
         aux mesh Nothing = aux mesh (getFontDataFor '_') -- FIXME: WARNING - can lead to endless recursion (FIXME: fallback font with error chars)
 
 
-makeGlypMesh :: Caret -> CharColor -> FontData -> V2 Int -> (Double, Double) -> [Vertex GlyphVertex]
+makeGlypMesh :: Caret -> CharColor -> CharData -> V2 Int -> (Double, Double) -> [Vertex GlyphVertex]
 makeGlypMesh caret color (gly, region) dim' (normX, normY) =
         let GlyphMetrics{..}   = glyphMetrics gly
             bearingX = fromI glyHoriBearingX / normX
@@ -163,6 +162,6 @@ fromI = fromIntegral
 instance Show TextBuffer where
     show tb =
         show $ format "TextBuffer: font = {}, \"{}\""
-            ( Shown $ fontName $ tb^.tbufTexture.font
+            ( Shown $ tb^.tbufTexture.fontName
             , Shown $ tb^.tbufText
             )
