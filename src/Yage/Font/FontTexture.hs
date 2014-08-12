@@ -120,7 +120,9 @@ downscaleFontTexture scalefactor fontTex =
         in bilinear newWidth newHeight img
 
     adjustRegion :: TextureRegion -> TextureRegion
-    adjustRegion = over mapped (`div` scalefactor)
+    adjustRegion = over mapped (`scale` scalefactor)
+
+    scale x y = ceiling $ fromIntegral x / fromIntegral y
 
 
 

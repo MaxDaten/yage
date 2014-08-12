@@ -8,6 +8,7 @@ import Yage.Lens hiding ( (<.>), argument )
 import Yage.Math (V2(..))
 import Yage.Images
 import Yage.Font
+import Yage.Formats.Font as YFT
 
 import Codec.Picture
 import Graphics.Font as F ( generateAllCharImgs, fontName )
@@ -80,10 +81,10 @@ main = do
 
 
                 printTF "\ndownscale from {} to {}" (Shown (highRes, highRes), Shown (lowRes, lowRes))
-                let scaled      = downscaleFontTexture (highRes `div` lowRes) fontTexture
+                let scaledFontTexture = downscaleFontTexture (highRes `div` lowRes) fontTexture
 
-                printTF "\nwrite atlas img to {}" (Only $ Shown outFile)
-                writePng (fpToString outFile) (scaled^.fontMap)
+                printTF "\nwrite font to {}" (Only $ Shown outFile)
+                YFT.writeFontTexture outFile scaledFontTexture
 
 
 fontAtlasGenOpts :: Parser FontAtlasGen

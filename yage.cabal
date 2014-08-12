@@ -64,6 +64,7 @@ library
                         Yage.Formats.Obj.Parser
                         Yage.Formats.Obj
                         Yage.Formats.Ygm
+                        Yage.Formats.Font
                         
                         Yage.UI
                         Yage.UI.GUI
@@ -150,7 +151,7 @@ library
                         , time                  == 1.4.*
                         , typography-ft2        == 0.4.*
 
-                        
+                        , aeson                 == 0.8.*
                         , vinyl                 == 0.4.3
                         , vinyl-glsl            == 0.1.1.0
                         
@@ -215,6 +216,7 @@ executable fontAtlasGen
 
     hs-source-dirs:     fontAtlasGen
     main-is:            FontAtlasGen.hs
+    ghc-options:        -threaded
 
     build-depends:        base
                         , yage
