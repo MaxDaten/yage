@@ -19,65 +19,84 @@ import Yage.Image.BilinearInterpolation
 import Graphics.Font as FT
 import Graphics.Font as FTExport ( FontLoadMode(..)
                                  , FontDescriptor(..)
-                                 , Font(fontName)
                                  , FontLibrary
+                                 , FontGlyph(..), GlyphMetrics(..), FontFace(..)
                                  , makeLibrary, freeLibrary, withNewLibrary
-                                 , loadFont)
+                                 , loadFont
+                                 )
 
 import Yage.Images
 import Yage.Image.SDF
-import Yage.Texture.Atlas
-import Yage.Texture.Atlas.Builder
+
+import Yage.Texture.TextureAtlas
+import qualified Yage.Texture.Atlas.Builder as Builder
+
 import Yage.Geometry.D2.Rectangle as Rectangle
 
 
 ---------------------------------------------------------------------------------------------------
 
-type FontData = (FontGlyph, TextureRegion)
+type CharData = (FontGlyph, TextureRegion)
 data FontMarkup = FontMarkup
     { _horizontalSpacing :: Double
     , _verticalSpacing   :: Double
-    }
+    } deriving ( Show, Eq, Generic )
 
 makeLenses ''FontMarkup
 
+data FontMetric = FontMetric
+    { _fontName          :: !String
+    , _fontDescriptor    :: !FontDescriptor
+    , _fontMarkup        :: !FontMarkup
+    , _fontFace          :: !FontFace
+    } deriving ( Show, Eq, Generic )
+
+makeLenses ''FontMetric
 
 data FontTexture = FontTexture
-    { _font              :: !Font
-    , _charRegionMap     :: !(Map Char FontData)
-    , _charPadding       :: !Int
+    { _fontMetric        :: !FontMetric
     , _fontMap           :: !(Image Pixel8)
-    , _fontDescriptor    :: !(FontDescriptor)
-    , _fontMarkup        :: !(FontMarkup)
-    } deriving ( Typeable )
+    -- ^ the image as a backend for the font
+    , _charRegionMap     :: !(Map Char CharData)
+    , _charPadding       :: !Int
+    } deriving ( Typeable, Generic )
 
 makeLenses ''FontTexture
 
-makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char Pixel8 -> FontTexture
-makeFontTexture font markup filedAtlas =
+
+makeFontTexture :: Font -> FontMarkup -> TextureAtlas Char (Image Pixel8) -> FontTexture
+makeFontTexture font markup textureAtlas =
     let glyphM   = charMap font
-        regionM  = regionMap filedAtlas
+        regionM  = textureAtlas^.atlasRegions
     in FontTexture
-        { _font           = font
-        , _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
-        , _charPadding    = filedAtlas^.atlasSettings.atlPaddingPx
-        , _fontMap        = atlasToImage filedAtlas
-        , _fontDescriptor = fontDescr font
-        , _fontMarkup     = markup
+        { _charRegionMap  = unionRegionsWithGlyphs regionM glyphM
+        , _charPadding    = textureAtlas^.atlasPadding
+        , _fontMap        = textureAtlas^.atlasImage
+        , _fontMetric     = FontMetric
+                            { _fontName       = FT.fontName font
+                            , _fontDescriptor = fontDescr font
+                            , _fontMarkup     = markup
+                            , _fontFace       = snd $ FT.fontFace font
+                            }
         }
     where
         unionRegionsWithGlyphs = intersectionWith (flip (,))
 
 
-generateFontBitmapTexture :: Font -> FontMarkup -> FontLoadMode -> [Char] -> TextureAtlas Char Pixel8 -> Either [(Char, AtlasError Char)] FontTexture
-generateFontBitmapTexture font markup mode chars emptyAtlas =
-    let imgs          = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
-        (err, atlas)  = insertImages imgs emptyAtlas
-    in if null err
-        then Right $ makeFontTexture font markup atlas
-        else error $ show err
+generateFontBitmapTexture
+    :: Font ->
+       FontMarkup ->
+       FontLoadMode ->
+       [Char] ->
+       Builder.AtlasSettings Pixel8 ->
+       Either [(Char, Builder.AtlasError Char)] FontTexture
+generateFontBitmapTexture font markup mode chars settings =
+    let imgs    = sortBy descArea $ map (unsafePerformIO . generateCharImg font mode) chars `piz` chars
+    in makeFontTexture font markup <$> Builder.newTextureAtlas settings imgs
+
     where
-        descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
+
+    descArea (_, img1) (_, img2) = descending imageByAreaCompare img1 img2
 
 
 sdfFontTexture :: Int -> FontTexture -> FontTexture
@@ -101,4 +120,19 @@ downscaleFontTexture scalefactor fontTex =
         in bilinear newWidth newHeight img
 
     adjustRegion :: TextureRegion -> TextureRegion
-    adjustRegion = over mapped (`div` scalefactor)
+    adjustRegion = over mapped (`scale` scalefactor)
+
+    scale x y = ceiling $ fromIntegral x / fromIntegral y
+
+
+
+instance Show FontTexture where
+    show FontTexture{..} =
+        unpack $ format (
+            "FontTexture { fontName: {}, loadedChars: {}, padding: {}, image: {}, " ++
+            "descriptor: {}, markup: {}, face: {}}"
+            ) ( Shown _fontMetric
+              , Shown $ size _charRegionMap
+              , Shown _charPadding
+              , Shown ( imageWidth _fontMap, imageHeight _fontMap )
+              )

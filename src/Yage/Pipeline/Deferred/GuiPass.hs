@@ -51,7 +51,7 @@ data GUIChannels = GUIChannels
 
 -- | run
 runGuiPass :: Texture -> YageRenderSystem GUI Texture
-runGuiPass underlayTexture viewport gui = do
+runGuiPass _underlayTexture viewport gui = do
     passData `runPass` ( fmap toRenderEntity $ itoList $ gui^.guiElements )
     return $ colorTex
 
@@ -107,7 +107,7 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
     where
     go (GUIFont buffer transformation) =
         let imgTex   = mkTextureImg TexY8 $ buffer^.tbufTexture.fontMap
-            tex      = mkTexture (buffer^.tbufTexture.font.to fontName.packedChars) $ Texture2D imgTex
+            tex      = mkTexture ( buffer^.tbufTexture.fontMetric.fontName.packedChars ) $ Texture2D imgTex
 
             uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
                        guiType =: TXT

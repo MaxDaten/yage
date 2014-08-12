@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yage.Texture.Atlas
     ( module Yage.Texture.Atlas
     , module Rectangle
@@ -8,7 +9,6 @@ module Yage.Texture.Atlas
 import           Yage.Prelude
 import           Yage.Lens
 
-import           Yage.Images
 import           Yage.Math
 
 
@@ -34,32 +34,20 @@ data AtlasRegion i a = AtlasRegion
     { _regionRect    :: !TextureRegion
     , _regionPadding :: !Int
     , _regionId      :: !i
-    , _regionData    :: !(Image a)
+    , _regionData    :: !a
     }
 
 makeLenses ''AtlasRegion
 
-
 type AtlasTree i a = Tree TextureRegion (AtlasRegion i a)
 
-data AtlasSettings a = AtlasSettings
-    { _atlSizePx       :: V2 Int
-    -- ^ `sizePx` in pixels starting from 1 `V2 [1..w] [1..h]`
-    , _atlBackground   :: a
-    -- ^ `background` color-value
-    , _atlPaddingPx    :: Int
-    -- ^ `paddingPx` for each element added to the atlas
-    } deriving ( Show, Eq, Ord )
 
-makeLenses ''AtlasSettings
-
-
-data TextureAtlas i a = TextureAtlas
+data Atlas i d a = Atlas
     { _atlasRegions     :: AtlasTree i a
     , _regionIds        :: Set i
-    , _atlasSettings    :: AtlasSettings a
+    , _atlasData        :: d
     }
-makeLenses ''TextureAtlas
+makeLenses ''Atlas
 
 
 ---------------------------------------------------------------------------------------------------
@@ -68,37 +56,18 @@ emptyNode :: TextureRegion -> AtlasTree i a
 emptyNode rect = Node rect Nil Nil
 
 
-filledLeaf :: i -> Image a -> Int -> AtlasTree i a
-filledLeaf ident img padding =
-    let rect = imageRectangle img & extend +~ pure (2 * padding)
-    in Filled (AtlasRegion rect padding ident img)
+filledLeaf :: (GetRectangle a Int) => i -> a -> Int -> AtlasTree i a
+filledLeaf ident dat padding =
+    let rect = dat^.asRectangle & extend +~ pure (2 * padding)
+    in Filled (AtlasRegion rect padding ident dat)
 
 
 -- | creates an empty atlas
-emptyAtlas :: AtlasSettings a
+emptyAtlas :: d
            -- ^ settings
-           -> TextureAtlas i a
+           -> Atlas i d a
            -- ^ empty atlas
-emptyAtlas settings =
-    let root     = Node rect Nil Nil
-        rect     = Rectangle 0 (settings^.atlSizePx - 1)
-    in TextureAtlas root empty settings
-
-
-insertImage :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (AtlasError i) (TextureAtlas i a)
-insertImage ident img atlas =
-    if atlas^.regionIds.contains ident
-        then Left $ AlreadyContained ident
-        else either (const $ Left NoSpace) Right $ insert ident img atlas
-
-    where
-
-    insert :: (Ord i) => i -> Image a -> TextureAtlas i a -> Either (TextureAtlas i a) (TextureAtlas i a)
-    insert ident img atlas =
-        let regions  = insertNode (filledLeaf ident img (atlas^.atlasSettings.atlPaddingPx)) (atlas^.atlasRegions)
-            newAtlas = atlas & atlasRegions .~ regions^.chosen
-                             & regionIds    %~ (contains ident .~ isRight regions)
-        in either (const $ Left atlas) (const $ Right newAtlas) regions
+emptyAtlas dat = Atlas Nil empty dat
 
 
 
@@ -171,25 +140,13 @@ getFilledAt root@(Node region _l _r) x y
 getFilledAt _ _ _ = error "not a valid root"
 
 
-getRegionAt :: TextureAtlas i a -> Int -> Int -> Maybe (AtlasRegion i a)
+getRegionAt :: Atlas i d a -> Int -> Int -> Maybe (AtlasRegion i a)
 getRegionAt atlas x y = toRegion <$> getFilledAt (atlas^.atlasRegions) x y
 
     where
 
     toRegion (Filled a) = a
     toRegion _          = error "invalid node"
-
-
-getAtlasPixel :: (Pixel a) => TextureAtlas i a -> Int -> Int -> a
-getAtlasPixel atlas x y =
-    let mReg = getRegionAt atlas x y
-    in get mReg where
-
-    get (Just region) = pixelAt (region^.regionData)
-                                (x - region^.regionRect.xy1._x)
-                                (y - region^.regionRect.xy1._y)
-    get _             = atlas^.atlasSettings.atlBackground
-
 
 
 splitRect :: TextureRegion -> TextureRegion -> (TextureRegion, TextureRegion)
