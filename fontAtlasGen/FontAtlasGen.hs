@@ -52,7 +52,7 @@ main = do
                 , deviceRes = (devRes, devRes)
                 }
             bgrnd          = 0 :: Pixel8
-            settings       = AtlasSettings ( pure highRes ) bgrnd 10
+            settings       = AtlasSettings ( pure highRes ) bgrnd padding
 
 
         printTF "start loading font-file: {}\n" (Only $ Shown fontFile)
