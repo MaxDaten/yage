@@ -12,7 +12,8 @@ import Control.Monad.ST
 import Codec.Picture
 import Codec.Picture.Types
 
-
+data InOut = Inside | Outside
+    deriving (Show, Eq)
 
 
 signedDistanceFieldProgressed :: Image Pixel8 -> Int -> (Int -> IO ()) -> IO (Image Pixel8)
@@ -28,6 +29,13 @@ signedDistanceFieldProgressed bitmap spread incrCall = do
 
     unsafeFreezeImage img
 
+{--
+    where
+
+    parImage :: (Storable (PixelBaseComponent a), NFData (PixelBaseComponent a)) => Strategy (Image a)
+    parImage Image{..} = return $ Image imageWidth imageHeight (imageData `using` parVector imageWidth)
+--}
+
 
 signedDistanceField :: Image Pixel8 -> Int -> Image Pixel8
 signedDistanceField bitmap spread = runST $ do
@@ -40,10 +48,6 @@ signedDistanceField bitmap spread = runST $ do
             writePixel img x y (signedNearDistance bitmap spread x y)
 
     unsafeFreezeImage img
-
-
-data InOut = Inside | Outside
-    deriving (Show, Eq)
 
 
 signedNearDistance :: Image Pixel8 -> Int -> Int -> Int -> Pixel8

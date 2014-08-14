@@ -1,3 +1,11 @@
+-- fontAtlasGen -f /Users/jloos/Workspace/hs/yage-meta/yage-examples/res/font/SourceSansPro-Regular.otf
+--              -o SourceSansPro-Regular.yft
+--              -i 4096
+--              -l 512
+--              -d 512
+--              -p 18
+--              -a 18
+--              --sdf 16
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}

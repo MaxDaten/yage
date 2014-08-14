@@ -168,6 +168,7 @@ library
                         , data-default
 
                         , parallel              == 3.2.*
+                        , vector-strategies     == 0.4.*
                         , monad-loops           == 0.4.2.*
 
                         , stm                   == 2.4.*
