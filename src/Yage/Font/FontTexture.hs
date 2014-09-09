@@ -122,7 +122,7 @@ downscaleFontTexture scalefactor fontTex =
     adjustRegion :: TextureRegion -> TextureRegion
     adjustRegion = over mapped (`scale` scalefactor)
 
-    scale x y = ceiling $ fromIntegral x / fromIntegral y
+    scale x y = round $ fromIntegral x / fromIntegral y
 
 
 

@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 
@@ -31,7 +32,7 @@ main = hspec $ do
     it "parses a cube with groups for each side" $ do
       parsedObj <- parseOBJFile $ "test" </> "res" </> "cube_groups.obj"
       parsedObj `shouldBe` cubeWithGroupsOBJ
-  
+
 {--
 
     it "parses a simple square into position Geometry" $ do
@@ -47,7 +48,7 @@ fileElementSpec = do
   objFileItems
 
   vertexDataParsing
-  
+
   faceParsing
 
   lineParsing
@@ -60,14 +61,14 @@ vertexDataParsing :: Spec
 vertexDataParsing = describe "vertex data parsing" $ do
   it "parses a geometric vertex" $
     testParser geovertex "v     1.2 2.3 4.5" `shouldBe` Right (GeoVertex $ V3 1.2 2.3 4.5)
-  
+
   it "parses a geometric vertex line with pending trash" $
     testParser geovertexLine "v     1.2 2.3 4.5 this is a 3d vertex\n" `shouldBe` Right (GeoVertex $ V3 1.2 2.3 4.5)
-  
+
 
   it "parses a normal vertex" $
     testParser normalvertex "vn     1.2 2.3 4.5" `shouldBe` Right (NormalVertex $ V3 1.2 2.3 4.5)
-  
+
   it "parses a normal vertex line with pendig trash" $
     testParser normalvertexLine "vn     1.2 2.3 4.5 this is a normal\n" `shouldBe` Right (NormalVertex $ V3 1.2 2.3 4.5)
 
@@ -136,10 +137,10 @@ objFileItems = do
   describe "comment parsing" $ do
     it "parses a comment line" $
       testParser commentLine "#   a comment\n" `shouldBe` Right "a comment"
-    
+
     it "parses a comment line without leading space" $
       testParser commentLine "#x\n" `shouldBe` Right "x"
-    
+
     it "parses an comment line with leading tab" $
       testParser commentLine "#\tx\n" `shouldBe` Right "x"
 
@@ -175,7 +176,7 @@ squareOBJ = mempty & vertexData.geometricVertices .~ V.fromList ( GeoVertex     
                                                       ]))
 
 cubeWithGroupsOBJ :: OBJ
-cubeWithGroupsOBJ = 
+cubeWithGroupsOBJ =
   mempty & vertexData.geometricVertices .~ V.fromList ( GeoVertex <$> [ V3 0 2 2, V3 0 0 2, V3 2 0 2, V3 2 2 2, V3 0 2 0, V3 0 0 0, V3 2 0 0, V3 2 2 0 ])
          & groups.at "cube"             ?~ ( SmoothingGroups $ mempty & at 1 ?~ cube    )
          & groups.at "front"            ?~ ( SmoothingGroups $ mempty & at 1 ?~ front   )
