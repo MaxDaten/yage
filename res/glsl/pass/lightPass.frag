@@ -105,16 +105,15 @@ void main()
 
     // float atten_factor = 1.0/(lightAttenuation.x + lightAttenuation.y * dist_2d + lightAttenuation.z * dist_2d * dist_2d);
     float curve = min(pow(dist / lightRadius.x, 6.0), 1.0);
-    float atten_factor = mix(
-        lightAttenuation.x +                // constant
-        lightAttenuation.y * dist +         // inv linear
-        lightAttenuation.z * dist * dist    // inv quadric
+    float attenuation = mix(
+        1.0 / ( 1.0 + lightAttenuation.x +                // constant
+                      lightAttenuation.y * dist +         // inv linear
+                      lightAttenuation.z * dist * dist    // inv quadric
+              )
         , 0.0
         , curve
         );
-    pixelColor =  vec4( pixel_albedo * (
-               atten_factor * ( lambertian * lightColor.rgb + specular * lightColor.rgb )
-               ), 1.0);
+    pixelColor =  vec4( pixel_albedo * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb ), 1.0 );
 }
 
 /*

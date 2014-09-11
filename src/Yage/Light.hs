@@ -8,7 +8,7 @@ import Linear hiding (lerp)
 import qualified Linear (lerp)
 
 data Light where
-    Light :: 
+    Light ::
         { lightType           :: LightType
         , lightAttribs        :: LightAttributes
         } -> Light
@@ -19,8 +19,8 @@ data AmbientLight = AmbientLight (V3 Double)
 data LightAttributes where
     LightAttributes ::
         { lAttrColor          :: V4 Double
-        , lAttrAttenuation    :: (Double, Double, Double) 
-        -- ^ constant, linear, quadric (1/d^2)
+        , lAttrAttenuation    :: (Double, Double, Double)
+        -- ^ constant, inv linear, inv squared (1/d^2)
         , lAttrSpecularExp    :: Double
         -- ^ 0..128: 0 big smooth highlight, 128 tiny hard highlight
         } -> LightAttributes
@@ -38,11 +38,11 @@ beta = 1 :: linear
 
 data LightType where
     Pointlight :: LightType
-    
+
     Spotlight ::
-        { sLightCutoff :: Double 
+        { sLightCutoff :: Double
         } -> LightType
-    
+
     OmniDirectional :: LightType
 
 
