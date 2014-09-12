@@ -27,8 +27,24 @@ data HDRBloomSettings = HDRBloomSettings
 makeLenses ''HDRBloomSettings
 makeLenses ''HDRCamera
 
+defaultBloomSettings :: HDRBloomSettings
+defaultBloomSettings = HDRBloomSettings
+    { _bloomPreDownsampling = 2
+    , _bloomGaussPasses     = 7
+    , _bloomFactor          = 0.3
+    }
+
+defaultHDRCamera :: Camera -> HDRCamera
+defaultHDRCamera camera = HDRCamera
+    { _hdrCamera        = camera
+    , _hdrExposure      = 0.5
+    , _hdrExposureBias  = 1.0
+    , _hdrWhitePoint    = 0.5
+    , _hdrBloomSettings = defaultBloomSettings
+    }
+
 instance LinearInterpolatable HDRBloomSettings where
-    lerp alpha u v = 
+    lerp alpha u v =
         u & bloomPreDownsampling .~ v^.bloomPreDownsampling
           & bloomGaussPasses     .~ v^.bloomGaussPasses
           & bloomFactor          .~ lerp alpha (u^.bloomFactor) (v^.bloomFactor)
@@ -42,4 +58,4 @@ instance LinearInterpolatable HDRCamera where
           & hdrBloomSettings .~ lerp alpha (u^.hdrBloomSettings) (v^.hdrBloomSettings)
 
 instance Default HDRBloomSettings where
-    def = HDRBloomSettings 2 7 0.3
+    def = defaultBloomSettings
