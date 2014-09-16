@@ -113,5 +113,5 @@ mkTargetTexture name spec =
     in tex & textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
            & textureConfig.texConfFiltering.texMinFilter     .~ GL.Linear'
            & textureConfig.texConfFiltering.texMagFilter     .~ GL.Linear'
-           & textureConfig.texConfWrapping.texWrapRepetition .~ GL.Repeated
-           & textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
+           & textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
+           & textureConfig.texConfWrapping.texWrapClamping   .~ GL.Clamp

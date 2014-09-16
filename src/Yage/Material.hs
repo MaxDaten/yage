@@ -30,6 +30,7 @@ data Material tex = Material
     { _matColor          :: !MaterialColorA
     , _matTexture        :: !tex
     , _matTransformation :: !( Transformation Double )
+    , _matConfig         :: !TextureConfig
     } deriving ( Functor )
 
 makeLenses ''Material
@@ -69,15 +70,15 @@ zeroNormalDummy = (`pxTexture` zeroNormal)
 
 
 mkMaterial :: Applicative f => MaterialColorA -> TextureResource -> AResourceMaterial f
-mkMaterial color texture = Material color (pure texture) idTransformation
+mkMaterial color texture = Material color (pure texture) idTransformation defaultTextureConfig
 
 mkMaterialF :: MaterialColorA -> f TextureResource -> AResourceMaterial f
-mkMaterialF color textureF = Material color textureF idTransformation
+mkMaterialF color textureF = Material color textureF idTransformation defaultTextureConfig
 
 defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
 defaultMaterial ctr =
     let color   = opaque white
-        texture = TexturePure $ Texture "WHITEDUMMY" def $ Texture2D (whiteDummy ctr)
+        texture = TexturePure $ Texture "WHITEDUMMY" defaultTextureConfig $ Texture2D (whiteDummy ctr)
     in mkMaterial color texture
 
 
@@ -112,7 +113,7 @@ instance Applicative Material where
 
 instance Applicative f => Monoid (AResourceMaterial f) where
     mempty = defaultMaterialSRGB
-    (Material col _tex _trans) `mappend` (Material col' tex' trans') = Material (col <> col') (tex') (trans')
+    (Material col _tex _trans _conf) `mappend` (Material col' tex' trans' conf') = Material (col <> col') (tex') (trans') conf'
 
 
 instance Applicative f => Default (AResourceMaterial f) where
@@ -133,8 +134,8 @@ instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
 
         let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
-            Just ( Texture baseName conf _ ) = firstOf traverse $ cubeTexs
-        return $ mat & matTexture .~ Texture (baseName ++ "-Cube") conf (TextureCube cubeImgs)
+            Just ( Texture baseName _ _ ) = firstOf traverse $ cubeTexs
+        return $ mat & matTexture .~ Texture ( baseName ++ "-Cube" ) ( mat^.matConfig ) ( TextureCube cubeImgs )
 
         where
         getTextureImg (Texture2D img) = img
