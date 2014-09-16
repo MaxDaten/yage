@@ -13,6 +13,7 @@ import Data.Foldable (toList)
 import Yage.Rendering
 import Yage.HDR
 import Yage.Scene
+import Yage.Material
 import Yage.Pipeline.Types
 
 import qualified Yage.Pipeline.Deferred.LightPass       as L
@@ -33,7 +34,7 @@ hdrLightingPass geometryPass viewport scene =
         bloomSettings   = scene^.sceneCamera.hdrBloomSettings
 
         lightDescr      = L.lightPass geometryPass viewport (scene^.sceneEnvironment)
-        lightData       = L.litPerFrameData geometryPass viewport cam
+        lightData       = L.litPerFrameData geometryPass viewport cam (scene^.environmentMap)
 
         lightTex        = L.lBufferChannel . renderTargets $ lightDescr
         lights          = scene^.sceneEnvironment.envLights
@@ -57,4 +58,11 @@ hdrLightingPass geometryPass viewport scene =
 
 bloomPass :: Int -> Texture -> RenderSystem Texture
 bloomPass samples tex = foldM (flip.const $ gaussFilter) tex [0..samples-1]
+
+
+environmentMap :: Getter (HDRScene ent dat) RenderMaterial
+environmentMap = sceneEnvironment.to getter where
+    -- TODO : BLACK DUMMY after resource overhaul
+    getter (Environment _ Nothing _)        = error "Yage.Pipeline.Deferred.HDR.environmentMap: missing env map"
+    getter (Environment _ (Just sky) _)     = sky^.materials
 

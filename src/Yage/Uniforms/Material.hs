@@ -37,6 +37,8 @@ type YNormalData        = YMaterialData YNormalMaterial YNormalTex
 type YDepthTex          = YMaterialTex "DepthTexture"
 type YDepthColor        = YMaterialColor "DepthColor"
 
+type YEnvironmentCubeMap    = YMaterialTex "EnvironmentCubeMap"
+
 type YSkyTex            = YMaterialTex "SkyTexture"
 type YSkyMaterial       = YMaterialUni "SkyColor" "SkyTextureMatrix"
 type YSkyData           = YMaterialData YSkyMaterial YSkyTex
@@ -54,7 +56,7 @@ textureMatrix :: KnownSymbol m => SField (YTextureMatrix m)
 textureMatrix = SField
 
 textureSizeField ::KnownSymbol t => Texture -> Uniforms '[ YTextureSize t ]
-textureSizeField tex = 
+textureSizeField tex =
     let size = fromIntegral <$> (tex^.textureSpec.texSpecDimension) :: V2 GLfloat
     in SField =: (V4 (size^._x) (size^._y) (size^._x.to recip) (size^._y.to recip))
 

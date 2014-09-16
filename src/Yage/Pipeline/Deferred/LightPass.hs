@@ -19,18 +19,18 @@ import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
 import Yage.Transformation
+import Yage.Material
 import Yage.TH.Shader
 
 import Yage.Rendering
-import Yage.Rendering.Textures              (mkTextureSpec)
 
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio, YGamma ]
-type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio, YGamma, YViewToWorldMatrix ]
+type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 
@@ -98,8 +98,8 @@ lightPass base viewport environment =
 
 
 
-litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> ShaderData LitPerFrameUni LitPerFrameTex
-litPerFrameData base viewport camera = ShaderData lightUniforms attributeTextures
+litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> RenderMaterial -> ShaderData LitPerFrameUni LitPerFrameTex
+litPerFrameData base viewport camera envMat = ShaderData lightUniforms attributeTextures
     where
 
     lightUniforms   :: Uniforms LitPerFrameUni
@@ -108,18 +108,21 @@ litPerFrameData base viewport camera = ShaderData lightUniforms attributeTexture
             zProj                   = V2 ( far / (far - near)) ((-far * near) / (far - near))
             dim                     = fromIntegral <$> viewport^.rectangle.extend
             theGamma                = realToFrac $ viewport^.viewportGamma
+            invCam                  = camera & cameraTransformation %~ inverseTransformation
         in
         perspectiveUniforms viewport camera     <+>
-        viewportDim      =: dim              <+>
-        zNearFarPlane    =: zNearFar         <+>
-        zProjRatio       =: zProj            <+>
-        gamma            =: theGamma
+        viewportDim         =: dim              <+>
+        zNearFarPlane       =: zNearFar         <+>
+        zProjRatio          =: zProj            <+>
+        gamma               =: theGamma         <+>
+        viewToWorldMatrix   =: (fmap realToFrac <$> invCam^.cameraMatrix^.to m44_to_m33)
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
         materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
         materialTexture =: (gNormalChannel $ renderTargets base)    <+>
-        materialTexture =: (gDepthChannel  $ renderTargets base)
+        materialTexture =: (gDepthChannel  $ renderTargets base)    <+>
+        materialTexture =: (envMat^.matTexture)
 
 
 
@@ -174,4 +177,5 @@ instance Implicit (FieldNames LitPerFrameTex) where
     implicitly =
         SField =: "AlbedoTexture" <+>
         SField =: "NormalTexture" <+>
-        SField =: "DepthTexture"
+        SField =: "DepthTexture"  <+>
+        SField =: "EnvironmentCubeMap"

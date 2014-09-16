@@ -18,6 +18,7 @@ type YProjectionMatrix = "ProjMatrix"           ::: M44 GLfloat
 type YViewMatrix       = "ViewMatrix"           ::: M44 GLfloat
 type YModelMatrix      = "ModelMatrix"          ::: M44 GLfloat
 type YNormalMatrix     = "NormalMatrix"         ::: M33 GLfloat
+type YViewToWorldMatrix= "ViewToWorldMatrix"    ::: M33 GLfloat
 
 type YVPMatrix         = "VPMatrix"             ::: M44 GLfloat
 type YMVPMatrix        = "MVPMatrix"            ::: M44 GLfloat
@@ -48,6 +49,9 @@ viewMatrix = SField
 
 modelMatrix :: SField YModelMatrix
 modelMatrix = SField
+
+viewToWorldMatrix :: SField YViewToWorldMatrix
+viewToWorldMatrix = SField
 
 vpMatrix :: SField YVPMatrix
 vpMatrix = SField

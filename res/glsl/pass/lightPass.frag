@@ -4,10 +4,12 @@
 #define ZBUFFER_DEPTH 1
 uniform vec2 ZNearFar;
 uniform vec2 ZProjRatio;
+uniform mat3 ViewToWorldMatrix;
 
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
 uniform sampler2D DepthTexture;
+uniform samplerCube EnvironmentCubeMap;
 uniform float Gamma = 2.2;
 
 // lightPosition is in WorldSpace
@@ -69,7 +71,7 @@ void main()
     // float zzz = ;
 
     #ifdef ZBUFFER_DEPTH
-    float depth             = texture(DepthTexture, st).x;
+    float depth             = texture(DepthTexture, st).r;
     float linearDepth       = LinearDepth(depth);
     vec3 viewRay            = vec3(VertexPosVS.xy / VertexPosVS.z, 1.0);
     #else
@@ -90,14 +92,15 @@ void main()
     // direction from the lit pixel to the light source
     vec3 pixToLight = lightPosVS - pixelPosVS;
     float dist      = length(pixToLight);
+    
     vec3 toLightDir = pixToLight / dist;
+    // direction from pixel to View
+    vec3 toViewDir    = normalize(-pixelPosVS);
+    vec3 halfDir    = normalize(toLightDir + toViewDir);
 
     float lambertian = saturate(dot(normalVS, toLightDir));
     float specular = 0.0;
     if (lambertian > 0.0) {
-        // direction from pixel to View
-        vec3 viewDir    = normalize(-pixelPosVS);
-        vec3 halfDir    = normalize(toLightDir + viewDir);
         float specAngle = saturate(dot(halfDir, normalVS));
 
         specular = pow(specAngle, lightSpecularExp);
@@ -114,6 +117,11 @@ void main()
         , curve
         );
     pixelColor =  vec4( pixel_albedo * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb ), 1.0 );
+    
+    // now correct
+    vec3 reflectedDirection = normalize( ViewToWorldMatrix * reflect( -toViewDir, normalVS ) );
+
+    pixelColor += 0.5 * texture( EnvironmentCubeMap, reflectedDirection );
 }
 
 /*
