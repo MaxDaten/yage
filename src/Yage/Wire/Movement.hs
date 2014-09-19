@@ -21,24 +21,24 @@ import Yage.Camera
 --}
 
 
-smoothTranslation :: (Real t) => 
+smoothTranslation :: (Real t) =>
                   V3 Float -> Float -> Float -> Key -> YageWire t (V3 Float) (V3 Float)
 smoothTranslation dir acc att key =
     let trans = integral 0 . arr (signorm dir ^*) . velocity acc att key
     in proc inTransV -> do
         transV <- trans -< ()
-        returnA -< inTransV + transV 
+        returnA -< inTransV + transV
 
 
-velocity :: (Floating b, Ord b, Real t) 
+velocity :: (Floating b, Ord b, Real t)
          => b -> b -> Key -> YageWire t a b
-velocity !acc !att !trigger = 
+velocity !acc !att !trigger =
     integrateAttenuated att 0 . (pure acc . whileKeyDown trigger <|> 0)
 
 
-smoothRotationByKey :: (Real t) => 
+smoothRotationByKey :: (Real t) =>
                     Float -> Float -> V3 Float -> Key -> YageWire t (Quaternion Float) (Quaternion Float)
-smoothRotationByKey acc att !axis !key = 
+smoothRotationByKey acc att !axis !key =
     let angleVel    = velocity acc att key
         rot         = axisAngle axis <$> integral 0 . angleVel
     in proc inQ -> do
@@ -80,30 +80,46 @@ translationWire :: Num a =>
 translationWire basis = liftA2 (!*) (pure basis) . wire3d
 
 
-
-cameraMovement :: Real t =>
+-- | relative to local space
+fpsCameraMovement :: Real t =>
     V3 Float ->
     -- ^ starting position
     YageWire t () (V3 Float) ->
     -- ^ the source of the current translation velocity
     YageWire t Camera Camera
     -- ^ updates the camera translation
-cameraMovement startPos movementSource =
+fpsCameraMovement startPos movementSource =
     proc cam -> do
         trans       <- movementSource    -< ()
         worldTrans  <- integral startPos -< (cam^.cameraOrientation) `rotate` trans
         returnA -< cam & cameraLocation .~ worldTrans
 
--- mouseVelocity sens 
 
--- arr ((-mouseSensitivity) * ) . ( velcoityModif . mouseVelocity <|> 0 )
-cameraRotation :: (Real t) => 
-               YageWire t () (V2 Float) -> 
+-- | look around like fps
+fpsCameraRotation :: (Real t) =>
+               YageWire t () (V2 Float) ->
                YageWire t Camera Camera
-cameraRotation velocitySource =
+fpsCameraRotation velocitySource =
     proc cam -> do
         velV <- velocitySource -< () -- counter clock wise
         x    <- integral 0                   -< velV^._x
         y    <- integrateBounded (-90, 90) 0 -< velV^._y
         returnA -< cam & cameraHandle %~ flip pan x
                        & cameraHandle %~ flip tilt y
+
+
+-- | rotation about focus point
+-- http://gamedev.stackexchange.com/a/20769
+arcBallRotation :: ( Real t ) => YageWire t () (V2 Float) -> YageWire t (V3 Float, Camera) Camera
+arcBallRotation velocitySource =
+    proc (focusPoint, cam) -> do
+        let focusToCam = cam^.cameraLocation - focusPoint
+        velV <- velocitySource -< ()
+        x    <- integral 0                      -< velV^._x
+        y    <- integrateBounded (-90, 90) 0    -< velV^._y
+
+        --pos  <- integral 0                  -<
+        let rotCam = cam & cameraHandle   %~ flip pan x
+                         & cameraHandle   %~ flip tilt y
+            pos    = (rotCam^.cameraOrientation) `rotate` focusToCam + focusPoint
+        returnA -< rotCam & cameraLocation .~ pos
