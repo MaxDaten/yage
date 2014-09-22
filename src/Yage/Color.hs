@@ -5,17 +5,22 @@ module Yage.Color
     ) where
 
 import Yage.Prelude
+import Yage.Math (clamp)
 
 import Data.Colour.SRGB                         as Color
 import Data.Colour.SRGB.Linear                  as Color
+import Data.Colour.CIE                          as Color
 import Data.Colour                              as Color
 import Data.Colour.Names                        as Color
+import JuicySRGB                                as Color
+import Codec.Picture
+import Codec.Picture.Types
 
 import Linear                                   (V3(..), V4(..))
 
 
 -- | creates a V3 from a color (for opengl exchange)
--- the value will be in linear color space 
+-- the value will be in linear color space
 linearV3 :: Fractional a => Colour a -> V3 a
 linearV3 c = let RGB r g b = toRGB c in V3 r g b
 
@@ -40,3 +45,10 @@ sRGBV4 ca =
 instance (Num a) => Semigroup (Colour a)
 instance (Num a) => Semigroup (AlphaColour a)
 
+
+instance Default (AlphaColour Double) where
+    def = opaque white
+
+
+instance (Floating a, RealFrac a) => ColourPixel a Pixel8 where
+    colourToPixel c = computeLuma (colourToPixel c :: PixelRGB8)

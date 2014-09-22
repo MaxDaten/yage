@@ -98,7 +98,7 @@ lightPass base viewport environment =
 
 
 
-litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> RenderMaterial -> ShaderData LitPerFrameUni LitPerFrameTex
+litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> RenderMaterial MaterialColorAlpha  -> ShaderData LitPerFrameUni LitPerFrameTex
 litPerFrameData base viewport camera envMat = ShaderData lightUniforms attributeTextures
     where
 
@@ -122,7 +122,7 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
         materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
         materialTexture =: (gNormalChannel $ renderTargets base)    <+>
         materialTexture =: (gDepthChannel  $ renderTargets base)    <+>
-        materialTexture =: (envMat^.matTexture)
+        materialTexture =: (extract $ envMat^.matTexture)
 
 
 

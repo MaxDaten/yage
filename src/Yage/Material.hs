@@ -5,6 +5,7 @@
 module Yage.Material
     ( module Yage.Material
     , module Material
+    , module Comonad
     , Cube(..)
     ) where
 
@@ -16,32 +17,34 @@ import Yage.Rendering.Resources      as Material
 import Yage.Resources
 import Yage.Transformation           as Material
 
+import Control.Comonad               as Comonad ( extract )
 import Linear (V3, Quaternion)
 
 
 
-type MaterialTexture = TextureResource
-type MaterialColor   = Colour Double
-type MaterialColorA  = AlphaColour Double
-type MaterialPixel   = ColourPixel Double
+type MaterialTexture     = TextureResource
+type MaterialColor       = Colour Double
+type MaterialColorAlpha  = AlphaColour Double
+type MaterialPixel       = ColourPixel Double
 -- | resulting texel color will be matColor * matTexture
 -- so white matColor will result in 100% color from matTexture
-data Material tex = Material
-    { _matColor          :: !MaterialColorA
+data Material col tex = Material
+    { _matColor          :: !col
     , _matTexture        :: !tex
     , _matTransformation :: !( Transformation Double )
     , _matConfig         :: !TextureConfig
-    } deriving ( Functor )
+    } deriving ( Functor, Foldable, Traversable )
 
 makeLenses ''Material
 
 
 -- material either to load or already loaded
-type AResourceMaterial f = Material (f TextureResource)
-type ResourceMaterial = AResourceMaterial Identity
+type FMaterial f col tex = Material col (f tex)
+type IMaterial col tex = FMaterial Identity col tex
+type ResourceMaterial col = FMaterial Identity col TextureResource
 
 -- ready to render material
-type RenderMaterial = Material Texture
+type RenderMaterial col = IMaterial col Texture
 
 
 
@@ -69,74 +72,78 @@ zeroNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
 zeroNormalDummy = (`pxTexture` zeroNormal)
 
 
-mkMaterial :: Applicative f => MaterialColorA -> TextureResource -> AResourceMaterial f
+mkMaterial :: Applicative f => col -> TextureResource -> FMaterial f col TextureResource
 mkMaterial color texture = Material color (pure texture) idTransformation defaultTextureConfig
 
-mkMaterialF :: MaterialColorA -> f TextureResource -> AResourceMaterial f
+mkMaterialF :: col -> f TextureResource -> FMaterial f col TextureResource
 mkMaterialF color textureF = Material color textureF idTransformation defaultTextureConfig
 
-defaultMaterial :: Applicative f => MaterialPixel pixel => TextureCtr pixel -> AResourceMaterial f
+defaultMaterial :: (Applicative f, MaterialPixel pixel, Default col) => TextureCtr pixel -> FMaterial f col TextureResource
 defaultMaterial ctr =
-    let color   = opaque white
-        texture = TexturePure $ Texture "WHITEDUMMY" defaultTextureConfig $ Texture2D (whiteDummy ctr)
-    in mkMaterial color texture
+    let texture = TexturePure $ Texture "WHITEDUMMY" defaultTextureConfig $ Texture2D (whiteDummy ctr)
+    in mkMaterial def texture
 
 
-defaultMaterialSRGB :: Applicative f => AResourceMaterial f
+defaultMaterialSRGB :: Applicative f => FMaterial f MaterialColorAlpha TextureResource
 defaultMaterialSRGB = defaultMaterial TexSRGB8
 
 
-singleMaterial :: Lens' ResourceMaterial TextureResource
+singleMaterial :: Lens' (ResourceMaterial col) TextureResource
 singleMaterial = lens getter setter
     where
-    getter = runIdentity . _matTexture
+    getter = extract . _matTexture
     setter mat tex = mat & matTexture .~ ( pure tex )
+
+
+
 
 
 --  Lens Shortcuts
 
-stpFactor :: Lens' (Material tex) (V3 Double)
+stpFactor :: Lens' (Material col tex) (V3 Double)
 stpFactor = matTransformation.transScale
 
-stpOffset :: Lens' (Material tex) (V3 Double)
+stpOffset :: Lens' (Material col tex) (V3 Double)
 stpOffset = matTransformation.transPosition
 
-stpOrientation :: Lens' (Material tex) (Quaternion Double)
+stpOrientation :: Lens' (Material col tex) (Quaternion Double)
 stpOrientation = matTransformation.transOrientation
 
 -- Instances
 
-instance Applicative Material where
-    pure tex = (runIdentity <$> defaultMaterialSRGB) & matTexture .~ tex
+instance Applicative ( Material MaterialColorAlpha ) where
+    pure tex = (fmap runIdentity defaultMaterialSRGB) & matTexture .~ tex
     matf <*> mat = mat & matTexture %~ (matf^.matTexture)
 
 
-instance Applicative f => Monoid (AResourceMaterial f) where
+instance Applicative f => Monoid (FMaterial f MaterialColorAlpha TextureResource) where
     mempty = defaultMaterialSRGB
-    (Material col _tex _trans _conf) `mappend` (Material col' tex' trans' conf') = Material (col <> col') (tex') (trans') conf'
+    (Material col _tex _trans _conf) `mappend` (Material col' tex' trans' conf') = Material (mappend col col') (tex') (trans') conf'
 
 
-instance Applicative f => Default (AResourceMaterial f) where
+instance Applicative f => Default (FMaterial f MaterialColorAlpha TextureResource) where
     def = defaultMaterialSRGB
 
 
-instance HasResources vert RenderMaterial RenderMaterial where
+instance HasResources vert (RenderMaterial col) (RenderMaterial col) where
     requestResources = return
 
 
-instance HasResources vert (AResourceMaterial Identity) RenderMaterial where
+instance HasResources vert (FMaterial Identity col TextureResource) (RenderMaterial col) where
     requestResources mat =
-        set matTexture <$> requestTextureResource (runIdentity $ mat^.matTexture)
-                       <*> pure mat
+        set matTexture . pure
+            <$> ( requestTextureResource $ extract $ mat^.matTexture )
+            <*> pure mat
 
-instance HasResources vert (AResourceMaterial Cube) RenderMaterial where
+instance HasResources vert (FMaterial Cube col TextureResource) (IMaterial col Texture) where
     requestResources mat = do
         cubeTexs <- mapM requestTextureResource (mat^.matTexture)
 
         let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
             Just ( Texture baseName _ _ ) = firstOf traverse $ cubeTexs
-        return $ mat & matTexture .~ Texture ( baseName ++ "-Cube" ) ( mat^.matConfig ) ( TextureCube cubeImgs )
+        return $ mat & matTexture .~ Identity (Texture ( baseName ++ "-Cube" ) ( mat^.matConfig ) ( TextureCube cubeImgs ))
 
         where
         getTextureImg (Texture2D img) = img
         getTextureImg _ = error "requestResources: invalid TextureData"
+

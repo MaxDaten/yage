@@ -95,7 +95,8 @@ void main()
     vec4 albedoCh           = texture( AlbedoTexture, screenUV ).rgba;
     
     // the lit pixel albedo color 
-    vec3 pixel_albedo       = gamma( albedoCh.rgb, Gamma ).rgb;
+    vec3 Albedo       = gamma( albedoCh.rgb, Gamma ).rgb;
+    float Roughness   = albedoCh.a;
 
     // retrieve the normal of the lit pixel
     vec3 normalVS  = DecodeNormal( screenUV );
@@ -127,7 +128,7 @@ void main()
 
         lightSpecularExp;
         // specular = D_GGX(pow(max(abs(specAngle),0.000001f), lightSpecularExp));
-        specular = 0.25 * D_GGX(0.4, max(abs(specAngle),0.000001f));
+        specular = 0.25 * D_GGX(Roughness, specAngle);
         // specular = pow(specAngle, lightSpecularExp);
     }
 
@@ -139,11 +140,11 @@ void main()
     float attenuation = mix( invSquare, 0.0, curve );
     
     pixelColor.a    = 1.0;
-    pixelColor.rgb  = pixel_albedo * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb );
+    pixelColor.rgb  = Albedo * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb );
     
     vec3 reflectedDirection = normalize( ViewToWorldMatrix * reflect( -toViewDir, normalVS ) );
 
-    // pixelColor.rgb = texture( EnvironmentCubeMap, reflectedDirection ).rgb;
+    pixelColor.rgb += 0.25 * ( 1.0 - Roughness ) * texture( EnvironmentCubeMap, reflectedDirection ).rgb;
 }
 
 /*

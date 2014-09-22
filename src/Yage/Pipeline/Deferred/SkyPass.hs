@@ -32,8 +32,8 @@ type SkyShader = Shader SkyUni SkyTextures LitVertex
 type SkyPass = PassDescr LitPassChannels SkyShader
 
 
-type SkyMaterialRes = AResourceMaterial Cube
-type SkyMaterial    = RenderMaterial
+type SkyMaterialRes = FMaterial Cube MaterialColorAlpha TextureResource
+type SkyMaterial    = RenderMaterial MaterialColorAlpha
 
 type SkyEntityT mesh mat = Entity (mesh LitVertex) mat
 type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
@@ -44,7 +44,7 @@ skyPass :: LightPass -> Viewport Int -> SkyPass
 skyPass lighting viewport =
     passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg)
         & passPreRendering .~ preRendering
-    
+
     where
 
     shaderProg = ShaderProgramUnit
@@ -55,13 +55,13 @@ skyPass lighting viewport =
                     }
 
 
-    
+
     preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
-        
+
         GL.depthFunc    GL.$= Just GL.Less
         GL.depthMask    GL.$= GL.Enabled
-        
+
         GL.blend        GL.$= GL.Disabled
 
         GL.cullFace     GL.$= Just GL.Back
@@ -81,7 +81,7 @@ toSkyEntity sky = toRenderEntity shData sky
     uniforms = modelMatrix =: ( sky^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )
 
     material :: YSkyData
-    material = materialUniforms $ sky^.materials
+    material = materialUniformsColor $ sky^.materials
 
 
 instance Implicit (FieldNames SkyTextures) where

@@ -11,6 +11,7 @@ import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL            (GLfloat)
 import Linear
 
+import Control.Comonad
 import Yage.Rendering.Shader
 
 import Yage.Material
@@ -21,6 +22,7 @@ type YMaterialData m t = ShaderData m '[t]
 type YMaterialUni c m   = [ YMaterialColor c, YTextureMatrix m ]
 
 type YMaterialColor c   = (c::Symbol) ::: V4 GLfloat
+type YMaterialIntensity c = (c::Symbol) ::: V1 GLfloat
 type YMaterialTex t     = TextureUniform t
 type YTextureMatrix m   = (m::Symbol) ::: M44 GLfloat
 
@@ -33,6 +35,10 @@ type YAlbedoData        = YMaterialData YAlbedoMaterial YAlbedoTex
 type YNormalTex         = YMaterialTex "NormalTexture"
 type YNormalMaterial    = YMaterialUni "NormalColor" "NormalTextureMatrix"
 type YNormalData        = YMaterialData YNormalMaterial YNormalTex
+
+type YRoughnessTex      = YMaterialTex "RoughnessTexture"
+type YRoughnessMaterial = [ YMaterialIntensity "RoughnessIntensity", YTextureMatrix "RoughnessTextureMatrix" ]
+type YRoughnessData     = YMaterialData YRoughnessMaterial YRoughnessTex
 
 type YDepthTex          = YMaterialTex "DepthTexture"
 type YDepthColor        = YMaterialColor "DepthColor"
@@ -48,6 +54,9 @@ type YWhitePoint        = "WhitePoint" ::: GLfloat
 
 materialColor :: KnownSymbol c => SField (YMaterialColor c)
 materialColor = SField
+
+materialIntensity :: KnownSymbol c => SField (YMaterialIntensity c)
+materialIntensity = SField
 
 materialTexture :: KnownSymbol t => SField (TextureUniform t)
 materialTexture = SField
@@ -68,9 +77,17 @@ whitePoint = SField
 Utility
 --}
 
-materialUniforms :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
-materialUniforms mat =
+materialUniformsColor :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial MaterialColorAlpha -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
+materialUniformsColor mat =
     let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
               textureMatrix   =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
-        tex = materialTexture =: (mat^.matTexture)
+        tex = materialTexture =: (extract $ mat^.matTexture)
     in ShaderData col tex
+
+
+materialUniformsIntensity :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial Double -> YMaterialData ([ YMaterialIntensity c, YTextureMatrix m ]) (YMaterialTex t)
+materialUniformsIntensity mat =
+    let intensity = materialIntensity   =: ( realToFrac <$> V1 ( mat^.matColor ) ) <+>
+                    textureMatrix       =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
+        tex = materialTexture =: ( extract $ mat^.matTexture)
+    in ShaderData intensity tex

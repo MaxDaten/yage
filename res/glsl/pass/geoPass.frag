@@ -1,19 +1,18 @@
 #version 410 core
 
 
-// geometric zFar plane (is located along the negative z axis for RHS)
-uniform float ZFar;
-
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
+uniform sampler2D RoughnessTexture;
 
 uniform vec4 AlbedoColor;
 uniform vec4 NormalColor;
-uniform float Specular = 1;
+uniform float RoughnessIntensity;
 
 in vec3 VertexPos_View;
 in vec2 AlbedoST;
 in vec2 NormalST;
+in vec2 RoughnessST;
 smooth in mat3 TangentToView;
 
 // Red Green Blue Depth
@@ -31,6 +30,11 @@ float saturate(float value)
 vec4 GetAlbedoColor()
 {
     return AlbedoColor * texture( AlbedoTexture, AlbedoST );
+}
+
+float GetRoughness()
+{
+    return RoughnessIntensity * texture( RoughnessTexture, RoughnessST ).r;
 }
 
 
@@ -60,7 +64,7 @@ void main()
 {
     OutAlbedo.rgb   = GetAlbedoColor().rgb;
 
-    OutAlbedo.a     = VertexPos_View.z / ZFar;
+    OutAlbedo.a     = GetRoughness();
 
 
     OutNormal.rg   = EncodeNormal( TangentToView * GetBumpedNormal() ).rg;

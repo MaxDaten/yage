@@ -49,8 +49,8 @@ hdrLightingPass geometryPass viewport scene =
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
         bloomedTex      <- B.brightFilter lightTex ( scene^.sceneCamera.hdrWhitePoint )
-                           >>= D.downsampleBoxed5x5 ( bloomSettings^.bloomPreDownsampling )
-                           >>= bloomPass ( bloomSettings^.bloomGaussPasses )
+                          >>= D.downsampleBoxed5x5 ( bloomSettings^.bloomPreDownsampling )
+                          >>= bloomPass ( bloomSettings^.bloomGaussPasses )
 
         toneMap =<< (1.0, lightTex) `A.additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
 
@@ -60,7 +60,7 @@ bloomPass :: Int -> Texture -> RenderSystem Texture
 bloomPass samples tex = foldM (flip.const $ gaussFilter) tex [0..samples-1]
 
 
-environmentMap :: Getter (HDRScene ent dat) RenderMaterial
+environmentMap :: Getter (HDRScene ent dat) (RenderMaterial MaterialColorAlpha)
 environmentMap = sceneEnvironment.to getter where
     -- TODO : BLACK DUMMY after resource overhaul
     getter (Environment _ Nothing _)        = error "Yage.Pipeline.Deferred.HDR.environmentMap: missing env map"

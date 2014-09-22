@@ -156,6 +156,7 @@ library
                         , vinyl-glsl            == 0.1.1.0
                         
                         , containers            == 0.5.*
+                        , comonad               == 4.2.*
                         , generic-deriving      == 1.6.*
                         , bytestring-trie       == 0.2.*
                         , transformers          == 0.4.*

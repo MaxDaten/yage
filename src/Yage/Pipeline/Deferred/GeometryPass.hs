@@ -24,16 +24,17 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Yage.Pipeline.Deferred.Common
 
 
-type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
+type GeoPerFrameUni    = PerspectiveUniforms
 
 type GeoPerEntityUni   = [ YModelMatrix
                          , YNormalMatrix
                          ]
                          ++ YAlbedoMaterial
                          ++ YNormalMaterial
+                         ++ YRoughnessMaterial
 
 type GeoUniforms       = GeoPerFrameUni ++ GeoPerEntityUni
-type GeoTextures       = [ YAlbedoTex, YNormalTex ]
+type GeoTextures       = [ YAlbedoTex, YNormalTex, YRoughnessTex ]
 type GeoVertex         = Vertex (Y'P3TX2TN GLfloat)
 type GeoShader         = Shader GeoUniforms GeoTextures GeoVertex
 
@@ -44,8 +45,9 @@ data GeoPassChannels = GeoPassChannels
     }
 
 data GeoMaterial mat = GeoMaterial
-    { _albedoMaterial :: mat
-    , _normalMaterial :: mat
+    { _albedoMaterial    :: IMaterial MaterialColorAlpha mat
+    , _normalMaterial    :: IMaterial MaterialColorAlpha mat
+    , _roughnessMaterial :: IMaterial Double mat
     } deriving ( Functor, Foldable, Traversable )
 
 makeLenses ''GeoMaterial
@@ -54,9 +56,9 @@ makeLenses ''GeoMaterial
 -- | Base type for a GeoEntity
 type GeoEntityT mesh mat = Entity (mesh GeoVertex) (GeoMaterial mat)
 -- | Drawable entity with loaded resources
-type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
+type GeoEntityDraw = GeoEntityT Mesh Texture
 -- | Resource descripte entity
-type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
+type GeoEntityRes  = GeoEntityT MeshResource TextureResource
 
 type GeometryPass = YageDeferredPass GeoPassChannels GeoShader
 
@@ -100,9 +102,7 @@ Geo Pass Utils
 
 geoFrameData :: Viewport Int -> Camera -> ShaderData GeoPerFrameUni '[]
 geoFrameData viewport camera =
-    let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
-        uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
-                  zFarPlane        =: zfar
+    let uniform = perspectiveUniforms (fromIntegral <$> viewport) camera
     in ShaderData uniform mempty
 
 
@@ -110,8 +110,9 @@ toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex (ShaderData Geo
 toGeoEntity camera ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
-                 materialUniforms (ent^.materials.albedoMaterial) `append`
-                 materialUniforms (ent^.materials.normalMaterial)
+                 materialUniformsColor (ent^.materials.albedoMaterial) `append`
+                 materialUniformsColor (ent^.materials.normalMaterial) `append`
+                 materialUniformsIntensity (ent^.materials.roughnessMaterial)
     uniforms =
         modelMatrix       =: ( ent^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
         normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
@@ -124,23 +125,26 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 
 
-defaultGeoMaterial :: GeoMaterial ResourceMaterial
+defaultGeoMaterial :: GeoMaterial TextureResource
 defaultGeoMaterial =
-    let albedoMat = defaultMaterialSRGB
-        normalMat = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
-    in GeoMaterial albedoMat normalMat
+    let albedoMat    = defaultMaterialSRGB
+        normalMat    = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
+        roughnessMat = mkMaterialF 1.0 $ pure $ TexturePure $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
+    in GeoMaterial albedoMat normalMat roughnessMat
 
 
-instance Default (GeoMaterial ResourceMaterial) where
+instance Default (GeoMaterial TextureResource) where
     def = defaultGeoMaterial
 
 
-instance Applicative GeoMaterial where
-    pure mat = GeoMaterial mat mat
-    GeoMaterial f g <*> GeoMaterial m n = GeoMaterial (f m) (g n)
+--instance Applicative GeoMaterial where
+--    pure mat = GeoMaterial (pure mat)
+--                           (pure mat)
+--                           (pure mat)
+--    GeoMaterial f g e <*> GeoMaterial m n o = GeoMaterial (f m) (g n) (e o)
 
 
-instance HasResources vert (GeoMaterial ResourceMaterial) (GeoMaterial RenderMaterial) where
+instance HasResources vert (GeoMaterial TextureResource) (GeoMaterial Texture) where
     requestResources = mapM requestResources
 
 
@@ -157,4 +161,5 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
 instance Implicit (FieldNames GeoTextures) where
     implicitly =
         SField =: "AlbedoTexture" <+>
-        SField =: "NormalTexture"
+        SField =: "NormalTexture" <+>
+        SField =: "RoughnessTexture"
