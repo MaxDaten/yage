@@ -22,6 +22,12 @@ layout (location = 1) out vec4 OutNormal;
 // layout (location = 2) out vec3 specularOut;
 // layout (location = 3) out vec3 glossyOut;
 
+
+float saturate(float value)
+{
+    return clamp(value, 0.0, 1.0);
+}
+
 vec4 GetAlbedoColor()
 {
     return AlbedoColor * texture( AlbedoTexture, AlbedoST );
@@ -37,8 +43,10 @@ vec3 DecodeNormal( vec3 normalC )
 vec3 GetBumpedNormal()
 {
     vec2 NormalXY = DecodeNormal( texture( NormalTexture, NormalST ).rgb ).rg;
-    float NormalZ = sqrt( 1.0 - dot( NormalXY, NormalXY ) );
-    return NormalColor.rgb * vec3( NormalXY, NormalZ );
+    float NormalZ = sqrt( saturate( 1.0 - dot( NormalXY, NormalXY ) ) );
+    return NormalColor.rgb * normalize(vec3( NormalXY, NormalZ ));
+    // NormalColor;
+    // return normalize(DecodeNormal( texture( NormalTexture, NormalST ).rgb ));
 }
 
 
@@ -55,6 +63,5 @@ void main()
     OutAlbedo.a     = VertexPos_View.z / ZFar;
 
 
-    OutNormal.rgb   = EncodeNormal( TangentToView * GetBumpedNormal() );
-    OutNormal.a     = 1;
+    OutNormal.rg   = EncodeNormal( TangentToView * GetBumpedNormal() ).rg;
 }

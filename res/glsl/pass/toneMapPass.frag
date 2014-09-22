@@ -53,8 +53,8 @@ vec3 Uncharted2ToneMapping(vec3 color)
 vec3 ToneMapping(vec3 color)
 {
     // return LinearToneMapping(color);
-    return ReinhardToneMapping(color);
-    // return Uncharted2ToneMapping(color);
+    // return ReinhardToneMapping(color);
+    return Uncharted2ToneMapping(color);
 }
 
 void main()
@@ -64,13 +64,12 @@ void main()
 
     texColor     *= Exposure;
 
-    vec3 color = ToneMapping( ExposureBias * texColor );
+    vec3 color = ToneMapping( ExposureBias + texColor );
     vec3 whiteScale = 1.0f / ToneMapping(vec3(WhitePoint));
 
 
     color *= whiteScale;
-    // currently adding bloom
     color = inverseGamma( color );
-    pixelColor = clamp(color, 0, 1);
+    pixelColor = clamp( color, 0, 1 );
 }
 

@@ -28,8 +28,8 @@ type GeoPerFrameUni    = PerspectiveUniforms ++ '[ YZFarPlane ]
 
 type GeoPerEntityUni   = [ YModelMatrix
                          , YNormalMatrix
-                         ] 
-                         ++ YAlbedoMaterial 
+                         ]
+                         ++ YAlbedoMaterial
                          ++ YNormalMaterial
 
 type GeoUniforms       = GeoPerFrameUni ++ GeoPerEntityUni
@@ -59,7 +59,7 @@ type GeoEntityDraw = GeoEntityT Mesh RenderMaterial
 type GeoEntityRes  = GeoEntityT MeshResource ResourceMaterial
 
 type GeometryPass = YageDeferredPass GeoPassChannels GeoShader
-                        
+
 
 
 type GeoPassScene env = Scene Camera GeoEntityDraw env
@@ -69,28 +69,29 @@ Pass Description
 --}
 
 geoPass :: Viewport Int -> GeometryPass
-geoPass viewport = 
+geoPass viewport =
     let thePass     = passPreset geoTarget (viewport^.rectangle) (ShaderUnit shaderProg)
         clearBuffer = (thePass^.passPreRendering) >> io (GL.clear [ GL.DepthBuffer ])
     in thePass & passPreRendering .~ clearBuffer
 
     where
 
-    shaderProg = ShaderProgramUnit 
+    shaderProg = ShaderProgramUnit
                  { _shaderName       = "GeometryPas.hs"
                  , _shaderSources    = [ $(vertexFile "res/glsl/pass/geoPass.vert")^.shaderSource
                                        , $(fragmentFile "res/glsl/pass/geoPass.frag")^.shaderSource
                                        ]
                  }
-    
+
     geoTarget  = RenderTarget "geo-fbo" $
-                    GeoPassChannels 
+                    GeoPassChannels
                         { gAlbedoChannel = mkTexture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
-                        , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D baseSpec
+                        , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D normSpec
                         , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
                         }
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
+    normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.RG GL.RG16
     depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
 
 {--
@@ -98,7 +99,7 @@ Geo Pass Utils
 --}
 
 geoFrameData :: Viewport Int -> Camera -> ShaderData GeoPerFrameUni '[]
-geoFrameData viewport camera = 
+geoFrameData viewport camera =
     let zfar    = - (realToFrac $ camera^.cameraPlanes.camZFar)
         uniform = perspectiveUniforms (fromIntegral <$> viewport) camera  <+>
                   zFarPlane        =: zfar
@@ -116,7 +117,7 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
         normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
 
     theNormalMatrix :: M33 Float
-    theNormalMatrix = 
+    theNormalMatrix =
         let invCam        = camera & cameraTransformation %~ inverseTransformation
             invViewM      = invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
@@ -144,16 +145,16 @@ instance HasResources vert (GeoMaterial ResourceMaterial) (GeoMaterial RenderMat
 
 
 instance FramebufferSpec GeoPassChannels RenderTargets where
-    fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} = 
+    fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} =
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0
         , Attachment (ColorAttachment 1) $ TextureTarget GL.Texture2D gNormalChannel 0
-        ] 
-    
-    fboDepth GeoPassChannels{gDepthChannel} = 
+        ]
+
+    fboDepth GeoPassChannels{gDepthChannel} =
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
 
 
 instance Implicit (FieldNames GeoTextures) where
-    implicitly = 
+    implicitly =
         SField =: "AlbedoTexture" <+>
         SField =: "NormalTexture"
