@@ -29,7 +29,7 @@ import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZNearFarPlane, YZProjRatio, YGamma, YViewToWorldMatrix ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma, YViewToWorldMatrix ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -104,15 +104,14 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
-        let zNearFar@(V2 near far)  = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
-            zProj                   = V2 ( far / (far - near)) ((-far * near) / (far - near))
+        let (V2 near far)           = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
+            zProj                   = V2 ( far / ( far - near ) ) ( ( (-far) * near ) / ( far - near ) )
             dim                     = fromIntegral <$> viewport^.rectangle.extend
             theGamma                = realToFrac $ viewport^.viewportGamma
             invCam                  = camera & cameraTransformation %~ inverseTransformation
         in
         perspectiveUniforms viewport camera     <+>
         viewportDim         =: dim              <+>
-        zNearFarPlane       =: zNearFar         <+>
         zProjRatio          =: zProj            <+>
         gamma               =: theGamma         <+>
         viewToWorldMatrix   =: (fmap realToFrac <$> invCam^.cameraMatrix^.to m44_to_m33)

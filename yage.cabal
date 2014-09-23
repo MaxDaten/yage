@@ -18,6 +18,7 @@ cabal-version:       >=1.18
 extra-source-files:
   res/glsl/pass/*.frag
   res/glsl/pass/*.vert
+  res/glsl/pass/*.glsl
 
 Flag dev
     Description:   Turn on development settings, logging and timing.

@@ -1,5 +1,7 @@
 #version 410 core
 
+#include "Common.glsl"
+#include "GBuffer.glsl"
 
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
@@ -22,11 +24,6 @@ layout (location = 1) out vec4 OutNormal;
 // layout (location = 3) out vec3 glossyOut;
 
 
-float saturate(float value)
-{
-    return clamp(value, 0.0, 1.0);
-}
-
 vec4 GetAlbedoColor()
 {
     return AlbedoColor * texture( AlbedoTexture, AlbedoST );
@@ -38,34 +35,13 @@ float GetRoughness()
 }
 
 
-vec3 DecodeNormal( vec3 normalC )
-{
-    return 2.0 * normalC - 1.0;
-}
-
-
-vec3 GetBumpedNormal()
-{
-    vec2 NormalXY = DecodeNormal( texture( NormalTexture, NormalST ).rgb ).rg;
-    float NormalZ = sqrt( saturate( 1.0 - dot( NormalXY, NormalXY ) ) );
-    return NormalColor.rgb * normalize(vec3( NormalXY, NormalZ ));
-    // NormalColor;
-    // return normalize(DecodeNormal( texture( NormalTexture, NormalST ).rgb ));
-}
-
-
-vec3 EncodeNormal( vec3 Normal3d )
-{
-    return Normal3d.xyz * 0.5 + 0.5;
-}
-
-
 void main()
 {
     OutAlbedo.rgb   = GetAlbedoColor().rgb;
 
     OutAlbedo.a     = GetRoughness();
 
-
-    OutNormal.rg   = EncodeNormal( TangentToView * GetBumpedNormal() ).rg;
+    vec3 texNormal = NormalColor.rgb * DecodeNormal( texture( NormalTexture, NormalST ).rg );
+    texNormal      = normalize( texNormal );
+    OutNormal.rg   = EncodeNormal( TangentToView * texNormal ).rg;
 }

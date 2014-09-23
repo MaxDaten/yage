@@ -1,10 +1,8 @@
 #version 410 core
 
-const float PI = 3.1415926535897932f;
+#include "Common.glsl"
+#include "GBuffer.glsl"
 
-// in vec4 interpolated_color;
-#define ZBUFFER_DEPTH 1
-uniform vec2 ZNearFar;
 uniform vec2 ZProjRatio;
 uniform mat3 ViewToWorldMatrix;
 
@@ -28,52 +26,13 @@ in mat4 ViewSpace;
 in vec3 VertexPosVS;
 
 
-float zNear = ZNearFar.x;
-float zFar = ZNearFar.y;
-
-
 layout (location = 0) out vec4 pixelColor;
 
 
-/*
-// Converts depth buffer Z / W into W
-float ConvertFromDeviceZ(float DeviceZ)
-{
-    return 1.f / (DeviceZ * View.InvDeviceZToWorldZTransform[2] - View.InvDeviceZToWorldZTransform[3]); 
-}
-*/
-float LinearDepth (float z)
-{
-    return (ZProjRatio.y / (z - ZProjRatio.x));
-}
-
-
-float saturate(float value)
-{
-    return clamp(value, 0.0, 1.0);
-}
-
-
-vec3 DecodeNormal( vec2 screenUV )
-{
-    vec2 NormalXY = texture( NormalTexture, screenUV ).rg * 2.0 - 1.0;
-    float NormalZ = sqrt( saturate ( 1.0 - dot( NormalXY, NormalXY ) ) );
-    return vec3( NormalXY, NormalZ );
-}
 
 const float f0 = pow((1.0-(1.0/1.31)), 2)/pow((1.0+(1.0/1.31)), 2); 
 float Fresnel( vec3 halfDir, vec3 viewDir, float f0 );
 
-
-vec4 gamma(vec3 x, float y)
-{
-    return vec4(pow(x.r, y), pow(x.g, y), pow(x.b, y), 1.0);
-}
-
-vec4 gamma(vec4 x, float y)
-{
-    return vec4(pow(x.r, y), pow(x.g, y), pow(x.b, y), x.a);
-}
 
 // GGX / Trowbridge-Reitz
 // [Walter et al. 2007, "Microfacet models for refraction through rough surfaces"]
@@ -92,26 +51,21 @@ void main()
     vec2 screenUV = gl_FragCoord.xy / ViewportDim.xy;
     
     // the channel for albedo rgb + distance from View
-    vec4 albedoCh           = texture( AlbedoTexture, screenUV ).rgba;
+    vec4 albedoCh = texture( AlbedoTexture, screenUV ).rgba;
     
     // the lit pixel albedo color 
     vec3 Albedo       = gamma( albedoCh.rgb, Gamma ).rgb;
     float Roughness   = albedoCh.a;
 
     // retrieve the normal of the lit pixel
-    vec3 normalVS  = DecodeNormal( screenUV );
+    vec3 normalVS  = DecodeNormal( texture( NormalTexture, screenUV ).rg );
 
-    // reconstruct position
-    float depth             = texture( DepthTexture, screenUV ).r;
-    float linearDepth       = LinearDepth(depth);
-    vec3 viewRay            = vec3(VertexPosVS.xy / VertexPosVS.z, 1.0);
+    // extrapolate the View space position of the pixel to the zFar plane
+    vec3 pixelPosVS = PositionVSFromDepth( texture( DepthTexture, screenUV ).r, ZProjRatio, VertexPosVS );
 
     // world light position to View space
     vec3 lightPosVS = vec3( ViewSpace * vec4( lightPosition, 1.0 ) );
 
-    // extrapolate the View space position of the pixel to the zFar plane
-    vec3 pixelPosVS = viewRay * linearDepth;
-    
     // direction from the lit pixel to the light source
     vec3 pixToLight = lightPosVS - pixelPosVS;
     float dist      = length(pixToLight);
