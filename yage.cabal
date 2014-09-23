@@ -153,7 +153,7 @@ library
 
                         , aeson                 == 0.8.*
                         , vinyl                 == 0.4.3
-                        , vinyl-glsl            == 0.1.1.0
+                        , vinyl-glsl            == 0.2.0.0
                         
                         , containers            == 0.5.*
                         , comonad               == 4.2.*
