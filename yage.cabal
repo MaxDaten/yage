@@ -28,10 +28,6 @@ Flag library-only
     Description:   Only the yage-lib
     Default:       True
 
-Flag perf
-    Description:   Enables optimizations
-    Default:       True 
-
 -------------------------------------------------------------------------------
 
 
@@ -107,7 +103,7 @@ library
                         
                         Yage.UI.Types
 
-  ghc-options:          -j8 -fno-warn-orphans
+  ghc-options:          -j4 -fno-warn-orphans
   ghc-prof-options:     -rtsopts -Wall -prof
 
 
