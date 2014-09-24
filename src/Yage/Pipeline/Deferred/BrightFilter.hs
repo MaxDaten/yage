@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Yage.Pipeline.Deferred.BrightFilter where
 
@@ -14,7 +14,7 @@ import Yage.Uniforms as U
 import Yage.Viewport
 import Yage.Scene
 import Yage.Material
-import Yage.TH.Shader
+import Yage.TH.Shader as GLSL
 
 import Yage.Rendering
 
@@ -27,13 +27,41 @@ type BrightTextures = '[ TextureUniform "TextureSampler0" ]
 
 type BrightPass     = YageTextureSampler SingleRenderTarget BrightUniforms BrightTextures
 
+
+-------------------------------------------------------------------------------
+-- | Fragment code
+fragmentProgram :: GLSL.ShaderSource FragmentShader
+fragmentProgram = [GLSL.yFragment|
+#version 410 core
+
+#include "pass/Sampling.frag"
+
+uniform float WhitePoint;
+
+layout (location = 0) out vec3 pixelColor;
+
+void main()
+{
+    vec3 texColor = texture( TextureSampler0, SamplingUV0 ).rgb;
+    vec3 color = vec3(0.0);
+
+    if (length(texColor) >= WhitePoint)
+    {
+        color = texColor;
+    }
+
+    pixelColor = color;
+}
+|]
+-------------------------------------------------------------------------------
+
+
 brightFilter :: Texture -> Float -> RenderSystem Texture
 brightFilter tex whitePoint =
     let target      = mkSingleTextureTarget $ tex & textureId <>~ "-brightPass"
-        fragment    = $(fragmentFile "res/glsl/pass/brightFilter.frag")
 
         brightDescr :: BrightPass
-        brightDescr = samplerPass "brightFilter" target (target^.asRectangle) fragment
+        brightDescr = samplerPass "brightFilter" target (target^.asRectangle) fragmentProgram
 
 
         frameData   :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize0", YWhitePoint ] BrightTextures

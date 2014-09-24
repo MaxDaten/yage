@@ -49,4 +49,4 @@ yDeferredLighting viewport scene =
     --guiTex <- return $ mkTexture "BLACKDUMMY" $ Texture2D $ blackDummy TexRGB8
 
     -- bring it to the default render target - the screen
-    Pass.runScreenPass viewport [ hdrTex, guiTex ]
+    Pass.screenPass viewport [ hdrTex, guiTex ]

@@ -28,8 +28,8 @@ type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUnifor
 
 -------------------------------------------------------------------------------
 -- | Fragment code
-fragmentProgram :: GLSL.ShaderSource FragmentShader
-fragmentProgram = [GLSL.yFragment|
+downFragmentProgram :: GLSL.ShaderSource FragmentShader
+downFragmentProgram = [GLSL.yFragment|
 #version 410 core
 
 #include "pass/Sampling.frag"
@@ -64,7 +64,7 @@ downsampleBoxed5x5 downfactor toDownsample =
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
 
         downsampleDescr :: DownsamplePass
-        downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) fragmentProgram
+        downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) downFragmentProgram
 
 
         downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize0"] '[ TextureUniform "TextureSampler0" ]
