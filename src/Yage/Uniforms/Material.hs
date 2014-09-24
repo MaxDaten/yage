@@ -52,6 +52,8 @@ type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 type YAddTex            = YMaterialTex "AddTexture"
 type YWhitePoint        = "WhitePoint" ::: GLfloat
 
+type YStepDirection     = "step" ::: V2 GLfloat
+
 materialColor :: KnownSymbol c => SField (YMaterialColor c)
 materialColor = SField
 
@@ -72,6 +74,9 @@ textureSizeField tex =
 
 whitePoint :: SField YWhitePoint
 whitePoint = SField
+
+stepDirection :: SField YStepDirection
+stepDirection = SField
 
 {--
 Utility

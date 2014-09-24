@@ -116,7 +116,7 @@ void main()
 
     texColor     *= Exposure;
 
-    vec3 color = ToneMapping( ExposureBias + texColor );
+    vec3 color = 2.0 * ToneMapping( ExposureBias + texColor );
     vec3 whiteScale = 1.0f / ToneMapping(vec3(WhitePoint));
 
 
@@ -125,7 +125,7 @@ void main()
     pixelColor = clamp( color, 0, 1 );
 }
 |]
--------------------------------------------------------------------------------
+-- ============================================================================
 
 runToneMapPass :: Texture -> YageRenderSystem HDRCamera Texture
 runToneMapPass texture viewport camera =
