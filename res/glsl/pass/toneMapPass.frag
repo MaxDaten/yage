@@ -3,9 +3,12 @@
 // http://http.download.nvidia.com/developer/presentations/2004/6800_Leagues/6800_Leagues_HDR.pdf
 // http://filmicgames.com/archives/75
 
+#include "Sampling.frag"
 
-uniform sampler2D ToneTexture;
-uniform vec4 TextureSize;
+// 0: LinearToneMapping
+// 1: ReinhardToneMapping
+// 2: Uncharted2ToneMapping
+#define TONE_MAPPING_TYPE 2
 
 uniform float InverseGamma  = 1.0 / 2.2;
 uniform float Exposure      = 1.0;
@@ -19,19 +22,18 @@ const float D = 0.20;
 const float E = 0.02;
 const float F = 0.30;
 
-in vec2 VertexUV;
 layout (location = 0) out vec3 pixelColor;
 
 //------------------------------------
 
-vec3 pow3(vec3 x, float y)
+vec4 ToneColor( void ) 
 {
-    return vec3(pow(x.r, y), pow(x.g, y), pow(x.b, y));
+    return texture( TextureSampler0, SamplingUV0 );
 }
 
 vec3 inverseGamma(vec3 x)
 {
-    return pow3(x, InverseGamma);
+    return pow(x, vec3(InverseGamma));
 }
 
 vec3 LinearToneMapping(vec3 color)
@@ -52,15 +54,18 @@ vec3 Uncharted2ToneMapping(vec3 color)
 
 vec3 ToneMapping(vec3 color)
 {
-    // return LinearToneMapping(color);
-    // return ReinhardToneMapping(color);
+#if     TONE_MAPPING_TYPE == 0
+    return LinearToneMapping(color);
+#elif   TONE_MAPPING_TYPE == 1
+    return ReinhardToneMapping(color);
+#elif   TONE_MAPPING_TYPE == 2
     return Uncharted2ToneMapping(color);
+#endif
 }
 
 void main()
 {
-    TextureSize;
-    vec3 texColor = texture( ToneTexture, VertexUV ).rgb;
+    vec3 texColor = ToneColor().rgb;
 
     texColor     *= Exposure;
 

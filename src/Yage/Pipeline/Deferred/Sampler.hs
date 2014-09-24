@@ -29,7 +29,7 @@ samplerPass debugName target targetRectangle fragSampler =
                                               ]
                         }
         samplerVert :: ShaderSource VertexShader
-        samplerVert = $(vertexFile "res/glsl/pass/renderToRect.vert")
+        samplerVert = $(vertexFile "res/glsl/pass/Sampling.vert")
     in passPreset target targetRectangle $ ShaderUnit shaderRes
 
 

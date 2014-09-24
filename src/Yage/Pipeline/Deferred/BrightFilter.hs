@@ -22,8 +22,8 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type BrightUniforms = [ YProjectionMatrix, YTextureSize "TextureSize", YWhitePoint, YModelMatrix ]
-type BrightTextures = '[ TextureUniform "FilterTexture" ]
+type BrightUniforms = [ YProjectionMatrix, YTextureSize "TextureSize0", YWhitePoint, YModelMatrix ]
+type BrightTextures = '[ TextureUniform "TextureSampler0" ]
 
 type BrightPass     = YageTextureSampler SingleRenderTarget BrightUniforms BrightTextures
 
@@ -31,12 +31,12 @@ brightFilter :: Texture -> Float -> RenderSystem Texture
 brightFilter tex whitePoint =
     let target      = mkSingleTextureTarget $ tex & textureId <>~ "-brightPass"
         fragment    = $(fragmentFile "res/glsl/pass/brightFilter.frag")
-        
+
         brightDescr :: BrightPass
         brightDescr = samplerPass "brightFilter" target (target^.asRectangle) fragment
-        
 
-        frameData   :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize", YWhitePoint ] BrightTextures
+
+        frameData   :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize0", YWhitePoint ] BrightTextures
         frameData   = singleTextureSampler (target^.asRectangle) tex
                         & shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
 
@@ -48,7 +48,7 @@ brightFilter tex whitePoint =
 
 
 
-instance Implicit (FieldNames '[ TextureUniform "FilterTexture" ]) where
-    implicitly = SField =: "FilterTexture"
+instance Implicit (FieldNames BrightTextures) where
+    implicitly = SField =: "TextureSampler0"
 
 

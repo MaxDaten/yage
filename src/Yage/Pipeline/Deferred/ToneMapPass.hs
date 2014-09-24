@@ -26,7 +26,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 newtype Tone = Tone (Viewport Int)
 
 type ScrPerFrameUni    = [ YProjectionMatrix
-                         , YTextureSize "TextureSize"
+                         , YTextureSize "TextureSize0"
                          , YExposure
                          , YExposureBias
                          , YInverseGamma
@@ -35,7 +35,7 @@ type ScrPerFrameUni    = [ YProjectionMatrix
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ToneUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ToneTex    = '[ TextureUniform "ToneTexture" ]
+type ToneTex    = '[ TextureUniform "TextureSampler0" ]
 
 type ToneShader = Shader ToneUni ToneTex ScrVertex
 
@@ -54,7 +54,7 @@ runToneMapPass texture viewport camera =
 
 toneMapPass :: Viewport Int -> TonePass
 toneMapPass viewport =
-    let fragment = $(fragmentFile "res/glsl/pass/toneMapPass.frag")
+    let fragment = $(fragmentFile "res/glsl/pass/ToneMapPass.frag")
         sampler = samplerPass "Yage.ToneMap" target (viewport^.rectangle) fragment
     in sampler & passPreRendering .~ preRender
 
@@ -100,5 +100,5 @@ toneMapData texture viewport hdr =
 
 instance (Implicit (FieldNames ToneTex)) where
     implicitly =
-        SField =: "ToneTexture"
+        SField =: "TextureSampler0"
 

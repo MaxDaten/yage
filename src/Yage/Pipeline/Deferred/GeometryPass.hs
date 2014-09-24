@@ -137,12 +137,6 @@ instance Default (GeoMaterial TextureResource) where
     def = defaultGeoMaterial
 
 
---instance Applicative GeoMaterial where
---    pure mat = GeoMaterial (pure mat)
---                           (pure mat)
---                           (pure mat)
---    GeoMaterial f g e <*> GeoMaterial m n o = GeoMaterial (f m) (g n) (e o)
-
 
 instance HasResources vert (GeoMaterial TextureResource) (GeoMaterial Texture) where
     requestResources = mapM requestResources

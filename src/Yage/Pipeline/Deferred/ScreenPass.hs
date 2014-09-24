@@ -30,8 +30,8 @@ type ScrPerFrameUni    = [ YProjectionMatrix
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ScreenUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ScreenTex    = [ TextureUniform "ScreenTexture0"
-                    , TextureUniform "ScreenTexture1"
+type ScreenTex    = [ TextureUniform "TextureSampler0"
+                    , TextureUniform "TextureSampler1"
                     ]
 
 type ScreenShader = Shader ScreenUni ScreenTex ScrVertex
@@ -48,7 +48,7 @@ runScreenPass viewport textures =
 
 screenPass :: Viewport Int -> ScreenPass
 screenPass viewport =
-    let fragment = $(fragmentFile "res/glsl/pass/screenPass.frag")
+    let fragment = $(fragmentFile "res/glsl/pass/ScreenPass.frag")
         sampler = samplerPass "Yage.ScreenPass" defaultRenderTarget (viewport^.rectangle) fragment
     in sampler & passPreRendering .~ preRender
 
@@ -82,6 +82,6 @@ screenFrameData _ _ = error "invalid texture argument count"
 
 instance (Implicit (FieldNames ScreenTex)) where
     implicitly =
-        SField =: "ScreenTexture0" <+>
-        SField =: "ScreenTexture1"
+        SField =: "TextureSampler0" <+>
+        SField =: "TextureSampler1"
 

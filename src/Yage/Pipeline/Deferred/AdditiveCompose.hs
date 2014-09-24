@@ -23,12 +23,12 @@ import Yage.Pipeline.Deferred.Sampler
 
 
 type AddUniforms = [ YProjectionMatrix
-                   , YTextureSize "BaseTextureSize"
-                   , YTextureSize "AddTextureSize"
                    , "BaseWeight" ::: GLfloat
                    , "AddWeight" ::: GLfloat
                    ]
-type AddTextures = [ TextureUniform "BaseTexture", TextureUniform "AddTexture" ]
+type AddTextures = [ TextureUniform "TextureSampler0"
+                   , TextureUniform "TextureSampler1"
+                   ]
 type AddFrameData = ShaderData AddUniforms AddTextures
 
 type AdditiveShader = Shader (AddUniforms ++ '[YModelMatrix]) AddTextures TargetVertex
@@ -36,22 +36,24 @@ type AdditiveComposePass = YageDeferredPass SingleRenderTarget AdditiveShader
 
 
 -- | inplace additive
--- adds second argument texture to first argument 
+-- adds second argument texture to first argument
 additiveCompose :: (Float, Texture) -> (Float, Texture) -> RenderSystem Texture
 additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
     let target          = mkSingleTextureTarget $ baseTex & textureId <>~ ("+" ++ toAdd^.textureId)
-        
+
         fragment        = $(fragmentFile "res/glsl/pass/addCompose.frag")
-        
+
         additiveDescr   :: AdditiveComposePass
         additiveDescr   = samplerPass "Yage.AdditiveCompose" target (target^.asRectangle) fragment
 
         frameData       :: AddFrameData
-        frameData       = (targetRectangleData (target^.asRectangle) `append`
-                          sampleData baseTex `append`
-                          sampleData toAdd) & shaderUniforms <<+>~ weights
+        frameData       = targetRectangleData (target^.asRectangle)
+                            & shaderTextures <<+>~ (SField =: baseTex)
+                            & shaderTextures <<+>~ (SField =: toAdd)
+                            & shaderUniforms <<+>~ weights
 
-        weights         = SField =: realToFrac baseWeight <+> SField =: realToFrac addWeight
+        weights         = SField =: realToFrac baseWeight <+>
+                          SField =: realToFrac addWeight
 
         additivePass    = runRenderPass additiveDescr
     in do
@@ -59,6 +61,6 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
         return $ target^.targetTexture
 
 instance Implicit ( FieldNames AddTextures ) where
-    implicitly = 
-        SField =: "BaseTexture" <+>
-        SField =: "AddTexture"
+    implicitly =
+        SField =: "TextureSampler0" <+>
+        SField =: "TextureSampler1"
