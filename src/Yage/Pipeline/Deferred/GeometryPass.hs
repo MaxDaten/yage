@@ -79,7 +79,7 @@ geoPass viewport =
     where
 
     shaderProg = ShaderProgramUnit
-                 { _shaderName       = "GeometryPas.hs"
+                 { _shaderName       = "GeometryPass.hs"
                  , _shaderSources    = [ $(vertexFile "res/glsl/pass/geoPass.vert")^.shaderSource
                                        , $(fragmentFile "res/glsl/pass/geoPass.frag")^.shaderSource
                                        ]
