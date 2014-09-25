@@ -16,13 +16,12 @@ import Yage.Scene
 import Yage.Material
 import Yage.Pipeline.Types
 
-import qualified Yage.Pipeline.Deferred.LightPass       as L
-import qualified Yage.Pipeline.Deferred.GeometryPass    as G
-import qualified Yage.Pipeline.Deferred.DownsamplePass  as D
-import qualified Yage.Pipeline.Deferred.SkyPass         as S
-import qualified Yage.Pipeline.Deferred.AdditiveCompose as A
-import qualified Yage.Pipeline.Deferred.BrightFilter    as B
-import qualified Yage.Pipeline.Deferred.ToneMapPass     as T
+import qualified Yage.Pipeline.Deferred.LightPass             as L
+import qualified Yage.Pipeline.Deferred.GeometryPass          as G
+import qualified Yage.Pipeline.Deferred.SkyPass               as S
+import qualified Yage.Pipeline.Deferred.AdditiveCompose       as A
+import qualified Yage.Pipeline.Deferred.GlareDetectionPass    as Glare
+import qualified Yage.Pipeline.Deferred.ToneMapPass           as T
 import Yage.Pipeline.Deferred.GaussFilter
 
 
@@ -48,9 +47,11 @@ hdrLightingPass geometryPass viewport scene =
         lightData `lightPass` ( L.toLitEntity <$> lights )
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
-        bloomedTex      <- B.brightFilter lightTex ( scene^.sceneCamera.hdrWhitePoint )
-                          >>= D.downsampleBoxed5x5 ( bloomSettings^.bloomPreDownsampling )
-                          >>= bloomPass ( bloomSettings^.bloomGaussPasses )
+        bloomedTex      <- Glare.glareDetection
+                                ( bloomSettings^.bloomPreDownsampling )
+                                ( scene^.sceneCamera.hdrExposure )
+                                ( bloomSettings^.bloomThreshold ) lightTex
+                                >>= bloomPass ( bloomSettings^.bloomGaussPasses )
 
         toneMap =<< (1.0, lightTex) `A.additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
 

@@ -1,11 +1,15 @@
 #ifndef __SAMPLING__
 #define __SAMPLING__
 
-const int N_SAMPLES = 6;
+#include "GlobalDefs.glsl"
 
-uniform sampler2D TextureSamplers [ N_SAMPLES ];
-uniform vec4      TextureSize     [ N_SAMPLES ];
+// const int N_SAMPLES = 12;
 
-in      vec2      SamplingUV      [ N_SAMPLES ];
+uniform sampler2D TextureSamplers [ MAX_TEXTURES ];
+uniform vec4      TextureSize     [ MAX_TEXTURES ];
+uniform int       N_SAMPLES = 1;
+
+in      vec2      SamplingUV      [ MAX_TEXTURES ];
+
 
 #endif // __SAMPLING__

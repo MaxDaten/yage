@@ -86,6 +86,7 @@ library
                         Yage.Pipeline.Deferred.SkyPass
                         Yage.Pipeline.Deferred.ScreenPass
                         Yage.Pipeline.Deferred.DownsamplePass
+                        Yage.Pipeline.Deferred.GlareDetectionPass
                         Yage.Pipeline.Deferred.AdditiveCompose
                         Yage.Pipeline.Deferred.BrightFilter
                         Yage.Pipeline.Deferred.GaussFilter

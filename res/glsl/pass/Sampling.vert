@@ -1,14 +1,16 @@
 #version 410 core
 
+#include "GlobalDefs.glsl"
+
 in vec3 vPosition;
 in vec2 vTexture;
 
 uniform mat4 ProjMatrix     = mat4(0.0);
 uniform mat4 ModelMatrix    = mat4(0.0);
 
-const int N_SAMPLES = 6; // TODO : TO UNIFORM
+uniform int N_SAMPLES       = 1;
 
-out vec2 SamplingUV[ N_SAMPLES ];
+out vec2 SamplingUV[ MAX_TEXTURES ];
 out vec4 VertexPos;
 
 void main(void)
