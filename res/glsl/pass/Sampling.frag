@@ -1,17 +1,11 @@
 #ifndef __SAMPLING__
 #define __SAMPLING__
 
-uniform sampler2D   TextureSampler0;
-uniform vec4        TextureSize0    = vec4(0);
-in      vec2        SamplingUV0;
+const int N_SAMPLES = 6;
 
-uniform sampler2D   TextureSampler1;
-uniform vec4        TextureSize1    = vec4(0);
-in      vec2        SamplingUV1;
+uniform sampler2D TextureSamplers [ N_SAMPLES ];
+uniform vec4      TextureSize     [ N_SAMPLES ];
 
-uniform sampler2D   TextureSampler2;
-uniform vec4        TextureSize2    = vec4(0);
-in      vec2        SamplingUV2;
-
+in      vec2      SamplingUV      [ N_SAMPLES ];
 
 #endif // __SAMPLING__

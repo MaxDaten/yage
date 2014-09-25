@@ -20,10 +20,12 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 type DownsampleUniforms = [ YProjectionMatrix
-                          , YTextureSize "TextureSize0"
+                          , YTextureSize "TextureSize[0]"
                           , YModelMatrix
                           ]
-type DownsampleTextures = '[ TextureUniform "TextureSampler0" ]
+type DownsampleTextures = '[ TextureUniform "TextureSamplers[0]" ]
+
+type DownsampleFrameData= ShaderData [ YProjectionMatrix, YTextureSize "TextureSize[0]"] '[ TextureUniform "TextureSamplers[0]" ]
 type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUniforms DownsampleTextures
 
 -------------------------------------------------------------------------------
@@ -38,21 +40,21 @@ layout (location = 0) out vec3 pixelColor;
 
 void main()
 {
-    vec2 offset = TextureSize0.zw;
+    vec2 offset = TextureSize[0].zw;
     vec2 uv[4];
 
-    uv[0] = SamplingUV0 + offset * vec2(-1, -1);
-    uv[1] = SamplingUV0 + offset * vec2( 1, -1);
-    uv[2] = SamplingUV0 + offset * vec2(-1,  1);
-    uv[3] = SamplingUV0 + offset * vec2( 1,  1);
+    uv[0] = SamplingUV[0] + offset * vec2(-1, -1);
+    uv[1] = SamplingUV[0] + offset * vec2( 1, -1);
+    uv[2] = SamplingUV[0] + offset * vec2(-1,  1);
+    uv[3] = SamplingUV[0] + offset * vec2( 1,  1);
 
-    vec3 sampleColor = vec3(0);
+    vec3 sampleColor = texture( TextureSamplers[0], SamplingUV[0] ).rgb;
     for (uint i = 0; i < 4; ++i)
     {
-        sampleColor += texture( TextureSampler0, uv[i] ).rgb;
+        sampleColor += texture( TextureSamplers[0], uv[i] ).rgb;
     }
 
-    pixelColor = sampleColor * 0.25;
+    pixelColor = sampleColor * 0.2;
 }
 |]
 -------------------------------------------------------------------------------
@@ -67,7 +69,7 @@ downsampleBoxed5x5 downfactor toDownsample =
         downsampleDescr = samplerPass "Yage.DownsamplePass" target (target^.asRectangle) downFragmentProgram
 
 
-        downsampleData :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize0"] '[ TextureUniform "TextureSampler0" ]
+        downsampleData :: DownsampleFrameData
         downsampleData = targetRectangleData (target^.asRectangle) `append`
                          sampleData toDownsample
 
@@ -77,5 +79,5 @@ downsampleBoxed5x5 downfactor toDownsample =
         return $ target^.targetTexture
 
 
-instance Implicit (FieldNames '[ TextureUniform "TextureSampler0" ]) where
-    implicitly = SField =: "TextureSampler0"
+instance Implicit (FieldNames DownsampleTextures) where
+    implicitly = SField =: "TextureSamplers[0]"

@@ -18,8 +18,9 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type GaussUniforms  = [ YProjectionMatrix, YTextureSize "TextureSize0", YStepDirection ]
-type GaussTextures  = '[ TextureUniform "TextureSampler0" ]
+type GaussUniforms  = [ YProjectionMatrix, YStepDirection ]
+type GaussTextures  = '[ TextureUniform "TextureSamplers[0]" ]
+
 type GaussFrameData = ShaderData GaussUniforms GaussTextures
 type GaussShader    = Shader ( GaussUniforms ++ '[ YModelMatrix ] ) GaussTextures TargetVertex
 type GaussPass      = YageDeferredPass SingleRenderTarget GaussShader
@@ -27,8 +28,8 @@ type GaussPass      = YageDeferredPass SingleRenderTarget GaussShader
 
 -------------------------------------------------------------------------------
 -- | Fragment code
-gaussFragmentProgram :: GLSL.ShaderSource FragmentShader
-gaussFragmentProgram = [GLSL.yFragment|
+gaussBlurFragmentProgram :: GLSL.ShaderSource FragmentShader
+gaussBlurFragmentProgram = [GLSL.yFragment|
 #version 410 core
 // http://rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
 
@@ -52,7 +53,7 @@ void main()
 {
     vec4 texColor = vec4(0);
     for (int i = 0; i < int(n); i++) {
-        texColor += texture( TextureSampler0, SamplingUV0 + offsets[i] * step);
+        texColor += texture( TextureSamplers[0], SamplingUV[0] + offsets[i] * step);
     }
     pixelColor = texColor.rgb / n;
 }
@@ -67,14 +68,16 @@ gaussFilter toSample =
                                              ( toSample^.textureSpec )
 
         xPass, yPass :: GaussPass
-        xPass       = samplerPass "Yage.GaussX" targetX (targetX^.asRectangle) gaussFragmentProgram
-        yPass       = samplerPass "Yage.GaussY" targetY (targetY^.asRectangle) gaussFragmentProgram
+        xPass       = samplerPass "Yage.GaussX" targetX (targetX^.asRectangle) gaussBlurFragmentProgram
+        yPass       = samplerPass "Yage.GaussY" targetY (targetY^.asRectangle) gaussBlurFragmentProgram
 
         -- xData, yData :: SingleSamplerData "TextureSize0" "TextureSampler0"
         xData, yData :: GaussFrameData
-        xData       = singleTextureSampler (targetX^.asRectangle) toSample
+        xData       = targetRectangleData (targetX^.asRectangle)
+                        & shaderTextures <<+>~ SField =: toSample
                         & shaderUniforms <<+>~ stepDirection =: V2 1 0
-        yData       = singleTextureSampler (targetY^.asRectangle) (targetX^.targetTexture)
+        yData       = targetRectangleData (targetY^.asRectangle)
+                        & shaderTextures <<+>~ SField =: (targetX^.targetTexture)
                         & shaderUniforms <<+>~ stepDirection =: V2 0 1
 
     in do
@@ -84,4 +87,4 @@ gaussFilter toSample =
 
 
 instance Implicit (FieldNames GaussTextures) where
-    implicitly = SField =: "TextureSampler0"
+    implicitly = SField =: "TextureSamplers[0]"

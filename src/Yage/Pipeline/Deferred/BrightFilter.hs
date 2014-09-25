@@ -22,9 +22,10 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type BrightUniforms = [ YProjectionMatrix, YTextureSize "TextureSize0", YWhitePoint, YModelMatrix ]
-type BrightTextures = '[ TextureUniform "TextureSampler0" ]
+type BrightUniforms = [ YProjectionMatrix, YWhitePoint, YModelMatrix ]
+type BrightTextures = '[ TextureUniform "TextureSamplers[0]" ]
 
+type BrightFrameData=ShaderData [ YProjectionMatrix, YWhitePoint ] BrightTextures
 type BrightPass     = YageTextureSampler SingleRenderTarget BrightUniforms BrightTextures
 
 
@@ -42,7 +43,7 @@ layout (location = 0) out vec3 pixelColor;
 
 void main()
 {
-    vec3 texColor = texture( TextureSampler0, SamplingUV0 ).rgb;
+    vec3 texColor = texture( TextureSamplers[0], SamplingUV[0] ).rgb;
     vec3 color = vec3(0.0);
 
     if (length(texColor) >= WhitePoint)
@@ -64,8 +65,9 @@ brightFilter tex whitePoint =
         brightDescr = samplerPass "brightFilter" target (target^.asRectangle) fragmentProgram
 
 
-        frameData   :: ShaderData [ YProjectionMatrix, YTextureSize "TextureSize0", YWhitePoint ] BrightTextures
-        frameData   = singleTextureSampler (target^.asRectangle) tex
+        frameData   :: BrightFrameData
+        frameData   = targetRectangleData (target^.asRectangle)
+                        & shaderTextures <<+>~ (SField =: tex)
                         & shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
 
         brightPass  = runRenderPass brightDescr
@@ -77,6 +79,6 @@ brightFilter tex whitePoint =
 
 
 instance Implicit (FieldNames BrightTextures) where
-    implicitly = SField =: "TextureSampler0"
+    implicitly = SField =: "TextureSamplers[0]"
 
 

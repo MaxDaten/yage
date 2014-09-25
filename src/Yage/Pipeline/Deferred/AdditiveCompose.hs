@@ -26,8 +26,8 @@ type AddUniforms = [ YProjectionMatrix
                    , "BaseWeight" ::: GLfloat
                    , "AddWeight" ::: GLfloat
                    ]
-type AddTextures = [ TextureUniform "TextureSampler0"
-                   , TextureUniform "TextureSampler1"
+type AddTextures = [ TextureUniform "TextureSamplers[0]"
+                   , TextureUniform "TextureSamplers[1]"
                    ]
 type AddFrameData = ShaderData AddUniforms AddTextures
 
@@ -49,8 +49,8 @@ layout (location = 0) out vec3 pixelColor;
 
 void main()
 {
-    vec3 texColor = BaseWeight * texture( TextureSampler0, SamplingUV0 ).rgb;
-    texColor     += AddWeight  * texture( TextureSampler1, SamplingUV1 ).rgb;
+    vec3 texColor = BaseWeight * texture( TextureSamplers[0], SamplingUV[0] ).rgb;
+    texColor     += AddWeight  * texture( TextureSamplers[1], SamplingUV[1] ).rgb;
 
     pixelColor = texColor;
 }
@@ -83,5 +83,5 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
 
 instance Implicit ( FieldNames AddTextures ) where
     implicitly =
-        SField =: "TextureSampler0" <+>
-        SField =: "TextureSampler1"
+        SField =: "TextureSamplers[0]" <+>
+        SField =: "TextureSamplers[1]"

@@ -23,15 +23,12 @@ import qualified Graphics.Rendering.OpenGL          as GL
 
 newtype Screen = Screen (Viewport Int)
 
-type ScrPerFrameUni    = [ YProjectionMatrix
-                         , YTextureSize "TextureSize0"
-                         , YTextureSize "TextureSize1"
-                         ]
+type ScrPerFrameUni    = '[ YProjectionMatrix ]
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ScreenUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ScreenTex    = [ TextureUniform "TextureSampler0"
-                    , TextureUniform "TextureSampler1"
+type ScreenTex    = [ TextureUniform "TextureSamplers[0]"
+                    , TextureUniform "TextureSamplers[1]"
                     ]
 
 type ScreenShader = Shader ScreenUni ScreenTex ScrVertex
@@ -47,14 +44,12 @@ screenFragmentProgram = [GLSL.yFragment|
 
 #include "pass/Sampling.frag"
 
-in vec2 SamplingUV;
 layout (location = 0) out vec3 pixelColor;
-
 
 void main(void)
 {
-    vec3 baseColor = texture( TextureSampler0, SamplingUV0 ).rgb;
-    vec4 addColor  = texture( TextureSampler1, SamplingUV1 );
+    vec3 baseColor = texture( TextureSamplers[0], SamplingUV[0] ).rgb;
+    vec4 addColor  = texture( TextureSamplers[1], SamplingUV[1] );
     vec3 outColor  = mix( baseColor, addColor.rgb, addColor.a );
 
     pixelColor = clamp(outColor, 0, 1);
@@ -92,14 +87,14 @@ screenPass viewport textures =
 
     screenFrameData :: [ Texture ] -> ShaderData ScrPerFrameUni ScreenTex
     screenFrameData (tex0:tex1:[]) =
-        targetRectangleData (viewport^.rectangle) `append`
-        sampleData tex0 `append`
-        sampleData tex1
+        targetRectangleData (viewport^.rectangle)
+            & shaderTextures <<+>~ SField =: tex0
+            & shaderTextures <<+>~ SField =: tex1
     screenFrameData _ = error "invalid texture argument count"
 
 
 instance (Implicit (FieldNames ScreenTex)) where
     implicitly =
-        SField =: "TextureSampler0" <+>
-        SField =: "TextureSampler1"
+        SField =: "TextureSamplers[0]" <+>
+        SField =: "TextureSamplers[1]"
 

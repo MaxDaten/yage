@@ -3,7 +3,8 @@
 
 import Yage.Prelude
 import Yage.Core.Application
-import Yage.Rendering.Shader
+import Yage.Rendering.Shader as Shader
+import qualified Data.Map.Strict as M
 
 import Filesystem.Path
 
@@ -31,19 +32,29 @@ main = do
     execApplication "ShaderTool" config $ do
         win <- createWindowWithHints hints 800 600 "Context Window"
         withWindowAsCurrent win $ \w -> do
-            prog <- io $ GL.loadShaderProgram $ map shaderPairs [ shaderFile0, shaderFile1 ]
+            prog <- io $ Shader.loadShaderProgram =<< mapM shaderPairs [ shaderFile0, shaderFile1 ]
             printTF "loaded Shader:\n0: {}\n1: {}\n{}\n\n" ( Shown shaderFile0
                                                            , Shown shaderFile1
                                                            , Shown prog
                                                            )
+            print "attributes:"
+            mapM_ printField (M.toList $ GL.attribs prog)
+            print "uniforms:"
+            mapM_ printField (M.toList $ GL.uniforms prog)
+            let glProg = GL.program prog
+            unis <- io $ GL.get (GL.activeUniforms glProg)
+            io $ print unis
         destroyWindow win
 
     where
 
-    shaderPairs :: FilePath -> (GL.ShaderType, String)
+    printField (name, (loc, t)) =
+        printTF "{}:{}:{}\n" (Shown loc, Shown name, Shown t)
+
+    shaderPairs :: FilePath -> IO (GL.ShaderType, ByteString)
     shaderPairs fp =
         case extension fp of
-            Just "vert" -> (GL.VertexShader, fpToString fp)
-            Just "frag" -> (GL.FragmentShader, fpToString fp)
+            Just "vert" -> (GL.VertexShader,) <$> readFile fp
+            Just "frag" -> (GL.FragmentShader,) <$> readFile fp
             Just ext    -> error $ "invalid shader extension" ++ show ext ++ ". Onnly .vert and .frag accepted"
             Nothing     -> error "shaderfile without extension"

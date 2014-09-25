@@ -26,7 +26,6 @@ import qualified Graphics.Rendering.OpenGL as GL
 newtype Tone = Tone (Viewport Int)
 
 type ScrPerFrameUni    = [ YProjectionMatrix
-                         , YTextureSize "TextureSize0"
                          , YExposure
                          , YExposureBias
                          , YInverseGamma
@@ -35,7 +34,7 @@ type ScrPerFrameUni    = [ YProjectionMatrix
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ToneUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ToneTex    = '[ TextureUniform "TextureSampler0" ]
+type ToneTex    = '[ TextureUniform "TextureSamplers[0]" ]
 
 type ToneShader = Shader ToneUni ToneTex ScrVertex
 
@@ -69,7 +68,7 @@ layout (location = 0) out vec3 pixelColor;
 
 vec4 ToneColor( void )
 {
-    return texture( TextureSampler0, SamplingUV0 );
+    return texture( TextureSamplers[0], SamplingUV[0] );
 }
 
 vec3 inverseGamma(vec3 x)
@@ -163,10 +162,9 @@ runToneMapPass texture viewport camera =
             GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
     toneData :: ShaderData ScrPerFrameUni ToneTex
-    toneData =
-        let shData = targetRectangleData (viewport^.rectangle) `append`
-                     sampleData texture
-        in shData & shaderUniforms <<+>~ toneUniforms
+    toneData = targetRectangleData (viewport^.rectangle)
+                    & shaderTextures <<+>~ SField =: texture
+                    & shaderUniforms <<+>~ toneUniforms
 
         where
 
@@ -181,5 +179,5 @@ runToneMapPass texture viewport camera =
 
 instance (Implicit (FieldNames ToneTex)) where
     implicitly =
-        SField =: "TextureSampler0"
+        SField =: "TextureSamplers[0]"
 

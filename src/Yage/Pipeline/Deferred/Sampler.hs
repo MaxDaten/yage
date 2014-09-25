@@ -32,8 +32,7 @@ samplerPass debugName target targetRectangle fragSampler =
         samplerVert = $(vertexFile "res/glsl/pass/Sampling.vert")
     in passPreset target targetRectangle $ ShaderUnit shaderRes
 
-
-sampleData :: (KnownSymbol size, KnownSymbol sampler) => Texture -> SamplerData size sampler
+sampleData :: ( KnownSymbol size, KnownSymbol sampler ) => Texture -> SamplerData size sampler
 sampleData toSample =
     ShaderData (textureSizeField toSample) (SField =: toSample)
 
