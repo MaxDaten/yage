@@ -118,10 +118,10 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
-        materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
-        materialTexture =: (gNormalChannel $ renderTargets base)    <+>
-        materialTexture =: (gDepthChannel  $ renderTargets base)    <+>
-        materialTexture =: (extract $ envMat^.matTexture)
+        textureSampler =: (gAlbedoChannel $ renderTargets base)    <+>
+        textureSampler =: (gNormalChannel $ renderTargets base)    <+>
+        textureSampler =: (gDepthChannel  $ renderTargets base)    <+>
+        textureSampler =: (extract $ envMat^.matTexture)
 
 
 
@@ -170,11 +170,3 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 
-
-
-instance Implicit (FieldNames LitPerFrameTex) where
-    implicitly =
-        SField =: "AlbedoTexture" <+>
-        SField =: "NormalTexture" <+>
-        SField =: "DepthTexture"  <+>
-        SField =: "EnvironmentCubeMap"

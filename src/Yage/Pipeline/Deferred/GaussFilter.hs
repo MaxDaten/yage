@@ -18,8 +18,8 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type GaussUniforms  = [ YProjectionMatrix, YStepDirection ]
-type GaussTextures  = '[ TextureUniform "TextureSamplers[0]" ]
+type GaussUniforms  = [ YProjectionMatrix, YTextureSize "TextureSize[0]", YStepDirection ]
+type GaussTextures  = '[ TextureSampler "TextureSamplers[0]" ]
 
 type GaussFrameData = ShaderData GaussUniforms GaussTextures
 type GaussShader    = Shader ( GaussUniforms ++ '[ YModelMatrix ] ) GaussTextures TargetVertex
@@ -35,7 +35,7 @@ gaussBlurFragmentProgram = [GLSL.yFragment|
 
 #include "pass/Sampling.frag"
 
-uniform vec2 step;
+uniform vec2 Direction;
 
 #define GAUSS_SAMPLES 13
 
@@ -52,6 +52,7 @@ layout (location = 0) out vec3 pixelColor;
 void main()
 {
     vec4 texColor = vec4(0);
+    vec2 step = Direction * TextureSize[0].zw;
     for (int i = 0; i < int(n); i++) {
         texColor += texture( TextureSamplers[0], SamplingUV[0] + offsets[i] * step);
     }
@@ -60,31 +61,25 @@ void main()
 |]
 -------------------------------------------------------------------------------
 
-gaussFilter :: Texture -> RenderSystem Texture
-gaussFilter toSample =
-    let targetX     = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussX" )
-                                             ( toSample^.textureSpec )
-        targetY     = mkSingleTargetFromSpec ( toSample^.textureId ++ "gaussY" )
-                                             ( toSample^.textureSpec )
-
-        xPass, yPass :: GaussPass
-        xPass       = samplerPass "Yage.GaussX" targetX (targetX^.asRectangle) gaussBlurFragmentProgram
-        yPass       = samplerPass "Yage.GaussY" targetY (targetY^.asRectangle) gaussBlurFragmentProgram
+gaussFilter :: Texture -> (RenderTarget SingleRenderTarget, RenderTarget SingleRenderTarget) -> RenderSystem Texture
+gaussFilter toSample (xTarget, yTarget) =
+    let xPass, yPass :: GaussPass
+        xPass       = samplerPass "Yage.GaussX" xTarget (xTarget^.asRectangle) gaussBlurFragmentProgram
+        yPass       = samplerPass "Yage.GaussY" yTarget (yTarget^.asRectangle) gaussBlurFragmentProgram
 
         -- xData, yData :: SingleSamplerData "TextureSize0" "TextureSampler0"
         xData, yData :: GaussFrameData
-        xData       = targetRectangleData (targetX^.asRectangle)
-                        & shaderTextures <<+>~ SField =: toSample
-                        & shaderUniforms <<+>~ stepDirection =: V2 1 0
-        yData       = targetRectangleData (targetY^.asRectangle)
-                        & shaderTextures <<+>~ SField =: (targetX^.targetTexture)
-                        & shaderUniforms <<+>~ stepDirection =: V2 0 1
+        xData       = targetRectangleData (xTarget^.asRectangle)
+                        & shaderUniforms <<+>~ textureSizeField (xTarget^.targetTexture) <+>
+                                               stepDirection =: V2 1 0
+                        & shaderTextures <<+>~ textureSampler =: toSample
+        yData       = targetRectangleData (yTarget^.asRectangle)
+                        & shaderUniforms <<+>~ textureSizeField (yTarget^.targetTexture) <+>
+                                               stepDirection =: V2 0 1
+                        & shaderTextures <<+>~ textureSampler =: (xTarget^.targetTexture)
 
     in do
-        runRenderPass xPass xData [ targetEntity targetX ]
-        runRenderPass yPass yData [ targetEntity targetY ]
-        return $ targetY^.targetTexture
+        runRenderPass xPass xData [ targetEntity xTarget ]
+        runRenderPass yPass yData [ targetEntity yTarget ]
+        return $ yTarget^.targetTexture
 
-
-instance Implicit (FieldNames GaussTextures) where
-    implicitly = SField =: "TextureSamplers[0]"

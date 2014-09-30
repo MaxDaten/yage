@@ -23,7 +23,7 @@ type YMaterialUni c m   = [ YMaterialColor c, YTextureMatrix m ]
 
 type YMaterialColor c   = (c::Symbol) ::: V4 GLfloat
 type YMaterialIntensity c = (c::Symbol) ::: V1 GLfloat
-type YMaterialTex t     = TextureUniform t
+type YMaterialTex t     = TextureSampler t
 type YTextureMatrix m   = (m::Symbol) ::: M44 GLfloat
 
 type YTextureSize t     = (t::Symbol) ::: V4 GLfloat
@@ -52,7 +52,7 @@ type YSkyData           = YMaterialData YSkyMaterial YSkyTex
 type YAddTex            = YMaterialTex "AddTexture"
 type YWhitePoint        = "WhitePoint" ::: GLfloat
 
-type YStepDirection     = "step" ::: V2 GLfloat
+type YStepDirection     = "Direction" ::: V2 GLfloat
 
 materialColor :: KnownSymbol c => SField (YMaterialColor c)
 materialColor = SField
@@ -60,8 +60,11 @@ materialColor = SField
 materialIntensity :: KnownSymbol c => SField (YMaterialIntensity c)
 materialIntensity = SField
 
-materialTexture :: KnownSymbol t => SField (TextureUniform t)
-materialTexture = SField
+textureSampler :: KnownSymbol t => SField (TextureSampler t)
+textureSampler = SField
+
+textureArray :: KnownSymbol t => SField (TextureArray t)
+textureArray = SField
 
 textureMatrix :: KnownSymbol m => SField (YTextureMatrix m)
 textureMatrix = SField
@@ -86,7 +89,7 @@ materialUniformsColor :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => Render
 materialUniformsColor mat =
     let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
               textureMatrix   =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
-        tex = materialTexture =: (extract $ mat^.matTexture)
+        tex = textureSampler =: (extract $ mat^.matTexture)
     in ShaderData col tex
 
 
@@ -94,5 +97,5 @@ materialUniformsIntensity :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => Re
 materialUniformsIntensity mat =
     let intensity = materialIntensity   =: ( realToFrac <$> V1 ( mat^.matColor ) ) <+>
                     textureMatrix       =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
-        tex = materialTexture =: ( extract $ mat^.matTexture)
+        tex = textureSampler =: ( extract $ mat^.matTexture)
     in ShaderData intensity tex

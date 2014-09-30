@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE KindSignatures   #-}
 module Yage.Pipeline.Deferred.Sampler where
 
 import Yage.Prelude
@@ -14,9 +15,18 @@ import Yage.Rendering hiding (ShaderSource)
 import Yage.TH.Shader
 import Yage.Pipeline.Deferred.Common
 
-type SingleSamplerData size tex = ShaderData [YProjectionMatrix, YTextureSize size] '[ TextureUniform tex ]
+type YNumSamples = "N_SAMPLES" ::: GLint
+type YSampleWeights s = (s::Symbol) ::: [V1 GLfloat]
 
-type SamplerData size tex = ShaderData '[ YTextureSize size ] '[ TextureUniform tex ]
+numSamples :: SField YNumSamples
+numSamples = SField
+
+sampleWeights :: KnownSymbol s => SField (YSampleWeights s)
+sampleWeights = SField
+
+type SingleSamplerData size tex = ShaderData [YProjectionMatrix, YTextureSize size] '[ TextureSampler tex ]
+
+type SamplerData size tex = ShaderData '[ YTextureSize size ] '[ TextureSampler tex ]
 type SamplerShader u t = Shader u t TargetVertex
 type YageTextureSampler mrt u t = YageDeferredPass mrt (SamplerShader u t)
 

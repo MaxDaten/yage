@@ -5,10 +5,11 @@
 
 module Yage.Pipeline.Deferred.HDR where
 
-import Yage.Prelude hiding (toList)
-import Yage.Lens
+import Yage.Prelude                                         hiding ( toList, last, head )
+import Yage.Lens                                            hiding ( cons )
 
-import Data.Foldable (toList)
+import Data.Foldable                                        ( toList )
+import Data.List                                            ( last )
 
 import Yage.Rendering
 import Yage.HDR
@@ -19,10 +20,12 @@ import Yage.Pipeline.Types
 import qualified Yage.Pipeline.Deferred.LightPass             as L
 import qualified Yage.Pipeline.Deferred.GeometryPass          as G
 import qualified Yage.Pipeline.Deferred.SkyPass               as S
-import qualified Yage.Pipeline.Deferred.AdditiveCompose       as A
+-- import qualified Yage.Pipeline.Deferred.AdditiveCompose       as A
 import qualified Yage.Pipeline.Deferred.GlareDetectionPass    as Glare
 import qualified Yage.Pipeline.Deferred.ToneMapPass           as T
 import Yage.Pipeline.Deferred.GaussFilter
+
+import qualified Yage.Core.OpenGL as GL
 
 
 type HDRScene ent = Scene HDRCamera ent (Environment L.LitEntityDraw S.SkyEntityDraw)
@@ -42,23 +45,52 @@ hdrLightingPass geometryPass viewport scene =
         skyPass         = runRenderPass $ S.skyPass lightDescr viewport
         lightPass       = runRenderPass lightDescr
 
-        toneMap tex     = T.runToneMapPass tex viewport (scene^.sceneCamera)
+        composeAndToneMap base ts = T.runToneMapPass base ts viewport (scene^.sceneCamera)
+
+        bloomPasses     = bloomSettings^.bloomGaussPasses
+        bFactor         = bloomSettings^.bloomFactor
+        bloomWeights    :: [Float]
+        bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
         lightData `lightPass` ( L.toLitEntity <$> lights )
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
-        bloomedTex      <- Glare.glareDetection
+        bloomedTextureSet <- Glare.glareDetection
                                 ( bloomSettings^.bloomPreDownsampling )
                                 ( scene^.sceneCamera.hdrExposure )
                                 ( bloomSettings^.bloomThreshold ) lightTex
                                 >>= bloomPass ( bloomSettings^.bloomGaussPasses )
 
-        toneMap =<< (1.0, lightTex) `A.additiveCompose` (bloomSettings^.bloomFactor, bloomedTex)
+        lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
 
 
 
-bloomPass :: Int -> Texture -> RenderSystem Texture
-bloomPass samples tex = foldM (flip.const $ gaussFilter) tex [0..samples-1]
+bloomPass :: Int -> Texture -> RenderSystem [ Texture ]
+bloomPass numSamples baseTexture =
+    let targets = map (\idx -> (idx, mkTargets (2^idx))) $ [0..numSamples-1]
+    in foldM ( \txs tas -> fmap ((++) txs . singleton) $ gaussFilter (last txs) (snd tas) ) [baseTexture] targets
+
+    where
+
+    baseId   = baseTexture^.textureId
+    baseSpec = baseTexture^.textureSpec
+
+    -- | returns both targets for horizontal and vertical blur
+    mkTargets :: Int -> (RenderTarget SingleRenderTarget, RenderTarget SingleRenderTarget)
+    mkTargets downFactor = ( mkTarget "gaussX" downFactor
+                           , mkTarget "gaussY" downFactor
+                           )
+
+    mkTarget :: String -> Int -> RenderTarget SingleRenderTarget
+    mkTarget directionId downFactor =
+        mkSingleTargetFromSpec
+            ( mkPassId directionId downFactor )
+            ( baseSpec & texSpecDimension %~ \(V2 w h) -> V2 (max (w `div` downFactor) 1) (max(h `div` downFactor) 1) )
+            & targetTexture.textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
+            & targetTexture.textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
+            & targetTexture.textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
+    mkPassId :: String -> Int -> ByteString
+    mkPassId directionId factor = toStrict . encodeUtf8 $ format "-{}-{}-{}" ( Shown baseId, Shown factor, Shown directionId )
 
 
 environmentMap :: Getter (HDRScene ent dat) (RenderMaterial MaterialColorAlpha)

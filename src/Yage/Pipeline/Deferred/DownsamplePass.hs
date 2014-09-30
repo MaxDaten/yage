@@ -23,9 +23,9 @@ type DownsampleUniforms = [ YProjectionMatrix
                           , YTextureSize "TextureSize[0]"
                           , YModelMatrix
                           ]
-type DownsampleTextures = '[ TextureUniform "TextureSamplers[0]" ]
+type DownsampleTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
-type DownsampleFrameData= ShaderData [ YProjectionMatrix, YTextureSize "TextureSize[0]"] '[ TextureUniform "TextureSamplers[0]" ]
+type DownsampleFrameData= ShaderData [ YProjectionMatrix, YTextureSize "TextureSize[0]"] '[ TextureSampler "TextureSamplers[0]" ]
 type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUniforms DownsampleTextures
 
 -------------------------------------------------------------------------------
@@ -78,6 +78,3 @@ downsampleBoxed5x5 downfactor toDownsample =
         downsampleData `downsamplePass` [ targetEntity target ]
         return $ target^.targetTexture
 
-
-instance Implicit (FieldNames DownsampleTextures) where
-    implicitly = SField =: "TextureSamplers[0]"

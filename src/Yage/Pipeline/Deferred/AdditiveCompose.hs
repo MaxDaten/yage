@@ -26,8 +26,8 @@ type AddUniforms = [ YProjectionMatrix
                    , "BaseWeight" ::: GLfloat
                    , "AddWeight" ::: GLfloat
                    ]
-type AddTextures = [ TextureUniform "TextureSamplers[0]"
-                   , TextureUniform "TextureSamplers[1]"
+type AddTextures = [ TextureSampler "TextureSamplers[0]"
+                   , TextureSampler "TextureSamplers[1]"
                    ]
 type AddFrameData = ShaderData AddUniforms AddTextures
 
@@ -80,8 +80,3 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
     in do
         frameData `additivePass` [ targetEntity baseTex ]
         return $ target^.targetTexture
-
-instance Implicit ( FieldNames AddTextures ) where
-    implicitly =
-        SField =: "TextureSamplers[0]" <+>
-        SField =: "TextureSamplers[1]"

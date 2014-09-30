@@ -20,6 +20,8 @@ import Yage.Rendering.Textures (texSpecDimension)
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
+import qualified Yage.Core.OpenGL as GL
+
 
 type GlarePerFrameUni = [ YProjectionMatrix
                         , YTextureSize "TextureSize[0]"
@@ -27,7 +29,7 @@ type GlarePerFrameUni = [ YProjectionMatrix
                         , YBloomThreshold
                         ]
 type GlareUniforms = GlarePerFrameUni ++ '[ YModelMatrix ]
-type GlareTextures = '[ TextureUniform "TextureSamplers[0]" ]
+type GlareTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
 type GlareFrameData= ShaderData GlarePerFrameUni GlareTextures
 type GlarePass     = YageTextureSampler SingleRenderTarget GlareUniforms GlareTextures
@@ -70,10 +72,13 @@ void main()
 
 -- | a glare detection algorithm with an integrated 5x5 box downsample
 glareDetection :: Int -> Float -> Float -> Texture -> RenderSystem Texture
-glareDetection downfactor exposure bloomthreshold toDownsample =
+glareDetection downfactor exposure bloomThreshold toDownsample =
     let outSize  = liftA (`div` downfactor) $ toDownsample^.textureSpec.texSpecDimension
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
+                        & targetTexture.textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
+                        & targetTexture.textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
+                        & targetTexture.textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
 
         glareDescr :: GlarePass
         glareDescr = samplerPass "Yage.GlareDetection" target (target^.asRectangle) glareFragmentProgram
@@ -83,7 +88,7 @@ glareDetection downfactor exposure bloomthreshold toDownsample =
         glareData = (targetRectangleData (target^.asRectangle) `append`
                         sampleData toDownsample)
                         & shaderUniforms <<+>~ U.exposure       =: realToFrac exposure
-                        & shaderUniforms <<+>~ U.bloomthreshold =: realToFrac bloomthreshold
+                        & shaderUniforms <<+>~ U.bloomthreshold =: realToFrac bloomThreshold
 
 
         glarePass = runRenderPass glareDescr
@@ -91,6 +96,3 @@ glareDetection downfactor exposure bloomthreshold toDownsample =
         glareData `glarePass` [ targetEntity target ]
         return $ target^.targetTexture
 
-
-instance Implicit (FieldNames GlareTextures) where
-    implicitly = SField =: "TextureSamplers[0]"

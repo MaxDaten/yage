@@ -150,10 +150,3 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
 
     fboDepth GeoPassChannels{gDepthChannel} =
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
-
-
-instance Implicit (FieldNames GeoTextures) where
-    implicitly =
-        SField =: "AlbedoTexture" <+>
-        SField =: "NormalTexture" <+>
-        SField =: "RoughnessTexture"

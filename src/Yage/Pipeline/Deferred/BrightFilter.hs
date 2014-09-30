@@ -23,7 +23,7 @@ import Yage.Pipeline.Deferred.Sampler
 
 
 type BrightUniforms = [ YProjectionMatrix, YWhitePoint, YModelMatrix ]
-type BrightTextures = '[ TextureUniform "TextureSamplers[0]" ]
+type BrightTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
 type BrightFrameData=ShaderData [ YProjectionMatrix, YWhitePoint ] BrightTextures
 type BrightPass     = YageTextureSampler SingleRenderTarget BrightUniforms BrightTextures
@@ -74,11 +74,5 @@ brightFilter tex whitePoint =
     in do
         frameData `brightPass` [ targetEntity tex ]
         return $ target^.targetTexture
-
-
-
-
-instance Implicit (FieldNames BrightTextures) where
-    implicitly = SField =: "TextureSamplers[0]"
 
 

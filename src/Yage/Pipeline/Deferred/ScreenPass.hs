@@ -27,8 +27,8 @@ type ScrPerFrameUni    = '[ YProjectionMatrix ]
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ScreenUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ScreenTex    = [ TextureUniform "TextureSamplers[0]"
-                    , TextureUniform "TextureSamplers[1]"
+type ScreenTex    = [ TextureSampler "TextureSamplers[0]"
+                    , TextureSampler "TextureSamplers[1]"
                     ]
 
 type ScreenShader = Shader ScreenUni ScreenTex ScrVertex
@@ -92,9 +92,4 @@ screenPass viewport textures =
             & shaderTextures <<+>~ SField =: tex1
     screenFrameData _ = error "invalid texture argument count"
 
-
-instance (Implicit (FieldNames ScreenTex)) where
-    implicitly =
-        SField =: "TextureSamplers[0]" <+>
-        SField =: "TextureSamplers[1]"
 

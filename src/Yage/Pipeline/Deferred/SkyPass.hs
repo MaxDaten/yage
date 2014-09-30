@@ -83,6 +83,3 @@ toSkyEntity sky = toRenderEntity shData sky
     material :: YSkyData
     material = materialUniformsColor $ sky^.materials
 
-
-instance Implicit (FieldNames SkyTextures) where
-    implicitly = SField =: "SkyTexture"

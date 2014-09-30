@@ -148,11 +148,6 @@ instance FramebufferSpec GUIChannels RenderTargets where
     fboDepth GUIChannels{guiDepth} =
         Just $ Attachment DepthAttachment $ RenderbufferTarget guiDepth
 
-
-instance Implicit (FieldNames GUIElementTexture) where
-    implicitly =
-        SField =: "ElementTexture"
-
 instance GL.AsUniform GUIElementType where
     asUniform ty = GL.asUniform ((fromIntegral $ fromEnum ty) :: GL.GLint)
 

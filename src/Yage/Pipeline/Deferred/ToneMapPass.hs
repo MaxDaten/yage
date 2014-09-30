@@ -30,11 +30,15 @@ type ScrPerFrameUni    = [ YProjectionMatrix
                          , YExposureBias
                          , YInverseGamma
                          , YWhitePoint
+                         , YNumSamples
+                         , YSampleWeights "weights[0]"
                          ]
 
 type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
 type ToneUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
-type ToneTex    = '[ TextureUniform "TextureSamplers[0]" ]
+type ToneTex    = '[ TextureSampler "TextureSamplers[0]"
+                   , TextureArray "TextureSamplers[1]"
+                   ]
 
 type ToneShader = Shader ToneUni ToneTex ScrVertex
 
@@ -62,13 +66,23 @@ uniform float Exposure      = 1.0;
 uniform float ExposureBias  = 1.0;
 uniform float WhitePoint    = 11.2;
 
+uniform float weights[ MAX_TEXTURES ];
+
 layout (location = 0) out vec3 pixelColor;
 
 //------------------------------------
 
-vec4 ToneColor( void )
+vec4 ToneColor()
 {
-    return texture( TextureSamplers[0], SamplingUV[0] );
+    vec4 OutColor = texture( TextureSamplers[0], SamplingUV[0] );
+
+    for ( int i = 1; i < (N_SAMPLES + 1); i++ )
+    {
+        vec4 sampleColor = texture( TextureSamplers[i], SamplingUV[0] );
+        OutColor.rgb  += weights[i-1] * sampleColor.rgb;
+        OutColor.a    += sampleColor.a / N_SAMPLES;
+    }
+    return OutColor;
 }
 
 vec3 inverseGamma(vec3 x)
@@ -116,7 +130,7 @@ void main()
     texColor     *= Exposure;
 
     vec3 color = 2.0 * ToneMapping( ExposureBias + texColor );
-    vec3 whiteScale = 1.0f / ToneMapping(vec3(WhitePoint));
+    vec3 whiteScale = 1.0 / ToneMapping(vec3(WhitePoint));
 
 
     color *= whiteScale;
@@ -124,10 +138,11 @@ void main()
     pixelColor = clamp( color, 0, 1 );
 }
 |]
+
 -- ============================================================================
 
-runToneMapPass :: Texture -> YageRenderSystem HDRCamera Texture
-runToneMapPass texture viewport camera =
+runToneMapPass :: Texture -> [ (Float, Texture) ] -> YageRenderSystem HDRCamera Texture
+runToneMapPass baseTexture samples viewport camera =
     let tonePass  = runRenderPass toneDescr
     in do
         toneData `tonePass` [ targetEntity $ viewport^.rectangle ]
@@ -163,21 +178,17 @@ runToneMapPass texture viewport camera =
 
     toneData :: ShaderData ScrPerFrameUni ToneTex
     toneData = targetRectangleData (viewport^.rectangle)
-                    & shaderTextures <<+>~ SField =: texture
+                    & shaderTextures <<+>~ textureSampler =: baseTexture
+                    & shaderTextures <<+>~ textureArray   =: map snd samples
                     & shaderUniforms <<+>~ toneUniforms
 
         where
 
-        toneUniforms :: Uniforms [ YExposure, YExposureBias, YInverseGamma, YWhitePoint ]
+        toneUniforms :: Uniforms [ YExposure, YExposureBias, YInverseGamma, YWhitePoint, YNumSamples, YSampleWeights "weights[0]" ]
         toneUniforms =
             U.exposure         =: (realToFrac $ camera^.hdrExposure)               <+>
             U.exposureBias     =: (realToFrac $ camera^.hdrExposureBias)           <+>
-            U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma)) <+>
-            U.whitePoint       =: (realToFrac $ camera^.hdrWhitePoint)
-
-
-
-instance (Implicit (FieldNames ToneTex)) where
-    implicitly =
-        SField =: "TextureSamplers[0]"
-
+            U.inverseGamma     =: (realToFrac $ recip(viewport^.viewportGamma))    <+>
+            U.whitePoint       =: (realToFrac $ camera^.hdrWhitePoint)             <+>
+            numSamples         =: (fromIntegral $ 1 {-baseTexture-} + length samples) <+>
+            sampleWeights      =: map (V1 . realToFrac . fst) samples
