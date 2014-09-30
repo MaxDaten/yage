@@ -74,7 +74,8 @@ layout (location = 0) out vec3 pixelColor;
 
 vec4 ToneColor()
 {
-    vec4 OutColor = texture( TextureSamplers[0], SamplingUV[0] );
+    vec4 OutColor = vec4(0);
+    OutColor.rgb = texture( TextureSamplers[0], SamplingUV[0] ).rgb;
 
     for ( int i = 1; i < (N_SAMPLES + 1); i++ )
     {

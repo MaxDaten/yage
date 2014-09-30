@@ -45,27 +45,28 @@ glareFragmentProgram = [GLSL.yFragment|
 uniform float Exposure;
 uniform float BloomThreshold;
 
-layout (location = 0) out vec3 pixelColor;
+layout (location = 0) out vec4 pixelColor;
 
 void main()
 {
     vec2 offset = TextureSize[0].zw;
-    vec2 uv[4];
+    vec2 uv[5];
 
-    uv[0] = SamplingUV[0] + offset * vec2(-1, -1);
-    uv[1] = SamplingUV[0] + offset * vec2( 1, -1);
-    uv[2] = SamplingUV[0] + offset * vec2(-1,  1);
-    uv[3] = SamplingUV[0] + offset * vec2( 1,  1);
+    uv[0] = SamplingUV[0] + offset * vec2( 0,  0);
+    uv[1] = SamplingUV[0] + offset * vec2(-1,  0);
+    uv[2] = SamplingUV[0] + offset * vec2( 0, -1);
+    uv[3] = SamplingUV[0] + offset * vec2( 1,  0);
+    uv[4] = SamplingUV[0] + offset * vec2( 0,  1);
 
-    vec3 sampleColor = texture( TextureSamplers[0], SamplingUV[0] ).rgb;
+    vec4 sampleColor = vec4(1e100); // texture( TextureSamplers[0], SamplingUV[0] ).rgb;
     // "search the minimum color value from the box-filter area"
-    for (uint i = 0; i < 4; ++i)
+    for (uint i = 0; i < 5; ++i)
     {
-        sampleColor = min(texture( TextureSamplers[0], uv[i] ).rgb, sampleColor);
+        sampleColor = min(texture( TextureSamplers[0], uv[i] ), sampleColor);
     }
-    sampleColor *= Exposure;
+    sampleColor.rgb *= Exposure;
 
-    pixelColor = max(sampleColor - BloomThreshold / (1.0 - BloomThreshold), 0.0);
+    pixelColor = vec4(max(sampleColor.rgb - BloomThreshold / (1.0 - BloomThreshold), 0.0), sampleColor.a);
 }
 |]
 -------------------------------------------------------------------------------

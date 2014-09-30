@@ -61,14 +61,14 @@ lightPass base viewport environment =
     where
 
     target =
-        let GeoPassChannels{..} = renderTargets base
+        let GeoPassChannelsF{..} = renderTargets base
         in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
                                 }
 
-    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
-    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
+    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGBA GL.RGBA16F
+    lightTex        = mkTargetTexture "lbuffer" lightSpec
 
     shaderProg = ShaderProgramUnit
                     { _shaderName    = "LightPass.hs"

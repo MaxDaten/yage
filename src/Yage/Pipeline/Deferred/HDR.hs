@@ -9,7 +9,7 @@ import Yage.Prelude                                         hiding ( toList, las
 import Yage.Lens                                            hiding ( cons )
 
 import Data.Foldable                                        ( toList )
-import Data.List                                            ( last )
+import Data.List                                            ( last, head, tail )
 
 import Yage.Rendering
 import Yage.HDR
@@ -61,14 +61,16 @@ hdrLightingPass geometryPass viewport scene =
                                 ( bloomSettings^.bloomThreshold ) lightTex
                                 >>= bloomPass ( bloomSettings^.bloomGaussPasses )
 
+        -- (head bloomedTextureSet) `composeAndToneMap` []
         lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
 
 
 
 bloomPass :: Int -> Texture -> RenderSystem [ Texture ]
+bloomPass 0          _           = return []
 bloomPass numSamples baseTexture =
-    let targets = map (\idx -> (idx, mkTargets (2^idx))) $ [0..numSamples-1]
-    in foldM ( \txs tas -> fmap ((++) txs . singleton) $ gaussFilter (last txs) (snd tas) ) [baseTexture] targets
+    let targets = map (\idx -> mkTargets $ 2^idx) $ [1..numSamples]
+    in tail <$> foldM ( \txs target -> fmap ((++) txs . singleton) $ gaussFilter (last txs) target ) [baseTexture] targets
 
     where
 
@@ -86,9 +88,6 @@ bloomPass numSamples baseTexture =
         mkSingleTargetFromSpec
             ( mkPassId directionId downFactor )
             ( baseSpec & texSpecDimension %~ \(V2 w h) -> V2 (max (w `div` downFactor) 1) (max(h `div` downFactor) 1) )
-            & targetTexture.textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
-            & targetTexture.textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
-            & targetTexture.textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
     mkPassId :: String -> Int -> ByteString
     mkPassId directionId factor = toStrict . encodeUtf8 $ format "-{}-{}-{}" ( Shown baseId, Shown factor, Shown directionId )
 

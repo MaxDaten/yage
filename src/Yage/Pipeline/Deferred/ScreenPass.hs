@@ -88,8 +88,8 @@ screenPass viewport textures =
     screenFrameData :: [ Texture ] -> ShaderData ScrPerFrameUni ScreenTex
     screenFrameData (tex0:tex1:[]) =
         targetRectangleData (viewport^.rectangle)
-            & shaderTextures <<+>~ SField =: tex0
-            & shaderTextures <<+>~ SField =: tex1
+            & shaderTextures <<+>~ textureSampler =: tex0 <+>
+                                   textureSampler =: tex1
     screenFrameData _ = error "invalid texture argument count"
 
 

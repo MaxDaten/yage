@@ -61,7 +61,7 @@ runGuiPass _underlayTexture viewport gui = do
     passData    = orthographicUniforms (gui^.guiCamera) `ShaderData` RNil
 
     texSpec     = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    colorTex    = mkTexture "YAGE.GUI.COLOR" $ TextureBuffer GL.Texture2D texSpec
+    colorTex    = mkTargetTexture "YAGE.GUI.COLOR" texSpec
     target      = RenderTarget "YAGE.GUI" $ GUIChannels
                     { guiColor = colorTex
                     , guiDepth = Renderbuffer "YAGE.GUI.DEPTH" $ mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent

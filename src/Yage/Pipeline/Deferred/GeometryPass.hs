@@ -38,11 +38,12 @@ type GeoTextures       = [ YAlbedoTex, YNormalTex, YRoughnessTex ]
 type GeoVertex         = Vertex (Y'P3TX2TN GLfloat)
 type GeoShader         = Shader GeoUniforms GeoTextures GeoVertex
 
-data GeoPassChannels = GeoPassChannels
-    { gAlbedoChannel :: Texture
-    , gNormalChannel :: Texture
-    , gDepthChannel  :: Texture
-    }
+data GeoPassChannelsF t = GeoPassChannelsF
+    { gAlbedoChannel :: t
+    , gNormalChannel :: t
+    , gDepthChannel  :: t
+    } deriving ( Functor, Foldable, Traversable )
+type GeoPassChannels = GeoPassChannelsF Texture
 
 data GeoMaterial mat = GeoMaterial
     { _albedoMaterial    :: IMaterial MaterialColorAlpha mat
@@ -86,10 +87,10 @@ geoPass viewport =
                  }
 
     geoTarget  = RenderTarget "geo-fbo" $
-                    GeoPassChannels
-                        { gAlbedoChannel = mkTexture "gbuffer-albedo" $ TextureBuffer GL.Texture2D baseSpec
-                        , gNormalChannel = mkTexture "gbuffer-normal" $ TextureBuffer GL.Texture2D normSpec
-                        , gDepthChannel  = mkTexture "gbuffer-depth"  $ TextureBuffer GL.Texture2D depthSpec
+                    GeoPassChannelsF
+                        { gAlbedoChannel = mkTargetTexture "gbuffer-albedo" baseSpec
+                        , gNormalChannel = mkTargetTexture "gbuffer-normal" normSpec
+                        , gDepthChannel  = mkTargetTexture "gbuffer-depth"  depthSpec
                         }
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
@@ -143,10 +144,10 @@ instance HasResources vert (GeoMaterial TextureResource) (GeoMaterial Texture) w
 
 
 instance FramebufferSpec GeoPassChannels RenderTargets where
-    fboColors GeoPassChannels{gAlbedoChannel, gNormalChannel} =
+    fboColors GeoPassChannelsF{gAlbedoChannel, gNormalChannel} =
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D gAlbedoChannel 0
         , Attachment (ColorAttachment 1) $ TextureTarget GL.Texture2D gNormalChannel 0
         ]
 
-    fboDepth GeoPassChannels{gDepthChannel} =
+    fboDepth GeoPassChannelsF{gDepthChannel} =
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0

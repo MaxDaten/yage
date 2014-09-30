@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE QuasiQuotes       #-}
 module Yage.Pipeline.Deferred.SkyPass where
 
 import           Yage.Prelude
@@ -15,7 +16,7 @@ import           Yage.Viewport
 import           Yage.Uniforms
 import           Yage.Material
 import           Yage.HDR
-import           Yage.TH.Shader
+import           Yage.TH.Shader                     as GLSL
 
 import           Yage.Pipeline.Deferred.Common
 import           Yage.Pipeline.Deferred.LightPass
@@ -40,6 +41,53 @@ type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
 type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
 
 
+-------------------------------------------------------------------------------
+-- | Vertex GLSL
+skyVertexProgram :: GLSL.ShaderSource VertexShader
+skyVertexProgram = [GLSL.yVertex|
+#version 410 core
+
+uniform mat4 ViewMatrix        = mat4(1.0);
+uniform mat4 VPMatrix          = mat4(1.0);
+uniform mat4 ModelMatrix       = mat4(1.0);
+uniform mat4 SkyTextureMatrix  = mat4(1.0);
+
+in vec3 vPosition;
+
+out vec3 VertexSTP;
+
+mat4 MVPMatrix = VPMatrix * ModelMatrix;
+void main()
+{
+    mat4 MVPMatrix  = VPMatrix * ModelMatrix;
+    VertexSTP       = (SkyTextureMatrix * vec4(vPosition, 1.0)).stp;
+    gl_Position     = MVPMatrix * vec4( vPosition, 1.0 );
+}
+|]
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-- | Fragment GLSL
+skyFragmentProgram :: GLSL.ShaderSource FragmentShader
+skyFragmentProgram = [GLSL.yFragment|
+#version 410 core
+
+
+uniform samplerCube SkyTexture;
+uniform vec4 SkyColor;
+in vec3 VertexSTP;
+
+layout (location = 0) out vec4 pixelColor;
+
+void main()
+{
+    pixelColor       = SkyColor * texture(SkyTexture, VertexSTP);
+}
+|]
+
+-------------------------------------------------------------------------------
+
+
+
 skyPass :: LightPass -> Viewport Int -> SkyPass
 skyPass lighting viewport =
     passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg)
@@ -49,8 +97,8 @@ skyPass lighting viewport =
 
     shaderProg = ShaderProgramUnit
                     { _shaderName    = "SkyPass.hs"
-                    , _shaderSources = [ $(vertexFile "res/glsl/pass/envPass.vert")^.shaderSource
-                                       , $(fragmentFile "res/glsl/pass/envPass.frag")^.shaderSource
+                    , _shaderSources = [ skyVertexProgram^.shaderSource
+                                       , skyFragmentProgram^.shaderSource
                                        ]
                     }
 
