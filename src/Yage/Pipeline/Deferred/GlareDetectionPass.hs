@@ -58,7 +58,7 @@ void main()
     uv[3] = SamplingUV[0] + offset * vec2( 1,  0);
     uv[4] = SamplingUV[0] + offset * vec2( 0,  1);
 
-    vec4 sampleColor = vec4(1e100); // texture( TextureSamplers[0], SamplingUV[0] ).rgb;
+    vec4 sampleColor = vec4(1e100);
     // "search the minimum color value from the box-filter area"
     for (uint i = 0; i < 5; ++i)
     {
@@ -77,9 +77,6 @@ glareDetection downfactor exposure bloomThreshold toDownsample =
     let outSize  = liftA (`div` downfactor) $ toDownsample^.textureSpec.texSpecDimension
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )
                                           ( toDownsample^.textureSpec & texSpecDimension .~ outSize )
-                        & targetTexture.textureConfig.texConfWrapping.texWrapClamping   .~ GL.ClampToEdge
-                        & targetTexture.textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
-                        & targetTexture.textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
 
         glareDescr :: GlarePass
         glareDescr = samplerPass "Yage.GlareDetection" target (target^.asRectangle) glareFragmentProgram

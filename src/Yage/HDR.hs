@@ -23,6 +23,7 @@ data HDRBloomSettings = HDRBloomSettings
     , _bloomGaussPasses     :: Int
     , _bloomFactor          :: Float
     , _bloomThreshold       :: Float
+    , _bloomWidth           :: Float
     } deriving ( Show, Eq, Ord, Generic )
 
 makeLenses ''HDRBloomSettings
@@ -33,7 +34,8 @@ defaultBloomSettings = HDRBloomSettings
     { _bloomPreDownsampling = 2
     , _bloomGaussPasses     = 7
     , _bloomFactor          = 0.3
-    , _bloomThreshold       = 0.7
+    , _bloomThreshold       = 0.6
+    , _bloomWidth           = 1.0
     }
 
 defaultHDRCamera :: Camera -> HDRCamera

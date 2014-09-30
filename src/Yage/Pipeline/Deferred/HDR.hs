@@ -59,18 +59,18 @@ hdrLightingPass geometryPass viewport scene =
                                 ( bloomSettings^.bloomPreDownsampling )
                                 ( scene^.sceneCamera.hdrExposure )
                                 ( bloomSettings^.bloomThreshold ) lightTex
-                                >>= bloomPass ( bloomSettings^.bloomGaussPasses )
+                                >>= bloomPass (bloomSettings^.bloomWidth) ( bloomSettings^.bloomGaussPasses )
 
         -- (head bloomedTextureSet) `composeAndToneMap` []
         lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
 
 
 
-bloomPass :: Int -> Texture -> RenderSystem [ Texture ]
-bloomPass 0          _           = return []
-bloomPass numSamples baseTexture =
+bloomPass :: Float -> Int -> Texture -> RenderSystem [ Texture ]
+bloomPass _ 0          _           = return []
+bloomPass bloomWidth numSamples baseTexture =
     let targets = map (\idx -> mkTargets $ 2^idx) $ [1..numSamples]
-    in tail <$> foldM ( \txs target -> fmap ((++) txs . singleton) $ gaussFilter (last txs) target ) [baseTexture] targets
+    in tail <$> foldM ( \txs target -> fmap ((++) txs . singleton) $ gaussFilter bloomWidth (last txs) target ) [baseTexture] targets
 
     where
 

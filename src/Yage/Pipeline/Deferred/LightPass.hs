@@ -85,7 +85,7 @@ lightPass base viewport environment =
         GL.depthFunc    GL.$= Nothing           -- disable func add
         GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
 
-        GL.blend        GL.$= GL.Enabled        --- could reject background frags!
+        GL.blend        GL.$= GL.Enabled        -- could reject background frags!
         GL.blendEquation GL.$= GL.FuncAdd
         GL.blendFunc    GL.$= (GL.One, GL.One)
 
