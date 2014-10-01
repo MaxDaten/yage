@@ -1,8 +1,6 @@
 #ifndef __GBUFFER__
 #define __GBUFFER__
 
-#include "Common.glsl"
-
 
 vec3 DecodeNormal( vec2 TexNormal )
 {

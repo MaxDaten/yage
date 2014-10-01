@@ -1,7 +1,12 @@
+/*
+    a lighting model for physically based rendering
+    calculation is done in view-space 
+*/
 #version 410 core
 
 #include "Common.glsl"
 #include "GBuffer.glsl"
+#include "BRDF.glsl"
 
 uniform vec2 ZProjRatio;
 uniform mat3 ViewToWorldMatrix;
@@ -28,48 +33,92 @@ in vec3 VertexPosVS;
 
 layout (location = 0) out vec4 pixelColor;
 
-
-
-const float f0 = pow((1.0-(1.0/1.31)), 2)/pow((1.0+(1.0/1.31)), 2); 
-float Fresnel( vec3 halfDir, vec3 viewDir, float f0 );
-
-
-// GGX / Trowbridge-Reitz
-// [Walter et al. 2007, "Microfacet models for refraction through rough surfaces"]
-float D_GGX( float Roughness, float NoH )
+// the position of the current fragment in view space
+vec3 GetPosition( vec2 uv )
 {
-    float m = Roughness * Roughness;
-    float m2 = m * m;
-    float d = ( NoH * m2 - NoH ) * NoH + 1; // 2 mad
-    return m2 / ( PI*d*d );                 // 3 mul, 1 rcp
+    return PositionVSFromDepth( texture( DepthTexture, uv ).r
+                              , ZProjRatio
+                              , VertexPosVS
+                              );
 }
 
+vec3 GetNormal( vec2 uv )
+{
+    return DecodeNormal( texture( NormalTexture, uv ).rg );
+}
 
+float GetRoughness( vec4 channel )
+{
+    return channel.a;
+}
+
+vec3 GetSpecular( vec4 channel )
+{
+    return vec3(0.5); // TODO : remove default 
+}
+
+vec3 PointLightSpecular ( vec4 channel, vec3 VtoL, vec3 V, vec3 N )
+{
+    float Roughness = GetRoughness( channel );
+    float a  = Roughness * Roughness;
+    float a2 = a * a;
+    float Energy = 0.2;
+    vec3 R   = reflect(-V, N);
+    
+    vec3 L    = normalize( VtoL );
+    vec3 H    = normalize( V + L );
+    float NoL = saturate( dot(N, L) );
+    float NoV = saturate( dot(N, V) );
+    float NoH = saturate( dot(N, H) );
+    float VoH = saturate( dot(V, H) );
+
+    float D   = SpecularNDF( Roughness, NoH );
+    float G   = Geometric( Roughness, NoV, NoL );
+
+     // TODO: replace roughness with real spec texture
+    vec3 F    = Fresnel( GetSpecular( channel ), VoH );
+
+    return (Energy * D * G) * F;
+}
+
+vec3 PointLightDiffuse ( vec4 channel )
+{
+    return Diffuse( channel.rgb );
+}
 
 void main()
 {
     vec2 screenUV = gl_FragCoord.xy / ViewportDim.xy;
     
     // the channel for albedo rgb + distance from View
-    vec4 albedoCh = texture( AlbedoTexture, screenUV ).rgba;
+    vec4 albedoCh     = texture( AlbedoTexture, screenUV ).rgba;
     
-    // the lit pixel albedo color 
-    vec3 Albedo       = gamma( albedoCh.rgb, Gamma ).rgb;
-    float Roughness   = albedoCh.a;
-
-    // retrieve the normal of the lit pixel
-    vec3 normalVS  = DecodeNormal( texture( NormalTexture, screenUV ).rg );
+    // retrieve the normal of the pixel to lit
+    vec3 N  = GetNormal( screenUV );
 
     // extrapolate the View space position of the pixel to the zFar plane
-    vec3 pixelPosVS = PositionVSFromDepth( texture( DepthTexture, screenUV ).r, ZProjRatio, VertexPosVS );
+    vec3 P  = GetPosition( screenUV );
+    vec3 V  = -P;
 
     // world light position to View space
-    vec3 lightPosVS = vec3( ViewSpace * vec4( lightPosition, 1.0 ) );
+    vec3 L = vec3( ViewSpace * vec4( lightPosition, 1.0 ) );
 
     // direction from the lit pixel to the light source
-    vec3 pixToLight = lightPosVS - pixelPosVS;
-    float dist      = length(pixToLight);
-    
+    vec3 VtoL = L - V;
+    float dist      = length(VtoL);
+
+    vec3 DiffuseLight = PointLightDiffuse( albedoCh );
+    vec3 SpecLight    = PointLightSpecular( albedoCh, VtoL, V, N );
+
+    pixelColor.rgb = lightColor.rgb * DiffuseLight;
+    pixelColor.rgb += lightColor.rgb * SpecLight;
+
+    ViewToWorldMatrix;
+    lightRadius;
+    lightAttenuation;
+    lightSpecularExp;
+    EnvironmentCubeMap;
+/*
     vec3 toLightDir = pixToLight / dist;
     // direction from pixel to View
     vec3 toViewDir    = normalize(-pixelPosVS);
@@ -94,18 +143,11 @@ void main()
     float attenuation = mix( invSquare, 0.0, curve );
     
     pixelColor.a    = 1.0;
-    pixelColor.rgb  = Albedo * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb );
+    pixelColor.rgb  = Diffuse( Albedo ) * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb );
     
     vec3 reflectedDirection = normalize( ViewToWorldMatrix * reflect( -toViewDir, normalVS ) );
 
     pixelColor.rgb += 0.25 * ( 1.0 - Roughness ) * texture( EnvironmentCubeMap, reflectedDirection ).rgb;
+*/    
 }
 
-/*
-float Fresnel( vec3 halfDir, vec3 viewDir, float f0 )
-{
-    float base = 1 - dot(viewDir, halfDir);
-    float exponential = pow(base, 5.0);
-    return exponential + f0 * (1.0 - exponential);
-}
-*/

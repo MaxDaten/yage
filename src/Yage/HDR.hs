@@ -23,6 +23,7 @@ data HDRBloomSettings = HDRBloomSettings
     , _bloomGaussPasses     :: Int
     , _bloomFactor          :: Float
     , _bloomThreshold       :: Float
+    -- ^ ~ 0.5 - 0.8 [Kawase04, Page 29]
     , _bloomWidth           :: Float
     } deriving ( Show, Eq, Ord, Generic )
 
