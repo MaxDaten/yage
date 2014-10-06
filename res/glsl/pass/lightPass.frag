@@ -1,6 +1,11 @@
 /*
     a lighting model for physically based rendering
     calculation is done in view-space 
+
+
+
+    # irradiance area lights
+    - http://www.dgp.toronto.edu/~ghali/publications/thesis/html/node4.html
 */
 #version 410 core
 
@@ -9,7 +14,6 @@
 #include "BRDF.glsl"
 
 uniform vec2 ZProjRatio;
-uniform mat3 ViewToWorldMatrix;
 
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
@@ -17,52 +21,45 @@ uniform sampler2D DepthTexture;
 uniform samplerCube EnvironmentCubeMap;
 uniform float Gamma = 2.2;
 
-// lightPosition is in WorldSpace
-uniform vec3 lightPosition;    
-uniform vec3 lightRadius;    
-uniform vec4 lightColor;
-// x = constant, y = inv linear, z = inv square
-uniform vec3 lightAttenuation;
-uniform float lightSpecularExp;
+uniform LightT Light;
 
 uniform ivec2 ViewportDim;
 
-in mat4 ViewSpace;
+flat in mat4 ViewSpace;
 in vec3 VertexPosVS;
 
 
 layout (location = 0) out vec4 pixelColor;
 
-// the position of the current fragment in view space
-vec3 GetPosition( vec2 uv )
+
+Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
 {
-    return PositionVSFromDepth( texture( DepthTexture, uv ).r
-                              , ZProjRatio
-                              , VertexPosVS
-                              );
+    Surface attribs;
+    
+    // extrapolate the view space position of the pixel to the zFar plane
+    attribs.Position  = PositionVSFromDepth( bufferDepth, ZProjRatio, VertexPosVS );
+    attribs.Albedo    = channelA.rgb;
+    attribs.Roughness = channelA.a;
+    attribs.Specular  = vec3(0.5);
+    attribs.Normal    = normalize(DecodeNormal( channelB.rg ));
+    return attribs;
 }
 
-vec3 GetNormal( vec2 uv )
+// [Karis 2013, "Real Shading in Unreal Engine 4"]
+float RadialFalloff( float distance2, float radius )
 {
-    return DecodeNormal( texture( NormalTexture, uv ).rg );
+    float L0 = pow( sqrt(distance2) / radius, 4 );
+    L0 = pow( saturate( 1 - L0), 2);
+    return L0 / (distance2 + 1); 
 }
 
-float GetRoughness( vec4 channel )
+vec3 PointLightSpecular ( Surface surface, vec3 VtoL, vec3 V )
 {
-    return channel.a;
-}
-
-vec3 GetSpecular( vec4 channel )
-{
-    return vec3(0.5); // TODO : remove default 
-}
-
-vec3 PointLightSpecular ( vec4 channel, vec3 VtoL, vec3 V, vec3 N )
-{
-    float Roughness = GetRoughness( channel );
+    float Roughness = surface.Roughness;
     float a  = Roughness * Roughness;
     float a2 = a * a;
-    float Energy = 0.2;
+    float Energy = 1;
+    vec3 N   = surface.Normal;
     vec3 R   = reflect(-V, N);
     
     vec3 L    = normalize( VtoL );
@@ -76,14 +73,34 @@ vec3 PointLightSpecular ( vec4 channel, vec3 VtoL, vec3 V, vec3 N )
     float G   = Geometric( Roughness, NoV, NoL );
 
      // TODO: replace roughness with real spec texture
-    vec3 F    = Fresnel( GetSpecular( channel ), VoH );
+    vec3 F    = Fresnel( surface.Specular, VoH );
 
     return (Energy * D * G) * F;
 }
 
-vec3 PointLightDiffuse ( vec4 channel )
+vec3 PointLightDiffuse ( Surface surface )
 {
-    return Diffuse( channel.rgb );
+    return Diffuse( surface.Albedo );
+}
+
+vec3 CalculateLighting ( Surface surface, LightT light )
+{
+    vec3 P  = surface.Position;
+    // vector from lit point to the view
+    vec3 V  = -P;
+
+    // direction from the current lit pixel to the light source
+    vec3 PtoL   = light.Position - P;
+    float dist2 = dot( PtoL, PtoL );
+
+    vec3 DiffuseTerm = PointLightDiffuse( surface );
+    vec3 SpecTerm    = PointLightSpecular( surface, PtoL, V );
+
+    vec3 OutColor;
+    OutColor.rgb = light.Color.rgb * DiffuseTerm;
+    OutColor.rgb += light.Color.rgb * SpecTerm;
+    OutColor.rgb *= RadialFalloff( dist2, light.Radius );
+    return OutColor;
 }
 
 void main()
@@ -91,63 +108,17 @@ void main()
     vec2 screenUV = gl_FragCoord.xy / ViewportDim.xy;
     
     // the channel for albedo rgb + distance from View
-    vec4 albedoCh     = texture( AlbedoTexture, screenUV ).rgba;
+    vec4 albedoCh       = texture( AlbedoTexture, screenUV ).rgba;
+    vec4 normalCh       = vec4(texture( NormalTexture, screenUV ).rg, 0, 0);
+    float zBufferDepth  = texture( DepthTexture, screenUV ).r;
+
     
-    // retrieve the normal of the pixel to lit
-    vec3 N  = GetNormal( screenUV );
-
-    // extrapolate the View space position of the pixel to the zFar plane
-    vec3 P  = GetPosition( screenUV );
-    vec3 V  = -P;
-
-    // world light position to View space
-    vec3 L = vec3( ViewSpace * vec4( lightPosition, 1.0 ) );
-
-    // direction from the lit pixel to the light source
-    vec3 VtoL = L - V;
-    float dist      = length(VtoL);
-
-    vec3 DiffuseLight = PointLightDiffuse( albedoCh );
-    vec3 SpecLight    = PointLightSpecular( albedoCh, VtoL, V, N );
-
-    pixelColor.rgb = lightColor.rgb * DiffuseLight;
-    pixelColor.rgb += lightColor.rgb * SpecLight;
-
-    ViewToWorldMatrix;
-    lightRadius;
-    lightAttenuation;
-    lightSpecularExp;
-    EnvironmentCubeMap;
-/*
-    vec3 toLightDir = pixToLight / dist;
-    // direction from pixel to View
-    vec3 toViewDir    = normalize(-pixelPosVS);
-
-    float lambertian = saturate( dot(normalVS, toLightDir) );
-    float specular = 0.0;
-    if (lambertian > 0.0) {
-        vec3 halfDir    = normalize( toLightDir + toViewDir );
-        float specAngle = saturate( dot( halfDir, normalVS ) );
-
-        lightSpecularExp;
-        // specular = D_GGX(pow(max(abs(specAngle),0.000001f), lightSpecularExp));
-        specular = 0.25 * D_GGX(Roughness, specAngle);
-        // specular = pow(specAngle, lightSpecularExp);
-    }
-
-    float curve = min(pow(dist / lightRadius.x, 6.0), 1.0);
-    float invSquare = 1.0 / ( 1.0 + lightAttenuation.x +                // constant
-                                    lightAttenuation.y * dist +         // inv linear
-                                    lightAttenuation.z * dist * dist    // inv quadric
-                            );
-    float attenuation = mix( invSquare, 0.0, curve );
+    Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
+    LightT light = Light;
+    light.Position = ( ViewSpace * vec4( Light.Position, 1.0 )).xyz;
     
-    pixelColor.a    = 1.0;
-    pixelColor.rgb  = Diffuse( Albedo ) * attenuation * ( lambertian * lightColor.rgb + specular * lightColor.rgb );
-    
-    vec3 reflectedDirection = normalize( ViewToWorldMatrix * reflect( -toViewDir, normalVS ) );
+    pixelColor.rgb = CalculateLighting ( surface, light );
 
-    pixelColor.rgb += 0.25 * ( 1.0 - Roughness ) * texture( EnvironmentCubeMap, reflectedDirection ).rgb;
-*/    
+    EnvironmentCubeMap;    
 }
 

@@ -9,6 +9,14 @@
 #define __BRDF__
 
 
+struct LightT
+{
+    vec3    Position;
+    float   Radius;
+    vec4    Color;
+};
+
+
 vec3 DiffuseLambert( vec3 diffuseColor )
 {
     return diffuseColor / PI;

@@ -51,7 +51,6 @@ library
                         
                         Yage.Uniforms
                         Yage.Uniforms.Material
-                        Yage.Uniforms.Light
                         Yage.Uniforms.MVP
                         Yage.Uniforms.Camera
                         

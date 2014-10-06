@@ -29,7 +29,38 @@ import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma, YViewToWorldMatrix ]
+
+
+type YLightPosition      = "Light.Position"        ::: V3 GLfloat
+type YLightRadius        = "Light.Radius"          ::: GLfloat
+type YLightColor         = "Light.Color"           ::: V4 GLfloat
+type YLightAttenuation   = "Light.Attenuation"     ::: V3 GLfloat
+type YSpecularExp        = "Light.SpecularExp"     ::: GLfloat
+
+type YLightAttributes    = [ YLightPosition
+                           , YLightRadius
+                           , YLightColor
+                           -- , YLightAttenuation
+                           -- , YSpecularExp
+                           ]
+
+
+uLightPosition :: SField YLightPosition
+uLightPosition = SField
+
+uLightRadius :: SField YLightRadius
+uLightRadius = SField
+
+uLightColor :: SField YLightColor
+uLightColor = SField
+
+uLightAttenuation :: SField YLightAttenuation
+uLightAttenuation = SField
+
+uLightSpecularExp :: SField YSpecularExp
+uLightSpecularExp = SField
+
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -104,17 +135,16 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
-        let (V2 near far)           = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
-            zProj                   = V2 ( far / ( far - near ) ) ( ( (-far) * near ) / ( far - near ) )
+        let (V2 near far)           = realToFrac <$> V2 (camera^.cameraPlanes.camZNear) (camera^.cameraPlanes.camZFar)
+            zProj                   = V2 ( ( far + near ) / ( far - near ) )
+                                         ( ( 2.0 * near * far ) / ( far - near ) )
             dim                     = fromIntegral <$> viewport^.rectangle.extend
             theGamma                = realToFrac $ viewport^.viewportGamma
-            invCam                  = camera & cameraTransformation %~ inverseTransformation
         in
         perspectiveUniforms viewport camera     <+>
         viewportDim         =: dim              <+>
         zProjRatio          =: zProj            <+>
-        gamma               =: theGamma         <+>
-        viewToWorldMatrix   =: (fmap realToFrac <$> invCam^.cameraMatrix^.to m44_to_m33)
+        gamma               =: theGamma
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
@@ -160,13 +190,10 @@ toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempt
     lightAttributes :: Uniforms YLightAttributes
     lightAttributes =
         let lightAttr = lightAttribs light
-            (attConst, attLinear, attQuad) = lAttrAttenuation lightAttr
         in case lightType light of
-        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> ent^.entityPosition )                   <+>
-                             U.lightRadius   =: (realToFrac <$> ent^.entityScale )                      <+>
-                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr )                  <+>
-                             U.lightAtten    =: (realToFrac <$> V3 attConst attLinear attQuad )         <+>
-                             U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr )
+        Pointlight{..}    -> uLightPosition =: (realToFrac <$> ent^.entityPosition )                   <+>
+                             uLightRadius   =: (realToFrac  $ ent^.entityScale._x )                    <+>
+                             uLightColor    =: (realToFrac <$> lAttrColor lightAttr )
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
         OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 

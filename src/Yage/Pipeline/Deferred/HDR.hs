@@ -62,7 +62,8 @@ hdrLightingPass geometryPass viewport scene =
                                 >>= bloomPass (bloomSettings^.bloomWidth) ( bloomSettings^.bloomGaussPasses )
 
         -- (head bloomedTextureSet) `composeAndToneMap` []
-        lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
+        -- lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
+        return lightTex
 
 
 

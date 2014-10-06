@@ -113,7 +113,6 @@ float GetRoughness()
 void main()
 {
     OutAlbedo.rgb   = GetAlbedoColor().rgb;
-
     OutAlbedo.a     = GetRoughness();
 
     vec3 texNormal = NormalColor.rgb * DecodeNormal( texture( NormalTexture, NormalST ).rg );
@@ -152,7 +151,7 @@ geoPass viewport =
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
     normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.RG GL.RG16
-    depthSpec       = mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
+    depthSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.DepthComponent GL.DepthComponent24
 
 {--
 Geo Pass Utils
@@ -181,6 +180,19 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
             invViewM      = invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
+
+        -- let viewRotM   = fromQuaternion $ camera^.cameraOrientation
+        --     invViewM   = viewRotM
+
+        --     modelRotM  = fromQuaternion $ ent^.entityOrientation
+        --     invModelM  = modelRotM !*! (kronecker $ negate $ ent^.entityScale)
+        -- in adjoint $ invModelM !*! invViewM
+
+        -- let -- invCam        = camera & cameraTransformation %~ inverseTransformation
+        --     invViewM      = camera^.cameraMatrix
+        --     entTransform  = ent^.entityTransformation
+        --     invModelM     = (entTransform & transScale %~ negate)^.transformationMatrix
+        -- in adjoint $ invViewM^.to m44_to_m33 !*! invModelM^.to m44_to_m33
 
 
 defaultGeoMaterial :: GeoMaterial TextureResource

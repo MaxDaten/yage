@@ -1,6 +1,15 @@
 #ifndef __GBUFFER__
 #define __GBUFFER__
 
+struct Surface 
+{
+    vec3 Position;
+    vec3 Albedo;
+    vec3 Specular;
+    vec3 Normal;
+    float Roughness;
+};
+
 
 vec3 DecodeNormal( vec2 TexNormal )
 {
