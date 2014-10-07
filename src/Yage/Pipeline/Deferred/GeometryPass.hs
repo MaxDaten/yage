@@ -116,9 +116,8 @@ void main()
     OutAlbedo.a     = GetRoughness();
 
     vec3 texNormal = texture( NormalTexture, NormalST ).rgb;
-    vec3 Normal    = NormalColor.rgb * normalize(DecodeTextureNormal( texNormal ));
-    Normal         = normalize( Normal );
-    OutNormal.rg   = ( TangentToView * Normal ).rg;
+    vec3 Normal    = NormalColor.rgb * DecodeTextureNormal( texNormal );
+    OutNormal.rg   = EncodeNormalXY ( normalize ( TangentToView * Normal ) );
 }
 |]
 -- ============================================================================
@@ -175,10 +174,10 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
         modelMatrix       =: ( ent^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
         normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
 
-    theNormalMatrix :: M33 Float
+    theNormalMatrix :: M33 Double
     theNormalMatrix =
         let invCam        = camera & cameraTransformation %~ inverseTransformation
-            invViewM      = invCam^.cameraMatrix
+            invViewM      = fmap realToFrac <$> invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 

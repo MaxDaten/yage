@@ -28,7 +28,7 @@ import Yage.Pipeline.Deferred.GaussFilter
 import qualified Yage.Core.OpenGL as GL
 
 
-type HDRScene ent = Scene HDRCamera ent (Environment L.LitEntityDraw S.SkyEntityDraw)
+type HDRScene ent = Scene HDRCamera ent (Environment Light S.SkyEntityDraw)
 
 hdrLightingPass :: G.GeometryPass -> YageRenderSystem (HDRScene ent dat) Texture
 hdrLightingPass geometryPass viewport scene =
@@ -52,7 +52,7 @@ hdrLightingPass geometryPass viewport scene =
         bloomWeights    :: [Float]
         bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
-        lightData `lightPass` ( L.toLitEntity <$> lights )
+        lightData `lightPass` ( L.toLitEntity cam <$> lights )
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
         bloomedTextureSet <- Glare.glareDetection

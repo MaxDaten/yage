@@ -16,11 +16,11 @@ import FRP.Netwire as Netwire
 -------------------------------------------------------------------------------
 -- State Events
 
-mouseVelocity :: (Real t) => YageWire t a (V2 Float)
+mouseVelocity :: (Real t, RealFloat a) => YageWire t b (V2 a)
 mouseVelocity = derivativeF . currentMousePosition
 
 
-mouseAcceleration :: (Real t) => YageWire t a (V2 Float)
+mouseAcceleration :: (Real t, RealFloat a) => YageWire t b (V2 a)
 mouseAcceleration = derivativeF . mouseVelocity
 
 -- | fires ONCE everytime a `key` is pressed
@@ -49,8 +49,8 @@ whileKeyDown !key = go
             else (Left mempty, go)
 
 
-currentMousePosition :: (Real t, Fractional b) => YageWire t a (V2 b)
-currentMousePosition = go 
+currentMousePosition :: (Real t, Fractional a) => YageWire t b (V2 a)
+currentMousePosition = go
     where go = mkSF $ \(Timed _ inputSt) _ -> (realToFrac <$> inputSt^.mouse.mousePosition, go)
 
 currentInputState :: (Num t) => YageWire t a InputState

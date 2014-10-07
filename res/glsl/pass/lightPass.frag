@@ -21,12 +21,13 @@ uniform sampler2D DepthTexture;
 uniform samplerCube EnvironmentCubeMap;
 uniform float Gamma = 2.2;
 
-uniform LightT Light;
 
 uniform ivec2 ViewportDim;
 
-flat in mat4 ViewSpace;
 in vec3 VertexPosVS;
+
+// Light in view space (Position, Direction, etc)
+uniform LightT Light;
 
 
 layout (location = 0) out vec4 pixelColor;
@@ -41,7 +42,7 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
     attribs.Albedo    = channelA.rgb;
     attribs.Roughness = channelA.a;
     attribs.Specular  = vec3(0.5);
-    attribs.Normal    = normalize(DecodeNormalXY( channelB.rg ));
+    attribs.Normal    = normalize( DecodeNormalXY( channelB.rg ) );
     return attribs;
 }
 
@@ -87,7 +88,7 @@ vec3 CalculateLighting ( Surface surface, LightT light )
 {
     vec3 P  = surface.Position;
     // vector from lit point to the view
-    vec3 V  = -P;
+    vec3 V  = normalize(-P);
 
     // direction from the current lit pixel to the light source
     vec3 PtoL   = light.Position - P;
@@ -114,11 +115,10 @@ void main()
 
     
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
-    LightT light = Light;
-    light.Position = ( ViewSpace * vec4( Light.Position, 1.0 )).xyz;
+    pixelColor.rgb  = CalculateLighting ( surface, Light );
     
-    pixelColor.rgb = CalculateLighting ( surface, light );
-    pixelColor.rgb = surface.Normal * 0.5 + 0.5;
+    // pixelColor.rgb  = vec3(0.5, 0, 0);
+    // pixelColor.rgb = EncodeTextureNormal( surface.Normal );
 
     EnvironmentCubeMap;    
 }

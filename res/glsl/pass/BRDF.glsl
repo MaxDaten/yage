@@ -13,7 +13,7 @@ struct LightT
 {
     vec3    Position;
     float   Radius;
-    vec4    Color;
+    vec3    Color;
 };
 
 

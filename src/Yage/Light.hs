@@ -1,60 +1,47 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yage.Light where
 
 import Yage.Prelude
+import Yage.Lens
 
 import Yage.Transformation
+import Yage.Resources
 import Linear hiding (lerp)
 import qualified Linear (lerp)
 
-data Light where
-    Light ::
-        { lightType           :: LightType
-        , lightAttribs        :: LightAttributes
-        } -> Light
-
 data AmbientLight = AmbientLight (V3 Double)
 
+data LightType =
+      Pointlight
+      { _pLightPosition       :: V3 Double
+      , _pLightRadius         :: Double }
+    | Spotlight
+      { _sLightPosition       :: V3 Double
+      , _sLightCutoff         :: Double }
+    | OmniDirectional
+      { _odLightDirection     :: V3 Double }
+    deriving ( Show, Ord, Eq )
 
-data LightAttributes where
-    LightAttributes ::
-        { lAttrColor          :: V4 Double
-        , lAttrAttenuation    :: (Double, Double, Double)
-        -- ^ constant, inv linear, inv squared (1/d^2)
-        , lAttrSpecularExp    :: Double
-        -- ^ 0..128: 0 big smooth highlight, 128 tiny hard highlight
-        } -> LightAttributes
+makeLenses ''LightType
 
--- 1 linear, recommended 2 or 3
 
-{--
+data Light = Light
+    { _lightType           :: LightType
+    , _lightColor          :: V3 Double
+    } deriving ( Show, Ord, Eq )
 
-alpha = distance / radius
-damping_factor = 1.0 - pow(alpha,beta)
-final_intensity = attenuation(distance) * damping_factor
-beta = 1 :: linear
+makeLenses ''Light
 
---}
-
-data LightType where
-    Pointlight :: LightType
-
-    Spotlight ::
-        { sLightCutoff :: Double
-        } -> LightType
-
-    OmniDirectional :: LightType
 
 
 instance LinearInterpolatable AmbientLight where
      lerp alpha (AmbientLight u) (AmbientLight v) = AmbientLight $ Linear.lerp alpha u v
 
 instance LinearInterpolatable Light where
-    lerp alpha (Light tu attrU) (Light tv attrV) = Light (lerp alpha tu tv) (lerp alpha attrU attrV)
-
--- FIXME: implement
-instance LinearInterpolatable LightAttributes where
-    lerp _ u _ = u
+    lerp alpha (Light tu colorU) (Light tv colorV) = Light (lerp alpha tu tv) (Linear.lerp alpha colorU colorV)
 
 instance LinearInterpolatable LightType where
     lerp _ u _ = u
+
+instance HasResources vert Light Light where
+    requestResources = return

@@ -27,7 +27,7 @@ import Yage.Pipeline.Deferred.HDR             as Pass
 import Yage.Pipeline.Deferred.Common          as Pass
 import Yage.Pipeline.Deferred.GuiPass         as Pass
 
-type DeferredEnvironment = Environment Pass.LitEntityDraw Pass.SkyEntityDraw
+type DeferredEnvironment = Environment Light Pass.SkyEntityDraw
 type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment GUI
 
 yDeferredLighting :: YageRenderSystem DeferredScene ()

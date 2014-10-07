@@ -34,7 +34,7 @@ import qualified Graphics.Rendering.OpenGL      as GL
 data Entity mesh mat = Entity
     { _renderData            :: !mesh
     , _materials             :: !mat
-    , _entityTransformation  :: !( Transformation Float )
+    , _entityTransformation  :: !( Transformation Double )
     , _drawSettings          :: !GLDrawSettings
     }
 
@@ -95,22 +95,22 @@ sceneSky :: Lens' (Scene cam ent (Environment lit sky) dat) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
 
-mkCameraHandle :: V3 Float -> V3 Float -> V3 Float -> Quaternion Float -> V3 Float -> CameraHandle
+mkCameraHandle :: V3 Double -> V3 Double -> V3 Double -> Quaternion Double -> V3 Double -> CameraHandle
 mkCameraHandle = Cam.Camera
 
 {--
 ## Entity Shortcuts
 --}
 
-entityPosition    :: Lens' (Entity vert mat) (V3 Float)
+entityPosition    :: Lens' (Entity vert mat) (V3 Double)
 entityPosition    = entityTransformation.transPosition
 
 
-entityScale       :: Lens' (Entity vert mat) (V3 Float)
+entityScale       :: Lens' (Entity vert mat) (V3 Double)
 entityScale       = entityTransformation.transScale
 
 
-entityOrientation :: Lens' (Entity vert mat) (Quaternion Float)
+entityOrientation :: Lens' (Entity vert mat) (Quaternion Double)
 entityOrientation = entityTransformation.transOrientation
 
 
@@ -124,16 +124,6 @@ entityLight :: Lens' (LightEntity mesh) Light
 entityLight = lens getter setter where
   getter (LightEntity _ light) = light
   setter (LightEntity entity _) light = LightEntity entity light
-
-
-lightPosition :: Lens' (LightEntity mesh) (V3 Float)
-lightPosition = lightEntity.entityPosition
-
-lightOrientation :: Lens' (LightEntity mesh) (Quaternion Float)
-lightOrientation = lightEntity.entityOrientation
-
-lightRadius :: Lens' (LightEntity mesh) (V3 Float)
-lightRadius = lightEntity.entityScale
 
 
 instance ( HasResources vert ent ent', HasResources vert env env'

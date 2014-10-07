@@ -20,8 +20,6 @@ import Yage.Rendering.Textures (texSpecDimension)
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
-import qualified Yage.Core.OpenGL as GL
-
 
 type GlarePerFrameUni = [ YProjectionMatrix
                         , YTextureSize "TextureSize[0]"

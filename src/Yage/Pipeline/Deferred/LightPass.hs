@@ -33,9 +33,9 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 type YLightPosition      = "Light.Position"        ::: V3 GLfloat
 type YLightRadius        = "Light.Radius"          ::: GLfloat
-type YLightColor         = "Light.Color"           ::: V4 GLfloat
-type YLightAttenuation   = "Light.Attenuation"     ::: V3 GLfloat
-type YSpecularExp        = "Light.SpecularExp"     ::: GLfloat
+type YLightColor         = "Light.Color"           ::: V3 GLfloat
+-- type YLightAttenuation   = "Light.Attenuation"     ::: V3 GLfloat
+-- type YSpecularExp        = "Light.SpecularExp"     ::: GLfloat
 
 type YLightAttributes    = [ YLightPosition
                            , YLightRadius
@@ -54,11 +54,11 @@ uLightRadius = SField
 uLightColor :: SField YLightColor
 uLightColor = SField
 
-uLightAttenuation :: SField YLightAttenuation
-uLightAttenuation = SField
+-- uLightAttenuation :: SField YLightAttenuation
+-- uLightAttenuation = SField
 
-uLightSpecularExp :: SField YSpecularExp
-uLightSpecularExp = SField
+-- uLightSpecularExp :: SField YSpecularExp
+-- uLightSpecularExp = SField
 
 type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
@@ -78,13 +78,9 @@ type LitShader = Shader LitUni LitTex LitVertex
 
 type LightPass = YageDeferredPass LitPassChannels LitShader
 
-type LitEntityT f    = LightEntity (f LitVertex)
-type LitEntityRes    = LitEntityT Mesh
-type LitEntityDraw   = LitEntityT Mesh
+type LitPassScene ent sky = Scene ent (Environment Light sky)
 
-type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
-
-lightPass :: GeometryPass -> Viewport Int -> (Environment LitEntityDraw sky) -> LightPass
+lightPass :: GeometryPass -> Viewport Int -> (Environment Light sky) -> LightPass
 lightPass base viewport environment =
     passPreset target (viewport^.rectangle) (ShaderUnit shaderProg)
        & passPreRendering .~ preRendering
@@ -154,21 +150,6 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
         textureSampler =: (extract $ envMat^.matTexture)
 
 
-
-
-mkLight :: Light -> LitEntityRes
-mkLight light =
-    let vol           = lightData
-        lightEnt     = Entity vol () idTransformation (GLDrawSettings GL.Triangles (Just GL.Front))
-    in LightEntity lightEnt light
-    where
-    lightData :: Mesh LitVertex
-    lightData = case lightType light of
-        Pointlight{}      -> mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
-        Spotlight{}       -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
-        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
-
-
 instance FramebufferSpec LitPassChannels RenderTargets where
     fboColors LitPassChannels{lBufferChannel} =
         [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D lBufferChannel 0
@@ -179,21 +160,22 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 
-toLitEntity :: LitEntityDraw -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
-toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
-    where
-    uniforms =
-        modelMatrix =: ((fmap.fmap) realToFrac $ ent^.entityTransformation.transformationMatrix) <+>
-        lightAttributes
-
-
-    lightAttributes :: Uniforms YLightAttributes
-    lightAttributes =
-        let lightAttr = lightAttribs light
-        in case lightType light of
-        Pointlight{..}    -> uLightPosition =: (realToFrac <$> ent^.entityPosition )                   <+>
-                             uLightRadius   =: (realToFrac  $ ent^.entityScale._x )                    <+>
-                             uLightColor    =: (realToFrac <$> lAttrColor lightAttr )
+toLitEntity :: Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
+toLitEntity cam Light{..} =
+    case _lightType of
+        Pointlight{..}    ->
+            let transform  = idTransformation & transPosition .~ _pLightPosition
+                                              & transScale    .~ pure _pLightRadius
+                viewSpacePos = cam^.cameraMatrix !* point _pLightPosition
+                uniforms   = modelMatrix    =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                            <+> uLightPosition =: ( realToFrac      <$> viewSpacePos^._xyz )
+                            <+> uLightRadius   =: realToFrac _pLightRadius
+                            <+> uLightColor    =: ( realToFrac      <$> _lightColor )
+                renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
+            in RenderEntity renderData (ShaderData uniforms mempty) glSettings
+                    -- & entSettings .~
         Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
-        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+        OmniDirectional{} -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+    where
 
+    glSettings = GLDrawSettings GL.Triangles (Just GL.Front)
