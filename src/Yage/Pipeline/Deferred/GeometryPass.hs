@@ -94,7 +94,7 @@ smooth in mat3 TangentToView;
 
 // Red Green Blue Depth
 layout (location = 0) out vec4 OutAlbedo;
-layout (location = 1) out vec4 OutNormal;
+layout (location = 1) out vec2 OutNormal;
 // layout (location = 2) out vec3 specularOut;
 // layout (location = 3) out vec3 glossyOut;
 
@@ -115,9 +115,10 @@ void main()
     OutAlbedo.rgb   = GetAlbedoColor().rgb;
     OutAlbedo.a     = GetRoughness();
 
-    vec3 texNormal = NormalColor.rgb * DecodeNormal( texture( NormalTexture, NormalST ).rg );
-    texNormal      = normalize( texNormal );
-    OutNormal.rg   = EncodeNormal( TangentToView * texNormal ).rg;
+    vec3 texNormal = texture( NormalTexture, NormalST ).rgb;
+    vec3 Normal    = NormalColor.rgb * normalize(DecodeTextureNormal( texNormal ));
+    Normal         = normalize( Normal );
+    OutNormal.rg   = ( TangentToView * Normal ).rg;
 }
 |]
 -- ============================================================================
@@ -150,7 +151,7 @@ geoPass viewport =
                         }
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.RG GL.RG16
+    normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.HalfFloat GL.RG GL.RG16F
     depthSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.DepthComponent GL.DepthComponent24
 
 {--
@@ -198,7 +199,7 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
 defaultGeoMaterial :: GeoMaterial TextureResource
 defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
-        normalMat    = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zeroNormalDummy TexSRGB8)
+        normalMat    = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zNormalDummy TexSRGB8)
         roughnessMat = mkMaterialF 1.0 $ pure $ TexturePure $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
     in GeoMaterial albedoMat normalMat roughnessMat
 

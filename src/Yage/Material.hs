@@ -18,7 +18,7 @@ import Yage.Resources
 import Yage.Transformation           as Material
 
 import Control.Comonad               as Comonad ( extract )
-import Linear (V3, Quaternion)
+import Linear (V3(..), (^*), Quaternion)
 
 
 
@@ -47,11 +47,6 @@ type ResourceMaterial col = FMaterial Identity col TextureResource
 type RenderMaterial col = IMaterial col Texture
 
 
-
-zeroNormal :: (Ord a, Floating a) => Colour a
-zeroNormal = rgb 0.5 0.5 0.5
-
-
 pxTexture :: MaterialPixel pixel => TextureCtr pixel -> MaterialColor -> TextureImage
 pxTexture ctr = mkTextureImg ctr . constColorPx
 
@@ -68,15 +63,30 @@ redDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
 redDummy = (`pxTexture` red)
 
 
+-- | 1px normal `TextureImage`
+--
+-- asumes an already normalized argument
+constantNormal :: MaterialPixel pixel => V3 Double -> TextureCtr pixel -> TextureImage
+constantNormal normal ctr =
+    let (V3 nx ny nz) = normal ^* 0.5 + 0.5
+    in ctr `pxTexture` (rgb nx ny nz)
+
+
 zeroNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
-zeroNormalDummy = (`pxTexture` zeroNormal)
+zeroNormalDummy = constantNormal (V3 0 0 0)
+
+
+zNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
+zNormalDummy = constantNormal (V3 0 0 1)
 
 
 mkMaterial :: Applicative f => col -> TextureResource -> FMaterial f col TextureResource
 mkMaterial color texture = Material color (pure texture) idTransformation defaultTextureConfig
 
+
 mkMaterialF :: col -> f TextureResource -> FMaterial f col TextureResource
 mkMaterialF color textureF = Material color textureF idTransformation defaultTextureConfig
+
 
 defaultMaterial :: (Applicative f, MaterialPixel pixel, Default col) => TextureCtr pixel -> FMaterial f col TextureResource
 defaultMaterial ctr =

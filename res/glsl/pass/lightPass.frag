@@ -41,7 +41,7 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
     attribs.Albedo    = channelA.rgb;
     attribs.Roughness = channelA.a;
     attribs.Specular  = vec3(0.5);
-    attribs.Normal    = normalize(DecodeNormal( channelB.rg ));
+    attribs.Normal    = normalize(DecodeNormalXY( channelB.rg ));
     return attribs;
 }
 
@@ -118,6 +118,7 @@ void main()
     light.Position = ( ViewSpace * vec4( Light.Position, 1.0 )).xyz;
     
     pixelColor.rgb = CalculateLighting ( surface, light );
+    pixelColor.rgb = surface.Normal * 0.5 + 0.5;
 
     EnvironmentCubeMap;    
 }
