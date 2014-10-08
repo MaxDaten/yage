@@ -9,7 +9,7 @@ import Yage.Prelude                                         hiding ( toList, las
 import Yage.Lens                                            hiding ( cons )
 
 import Data.Foldable                                        ( toList )
-import Data.List                                            ( last, head, tail )
+import Data.List                                            ( last, tail )
 
 import Yage.Rendering
 import Yage.HDR
@@ -24,8 +24,6 @@ import qualified Yage.Pipeline.Deferred.SkyPass               as S
 import qualified Yage.Pipeline.Deferred.GlareDetectionPass    as Glare
 import qualified Yage.Pipeline.Deferred.ToneMapPass           as T
 import Yage.Pipeline.Deferred.GaussFilter
-
-import qualified Yage.Core.OpenGL as GL
 
 
 type HDRScene ent = Scene HDRCamera ent (Environment Light S.SkyEntityDraw)
@@ -62,8 +60,7 @@ hdrLightingPass geometryPass viewport scene =
                                 >>= bloomPass (bloomSettings^.bloomWidth) ( bloomSettings^.bloomGaussPasses )
 
         -- (head bloomedTextureSet) `composeAndToneMap` []
-        -- lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
-        return lightTex
+        lightTex `composeAndToneMap` zip bloomWeights bloomedTextureSet
 
 
 
