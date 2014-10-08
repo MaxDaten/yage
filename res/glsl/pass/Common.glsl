@@ -5,6 +5,11 @@ const float PI = 3.1415926535897932f;
 
 #define saturate(X) (clamp(X, 0.0, 1.0))
 
+float square(float X){ return X*X; }
+vec2 square(vec2 X)  { return X*X; }
+vec3 square(vec3 X)  { return X*X; }
+vec4 square(vec4 X)  { return X*X; }
+
 /*
     [http://www.geeks3d.com/20091216/geexlab-how-to-visualize-the-depth-buffer-in-glsl/]
     this is double checked and really 100% correct for OpenGL
@@ -35,11 +40,17 @@ vec3 PositionVSFromDepth ( float zBufferDepth, vec2 zRatio, vec3 ViewPosition )
     return viewRay * LinearDepth( zBufferDepth, zRatio );
 }
 
+float Luminance( vec3 color )
+{
+    return dot( color, vec3( 0.3, 0.59, 0.11 ) );
+}
+
 
 vec4 gamma(vec3 x, float y)
 {
     return vec4(pow(x.r, y), pow(x.g, y), pow(x.b, y), 1.0);
 }
+
 
 vec4 gamma(vec4 x, float y)
 {

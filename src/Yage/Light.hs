@@ -28,6 +28,7 @@ makeLenses ''LightType
 data Light = Light
     { _lightType           :: LightType
     , _lightColor          :: V3 Double
+    , _lightIntensity      :: Double
     } deriving ( Show, Ord, Eq )
 
 makeLenses ''Light
@@ -38,7 +39,10 @@ instance LinearInterpolatable AmbientLight where
      lerp alpha (AmbientLight u) (AmbientLight v) = AmbientLight $ Linear.lerp alpha u v
 
 instance LinearInterpolatable Light where
-    lerp alpha (Light tu colorU) (Light tv colorV) = Light (lerp alpha tu tv) (Linear.lerp alpha colorU colorV)
+    lerp alpha (Light tu colorU intensityU) (Light tv colorV intensityV) =
+        Light (lerp alpha tu tv)
+              (Linear.lerp alpha colorU colorV)
+              ((Linear.lerp alpha (V1 intensityU) (V1 intensityV))^._x)
 
 instance LinearInterpolatable LightType where
     lerp _ u _ = u

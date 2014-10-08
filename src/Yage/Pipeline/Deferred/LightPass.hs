@@ -167,10 +167,11 @@ toLitEntity cam Light{..} =
             let transform  = idTransformation & transPosition .~ _pLightPosition
                                               & transScale    .~ pure _pLightRadius
                 viewSpacePos = cam^.cameraMatrix !* point _pLightPosition
-                uniforms   = modelMatrix    =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                lightEnergy = _lightColor ^* _lightIntensity
+                uniforms   =    modelMatrix    =: ( fmap realToFrac <$> transform^.transformationMatrix )
                             <+> uLightPosition =: ( realToFrac      <$> viewSpacePos^._xyz )
                             <+> uLightRadius   =: realToFrac _pLightRadius
-                            <+> uLightColor    =: ( realToFrac      <$> _lightColor )
+                            <+> uLightColor    =: ( realToFrac <$> lightEnergy )
                 renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
             in RenderEntity renderData (ShaderData uniforms mempty) glSettings
                     -- & entSettings .~

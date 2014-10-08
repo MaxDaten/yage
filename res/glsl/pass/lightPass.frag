@@ -46,12 +46,16 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
     return attribs;
 }
 
+float DistanceAttenuationInverseSquare( float distance2 )
+{
+    return 1 / ( distance2 + 0.0001 );
+}
+
 // [Karis 2013, "Real Shading in Unreal Engine 4"]
-float RadialFalloff( float distance2, float radius )
+float MaskingRadius( float distance2, float radius )
 {
     float L0 = pow( sqrt(distance2) / radius, 4 );
-    L0 = pow( saturate( 1 - L0), 2);
-    return L0 / (distance2 + 1); 
+    return square( saturate( 1 - L0) ); 
 }
 
 vec3 PointLightSpecular ( Surface surface, vec3 VtoL, vec3 V )
@@ -91,16 +95,18 @@ vec3 CalculateLighting ( Surface surface, LightT light )
     vec3 V  = normalize(-P);
 
     // direction from the current lit pixel to the light source
-    vec3 PtoL   = light.Position - P;
-    float dist2 = dot( PtoL, PtoL );
+    vec3 PtoL       = light.Position - P;
+    float distance2 = dot( PtoL, PtoL );
 
-    vec3 DiffuseTerm = PointLightDiffuse( surface );
-    vec3 SpecTerm    = PointLightSpecular( surface, PtoL, V );
+    vec3 DiffuseTerm  = PointLightDiffuse( surface );
+    vec3 SpecularTerm = PointLightSpecular( surface, PtoL, V );
+
+    float DistanceAttenuation = 16 * DistanceAttenuationInverseSquare( distance2 );
+    float RadiusMask = MaskingRadius( distance2, light.Radius );
+    float Attenuation = DistanceAttenuation * RadiusMask;
 
     vec3 OutColor;
-    OutColor.rgb = light.Color.rgb * DiffuseTerm;
-    OutColor.rgb += light.Color.rgb * SpecTerm;
-    OutColor.rgb *= RadialFalloff( dist2, light.Radius );
+    OutColor.rgb = light.Color.rgb * Attenuation * (DiffuseTerm + SpecularTerm);
     return OutColor;
 }
 
