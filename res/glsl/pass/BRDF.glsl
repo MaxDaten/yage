@@ -1,9 +1,10 @@
 /*
     The BRDF for the physically based pipeline
 
-    References:
-    - http://seblagarde.wordpress.com/2011/08/17/feeding-a-physical-based-lighting-mode/
-    - https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf  
+    # References
+    - [http://seblagarde.wordpress.com/2011/08/17/feeding-a-physical-based-lighting-mode/]
+    - [https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf]
+    - [Lengyel 2004, Mathematics for 3d Game Programming & Computer Graphics]
 */
 #ifndef __BRDF__
 #define __BRDF__
@@ -11,9 +12,11 @@
 
 struct LightT
 {
-    vec3    Position;
-    float   Radius;
-    vec3    Color;
+    vec3    LightPosition;
+    // inner angle, outer angle, radius
+    vec3    LightConeAnglesAndRadius;
+    vec3    LightDirection;
+    vec3    LightColor;
 };
 
 

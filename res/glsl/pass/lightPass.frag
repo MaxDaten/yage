@@ -1,11 +1,10 @@
 /*
     a lighting model for physically based rendering
-    calculation is done in view-space 
-
-
+    calculation is done in view-space. mainly inspired by unreal engine.
 
     # irradiance area lights
     - http://www.dgp.toronto.edu/~ghali/publications/thesis/html/node4.html
+
 */
 #version 410 core
 
@@ -95,18 +94,18 @@ vec3 CalculateLighting ( Surface surface, LightT light )
     vec3 V  = normalize(-P);
 
     // direction from the current lit pixel to the light source
-    vec3 PtoL       = light.Position - P;
+    vec3 PtoL       = light.LightPosition - P;
     float distance2 = dot( PtoL, PtoL );
 
     vec3 DiffuseTerm  = PointLightDiffuse( surface );
     vec3 SpecularTerm = PointLightSpecular( surface, PtoL, V );
 
     float DistanceAttenuation = 16 * DistanceAttenuationInverseSquare( distance2 );
-    float RadiusMask = MaskingRadius( distance2, light.Radius );
+    float RadiusMask = MaskingRadius( distance2, light.LightConeAnglesAndRadius.z );
     float Attenuation = DistanceAttenuation * RadiusMask;
 
     vec3 OutColor;
-    OutColor.rgb = light.Color.rgb * Attenuation * (DiffuseTerm + SpecularTerm);
+    OutColor.rgb = light.LightColor.rgb * Attenuation * (DiffuseTerm + SpecularTerm);
     return OutColor;
 }
 
