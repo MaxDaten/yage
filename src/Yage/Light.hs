@@ -1,34 +1,50 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Light where
 
-import Yage.Prelude
-import Yage.Lens
+import           Yage.Lens
+import           Yage.Prelude
 
-import Yage.Transformation
-import Yage.Resources
-import Linear hiding (lerp)
-import qualified Linear (lerp)
+import           Linear              hiding (lerp)
+import qualified Linear              (lerp)
+import           Yage.Resources
+import           Yage.Transformation
 
 data AmbientLight = AmbientLight (V3 Double)
 
 data LightType =
       Pointlight
-      { _pLightPosition       :: V3 Double
-      , _pLightRadius         :: Double }
+        { _pLightPosition :: V3 Double
+        -- ^ world position of the light emitter (german: Leuchtmittel)
+        , _pLightRadius   :: Double
+        -- ^ the total influence distance of the emitter (sphere radius)
+        }
     | Spotlight
-      { _sLightPosition       :: V3 Double
-      , _sLightCutoff         :: Double }
-    | OmniDirectional
-      { _odLightDirection     :: V3 Double }
+        { _sLightPosition   :: V3 Double
+        -- ^ world position of the spot light emitter
+        , _sLightDirection  :: V3 Double
+        -- ^ the direction vector in world space
+        , _sLightInnerAngle :: Double
+        -- ^ inner angle in radians for the area with full intensity
+        , _sLightOuterAngle :: Double
+        -- ^ outer angle in radians as cut off
+        , _sLightRadius     :: Double
+        -- ^ maximum distance from `sLightPosition` for light influence
+        }
+    | Directional
+      { _dLightDirection :: V3 Double
+      }
     deriving ( Show, Ord, Eq )
 
 makeLenses ''LightType
 
 
 data Light = Light
-    { _lightType           :: LightType
-    , _lightColor          :: V3 Double
-    , _lightIntensity      :: Double
+    { _lightType      :: LightType
+    -- ^ `Poinlight` | `Spotlight`
+    , _lightColor     :: V3 Double
+    -- ^ tint of the light emitter in linear color dimension
+    , _lightIntensity :: Double
+    -- ^ the energy in lumen
     } deriving ( Show, Ord, Eq )
 
 makeLenses ''Light

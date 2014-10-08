@@ -64,6 +64,11 @@ cameraUpward = lens getter setter where
     getter cam = Cam.upward $ cam^.cameraHandle
     setter cam up = cam & cameraHandle %~ \hnd -> hnd{ Cam.upward = up }
 
+cameraRightward :: Lens' Camera (V3 Double)
+cameraRightward = lens getter setter where
+    getter cam = Cam.rightward $ cam^.cameraHandle
+    setter cam r = cam & cameraHandle %~ \hnd -> hnd{ Cam.rightward = r }
+
 handleTransformation :: Lens' CameraHandle (Transformation Double)
 handleTransformation = lens getter setter where
     getter Cam.Camera{Cam.orientation, Cam.location}

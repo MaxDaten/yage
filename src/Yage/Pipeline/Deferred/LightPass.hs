@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing -fno-warn-orphans -fno-warn-type-defaults #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -31,14 +30,16 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 
 
-type YLightPosition      = "Light.Position"        ::: V3 GLfloat
-type YLightRadius        = "Light.Radius"          ::: GLfloat
-type YLightColor         = "Light.Color"           ::: V3 GLfloat
+type YLightPosition              = "Light.LightPosition"             ::: V3 GLfloat
+type YConeAnglesAndRadius        = "Light.LightConeAnglesAndRadius"  ::: V3 GLfloat
+type YLightColor                 = "Light.LightColor"                ::: V3 GLfloat
+type YLightDirection             = "Light.LightDirection"            ::: V3 GLfloat
 -- type YLightAttenuation   = "Light.Attenuation"     ::: V3 GLfloat
 -- type YSpecularExp        = "Light.SpecularExp"     ::: GLfloat
 
 type YLightAttributes    = [ YLightPosition
-                           , YLightRadius
+                           , YConeAnglesAndRadius
+                           , YLightDirection
                            , YLightColor
                            -- , YLightAttenuation
                            -- , YSpecularExp
@@ -48,11 +49,14 @@ type YLightAttributes    = [ YLightPosition
 uLightPosition :: SField YLightPosition
 uLightPosition = SField
 
-uLightRadius :: SField YLightRadius
-uLightRadius = SField
+uConeAnglesAndRadius :: SField YConeAnglesAndRadius
+uConeAnglesAndRadius = SField
 
 uLightColor :: SField YLightColor
 uLightColor = SField
+
+uLightDirection :: SField YLightDirection
+uLightDirection = SField
 
 -- uLightAttenuation :: SField YLightAttenuation
 -- uLightAttenuation = SField
@@ -161,22 +165,42 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 toLitEntity :: Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
-toLitEntity cam Light{..} =
-    case _lightType of
-        Pointlight{..}    ->
-            let transform  = idTransformation & transPosition .~ _pLightPosition
-                                              & transScale    .~ pure _pLightRadius
-                viewSpacePos = cam^.cameraMatrix !* point _pLightPosition
-                lightEnergy = _lightColor ^* _lightIntensity
-                uniforms   =    modelMatrix    =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                            <+> uLightPosition =: ( realToFrac      <$> viewSpacePos^._xyz )
-                            <+> uLightRadius   =: realToFrac _pLightRadius
-                            <+> uLightColor    =: ( realToFrac <$> lightEnergy )
-                renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
-            in RenderEntity renderData (ShaderData uniforms mempty) glSettings
-                    -- & entSettings .~
-        Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
-        OmniDirectional{} -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
-    where
+toLitEntity cam Light{..} = case _lightType of
+    Pointlight{..}    ->
+        let transform  = idTransformation & transPosition .~ _pLightPosition
+                                          & transScale    .~ pure _pLightRadius
 
-    glSettings = GLDrawSettings GL.Triangles (Just GL.Front)
+
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                        <+> uLightPosition              =: ( realToFrac      <$> (viewSpacePos _pLightPosition)^._xyz )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> ( 0 & _z .~ _pLightRadius ) )
+                        <+> uLightDirection             =: ( realToFrac      <$> 0.0 )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
+        in RenderEntity renderData (ShaderData uniforms mempty) glSettings
+
+    Spotlight{..}     ->
+        let half          = _sLightOuterAngle / 2.0
+            basisRadius   = _sLightRadius * sin half / sin (pi / 2.0 - half)
+            transform     = idTransformation
+                & transPosition    .~ ( realToFrac <$> (_sLightPosition & _y -~ _sLightRadius) )
+                & transScale       .~ V3 basisRadius _sLightRadius basisRadius
+                & transOrientation .~ lookAt cameraSpace (_sLightDirection)
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                        <+> uLightPosition              =: ( realToFrac      <$> (viewSpacePos _sLightPosition)^._xyz )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 _sLightInnerAngle _sLightOuterAngle _sLightRadius )
+                        <+> uLightDirection             =: ( realToFrac      <$> (viewSpaceDirection _sLightDirection)^._xyz )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "slight" . map (position3 =:) . vertices . triangles $ cone 1 1 24
+        in RenderEntity renderData (ShaderData uniforms mempty) glSettings
+
+    Directional{}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+
+    where
+    cameraSpace          = V3 (cam^.cameraRightward) (cam^.cameraUpward) (cam^.cameraForward)
+    lightEnergy          = _lightColor ^* _lightIntensity
+    viewSpacePos p       = cam^.cameraMatrix !* point p
+    viewSpaceDirection d = cam^.cameraMatrix !* vector d
+    glSettings           = GLDrawSettings GL.Triangles (Just GL.Front)
