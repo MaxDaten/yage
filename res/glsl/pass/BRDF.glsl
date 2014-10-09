@@ -13,12 +13,22 @@
 struct LightT
 {
     vec3    LightPosition;
-    // inner angle, outer angle, radius
+    // cos inner angle, cos outer angle, radius
     vec3    LightConeAnglesAndRadius;
     vec3    LightDirection;
     vec3    LightColor;
 };
 
+
+bool IsSpotlight( LightT light )
+{
+    return light.LightConeAnglesAndRadius.y > 0;
+}
+
+bool IsPointlight( LightT light)
+{
+    return light.LightConeAnglesAndRadius.y == 0;
+}
 
 vec3 DiffuseLambert( vec3 diffuseColor )
 {

@@ -173,7 +173,7 @@ toLitEntity cam Light{..} = case _lightType of
 
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> (viewSpacePos _pLightPosition)^._xyz )
+                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to viewSpacePos._xyz )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> ( 0 & _z .~ _pLightRadius ) )
                         <+> uLightDirection             =: ( realToFrac      <$> 0.0 )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
@@ -184,14 +184,14 @@ toLitEntity cam Light{..} = case _lightType of
         let half          = _sLightOuterAngle / 2.0
             basisRadius   = _sLightRadius * sin half / sin (pi / 2.0 - half)
             transform     = idTransformation
-                & transPosition    .~ ( realToFrac <$> (_sLightPosition & _y -~ _sLightRadius) )
+                & transPosition    .~ ( realToFrac <$> _sLightPosition )
                 & transScale       .~ V3 basisRadius _sLightRadius basisRadius
-                & transOrientation .~ lookAt cameraSpace (_sLightDirection)
+                & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> (viewSpacePos _sLightPosition)^._xyz )
-                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 _sLightInnerAngle _sLightOuterAngle _sLightRadius )
-                        <+> uLightDirection             =: ( realToFrac      <$> (viewSpaceDirection _sLightDirection)^._xyz )
+                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 (cos $ _sLightInnerAngle / 2) (cos $ _sLightOuterAngle / 2) _sLightRadius )
+                        <+> uLightDirection             =: ( realToFrac      <$> _sLightDirection^.to viewSpaceDirection._xyz )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
             renderData = mkFromVerticesF "slight" . map (position3 =:) . vertices . triangles $ cone 1 1 24
         in RenderEntity renderData (ShaderData uniforms mempty) glSettings
@@ -199,8 +199,8 @@ toLitEntity cam Light{..} = case _lightType of
     Directional{}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
 
     where
-    cameraSpace          = V3 (cam^.cameraRightward) (cam^.cameraUpward) (cam^.cameraForward)
+    worldSpace           = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
     lightEnergy          = _lightColor ^* _lightIntensity
     viewSpacePos p       = cam^.cameraMatrix !* point p
-    viewSpaceDirection d = cam^.cameraMatrix !* vector d
+    viewSpaceDirection d = normalize $ cam^.cameraMatrix !* vector d
     glSettings           = GLDrawSettings GL.Triangles (Just GL.Front)

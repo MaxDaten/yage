@@ -47,7 +47,7 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
 
 float DistanceAttenuationInverseSquare( float distance2 )
 {
-    return 1 / ( distance2 + 0.0001 );
+    return 16 / ( distance2 + 0.0001 );
 }
 
 // [Karis 2013, "Real Shading in Unreal Engine 4"]
@@ -87,6 +87,15 @@ vec3 PointLightDiffuse ( Surface surface )
     return Diffuse( surface.Albedo );
 }
 
+float SpotAttenuation( vec3 PtoL, LightT light )
+{
+    vec3 L = normalize( PtoL );
+    vec3 direction = -light.LightDirection;
+    float inner = light.LightConeAnglesAndRadius.x;
+    float outer = light.LightConeAnglesAndRadius.y;
+    return square(saturate( dot(L, direction) - outer ) / (outer -  inner) );
+}
+
 vec3 CalculateLighting ( Surface surface, LightT light )
 {
     vec3 P  = surface.Position;
@@ -97,16 +106,21 @@ vec3 CalculateLighting ( Surface surface, LightT light )
     vec3 PtoL       = light.LightPosition - P;
     float distance2 = dot( PtoL, PtoL );
 
+
+    float DistanceAttenuation = DistanceAttenuationInverseSquare( distance2 );
+    float RadiusMask          = MaskingRadius( distance2, light.LightConeAnglesAndRadius.z );
+    float Attenuation         = DistanceAttenuation * RadiusMask;
+
+    if ( IsSpotlight( light ) )
+    {
+        Attenuation *= SpotAttenuation( PtoL, light);
+    }
+
+
     vec3 DiffuseTerm  = PointLightDiffuse( surface );
     vec3 SpecularTerm = PointLightSpecular( surface, PtoL, V );
 
-    float DistanceAttenuation = 16 * DistanceAttenuationInverseSquare( distance2 );
-    float RadiusMask = MaskingRadius( distance2, light.LightConeAnglesAndRadius.z );
-    float Attenuation = DistanceAttenuation * RadiusMask;
-
-    vec3 OutColor;
-    OutColor.rgb = light.LightColor.rgb * Attenuation * (DiffuseTerm + SpecularTerm);
-    return OutColor;
+    return light.LightColor.rgb * Attenuation * (DiffuseTerm + SpecularTerm);
 }
 
 void main()
@@ -122,7 +136,7 @@ void main()
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
     pixelColor.rgb  = CalculateLighting ( surface, Light );
     
-    // pixelColor.rgb  = vec3(0.5, 0, 0);
+    // pixelColor.rgb  += vec3(0.05, 0, 0);
     // pixelColor.rgb = EncodeTextureNormal( surface.Normal );
 
     EnvironmentCubeMap;    

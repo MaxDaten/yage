@@ -1,12 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiWayIf      #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Yage.Transformation where
 
-import Yage.Prelude
-import Yage.Lens
-import Yage.Math hiding (lerp)
-import qualified Linear (lerp, slerp)
-import Control.Applicative
+import           Control.Applicative
+import qualified Linear              (lerp, slerp)
+import           Yage.Lens
+import           Yage.Math           hiding (lerp)
+import           Yage.Prelude
 
 data Transformation a = Transformation
     { _transPosition    :: !(V3 a)
@@ -38,13 +38,15 @@ inverseTransformation t =
 
 -- | Creates a Quaternion from a orthonormalized vector space
 --   and a normalized look-at direction vector
-lookAt :: (Epsilon a, RealFloat a) => M33 a -> V3 a -> Quaternion a
-lookAt (V3 _x y z) directionVector =
-    let axis   = normalize $ z `cross` directionVector
-        theta  = acos $ z `dot` directionVector
+lookAt :: (Epsilon a, RealFloat a, Show a) => M33 a -> V3 a -> Quaternion a
+lookAt (V3 _wx wy wz) directionVector =
+    let axis   = normalize $ wy `cross` directionVector
+        theta  = wy `dot` directionVector
     in if | nearZero (theta - 1) -> 1
-          | nearZero (theta + 1) -> axisAngle y pi
-          | otherwise            -> axisAngle axis theta
+          | nearZero (theta + 1) -> axisAngle wz pi
+          | otherwise            -> axisAngle axis (acos theta)
+{-# SPECIALISE INLINE lookAt :: M33 Float -> V3 Float -> Quaternion Float #-}
+{-# SPECIALISE INLINE lookAt :: M33 Double -> V3 Double -> Quaternion Double #-}
 
 
 instance Applicative Transformation where
