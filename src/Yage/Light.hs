@@ -83,13 +83,14 @@ makeSpotlight :: V3 Double
               -- ^ intensity (lumen)
               -> Light
               -- ^ constructed spotlight
-makeSpotlight position target inner outer color intensity = Light
-    { _lightType  = Spotlight { _sLightPosition   = position
-                              , _sLightDirection  = normalize $ target - position
-                              , _sLightInnerAngle = deg2rad inner
-                              , _sLightOuterAngle = deg2rad outer
-                              , _sLightRadius     = norm $ target - position
-                              }
+makeSpotlight position target innerAngle outerAngle color intensity = Light
+    { _lightType  = Spotlight
+        { _sLightPosition   = position
+        , _sLightDirection  = normalize $ target - position
+        , _sLightInnerAngle = deg2rad $ clamp innerAngle 0 89.9
+        , _sLightOuterAngle = deg2rad $ clamp outerAngle (innerAngle+0.0001) 89.9
+        , _sLightRadius     = norm $ target - position
+        }
     , _lightIntensity = intensity
     , _lightColor = color
     }
