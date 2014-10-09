@@ -3,8 +3,8 @@ module Yage.Light where
 
 import           Yage.Lens
 import           Yage.Prelude
+import           Yage.Math           hiding (lerp)
 
-import           Linear              hiding (lerp)
 import qualified Linear              (lerp)
 import           Yage.Resources
 import           Yage.Transformation
@@ -65,3 +65,31 @@ instance LinearInterpolatable LightType where
 
 instance HasResources vert Light Light where
     requestResources = return
+
+
+
+-- | Creates a spotlight
+makeSpotlight :: V3 Double
+              -- ^ position in world space
+              -> V3 Double
+              -- ^ target of spotlight in world space
+              -> Double
+              -- ^ inner angle (degree) for area with max intensity
+              -> Double
+              -- ^ outer angle (degree) for cut off
+              -> V3 Double
+              -- ^ light color
+              -> Double
+              -- ^ intensity (lumen)
+              -> Light
+              -- ^ constructed spotlight
+makeSpotlight position target inner outer color intensity = Light
+    { _lightType  = Spotlight { _sLightPosition   = position
+                              , _sLightDirection  = normalize $ target - position
+                              , _sLightInnerAngle = deg2rad inner
+                              , _sLightOuterAngle = deg2rad outer
+                              , _sLightRadius     = norm $ target - position
+                              }
+    , _lightIntensity = intensity
+    , _lightColor = color
+    }
