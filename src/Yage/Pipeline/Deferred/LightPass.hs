@@ -181,17 +181,18 @@ toLitEntity cam Light{..} = case _lightType of
         in RenderEntity renderData (ShaderData uniforms mempty) glSettings
 
     Spotlight{..}     ->
-        let half          = _sLightOuterAngle / 2.0
-            basisRadius   = _sLightRadius * sin half / sin (pi / 2.0 - half)
-            transform     = idTransformation
-                & transPosition    .~ ( realToFrac <$> _sLightPosition )
-                & transScale       .~ V3 basisRadius _sLightRadius basisRadius
-                & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
+        let half                = _sLightOuterAngle / 2.0
+            basisRadius         = _sLightRadius * sin half / sin (pi / 2.0 - half)
+            normalizedLightDir  = normalize $ _sLightDirection^.to viewSpaceDirection._xyz
+            transform           = idTransformation
+                                    & transPosition    .~ ( realToFrac <$> _sLightPosition )
+                                    & transScale       .~ V3 basisRadius _sLightRadius basisRadius
+                                    & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
                         <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 (cos $ _sLightInnerAngle / 2) (cos $ _sLightOuterAngle / 2) _sLightRadius )
-                        <+> uLightDirection             =: ( realToFrac      <$> _sLightDirection^.to viewSpaceDirection._xyz )
+                        <+> uLightDirection             =: ( realToFrac      <$> normalizedLightDir )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
             renderData = mkFromVerticesF "slight" . map (position3 =:) . vertices . triangles $ cone 1 1 24
         in RenderEntity renderData (ShaderData uniforms mempty) glSettings
