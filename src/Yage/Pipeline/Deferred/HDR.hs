@@ -50,7 +50,7 @@ hdrLightingPass geometryPass viewport scene =
         bloomWeights    :: [Float]
         bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
-        lightData `lightPass` ( L.toLitEntity cam <$> lights )
+        lightData `lightPass` ( L.toLitEntity viewport cam <$> lights )
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
         bloomedTextureSet <- Glare.glareDetection
@@ -85,6 +85,7 @@ bloomPass bloomWidth numSamples baseTexture =
         mkSingleTargetFromSpec
             ( mkPassId directionId downFactor )
             ( baseSpec & texSpecDimension %~ \(V2 w h) -> V2 (max (w `div` downFactor) 1) (max(h `div` downFactor) 1) )
+
     mkPassId :: String -> Int -> ByteString
     mkPassId directionId factor = toStrict . encodeUtf8 $ format "-{}-{}-{}" ( Shown baseId, Shown factor, Shown directionId )
 

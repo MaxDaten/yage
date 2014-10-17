@@ -30,7 +30,7 @@ data LightType =
         , _sLightRadius     :: Double
         -- ^ maximum distance from `sLightPosition` for light influence
         }
-    | Directional
+    | DirectionalLight
       { _dLightDirection :: V3 Double
       }
     deriving ( Show, Ord, Eq )
@@ -40,7 +40,7 @@ makeLenses ''LightType
 
 data Light = Light
     { _lightType      :: LightType
-    -- ^ `Poinlight` | `Spotlight`
+    -- ^ `Poinlight` | `Spotlight` | `DirectionalLight`
     , _lightColor     :: V3 Double
     -- ^ tint of the light emitter in linear color dimension
     , _lightIntensity :: Double

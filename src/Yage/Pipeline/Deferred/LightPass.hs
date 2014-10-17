@@ -30,7 +30,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 
 
-type YLightPosition              = "Light.LightPosition"             ::: V3 GLfloat
+type YLightPosition              = "Light.LightPosition"             ::: V4 GLfloat
 type YConeAnglesAndRadius        = "Light.LightConeAnglesAndRadius"  ::: V3 GLfloat
 type YLightColor                 = "Light.LightColor"                ::: V3 GLfloat
 type YLightDirection             = "Light.LightDirection"            ::: V3 GLfloat
@@ -64,7 +64,7 @@ uLightDirection = SField
 -- uLightSpecularExp :: SField YSpecularExp
 -- uLightSpecularExp = SField
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -140,8 +140,11 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
                                          ( ( 2.0 * near * far ) / ( far - near ) )
             dim                     = fromIntegral <$> viewport^.rectangle.extend
             theGamma                = realToFrac $ viewport^.viewportGamma
+            Rectangle xy0 xy1       = fromIntegral <$> viewport^.rectangle
+            viewToScreenM           = orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
         in
         perspectiveUniforms viewport camera     <+>
+        viewToScreenMatrix  =: viewToScreenM    <+>
         viewportDim         =: dim              <+>
         zProjRatio          =: zProj            <+>
         gamma               =: theGamma
@@ -164,23 +167,22 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 
-toLitEntity :: Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
-toLitEntity cam Light{..} = case _lightType of
-    Pointlight{..}    ->
+toLitEntity :: Viewport Int -> Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
+toLitEntity viewport cam Light{..} = case _lightType of
+
+    Pointlight{..}      ->
         let transform  = idTransformation & transPosition .~ _pLightPosition
                                           & transScale    .~ pure _pLightRadius
 
-
-
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to viewSpacePos._xyz )
+                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to viewSpacePos._xyz.to point )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> ( 0 & _z .~ _pLightRadius ) )
                         <+> uLightDirection             =: ( realToFrac      <$> 0.0 )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
             renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
-        in RenderEntity renderData (ShaderData uniforms mempty) glSettings
+        in RenderEntity renderData (ShaderData uniforms mempty) lightVolumeSettings
 
-    Spotlight{..}     ->
+    Spotlight{..}       ->
         let half                = _sLightOuterAngle / 2.0
             basisRadius         = _sLightRadius * sin half / sin (pi / 2.0 - half)
             normalizedLightDir  = normalize $ _sLightDirection^.to viewSpaceDirection._xyz
@@ -190,18 +192,41 @@ toLitEntity cam Light{..} = case _lightType of
                                     & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz )
+                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz.to point )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 (cos $ _sLightInnerAngle / 2) (cos $ _sLightOuterAngle / 2) _sLightRadius )
                         <+> uLightDirection             =: ( realToFrac      <$> normalizedLightDir )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
             renderData = mkFromVerticesF "slight" . map (position3 =:) . vertices . triangles $ cone 1 1 24
-        in RenderEntity renderData (ShaderData uniforms mempty) glSettings
+        in RenderEntity renderData (ShaderData uniforms mempty) lightVolumeSettings
 
-    Directional{}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
+    -- | Directional lighting is rendered with a fullscreen quad
+    DirectionalLight{..}  ->
+        let dim          = realToFrac <$> viewport^.rectangle.extend
+            trans        = idTransformation & transPosition._xy .~ 0.5 * dim
+                                            & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
+            scaleM       = kronecker . point $ trans^.transScale
+            transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
+            modelM       = transM !*! scaleM
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> modelM )
+                        <+> uLightPosition              =: ( realToFrac      <$> 0.0 )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> 0.0 )
+                        <+> uLightDirection             =: ( realToFrac      <$> _dLightDirection^.to viewSpaceDirection._xyz )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "dlight" . vertices . triangles $ targetFace
+
+        in RenderEntity renderData (ShaderData uniforms mempty) (GLDrawSettings GL.Triangles (Just GL.Back))
 
     where
     worldSpace           = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
     lightEnergy          = _lightColor ^* _lightIntensity
     viewSpacePos p       = cam^.cameraMatrix !* point p
     viewSpaceDirection d = normalize $ cam^.cameraMatrix !* vector d
-    glSettings           = GLDrawSettings GL.Triangles (Just GL.Front)
+    lightVolumeSettings  = GLDrawSettings GL.Triangles (Just GL.Front)
+
+    targetFace           :: Face LitVertex
+    targetFace           = Face
+        (position3 =: V3 (-0.5) ( 0.5) 0.0)
+        (position3 =: V3 (-0.5) (-0.5) 0.0)
+        (position3 =: V3 ( 0.5) (-0.5) 0.0)
+        (position3 =: V3 ( 0.5) ( 0.5) 0.0)

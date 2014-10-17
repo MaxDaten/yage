@@ -10,23 +10,29 @@
 #define __BRDF__
 
 
-struct LightT
+struct LightData
 {
-    vec3    LightPosition;
+    vec4    LightPosition;
     // cos inner angle, cos outer angle, radius
     vec3    LightConeAnglesAndRadius;
+    // direction in light space
     vec3    LightDirection;
     // hdr color with open range [0..], negative values not supported
     vec3    LightColor;
 };
 
 
-bool IsSpotlight( LightT light )
+bool IsSpotlight( LightData light )
 {
     return light.LightConeAnglesAndRadius.y > 0;
 }
 
-bool IsPointlight( LightT light)
+bool IsPositionalLight( LightData light )
+{
+    return light.LightPosition.w == 1;
+}
+
+bool IsPointlight( LightData light)
 {
     return light.LightConeAnglesAndRadius.y == 0;
 }

@@ -31,7 +31,7 @@ uniform ivec2 ViewportDim;
 in vec3 VertexPosVS;
 
 // Light in view space (Position, Direction, etc)
-uniform LightT Light;
+in LightData InLight;
 
 
 layout (location = 0) out vec4 pixelColor;
@@ -91,7 +91,7 @@ vec3 DiffuseTerm ( Surface surface )
     return Diffuse( surface.Albedo );
 }
 
-float SpotAttenuation( vec3 L, LightT light )
+float SpotAttenuation( vec3 L, LightData light )
 {
     vec3 direction = -light.LightDirection;
     float inner = light.LightConeAnglesAndRadius.x;
@@ -99,34 +99,46 @@ float SpotAttenuation( vec3 L, LightT light )
     return square(saturate( dot(L, direction) - outer ) / (outer -  inner) );
 }
 
-vec3 SurfaceShading ( Surface surface, LightT light )
+vec3 SurfaceShading ( Surface surface, LightData light )
 {
     // vector from origin (view space) to lit point
     vec3 P  = surface.Position;
+    vec3 L  = -light.LightDirection;
     // direction from lit point to the view
     vec3 V  = normalize(-P);
 
-    // vector from the current lit point to the light source
-    vec3 PtoL       = light.LightPosition - P;
-    float distance2 = dot( PtoL, PtoL );
+    float Attenuation = 1.0;
 
-
-    float DistanceAttenuation = DistanceAttenuationInverseSquare( distance2 );
-    float RadiusMask          = MaskingRadius( distance2, light.LightConeAnglesAndRadius.z );
-    float Attenuation         = DistanceAttenuation * RadiusMask;
-
-    // direction to the light
-    vec3 L          = normalize( PtoL );
-    float NoL       = saturate(dot( surface.Normal, L));
-    if ( IsSpotlight( light ) )
+    if ( IsPositionalLight( light ) )
     {
-        Attenuation *= SpotAttenuation( L, light);
+        // vector from the current lit point to the light source
+        vec3 PtoL       = light.LightPosition.xyz - P;
+        float distance2 = dot( PtoL, PtoL );
+
+        float DistanceAttenuation = DistanceAttenuationInverseSquare( distance2 );
+        float RadiusMask          = MaskingRadius( distance2, light.LightConeAnglesAndRadius.z );
+        Attenuation               = DistanceAttenuation * RadiusMask;
+
+        // direction to the light
+        L = normalize( PtoL );
+        
+        if ( IsSpotlight( light ) )
+        {
+            Attenuation *= SpotAttenuation( L, light);
+        }
     }
 
-    vec3 DiffuseShading  = DiffuseTerm( surface );
-    vec3 SpecularShading = SpecularTerm( surface, NoL, L, V );
+    vec3 OutColor = vec3(0.0);
 
-    return light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
+    if ( Attenuation > 0 )
+    {
+        float NoL = saturate(dot( surface.Normal, L));
+        vec3 DiffuseShading  = DiffuseTerm( surface );
+        vec3 SpecularShading = SpecularTerm( surface, NoL, L, V );
+        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
+    }
+
+    return OutColor;
 }
 
 void main()
@@ -140,7 +152,7 @@ void main()
 
     
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
-    pixelColor.rgb  = SurfaceShading ( surface, Light );
+    pixelColor.rgb  = SurfaceShading ( surface, InLight );
     
     // pixelColor.rgb  += vec3(0.05, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
