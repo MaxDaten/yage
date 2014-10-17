@@ -31,7 +31,7 @@ uniform ivec2 ViewportDim;
 in vec3 VertexPosVS;
 
 // Light in view space (Position, Direction, etc)
-in LightData InLight;
+uniform LightData Light;
 
 
 layout (location = 0) out vec4 pixelColor;
@@ -152,7 +152,7 @@ void main()
 
     
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
-    pixelColor.rgb  = SurfaceShading ( surface, InLight );
+    pixelColor.rgb  = SurfaceShading ( surface, Light );
     
     // pixelColor.rgb  += vec3(0.05, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);

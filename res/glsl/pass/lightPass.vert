@@ -12,7 +12,6 @@ uniform LightData Light;
 in vec3 vPosition;
 
 out vec3 VertexPosVS;
-out LightData InLight;
 
 mat4 MVPMatrix = VPMatrix * ModelMatrix;
 void main()
@@ -31,6 +30,6 @@ void main()
         OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
     }
     
+    
     gl_Position  = OutPosition;
-    InLight = Light;
 }
