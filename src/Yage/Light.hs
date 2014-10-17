@@ -94,3 +94,22 @@ makeSpotlight position target innerAngle outerAngle color intensity = Light
     , _lightIntensity = intensity
     , _lightColor = color
     }
+
+
+-- | Creates a global directional light
+makeDirectionalLight
+    :: V3 Double
+    -- ^ direction vector in world space (can be unnormalized)
+    -> V3 Double
+    -- ^ linear emitting color
+    -> Double
+    -- ^ intensity (lumen)
+    -> Light
+    -- ^ constructed directional light
+makeDirectionalLight direction color intensity = Light
+    { _lightType  = DirectionalLight
+        { _dLightDirection = normalize $ direction
+        }
+    , _lightIntensity = intensity
+    , _lightColor = color
+    }
