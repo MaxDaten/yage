@@ -54,33 +54,6 @@ projectionMatrix3D zNear zFar fov (Rectangle _ wh) = Cam.projectionMatrix
         ( realToFrac $ zNear )
         ( realToFrac $ zFar )
 
-{--
-projectionMatrix2D :: (Conjugate a, Epsilon a, RealFloat a) =>
-    a ->
-    -- ^ zNear
-    a ->
-    -- ^ zFar
-    Rectangle a ->
-    -- ^ xy wh
-    M44 a
-    -- ^ projection matrix
-projectionMatrix2D zNear zFar (Rectangle xy0 xy1) =
-    orthographicMatrix -- 0/0 bottom left
-        ( xy0^._x ) -- viewport left to left
-        ( xy1^._x ) -- viewport right to right
-        ( xy0^._y ) -- viewport bottom to top
-        ( xy1^._y ) -- viewport top to bottom
-        ( realToFrac $ zNear )
-        ( realToFrac $ zFar )
-    --orthographicMatrix -- 0/0 bottom left
-    --    ( xy0^._x ) -- viewport left to left
-    --    ( xy1^._x ) -- viewport right to right
-    --    ( xy0^._y ) -- viewport top to bottom
-    --    ( xy1^._y ) -- viewport bottom to top
-    --    ( realToFrac $ zNear )
-    --    ( realToFrac $ zFar )
---}
-
 
 -- | glOrtho convention
 orthographicMatrix :: (Conjugate a, Epsilon a, RealFloat a)

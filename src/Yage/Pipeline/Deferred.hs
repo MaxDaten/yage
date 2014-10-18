@@ -13,7 +13,6 @@ import Yage.Lens
 import Yage.Rendering
 import Yage.Scene
 import Yage.HDR
-import Yage.Viewport
 import Yage.UI.GUI
 
 import Yage.Pipeline.Types

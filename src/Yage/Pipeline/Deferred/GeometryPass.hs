@@ -181,19 +181,6 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 
-        -- let viewRotM   = fromQuaternion $ camera^.cameraOrientation
-        --     invViewM   = viewRotM
-
-        --     modelRotM  = fromQuaternion $ ent^.entityOrientation
-        --     invModelM  = modelRotM !*! (kronecker $ negate $ ent^.entityScale)
-        -- in adjoint $ invModelM !*! invViewM
-
-        -- let -- invCam        = camera & cameraTransformation %~ inverseTransformation
-        --     invViewM      = camera^.cameraMatrix
-        --     entTransform  = ent^.entityTransformation
-        --     invModelM     = (entTransform & transScale %~ negate)^.transformationMatrix
-        -- in adjoint $ invViewM^.to m44_to_m33 !*! invModelM^.to m44_to_m33
-
 
 defaultGeoMaterial :: GeoMaterial TextureResource
 defaultGeoMaterial =
