@@ -1,6 +1,8 @@
 #ifndef __COMMON__
 #define __COMMON__
 
+#include "GlobalDefs.glsl"
+
 const float PI = 3.1415926535897932f;
 
 #define saturate(X) (clamp(X, 0.0, 1.0))
