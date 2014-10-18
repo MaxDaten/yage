@@ -19,7 +19,7 @@ import qualified Graphics.GLUtil.Camera3D            as Cam
 
 data Viewport a = Viewport
     { _viewportRect   :: Rectangle a
-      -- ^ as container for xy and wh, with 0/0 top/left
+      -- ^ as xy1 und xy2, with 0/0 top/left
     , _viewportGamma  :: Float
     }
     deriving ( Typeable, Functor, Show, Eq, Generic )
@@ -35,10 +35,11 @@ instance HasRectangle (Viewport Int) Int where
 glViewport :: HasRectangle t Int => Getter t (GL.Position, GL.Size)
 glViewport = rectangle.to get where
     get :: Rectangle Int -> (GL.Position, GL.Size)
-    get (Rectangle xy wh) =
-        ( GL.Position ( fromIntegral $ xy^._x ) ( fromIntegral $ xy^._y )
-        , GL.Size     ( fromIntegral $ wh^._x ) ( fromIntegral $ wh^._y )
-        )
+    get rect@( Rectangle (V2 x y) _ ) =
+        let (V2 w h) = rect^.extend
+        in ( GL.Position ( fromIntegral $ x ) ( fromIntegral $ y )
+           , GL.Size     ( fromIntegral $ w ) ( fromIntegral $ h )
+           )
 
 
 
