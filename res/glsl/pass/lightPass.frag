@@ -25,10 +25,11 @@ uniform sampler2D DepthTexture;
 uniform samplerCube EnvironmentCubeMap;
 uniform float Gamma = 2.2;
 
-
+// the dimension of the gbuffer
 uniform ivec2 ViewportDim;
 
 in vec3 VertexPosVS;
+in vec4 ScreenPos;
 
 // Light in view space (Position, Direction, etc)
 uniform LightData Light;
@@ -143,7 +144,8 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
 void main()
 {
-    vec2 gBufferUV = gl_FragCoord.xy / ViewportDim.xy;
+    ViewportDim;
+    vec2 gBufferUV = 0.5 + 0.5 * ScreenPos.xy / ScreenPos.w;
     
     // the channel for albedo rgb + distance from View
     vec4 albedoCh       = texture( AlbedoTexture, gBufferUV ).rgba;
