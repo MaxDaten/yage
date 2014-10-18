@@ -74,7 +74,7 @@ targetEntity hasRect =
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
         let dim          = realToFrac <$> hasRect^.asRectangle.extend
             trans        = idTransformation & transPosition._xy .~ 0.5 * dim
-                                            & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
+                                            & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) 1
             scaleM       = kronecker . point $ trans^.transScale
             transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
             modelM       = transM !*! scaleM
