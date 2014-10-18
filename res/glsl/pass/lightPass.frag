@@ -25,8 +25,6 @@ uniform sampler2D DepthTexture;
 uniform samplerCube EnvironmentCubeMap;
 uniform float Gamma = 2.2;
 
-// the dimension of the gbuffer
-uniform ivec2 ViewportDim;
 
 in vec3 VertexPosVS;
 in vec4 ScreenPos;
@@ -144,7 +142,6 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
 void main()
 {
-    ViewportDim;
     vec2 gBufferUV = 0.5 + 0.5 * ScreenPos.xy / ScreenPos.w;
     
     // the channel for albedo rgb + distance from View
@@ -160,6 +157,6 @@ void main()
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb += 0.5 * EncodeTextureNormal( surface.Normal );
 
-    EnvironmentCubeMap; // unused
+    UNUSED(EnvironmentCubeMap);
 }
 

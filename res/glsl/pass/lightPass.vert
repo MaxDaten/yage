@@ -9,6 +9,8 @@ uniform mat4 ModelMatrix;
 uniform mat4 ViewToScreenMatrix;
 uniform LightData Light;
 
+uniform ivec2 ViewportDim;
+
 in vec3 vPosition;
 
 out vec3 VertexPosVS;
@@ -30,7 +32,9 @@ void main()
         VertexPosVS     = (ViewToScreenMatrix * ModelMatrix * vec4(vPosition.xy, 1.0, 0.0)).xyz;
         OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
     }
-    
+    // in NDC
     ScreenPos    = OutPosition;
     gl_Position  = OutPosition;
+
+    UNUSED(ViewportDim);
 }
