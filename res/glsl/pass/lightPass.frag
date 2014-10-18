@@ -143,12 +143,12 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
 void main()
 {
-    vec2 screenUV = gl_FragCoord.xy / ViewportDim.xy;
+    vec2 gBufferUV = gl_FragCoord.xy / ViewportDim.xy;
     
     // the channel for albedo rgb + distance from View
-    vec4 albedoCh       = texture( AlbedoTexture, screenUV ).rgba;
-    vec4 normalCh       = vec4(texture( NormalTexture, screenUV ).rg, 0, 0);
-    float zBufferDepth  = texture( DepthTexture, screenUV ).r;
+    vec4 albedoCh       = texture( AlbedoTexture, gBufferUV ).rgba;
+    vec4 normalCh       = vec4(texture( NormalTexture, gBufferUV ).rg, 0, 0);
+    float zBufferDepth  = texture( DepthTexture, gBufferUV ).r;
 
     
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
