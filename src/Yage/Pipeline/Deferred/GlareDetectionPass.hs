@@ -70,7 +70,7 @@ void main()
 -------------------------------------------------------------------------------
 
 -- | a glare detection algorithm with an integrated 5x5 box downsample
-glareDetection :: Int -> Float -> Float -> Texture -> RenderSystem Texture
+glareDetection :: Int -> Double -> Double -> Texture -> RenderSystem Texture
 glareDetection downfactor exposure bloomThreshold toDownsample =
     let outSize  = liftA (`div` downfactor) $ toDownsample^.textureSpec.texSpecDimension
         target   = mkSingleTargetFromSpec ( toDownsample^.textureId ++ downfactor^.to show.packedChars )

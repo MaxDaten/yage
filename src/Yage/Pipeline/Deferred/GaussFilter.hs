@@ -63,7 +63,7 @@ void main()
 |]
 -------------------------------------------------------------------------------
 
-gaussFilter :: Float -> Texture -> (RenderTarget SingleRenderTarget, RenderTarget SingleRenderTarget) -> RenderSystem Texture
+gaussFilter :: Double -> Texture -> (RenderTarget SingleRenderTarget, RenderTarget SingleRenderTarget) -> RenderSystem Texture
 gaussFilter gwidth toSample (xTarget, yTarget) =
     let xPass, yPass :: GaussPass
         xPass       = samplerPass "Yage.GaussX" xTarget (xTarget^.asRectangle) gaussBlurFragmentProgram

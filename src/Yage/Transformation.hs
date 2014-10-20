@@ -84,3 +84,7 @@ instance RealFloat a => LinearInterpolatable (Transformation a) where
 instance LinearInterpolatable Float where
     lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
     {-# INLINE lerp #-}
+
+instance LinearInterpolatable Double where
+    lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
+    {-# INLINE lerp #-}

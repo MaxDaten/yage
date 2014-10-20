@@ -142,7 +142,7 @@ void main()
 
 -- ============================================================================
 
-runToneMapPass :: Texture -> [ (Float, Texture) ] -> YageRenderSystem HDRCamera Texture
+runToneMapPass :: Texture -> [ (Double, Texture) ] -> YageRenderSystem HDRCamera Texture
 runToneMapPass baseTexture samples viewport camera =
     let tonePass  = runRenderPass toneDescr
     in do

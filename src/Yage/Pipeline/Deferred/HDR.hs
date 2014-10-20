@@ -46,7 +46,7 @@ hdrLightingPass geometryPass viewport scene =
 
         bloomPasses     = bloomSettings^.bloomGaussPasses
         bFactor         = bloomSettings^.bloomFactor
-        bloomWeights    :: [Float]
+        bloomWeights    :: [ Double ]
         bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
         lightData `lightPass` ( L.toLitEntity viewport cam <$> lights )
@@ -62,7 +62,7 @@ hdrLightingPass geometryPass viewport scene =
 
 
 
-bloomPass :: Float -> Int -> Texture -> RenderSystem [ Texture ]
+bloomPass :: Double -> Int -> Texture -> RenderSystem [ Texture ]
 bloomPass _ 0          _           = return []
 bloomPass bloomWidth numSamples baseTexture =
     let targets = map (\idx -> mkTargets $ 2^idx) $ [1..numSamples]
