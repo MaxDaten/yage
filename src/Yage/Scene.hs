@@ -94,6 +94,9 @@ lightCount = length . _envLights . _sceneEnvironment
 sceneSky :: Lens' (Scene cam ent (Environment lit sky) dat) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
 
+sceneLights :: Lens' (Scene cam ent (Environment lit sky) dat) [lit]
+sceneLights = sceneEnvironment.envLights
+
 
 mkCameraHandle :: V3 Double -> V3 Double -> V3 Double -> Quaternion Double -> V3 Double -> CameraHandle
 mkCameraHandle = Cam.Camera
