@@ -50,7 +50,7 @@ hdrLightingPass geometryPass viewport scene =
         bloomWeights    :: [Float]
         bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
-        lightData `lightPass` ( L.toLitEntity viewport cam <$> lights )
+        lightData `lightPass` ( toList $ L.toLitEntity viewport cam <$> lights )
         skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
 
         bloomedTextureSet <- Glare.glareDetection

@@ -24,6 +24,9 @@ import           Yage.Resources                 as Res
 import           Yage.Geometry                  hiding ( Face )
 
 import           Data.Traversable               (mapM)
+
+import qualified Data.Sequence                  as S
+
 import qualified Graphics.GLUtil.Camera3D       as Cam
 
 import           Yage.Rendering.RenderEntity
@@ -44,9 +47,9 @@ data LightEntity mesh = LightEntity (Entity mesh ()) !Light
 
 
 data Environment lit sky = Environment
-    { _envLights       :: ![ lit ]
-    , _envSky          :: !( Maybe sky )
-    , _envAmbient      :: !AmbientLight
+    { _envLights       :: Seq lit
+    , _envSky          :: ( Maybe sky )
+    , _envAmbient      :: AmbientLight
     }
 
 makeLenses ''Environment
@@ -54,7 +57,7 @@ makeLenses ''Environment
 
 
 data Scene cam ent env gui = Scene
-    { _sceneEntities    :: [ ent ]
+    { _sceneEntities    :: Seq ent
     , _sceneEnvironment :: env
     , _sceneCamera      :: cam
     , _sceneGui         :: gui
@@ -68,34 +71,42 @@ makeLenses ''Scene
 --}
 
 emptyScene :: cam -> gui -> Scene cam ent (Environment lit skymat) gui
-emptyScene cam = Scene [] emptyEnvironment cam
+emptyScene cam = Scene S.empty emptyEnvironment cam
+{-# INLINE emptyScene #-}
 
 
 emptyEnvironment :: Environment lit mat
-emptyEnvironment = Environment [] Nothing (AmbientLight 0)
+emptyEnvironment = Environment S.empty Nothing (AmbientLight 0)
+{-# INLINE emptyEnvironment #-}
 
 
 addEntity :: Scene cam ent env dat -> ent -> Scene cam ent env dat
-addEntity scene ent = scene & sceneEntities <>~ [ent]
+addEntity scene ent = scene & sceneEntities %~ (S.|> ent)
+{-# INLINE addEntity #-}
 
 
 addLight :: Scene cam ent (Environment lit mat) dat -> lit -> Scene cam ent (Environment lit mat) dat
-addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
+addLight scene l = scene & sceneLights %~ (S.|> l)
+{-# INLINE addLight #-}
 
 
 entitiesCount :: Scene cam ent (Environment l m) dat -> Int
 entitiesCount = length . _sceneEntities
+{-# INLINE entitiesCount #-}
 
 
 lightCount :: Scene cam ent (Environment l m) dat -> Int
 lightCount = length . _envLights . _sceneEnvironment
+{-# INLINE lightCount #-}
 
 
 sceneSky :: Lens' (Scene cam ent (Environment lit sky) dat) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
+{-# INLINE sceneSky #-}
 
-sceneLights :: Lens' (Scene cam ent (Environment lit sky) dat) [lit]
+sceneLights :: Lens' (Scene cam ent (Environment lit sky) dat) (Seq lit)
 sceneLights = sceneEnvironment.envLights
+{-# INLINE sceneLights #-}
 
 
 mkCameraHandle :: V3 Double -> V3 Double -> V3 Double -> Quaternion Double -> V3 Double -> CameraHandle
