@@ -27,7 +27,7 @@ mouseAcceleration = derivativeF . mouseVelocity
 keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event a)
 keyJustPressed !key = go
     where go = mkSF $ \(Timed _ inputSt) x ->
-            if (key `keyIs` KeyState'Pressed) inputSt
+            if (key `keyStateIs` KeyState'Pressed) inputSt
             then (Event x, go)
             else (NoEvent, go)
 
@@ -35,7 +35,7 @@ keyJustPressed !key = go
 keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event a)
 keyJustReleased !key = go
     where go = mkSF $ \(Timed _ inputSt) x ->
-            if (key `keyIs` KeyState'Released) inputSt
+            if (key `keyStateIs` KeyState'Released) inputSt
             then (Event x, go)
             else (NoEvent, go)
 
