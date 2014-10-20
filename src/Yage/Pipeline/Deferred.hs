@@ -33,7 +33,7 @@ type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment GUI
 yDeferredLighting :: YageRenderSystem DeferredScene ()
 yDeferredLighting viewport scene =
     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
-        cam                     = scene^.sceneCamera.hdrCamera
+        cam                     = scene^.sceneCamera.hdrCameraHandle
         baseDescr               = Pass.geoPass viewport
         runBasePass             = runRenderPass baseDescr
         baseData                = geoFrameData viewport cam
@@ -46,7 +46,6 @@ yDeferredLighting viewport scene =
 
     -- rendered gui elements (TODO: should be gamma correct)
     guiTex <- Pass.runGuiPass hdrTex viewport ( scene^.sceneGui )
-    --guiTex <- return $ mkTexture "BLACKDUMMY" $ Texture2D $ blackDummy TexRGB8
 
     -- bring it to the default render target - the screen
     Pass.screenPass viewport [ hdrTex, guiTex ]

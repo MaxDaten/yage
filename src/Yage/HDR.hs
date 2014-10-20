@@ -11,7 +11,7 @@ import Yage.Transformation
 
 
 data HDRCamera = HDRCamera
-    { _hdrCamera        :: Camera
+    { _hdrCameraHandle  :: Camera
     , _hdrExposure      :: Float
     , _hdrExposureBias  :: Float
     , _hdrWhitePoint    :: Float
@@ -41,7 +41,7 @@ defaultBloomSettings = HDRBloomSettings
 
 defaultHDRCamera :: Camera -> HDRCamera
 defaultHDRCamera camera = HDRCamera
-    { _hdrCamera        = camera
+    { _hdrCameraHandle        = camera
     , _hdrExposure      = 0.5
     , _hdrExposureBias  = 1.0
     , _hdrWhitePoint    = 0.5
@@ -56,7 +56,7 @@ instance LinearInterpolatable HDRBloomSettings where
 
 instance LinearInterpolatable HDRCamera where
     lerp alpha u v =
-        u & hdrCamera        .~ lerp alpha (u^.hdrCamera) (v^.hdrCamera)
+        u & hdrCameraHandle   .~ lerp alpha (u^.hdrCameraHandle) (v^.hdrCameraHandle)
           & hdrExposure      .~ lerp alpha (u^.hdrExposure) (v^.hdrExposure)
           & hdrExposureBias  .~ lerp alpha (u^.hdrExposureBias) (v^.hdrExposureBias)
           & hdrWhitePoint    .~ lerp alpha (u^.hdrWhitePoint) (v^.hdrWhitePoint)

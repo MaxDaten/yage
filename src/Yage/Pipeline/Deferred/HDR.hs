@@ -29,7 +29,7 @@ type HDRScene ent = Scene HDRCamera ent (Environment Light S.SkyEntityDraw)
 
 hdrLightingPass :: G.GeometryPass -> YageRenderSystem (HDRScene ent dat) Texture
 hdrLightingPass geometryPass viewport scene =
-    let cam             = scene^.sceneCamera.hdrCamera
+    let cam             = scene^.sceneCamera.hdrCameraHandle
         bloomSettings   = scene^.sceneCamera.hdrBloomSettings
 
         lightDescr      = L.lightPass geometryPass viewport (scene^.sceneEnvironment)
