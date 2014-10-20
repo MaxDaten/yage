@@ -75,6 +75,6 @@ downsampleBoxed5x5 downfactor toDownsample =
 
         downsamplePass = runRenderPass downsampleDescr
     in do
-        downsampleData `downsamplePass` [ targetEntity target ]
+        downsampleData `downsamplePass` ( target^.to targetEntity.to singleton )
         return $ target^.targetTexture
 

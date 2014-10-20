@@ -81,7 +81,7 @@ screenPass viewport textures =
 
         runPass     = runRenderPass screenPassDescr
         screenData  = screenFrameData textures
-    in screenData `runPass` [ targetEntity $ viewport^.rectangle ]
+    in screenData `runPass` ( viewport^.rectangle.to targetEntity.to singleton )
 
     where
 

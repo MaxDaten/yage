@@ -39,7 +39,7 @@ yDeferredLighting viewport scene =
         baseData                = geoFrameData viewport cam
     in do
     -- render out our geometric attributes (color, normal, ...)
-    baseData `runBasePass` ( toList $ toGeoEntity cam <$> scene^.sceneEntities )
+    baseData `runBasePass` ( toGeoEntity cam <$> scene^.sceneEntities )
 
     -- calculate lighting based on attributes + bloom & apply tone mapping
     hdrTex <- Pass.hdrLightingPass baseDescr viewport scene

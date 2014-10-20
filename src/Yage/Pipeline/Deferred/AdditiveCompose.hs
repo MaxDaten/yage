@@ -78,5 +78,5 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
 
         additivePass    = runRenderPass additiveDescr
     in do
-        frameData `additivePass` [ targetEntity baseTex ]
+        frameData `additivePass` ( baseTex^.to targetEntity.to singleton )
         return $ target^.targetTexture

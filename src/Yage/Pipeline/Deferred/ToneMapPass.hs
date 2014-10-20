@@ -146,7 +146,7 @@ runToneMapPass :: Texture -> [ (Float, Texture) ] -> YageRenderSystem HDRCamera 
 runToneMapPass baseTexture samples viewport camera =
     let tonePass  = runRenderPass toneDescr
     in do
-        toneData `tonePass` [ targetEntity $ viewport^.rectangle ]
+        toneData `tonePass` ( viewport^.rectangle.to targetEntity.to singleton )
         return $ toneDescr^.passTarget.targetTexture
 
     where

@@ -72,7 +72,7 @@ brightFilter tex whitePoint =
 
         brightPass  = runRenderPass brightDescr
     in do
-        frameData `brightPass` [ targetEntity tex ]
+        frameData `brightPass` ( tex^.to targetEntity.to singleton )
         return $ target^.targetTexture
 
 

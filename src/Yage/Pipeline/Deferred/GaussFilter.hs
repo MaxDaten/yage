@@ -82,8 +82,8 @@ gaussFilter gwidth toSample (xTarget, yTarget) =
                         & shaderTextures <<+>~ textureSampler =: (xTarget^.targetTexture)
 
     in do
-        runRenderPass xPass xData [ targetEntity xTarget ]
-        runRenderPass yPass yData [ targetEntity yTarget ]
+        runRenderPass xPass xData $ xTarget^.to targetEntity.to singleton
+        runRenderPass yPass yData $ yTarget^.to targetEntity.to singleton
         return $ yTarget^.targetTexture
 
 

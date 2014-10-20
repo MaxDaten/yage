@@ -8,7 +8,6 @@ module Yage.Pipeline.Deferred.HDR where
 import Yage.Prelude                                         hiding ( toList, last, head )
 import Yage.Lens                                            hiding ( cons )
 
-import Data.Foldable                                        ( toList )
 import Data.List                                            ( last, tail )
 
 import Yage.Rendering
@@ -50,8 +49,8 @@ hdrLightingPass geometryPass viewport scene =
         bloomWeights    :: [Float]
         bloomWeights    = reverse $ map (\x -> bFactor * fromIntegral (2^x :: Int) / 127.0) [ (0::Int) .. bloomPasses ]
     in do
-        lightData `lightPass` ( toList $ L.toLitEntity viewport cam <$> lights )
-        skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to toList )
+        lightData `lightPass` ( L.toLitEntity viewport cam <$> lights )
+        skyData   `skyPass`   ( S.toSkyEntity <$> scene^.sceneEnvironment.envSky.to repack )
 
         bloomedTextureSet <- Glare.glareDetection
                                 ( bloomSettings^.bloomPreDownsampling )

@@ -89,6 +89,6 @@ glareDetection downfactor exposure bloomThreshold toDownsample =
 
         glarePass = runRenderPass glareDescr
     in do
-        glareData `glarePass` [ targetEntity target ]
+        glareData `glarePass` ( target^.to targetEntity.to singleton )
         return $ target^.targetTexture
 
