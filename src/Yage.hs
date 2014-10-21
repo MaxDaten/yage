@@ -112,8 +112,17 @@ yageMain title appConf winConf sim thePipeline dt =
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
     in do
-        state <- initialization initSim thePipeline <$> (newTVarIO mempty)
-        _ <- execApplication title appConf $ basicWindowLoop winConf state $ yageLoop
+        tInputState <- newTVarIO mempty
+        let initState = YageLoopState
+                        { _loadedResources  = YageResources initialRegistry initialGLRenderResources deferredResourceLoader -- TODO deferred resource loaded to pipeline
+                        , _simulation       = initSim
+                        , _pipeline         = thePipeline
+                        , _timing           = loopTimingInit
+                        , _inputState       = tInputState
+                        , _renderStats      = mempty
+                        }
+
+        _ <- execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
         return ()
 
 
@@ -198,22 +207,6 @@ yageLoop win oldState = do
             , fixed 4 $ 1000 * gcTime
             , prec 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
             )
-
-
-initialization :: YageSimulation time wScene
-               -> YageRenderSystem rScene ()
-               -> TVar InputState
-               -> YageLoopState time wScene rScene
-initialization sim thePipeline tInputState =
-    YageLoopState
-    { _loadedResources  = YageResources initialRegistry initialGLRenderResources deferredResourceLoader -- TODO deferred resource loaded to pipeline
-    , _simulation       = sim
-    , _pipeline         = thePipeline
-    , _timing           = loopTimingInit
-    , _inputState       = tInputState
-    , _renderStats      = mempty
-    }
-
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0
