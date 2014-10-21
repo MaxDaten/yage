@@ -164,6 +164,7 @@ library
                         , aeson                 == 0.8.*
                         
                         , text-binary           == 0.1.*
+                        , resourcet             == 1.1.*
                         , bytestring            == 0.10.*
                         , data-default
 

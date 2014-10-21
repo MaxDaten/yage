@@ -7,6 +7,7 @@
 module Yage
     ( yageMain, YageSimulation(..)
     , module Application
+    , module Resource
     , module YagePrelude
     , module Logging
     ) where
@@ -17,6 +18,7 @@ import             Yage.Lens                       as Lens hiding ( Index )
 import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State             (gets)
+import             Control.Monad.Trans.Resource    as Resource
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ((<+>))
 import             Yage.Core.Application           as Application
@@ -39,6 +41,7 @@ import             Yage.Transformation
 data YageResources = YageResources
     { _resourceRegistry   :: !(ResourceRegistry GeoVertex)
     , _rhiResources       :: !GLResources
+    -- ^ render hardware interface resources
     , _resourceLoader     :: !(ResourceLoader GeoVertex)
     }
 
@@ -109,14 +112,9 @@ yageMain title appConf winConf sim thePipeline dt =
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
     in do
-    _ <- bracket
-            ( initialization initSim thePipeline <$> (newTVarIO mempty) )
-            ( finalization )
-            ( \initState -> execApplication title appConf $
-                                basicWindowLoop winConf initState $
-                                yageLoop
-            )
-    return ()
+        state <- initialization initSim thePipeline <$> (newTVarIO mempty)
+        _ <- execApplication title appConf $ basicWindowLoop winConf state $ yageLoop
+        return ()
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
@@ -130,7 +128,7 @@ yageLoop win oldState = do
     let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
 
     -- step our global timing to integrate our simulation
-    ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ simulate currentRemainder ( oldState^.simulation ) inputSt
+    ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
 
     newLoopState <- processRendering $ renderSim^.simScene
 
@@ -161,7 +159,7 @@ yageLoop win oldState = do
     -- perform one step in simulation
     stepSimulation sim input = do
         ( ds      , s )     <- io $ stepSession $ sim^.simSession
-        ( newScene, w )     <- io $ stepWire (sim^.simWire) (ds input) (Right ())
+        ( newScene, w )     <- stepWire (sim^.simWire) (ds input) (Right ())
         return $! newScene `seq` ( sim & simScene     .~ newScene
                                        & simSession   .~ s
                                        & simWire      .~ w )
@@ -215,10 +213,6 @@ initialization sim thePipeline tInputState =
     , _inputState       = tInputState
     , _renderStats      = mempty
     }
-
-
-finalization :: YageLoopState t a b -> IO ()
-finalization _ = return ()
 
 
 loopTimingInit :: YageTiming
