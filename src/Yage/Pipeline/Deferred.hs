@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts           #-}
 module Yage.Pipeline.Deferred
     ( module Yage.Pipeline.Deferred
-    , module ResourceLoader
     , module Pass
     ) where
 
@@ -17,7 +16,6 @@ import Yage.UI.GUI
 
 import Yage.Pipeline.Types
 
-import Yage.Pipeline.Deferred.ResourceLoader  as ResourceLoader
 import Yage.Pipeline.Deferred.GeometryPass    as Pass
 import Yage.Pipeline.Deferred.LightPass       as Pass
 import Yage.Pipeline.Deferred.SkyPass         as Pass
@@ -27,8 +25,8 @@ import Yage.Pipeline.Deferred.HDR             as Pass
 import Yage.Pipeline.Deferred.Common          as Pass
 import Yage.Pipeline.Deferred.GuiPass         as Pass
 
-type DeferredEnvironment = Environment Light Pass.SkyEntityDraw
-type DeferredScene       = Scene HDRCamera GeoEntityDraw DeferredEnvironment GUI
+type DeferredEnvironment = Environment Light Pass.SkyEntity
+type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
 
 yDeferredLighting :: YageRenderSystem DeferredScene ()
 yDeferredLighting viewport scene =

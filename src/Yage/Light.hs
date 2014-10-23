@@ -6,16 +6,15 @@ import           Yage.Prelude
 import           Yage.Math           hiding (lerp)
 
 import qualified Linear              (lerp)
-import           Yage.Resources
 import           Yage.Transformation
 
 data AmbientLight = AmbientLight (V3 Double)
 
 data LightType =
       Pointlight
-        { _pLightPosition :: V3 Double
+        { _pLightPosition   :: V3 Double
         -- ^ world position of the light emitter (german: Leuchtmittel)
-        , _pLightRadius   :: Double
+        , _pLightRadius     :: Double
         -- ^ the total influence distance of the emitter (sphere radius)
         }
     | Spotlight
@@ -31,7 +30,7 @@ data LightType =
         -- ^ maximum distance from `sLightPosition` for light influence
         }
     | DirectionalLight
-      { _dLightDirection :: V3 Double
+      { _dLightDirection    :: V3 Double
       }
     deriving ( Show, Ord, Eq )
 
@@ -62,9 +61,6 @@ instance LinearInterpolatable Light where
 
 instance LinearInterpolatable LightType where
     lerp _ u _ = u
-
-instance HasResources vert Light Light where
-    requestResources = return
 
 
 

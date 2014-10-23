@@ -23,8 +23,6 @@ import           Yage.Light
 import           Yage.Resources                 as Res
 import           Yage.Geometry                  hiding ( Face )
 
-import           Data.Traversable               (mapM)
-
 import qualified Data.Sequence                  as S
 
 import qualified Graphics.GLUtil.Camera3D       as Cam
@@ -139,7 +137,7 @@ entityLight = lens getter setter where
   getter (LightEntity _ light) = light
   setter (LightEntity entity _) light = LightEntity entity light
 
-
+{--
 instance ( HasResources vert ent ent', HasResources vert env env'
          , HasResources vert gui gui'
          ) =>
@@ -172,6 +170,7 @@ instance ( HasResources vert mesh mesh' ) =>
          requestResources (LightEntity ent light) =
             LightEntity <$> requestResources ent
                         <*> pure light
+--}
 
 toRenderEntity :: ShaderData u t ->
                   Entity (Mesh vert) mat ->
@@ -184,14 +183,14 @@ toRenderEntity shaderData ent =
 
 
 -- | creates an `Entity` with:
---      an empty `Mesh`
---      the default `Material` as `TexSRGB8`
---      id Transformation
---      settings for triangle primitive rendering and back-face culling
-basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource (Vertex geo)) mat
+--     - an empty `Mesh`
+--     - the default `Material` as `TexSRGB8`
+--     - id Transformation
+--     - settings for triangle primitive rendering and back-face culling
+basicEntity :: ( Storable (Vertex vert), Default mat ) => Entity (Mesh (Vertex vert)) mat
 basicEntity =
     Entity
-        { _renderData           = MeshPure emptyMesh
+        { _renderData           = emptyMesh
         , _materials            = def
         , _entityTransformation = idTransformation
         , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
@@ -207,8 +206,7 @@ instance ( LinearInterpolatable cam
          , LinearInterpolatable ent
          , LinearInterpolatable env
          , LinearInterpolatable dat
-         ) =>
-         LinearInterpolatable (Scene cam ent env dat) where
+         ) => LinearInterpolatable (Scene cam ent env dat) where
     lerp alpha u v =
         u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)

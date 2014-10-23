@@ -25,7 +25,7 @@ import qualified Yage.Pipeline.Deferred.ToneMapPass           as T
 import Yage.Pipeline.Deferred.GaussFilter
 
 
-type HDRScene ent = Scene HDRCamera ent (Environment Light S.SkyEntityDraw)
+type HDRScene ent = Scene HDRCamera ent (Environment Light S.SkyEntity)
 
 hdrLightingPass :: G.GeometryPass -> YageRenderSystem (HDRScene ent dat) Texture
 hdrLightingPass geometryPass viewport scene =
@@ -89,7 +89,7 @@ bloomPass bloomWidth numSamples baseTexture =
     mkPassId directionId factor = toStrict . encodeUtf8 $ format "-{}-{}-{}" ( Shown baseId, Shown factor, Shown directionId )
 
 
-environmentMap :: Getter (HDRScene ent dat) (RenderMaterial MaterialColorAlpha)
+environmentMap :: Getter (HDRScene ent dat) (Material MaterialColorAlpha)
 environmentMap = sceneEnvironment.to getter where
     -- TODO : BLACK DUMMY after resource overhaul
     getter (Environment _ Nothing _)        = error "Yage.Pipeline.Deferred.HDR.environmentMap: missing env map"

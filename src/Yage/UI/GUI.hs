@@ -13,7 +13,7 @@ import           Yage.Camera
 import           Yage.Geometry
 import           Yage.Rendering
 import           Yage.Transformation
-import           Yage.Resources
+
 import           Yage.Rendering.Textures
 
 import qualified Data.Map.Lazy           as M
@@ -116,6 +116,3 @@ instance LinearInterpolatable GUI where
 
 instance LinearInterpolatable GUIElement where
     lerp alpha u v = u & elementTransformation .~ lerp alpha (u^.elementTransformation) (v^.elementTransformation)
-
-instance HasResources vert GUI GUI where
-    requestResources = return

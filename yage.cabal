@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.3.0.0
+version:             0.4.0.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -69,6 +69,7 @@ library
                         Yage.Wire.Movement
                         Yage.Wire.Input
                         Yage.Wire.Analytic
+                        Yage.Wire.Resources
 
                         Yage.Texture.Atlas
                         Yage.Texture.Atlas.Builder
@@ -92,8 +93,6 @@ library
                         Yage.Pipeline.Deferred.Sampler
                         Yage.Pipeline.Deferred.GuiPass
                         
-                        Yage.Pipeline.Deferred.ResourceLoader
-
                         Yage.TH.Shader
 
   other-modules:        Paths_yage

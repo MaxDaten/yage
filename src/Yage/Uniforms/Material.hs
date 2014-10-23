@@ -11,7 +11,6 @@ import Data.Vinyl.Universe
 import Graphics.Rendering.OpenGL            (GLfloat)
 import Linear
 
-import Control.Comonad
 import Yage.Rendering.Shader
 
 import Yage.Material
@@ -85,17 +84,17 @@ stepDirection = SField
 Utility
 --}
 
-materialUniformsColor :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial MaterialColorAlpha -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
+materialUniformsColor :: ( KnownSymbol c, KnownSymbol m, KnownSymbol t ) => Material MaterialColorAlpha -> YMaterialData (YMaterialUni c m) (YMaterialTex t)
 materialUniformsColor mat =
     let col = materialColor   =: ( realToFrac <$> mat^.matColor.to linearV4) <+>
               textureMatrix   =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
-        tex = textureSampler =: (extract $ mat^.matTexture)
+        tex = textureSampler =: (mat^.matTexture)
     in ShaderData col tex
 
 
-materialUniformsIntensity :: (KnownSymbol c, KnownSymbol m, KnownSymbol t) => RenderMaterial Double -> YMaterialData ([ YMaterialIntensity c, YTextureMatrix m ]) (YMaterialTex t)
+materialUniformsIntensity :: ( KnownSymbol c, KnownSymbol m, KnownSymbol t ) => Material Double -> YMaterialData ([ YMaterialIntensity c, YTextureMatrix m ]) (YMaterialTex t)
 materialUniformsIntensity mat =
     let intensity = materialIntensity   =: ( realToFrac <$> V1 ( mat^.matColor ) ) <+>
                     textureMatrix       =: ( (fmap.fmap) realToFrac $ mat^.matTransformation.transformationMatrix )
-        tex = textureSampler =: ( extract $ mat^.matTexture)
+        tex = textureSampler =: (mat^.matTexture)
     in ShaderData intensity tex

@@ -17,6 +17,7 @@ import Yage.Camera
 import Yage.Viewport
 import Yage.Scene
 import Yage.Material
+import qualified        Yage.Formats.Ygm                 as YGM
 import Yage.TH.Shader as GLSL
 
 import Yage.Rendering
@@ -46,27 +47,22 @@ data GeoPassChannelsF t = GeoPassChannelsF
     } deriving ( Functor, Foldable, Traversable )
 type GeoPassChannels = GeoPassChannelsF Texture
 
-data GeoMaterial mat = GeoMaterial
-    { _albedoMaterial    :: IMaterial MaterialColorAlpha mat
-    , _normalMaterial    :: IMaterial MaterialColorAlpha mat
-    , _roughnessMaterial :: IMaterial Double mat
-    } deriving ( Functor, Foldable, Traversable )
+data GeoMaterial = GeoMaterial
+    { _albedoMaterial    :: Material MaterialColorAlpha
+    , _normalMaterial    :: Material MaterialColorAlpha
+    , _roughnessMaterial :: Material Double
+    }
 
 makeLenses ''GeoMaterial
 
 
 -- | Base type for a GeoEntity
-type GeoEntityT mesh mat = Entity (mesh GeoVertex) (GeoMaterial mat)
--- | Drawable entity with loaded resources
-type GeoEntityDraw = GeoEntityT Mesh Texture
--- | Resource descripte entity
-type GeoEntityRes  = GeoEntityT MeshResource TextureResource
-
+type GeoEntity = Entity (Mesh GeoVertex) GeoMaterial
 type GeometryPass = YageDeferredPass GeoPassChannels GeoShader
 
 
 
-type GeoPassScene env = Scene Camera GeoEntityDraw env
+type GeoPassScene env = Scene Camera GeoEntity env
 
 
 -------------------------------------------------------------------------------
@@ -163,7 +159,7 @@ geoFrameData viewport camera =
     in ShaderData uniform mempty
 
 
-toGeoEntity :: Camera -> GeoEntityDraw -> RenderEntity GeoVertex (ShaderData GeoPerEntityUni GeoTextures)
+toGeoEntity :: Camera -> GeoEntity -> RenderEntity GeoVertex (ShaderData GeoPerEntityUni GeoTextures)
 toGeoEntity camera ent = toRenderEntity shaderData ent
     where
     shaderData = ShaderData uniforms RNil `append`
@@ -182,21 +178,16 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
         in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
 
 
-defaultGeoMaterial :: GeoMaterial TextureResource
+defaultGeoMaterial :: GeoMaterial
 defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
-        normalMat    = defaultMaterialSRGB & singleMaterial .~ (TexturePure $ mkTexture "NORMALDUMMY" $ Texture2D $ zNormalDummy TexSRGB8)
-        roughnessMat = mkMaterialF 1.0 $ pure $ TexturePure $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
+        normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture "NORMALDUMMY" $ Texture2D $ zNormalDummy TexSRGB8)
+        roughnessMat = mkMaterial 1.0 $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
     in GeoMaterial albedoMat normalMat roughnessMat
 
 
-instance Default (GeoMaterial TextureResource) where
+instance Default GeoMaterial where
     def = defaultGeoMaterial
-
-
-
-instance HasResources vert (GeoMaterial TextureResource) (GeoMaterial Texture) where
-    requestResources = mapM requestResources
 
 
 instance FramebufferSpec GeoPassChannels RenderTargets where
@@ -207,3 +198,10 @@ instance FramebufferSpec GeoPassChannels RenderTargets where
 
     fboDepth GeoPassChannelsF{gDepthChannel} =
         Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D gDepthChannel 0
+
+geoVertex :: Vertex YGM.YGMFormat -> GeoVertex
+geoVertex internal =
+    position3 =: ( realToFrac <$> ( rGet position3 internal :: V3 Float ) ) <+>
+    texture2  =: ( realToFrac <$> ( rGet texture2 internal  :: V2 Float ) ) <+>
+    tangentX  =: ( realToFrac <$> ( rGet tangentX internal  :: V3 Float ) ) <+>
+    tangentZ  =: ( realToFrac <$> ( rGet tangentZ internal  :: V4 Float ) )

@@ -33,12 +33,9 @@ type SkyShader = Shader SkyUni SkyTextures LitVertex
 type SkyPass = PassDescr LitPassChannels SkyShader
 
 
-type SkyMaterialRes = FMaterial Cube MaterialColorAlpha TextureResource
-type SkyMaterial    = RenderMaterial MaterialColorAlpha
+type SkyMaterial = Material MaterialColorAlpha
 
-type SkyEntityT mesh mat = Entity (mesh LitVertex) mat
-type SkyEntityRes   = SkyEntityT Mesh SkyMaterialRes
-type SkyEntityDraw  = SkyEntityT Mesh SkyMaterial
+type SkyEntity = Entity (Mesh LitVertex) SkyMaterial
 
 
 -------------------------------------------------------------------------------
@@ -122,7 +119,7 @@ skyFrameData :: Viewport Int -> Camera -> ShaderData PerspectiveUniforms '[]
 skyFrameData viewport camera = ShaderData (perspectiveUniforms viewport camera) mempty
 
 
-toSkyEntity :: SkyEntityDraw -> RenderEntity LitVertex (ShaderData SkyEntityUni SkyTextures)
+toSkyEntity :: SkyEntity -> RenderEntity LitVertex (ShaderData SkyEntityUni SkyTextures)
 toSkyEntity sky = toRenderEntity shData sky
     where
     shData   = ShaderData uniforms RNil `append` material

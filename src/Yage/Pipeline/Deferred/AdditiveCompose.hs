@@ -13,7 +13,6 @@ import Yage.Geometry as Geometry
 import Yage.Uniforms as U
 import Yage.Viewport
 import Yage.Scene
-import Yage.Material
 import Yage.TH.Shader as GLSL
 
 import Yage.Rendering
