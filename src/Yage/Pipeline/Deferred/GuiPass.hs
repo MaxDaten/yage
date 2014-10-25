@@ -69,7 +69,7 @@ runGuiPass _underlayTexture viewport gui = do
 
     passDescr   :: GUIPass
     passDescr   = passPreset target (viewport^.rectangle) shader
-                    & passPreRendering %~ flip (>>) glSettings
+                    & passPreRendering .~ glSettings
 
     runPass     = runRenderPass passDescr
 
@@ -82,13 +82,17 @@ runGuiPass _underlayTexture viewport gui = do
                         }
 
     glSettings = io $ do
-        GL.clearColor    GL.$= GL.Color4 0 0 0 0
+        GL.viewport     GL.$= (viewport^.rectangle.glViewport)
+        GL.clearColor    GL.$= GL.Color4 1 0 0 0.5
         GL.blendEquation GL.$= GL.FuncAdd
         GL.blendFunc     GL.$= (GL.One, GL.One)
-        GL.blend         GL.$= GL.Enabled
+        GL.blend         GL.$= GL.Disabled
 
-        GL.depthFunc    GL.$= Just GL.Less
-        GL.depthMask    GL.$= GL.Enabled
+        -- GL.polygonMode  GL.$= (GL.Line, GL.Line)
+
+        -- GL.depthFunc    GL.$= Just GL.Less
+        GL.depthFunc    GL.$= Nothing
+        GL.depthMask    GL.$= GL.Disabled
         GL.clear [ GL.ColorBuffer, GL.DepthBuffer ]
 
     -- | with a projection matrix for origin to the left bottom
@@ -96,7 +100,7 @@ runGuiPass _underlayTexture viewport gui = do
         let near              = realToFrac $ cam^.cameraZNear
             far               = realToFrac $ cam^.cameraZFar
             Rectangle xy0 xy1 = fromIntegral <$> viewport^.viewportRect
-            projM             = orthographicMatrix (xy0^._x) (xy1^._x) (xy0^._x) (xy1^._y) near far  :: M44 GLfloat
+            projM             = orthographicMatrix ( xy0^._x ) ( xy1^._x ) ( xy1^._y ) ( xy0^._y ) near far  :: M44 GLfloat
             viewM             = (fmap . fmap) realToFrac (cam^.cameraMatrix)                         :: M44 GLfloat
             vpM               = projM !*! viewM
         in vpMatrix         =: vpM
@@ -110,8 +114,8 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
             tex      = mkTexture ( buffer^.tbufTexture.fontMetric.fontName.packedChars ) $ Texture2D imgTex
 
             uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: TXT
-            textures = SField =: tex
+                       guiType  =: TXT
+            textures = textureSampler   =: tex
             shData   = ShaderData uniforms textures
         in RenderEntity ( buffer^.tbufMesh )
                         ( shData )
@@ -119,8 +123,8 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
 
     go (GUISDF (mesh, texture) transformation) =
         let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: SDF
-            textures = SField      =: texture
+                       guiType  =: SDF
+            textures = textureSampler   =: texture
             shData   = ShaderData uniforms textures
         in RenderEntity ( mesh )
                         ( shData )
@@ -128,12 +132,12 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
 
     go (GUIImage (mesh, texture) transformation) =
         let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: IMG
-            textures = SField      =: texture
+                       guiType  =: IMG
+            textures = textureSampler   =: texture
             shData   = ShaderData uniforms textures
         in RenderEntity ( mesh )
                         ( shData )
-                        ( GLDrawSettings GL.Triangles (Just GL.Back) )
+                        ( GLDrawSettings GL.Triangles (Nothing) )
 
 guiType :: SField YGUIElementType
 guiType = SField
