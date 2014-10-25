@@ -51,7 +51,7 @@ emptyGUI = GUI (mkCameraGui (-1, 1)) M.empty
 mkCameraGui :: (Double, Double) -> Camera
 mkCameraGui nearFar@(near, _) =
     -- fov is not needed for 2d, viewfield in 2d just defined with ortho-matrix
-    mkCameraFps 90 nearFar idTransformation
+    mkCameraFps 90 nearFar
         & cameraLocation._z .~ realToFrac near
 
 
@@ -107,6 +107,7 @@ unitColorQuad color = mkFromVerticesF "GUI.UNIT.QUAD" . vertices . triangles $ t
         ( position2 =: V2 0 0 <+> texture2 =: V2 0 0 <+> color4 =: (realToFrac <$> color) )
         ( position2 =: V2 1 0 <+> texture2 =: V2 1 0 <+> color4 =: (realToFrac <$> color) )
         ( position2 =: V2 1 1 <+> texture2 =: V2 1 1 <+> color4 =: (realToFrac <$> color) )
+{-# INLINE unitColorQuad #-}
 
 
 instance LinearInterpolatable GUI where

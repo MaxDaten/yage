@@ -38,11 +38,9 @@ data Camera = Camera
 makeLenses ''Camera
 
 
-mkCameraFps :: Double -> (Double, Double) -> Transformation Double -> Camera
-mkCameraFps fov (near,far) trans =
+mkCameraFps :: Double -> (Double, Double) -> Camera
+mkCameraFps fov (near,far) =
     Camera Cam.fpsCamera (CameraPlanes near far) fov
-        & cameraTransformation .~ trans
-
 
 
 cameraTransformation :: Lens' Camera (Transformation Double)
