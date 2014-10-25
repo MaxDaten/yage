@@ -11,6 +11,7 @@ module Yage.Resources
     , module Yage.Resources
     , module Yage.Rendering.Mesh
     , module Yage.Rendering.Resources
+    , module Yage.Font
     , Cube(..)
     ) where
 
@@ -29,6 +30,8 @@ import           Yage.Rendering.Resources
 
 import qualified Yage.Formats.Obj                 as OBJ
 import qualified Yage.Formats.Ygm                 as YGM
+import qualified Yage.Formats.Font                as Font
+import           Yage.Font                        ( FontTexture )
 
 
 import           Yage.Images
@@ -36,8 +39,6 @@ import           Yage.Images
 
 
 type YageResource = Acquire
--- type MeshResource v = YageResource (Mesh v)
--- type TextureResource = YageResource Texture
 
 {--
 data Selection =
@@ -62,6 +63,9 @@ textureResource filePath = mkAcquire loadTexture (const $ return ()) where
             Left err    -> error err
             Right img   -> return $ mkTexture (encodeUtf8 $ fpToText filePath) $ Texture2D img
 
+
+fontResource :: FilePath -> YageResource FontTexture
+fontResource filePath = mkAcquire (Font.readFontTexture filePath) (const $ return ())
 
 
 loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
@@ -118,7 +122,9 @@ isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet t
 cubeTexture :: Cube Texture -> Texture
 cubeTexture cubeTexs@Cube{cubeFaceRight} =
     let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
-    in mkTexture (cubeFaceRight^.textureId ++ "-CubeMap") $ TextureCube $ cubeImgs
+    in cubeFaceRight
+        & textureId   <>~ "-CubeMap"
+        & textureData .~ TextureCube cubeImgs
     where
     getTextureImg (Texture2D img) = img
     getTextureImg _ = error "requestResources: invalid TextureData"

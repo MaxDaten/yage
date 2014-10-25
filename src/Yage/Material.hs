@@ -29,7 +29,6 @@ data Material col = Material
     { _matColor          :: !col
     , _matTexture        :: !Texture
     , _matTransformation :: !( Transformation Double )
-    , _matConfig         :: !TextureConfig
     }
 
 makeLenses ''Material
@@ -69,8 +68,7 @@ zNormalDummy = constantNormal (V3 0 0 1)
 
 
 mkMaterial :: col -> Texture -> Material col
-mkMaterial color texture = Material color texture idTransformation defaultTextureConfig
-
+mkMaterial color texture = Material color texture idTransformation
 
 
 defaultMaterial :: (MaterialPixel pixel, Default col) => TextureCtr pixel -> Material col
@@ -96,30 +94,4 @@ stpOffset = matTransformation.transPosition
 
 stpOrientation :: Lens' (Material col) (Quaternion Double)
 stpOrientation = matTransformation.transOrientation
-
-
-{--
-
-instance HasResources vert (RenderMaterial col) (RenderMaterial col) where
-    requestResources = return
-
-
-instance HasResources vert (FMaterial Identity col Texture) (RenderMaterial col) where
-    requestResources mat =
-        set matTexture . pure
-            <$> ( requestTexture $ extract $ mat^.matTexture )
-            <*> pure mat
-
-instance HasResources vert (FMaterial Cube col Texture) (IMaterial col Texture) where
-    requestResources mat = do
-        cubeTexs <- mapM requestTexture (mat^.matTexture)
-
-        let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
-            Just ( Texture baseName _ _ ) = firstOf traverse $ cubeTexs
-        return $ mat & matTexture .~ Identity (Texture ( baseName ++ "-Cube" ) ( mat^.matConfig ) ( TextureCube cubeImgs ))
-
-        where
-        getTextureImg (Texture2D img) = img
-        getTextureImg _ = error "requestResources: invalid TextureData"
---}
 
