@@ -24,7 +24,7 @@ numSamples = SField
 sampleWeights :: KnownSymbol s => SField (YSampleWeights s)
 sampleWeights = SField
 
-type SingleSamplerData size tex = ShaderData [YProjectionMatrix, YTextureSize size] '[ TextureSampler tex ]
+type SingleSamplerData size tex = ShaderData '[ YTextureSize size ] '[ TextureSampler tex ]
 
 type SamplerData size tex = ShaderData '[ YTextureSize size ] '[ TextureSampler tex ]
 type SamplerShader u t = Shader u t TargetVertex
@@ -46,18 +46,4 @@ samplerPass debugName target targetRectangle fragSampler =
 
 sampleData :: ( KnownSymbol size, KnownSymbol sampler ) => Texture -> SamplerData size sampler
 sampleData toSample =
-    ShaderData (textureSizeField toSample) (SField =: toSample)
-
-
-targetRectangleData :: Rectangle Int -> ShaderData '[ YProjectionMatrix ] '[]
-targetRectangleData targetRectangle =
-    let Rectangle xy0 xy1   = fromIntegral <$> targetRectangle
-        uniforms            = projectionMatrix =: orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
-    in ShaderData uniforms RNil
-
-
-singleTextureSampler :: (KnownSymbol size, KnownSymbol tex) =>
-                       Rectangle Int
-                    -> Texture
-                    -> SingleSamplerData size tex
-singleTextureSampler target toSample = targetRectangleData target `append` sampleData toSample
+    ShaderData (textureSizeField toSample) (textureSampler =: toSample)

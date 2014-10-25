@@ -9,7 +9,6 @@ import Yage.Lens
 
 import Yage.Viewport
 import Yage.Geometry
-import Yage.Transformation
 import Yage.Uniforms as U
 import Yage.Rendering
 import Yage.Rendering.Textures
@@ -61,33 +60,26 @@ deviceViewportPx = to getter where
         in Viewport (Rectangle 0 size) 2.2
 
 
-type TargetVertex = Vertex (Y'P3TX2 GLfloat)
-type TargetData   = ShaderData '[ YModelMatrix ] '[]
+-- TODO simplify
+type TargetVertex = Vertex (Y'P2 GLfloat)
+type TargetData   = ShaderData '[] '[]
 type TargetEntity = RenderEntity TargetVertex TargetData
 
-targetEntity :: GetRectangle r Int => r -> TargetEntity
-targetEntity hasRect =
-    RenderEntity quadMesh ( ShaderData uniforms mempty ) settings
-    where
-    uniforms =
+targetQuad :: TargetEntity
+targetQuad =
+    RenderEntity quadMesh ( ShaderData mempty mempty ) settings
         -- our screen has it's origin (0/0) at the top left corner (y-Axis is flipped)
         -- we need to flip our screen object upside down with the object origin point at bottom left to keep the u/v coords reasonable
-        let dim          = realToFrac <$> hasRect^.asRectangle.extend
-            trans        = idTransformation & transPosition._xy .~ 0.5 * dim
-                                            & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) 1
-            scaleM       = kronecker . point $ trans^.transScale
-            transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
-            modelM       = transM !*! scaleM
-        in modelMatrix =: modelM
 
+    where
     quadMesh = mkFromVerticesF "YAGE:TARGETQUAD" . vertices . triangles $ targetFace
 
     targetFace :: Face TargetVertex
     targetFace = Face
-        (position3 =: V3 (-0.5) ( 0.5) 0.0 <+> texture2 =: (V2 0 1))
-        (position3 =: V3 (-0.5) (-0.5) 0.0 <+> texture2 =: (V2 0 0))
-        (position3 =: V3 ( 0.5) (-0.5) 0.0 <+> texture2 =: (V2 1 0))
-        (position3 =: V3 ( 0.5) ( 0.5) 0.0 <+> texture2 =: (V2 1 1))
+        (position2 =: V2 (-1) ( 1))
+        (position2 =: V2 (-1) (-1))
+        (position2 =: V2 ( 1) (-1))
+        (position2 =: V2 ( 1) ( 1))
 
     settings = GLDrawSettings GL.Triangles (Just GL.Back)
 

@@ -19,13 +19,10 @@ import Yage.Rendering.Textures (texSpecDimension)
 import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
-type DownsampleUniforms = [ YProjectionMatrix
-                          , YTextureSize "TextureSize[0]"
-                          , YModelMatrix
-                          ]
+type DownsampleUniforms = '[ YTextureSize "TextureSize[0]" ]
 type DownsampleTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
-type DownsampleFrameData= ShaderData [ YProjectionMatrix, YTextureSize "TextureSize[0]"] '[ TextureSampler "TextureSamplers[0]" ]
+type DownsampleFrameData= ShaderData DownsampleUniforms DownsampleTextures
 type DownsamplePass     = YageTextureSampler SingleRenderTarget DownsampleUniforms DownsampleTextures
 
 -------------------------------------------------------------------------------
@@ -70,11 +67,10 @@ downsampleBoxed5x5 downfactor toDownsample =
 
 
         downsampleData :: DownsampleFrameData
-        downsampleData = targetRectangleData (target^.asRectangle) `append`
-                         sampleData toDownsample
+        downsampleData = sampleData toDownsample
 
         downsamplePass = runRenderPass downsampleDescr
     in do
-        downsampleData `downsamplePass` ( target^.to targetEntity.to singleton )
+        downsampleData `downsamplePass` ( targetQuad^.to singleton )
         return $ target^.targetTexture
 

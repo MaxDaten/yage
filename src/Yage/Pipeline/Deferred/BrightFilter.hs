@@ -21,10 +21,10 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type BrightUniforms = [ YProjectionMatrix, YWhitePoint, YModelMatrix ]
+type BrightUniforms = '[ YWhitePoint ]
 type BrightTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
-type BrightFrameData=ShaderData [ YProjectionMatrix, YWhitePoint ] BrightTextures
+type BrightFrameData=ShaderData BrightUniforms BrightTextures
 type BrightPass     = YageTextureSampler SingleRenderTarget BrightUniforms BrightTextures
 
 
@@ -65,13 +65,13 @@ brightFilter tex whitePoint =
 
 
         frameData   :: BrightFrameData
-        frameData   = targetRectangleData (target^.asRectangle)
-                        & shaderTextures <<+>~ (SField =: tex)
+        frameData   = ShaderData RNil RNil
+                        & shaderTextures <<+>~ textureSampler =: tex
                         & shaderUniforms <<+>~ U.whitePoint =: realToFrac whitePoint
 
         brightPass  = runRenderPass brightDescr
     in do
-        frameData `brightPass` ( tex^.to targetEntity.to singleton )
+        frameData `brightPass` ( singleton targetQuad )
         return $ target^.targetTexture
 
 

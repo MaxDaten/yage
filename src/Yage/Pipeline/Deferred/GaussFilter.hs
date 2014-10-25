@@ -18,11 +18,11 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type GaussUniforms  = [ YProjectionMatrix, YTextureSize "TextureSize[0]", YStepDirection, YGaussWidth ]
+type GaussUniforms  = [ YTextureSize "TextureSize[0]", YStepDirection, YGaussWidth ]
 type GaussTextures  = '[ TextureSampler "TextureSamplers[0]" ]
 
 type GaussFrameData = ShaderData GaussUniforms GaussTextures
-type GaussShader    = Shader ( GaussUniforms ++ '[ YModelMatrix ] ) GaussTextures TargetVertex
+type GaussShader    = Shader GaussUniforms GaussTextures TargetVertex
 type GaussPass      = YageDeferredPass SingleRenderTarget GaussShader
 
 type YGaussWidth    = "Width" ::: GLfloat
@@ -70,20 +70,20 @@ gaussFilter gwidth toSample (xTarget, yTarget) =
         yPass       = samplerPass "Yage.GaussY" yTarget (yTarget^.asRectangle) gaussBlurFragmentProgram
 
         xData, yData :: GaussFrameData
-        xData       = targetRectangleData (xTarget^.asRectangle)
+        xData       = ShaderData RNil RNil
                         & shaderUniforms <<+>~ textureSizeField (xTarget^.targetTexture) <+>
                                                stepDirection =: V2 1 0                   <+>
                                                gaussWidth    =: realToFrac gwidth
                         & shaderTextures <<+>~ textureSampler =: toSample
-        yData       = targetRectangleData (yTarget^.asRectangle)
+        yData       = ShaderData RNil RNil
                         & shaderUniforms <<+>~ textureSizeField (yTarget^.targetTexture) <+>
                                                stepDirection =: V2 0 1                   <+>
                                                gaussWidth    =: realToFrac gwidth
                         & shaderTextures <<+>~ textureSampler =: (xTarget^.targetTexture)
 
     in do
-        runRenderPass xPass xData $ xTarget^.to targetEntity.to singleton
-        runRenderPass yPass yData $ yTarget^.to targetEntity.to singleton
+        runRenderPass xPass xData $ singleton targetQuad
+        runRenderPass yPass yData $ singleton targetQuad
         return $ yTarget^.targetTexture
 
 

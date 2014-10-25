@@ -23,15 +23,11 @@ import qualified Graphics.Rendering.OpenGL          as GL
 
 newtype Screen = Screen (Viewport Int)
 
-type ScrPerFrameUni    = '[ YProjectionMatrix ]
-
-type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
-type ScreenUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
 type ScreenTex    = [ TextureSampler "TextureSamplers[0]"
                     , TextureSampler "TextureSamplers[1]"
                     ]
 
-type ScreenShader = Shader ScreenUni ScreenTex ScrVertex
+type ScreenShader = Shader '[] ScreenTex TargetVertex
 
 type ScreenPass   = YageDeferredPass DefaultRenderTarget ScreenShader
 
@@ -81,15 +77,14 @@ screenPass viewport textures =
 
         runPass     = runRenderPass screenPassDescr
         screenData  = screenFrameData textures
-    in screenData `runPass` ( viewport^.rectangle.to targetEntity.to singleton )
+    in screenData `runPass` ( singleton targetQuad )
 
     where
 
-    screenFrameData :: [ Texture ] -> ShaderData ScrPerFrameUni ScreenTex
+    screenFrameData :: [ Texture ] -> ShaderData '[] ScreenTex
     screenFrameData (tex0:tex1:[]) =
-        targetRectangleData (viewport^.rectangle)
-            & shaderTextures <<+>~ textureSampler =: tex0 <+>
-                                   textureSampler =: tex1
+        let sampler = textureSampler =: tex0 <+> textureSampler =: tex1
+        in ShaderData mempty sampler
     screenFrameData _ = error "invalid texture argument count"
 
 

@@ -25,8 +25,7 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 newtype Tone = Tone (Viewport Int)
 
-type ScrPerFrameUni    = [ YProjectionMatrix
-                         , YExposure
+type ScrPerFrameUni    = [ YExposure
                          , YExposureBias
                          , YInverseGamma
                          , YWhitePoint
@@ -34,13 +33,12 @@ type ScrPerFrameUni    = [ YProjectionMatrix
                          , YSampleWeights "weights[0]"
                          ]
 
-type ScrVertex    = Vertex (Y'P3TX2 GLfloat)
-type ToneUni    = ScrPerFrameUni ++ '[ YModelMatrix ]
+type ToneUni    = ScrPerFrameUni
 type ToneTex    = '[ TextureSampler "TextureSamplers[0]"
                    , TextureArray "TextureSamplers[1]"
                    ]
 
-type ToneShader = Shader ToneUni ToneTex ScrVertex
+type ToneShader = Shader ToneUni ToneTex TargetVertex
 
 type TonePass   = YageDeferredPass SingleRenderTarget ToneShader
 
@@ -146,7 +144,7 @@ runToneMapPass :: Texture -> [ (Double, Texture) ] -> YageRenderSystem HDRCamera
 runToneMapPass baseTexture samples viewport camera =
     let tonePass  = runRenderPass toneDescr
     in do
-        toneData `tonePass` ( viewport^.rectangle.to targetEntity.to singleton )
+        toneData `tonePass` ( singleton targetQuad )
         return $ toneDescr^.passTarget.targetTexture
 
     where
@@ -178,7 +176,7 @@ runToneMapPass baseTexture samples viewport camera =
             GL.polygonMode  GL.$= (GL.Fill, GL.Fill)
 
     toneData :: ShaderData ScrPerFrameUni ToneTex
-    toneData = targetRectangleData (viewport^.rectangle)
+    toneData = ShaderData RNil RNil
                     & shaderTextures <<+>~ textureSampler =: baseTexture
                     & shaderTextures <<+>~ textureArray   =: map snd samples
                     & shaderUniforms <<+>~ toneUniforms

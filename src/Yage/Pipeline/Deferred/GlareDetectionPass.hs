@@ -21,12 +21,11 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type GlarePerFrameUni = [ YProjectionMatrix
-                        , YTextureSize "TextureSize[0]"
+type GlarePerFrameUni = [ YTextureSize "TextureSize[0]"
                         , YExposure
                         , YBloomThreshold
                         ]
-type GlareUniforms = GlarePerFrameUni ++ '[ YModelMatrix ]
+type GlareUniforms = GlarePerFrameUni
 type GlareTextures = '[ TextureSampler "TextureSamplers[0]" ]
 
 type GlareFrameData= ShaderData GlarePerFrameUni GlareTextures
@@ -81,14 +80,13 @@ glareDetection downfactor exposure bloomThreshold toDownsample =
 
 
         glareData :: GlareFrameData
-        glareData = (targetRectangleData (target^.asRectangle) `append`
-                        sampleData toDownsample)
+        glareData = sampleData toDownsample
                         & shaderUniforms <<+>~ U.exposure       =: realToFrac exposure
                         & shaderUniforms <<+>~ U.bloomthreshold =: realToFrac bloomThreshold
 
 
         glarePass = runRenderPass glareDescr
     in do
-        glareData `glarePass` ( target^.to targetEntity.to singleton )
+        glareData `glarePass` ( singleton targetQuad )
         return $ target^.targetTexture
 

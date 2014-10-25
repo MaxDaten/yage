@@ -21,8 +21,7 @@ import Yage.Pipeline.Deferred.Common
 import Yage.Pipeline.Deferred.Sampler
 
 
-type AddUniforms = [ YProjectionMatrix
-                   , "BaseWeight" ::: GLfloat
+type AddUniforms = [ "BaseWeight" ::: GLfloat
                    , "AddWeight" ::: GLfloat
                    ]
 type AddTextures = [ TextureSampler "TextureSamplers[0]"
@@ -30,7 +29,7 @@ type AddTextures = [ TextureSampler "TextureSamplers[0]"
                    ]
 type AddFrameData = ShaderData AddUniforms AddTextures
 
-type AdditiveShader = Shader (AddUniforms ++ '[YModelMatrix]) AddTextures TargetVertex
+type AdditiveShader = Shader AddUniforms AddTextures TargetVertex
 type AdditiveComposePass = YageDeferredPass SingleRenderTarget AdditiveShader
 
 -------------------------------------------------------------------------------
@@ -67,9 +66,9 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
         additiveDescr   = samplerPass "Yage.AdditiveCompose" target (target^.asRectangle) fragmentProgram
 
         frameData       :: AddFrameData
-        frameData       = targetRectangleData (target^.asRectangle)
-                            & shaderTextures <<+>~ (SField =: baseTex)
-                            & shaderTextures <<+>~ (SField =: toAdd)
+        frameData       = ShaderData RNil RNil
+                            & shaderTextures <<+>~ (textureSampler =: baseTex)
+                            & shaderTextures <<+>~ (textureSampler =: toAdd)
                             & shaderUniforms <<+>~ weights
 
         weights         = SField =: realToFrac baseWeight <+>
@@ -77,5 +76,5 @@ additiveCompose (baseWeight, baseTex) (addWeight, toAdd) =
 
         additivePass    = runRenderPass additiveDescr
     in do
-        frameData `additivePass` ( baseTex^.to targetEntity.to singleton )
+        frameData `additivePass` ( singleton targetQuad )
         return $ target^.targetTexture
