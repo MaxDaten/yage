@@ -97,7 +97,9 @@ runGuiPass _underlayTexture viewport gui = do
         let near              = realToFrac $ cam^.cameraZNear
             far               = realToFrac $ cam^.cameraZFar
             Rectangle xy0 xy1 = fromIntegral <$> viewport^.viewportRect
-            projM             = orthographicMatrix ( xy0^._x ) ( xy1^._x ) ( xy0^._y ) ( xy1^._y ) near far  :: M44 GLfloat
+            V2 xRatio yRatio  = realToFrac <$> viewport^.viewportPixelRatio
+            projM             = orthographicMatrix ( xy0^._x / xRatio) ( xy1^._x / xRatio )
+                                                   ( xy0^._y / yRatio) ( xy1^._y / yRatio ) near far  :: M44 GLfloat
             viewM             = (fmap . fmap) realToFrac (cam^.cameraMatrix)                         :: M44 GLfloat
             vpM               = projM !*! viewM
         in vpMatrix         =: vpM

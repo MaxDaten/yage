@@ -18,9 +18,11 @@ import qualified Graphics.GLUtil.Camera3D            as Cam
 
 
 data Viewport a = Viewport
-    { _viewportRect   :: Rectangle a
+    { _viewportRect       :: Rectangle a
       -- ^ as xy1 und xy2, with 0/0 top/left
-    , _viewportGamma  :: Float
+    , _viewportPixelRatio :: V2 Double
+    -- ^ usually 1:1, on retina displays 2:2
+    , _viewportGamma      :: Float
     }
     deriving ( Typeable, Functor, Show, Eq, Generic )
 

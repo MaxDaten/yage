@@ -57,7 +57,7 @@ deviceViewportPx :: Getter SingleRenderTarget (Viewport Int)
 deviceViewportPx = to getter where
     getter target =
         let size = target^.textureSpec.texSpecDimension
-        in Viewport (Rectangle 0 size) 2.2
+        in Viewport (Rectangle 0 size) 1 2.2
 
 
 -- TODO simplify

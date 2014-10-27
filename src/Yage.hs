@@ -169,8 +169,9 @@ yageLoop win oldState = do
     renderTheScene scene glResources = do
         let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
-        let rect        = Rectangle 0 $ winSt^.fbSize
-        {-# SCC rendering #-} runRenderSystem ( thePipeline ( Viewport rect 2.2 ) scene ) ( glResources )
+        let fbRect      = Rectangle 0 $ winSt^.fbSize
+            ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
+        {-# SCC rendering #-} runRenderSystem ( thePipeline ( Viewport fbRect ratio 2.2 ) scene ) ( glResources )
 
 
     -- debug & stats
