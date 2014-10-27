@@ -17,9 +17,10 @@ layout (location = 0) out vec4 fragColor;
 vec4 FontColor(void)
 {
     float mask = texture( ElementTexture, TextureCoords ).r;
-    vec4 outColor   = BaseColor; 
-    outColor.a     *= mask > 0.5 ? 1.0 : 0.0;
-    outColor.a     *= smoothstep(0.25, 0.75, mask);
+    float delta     = 0.1;
+    if (mask - (0.5-delta) < 0) discard;
+    vec4 outColor  = BaseColor; 
+    outColor.a    *= smoothstep(0.5-delta, 0.5+delta, mask);
     return outColor;
 }
 
