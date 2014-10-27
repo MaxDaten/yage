@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.4.0.0
+version:             0.4.1.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
