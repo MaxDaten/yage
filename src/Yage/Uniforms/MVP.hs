@@ -19,6 +19,7 @@ type YViewMatrix       = "ViewMatrix"           ::: M44 GLfloat
 type YModelMatrix      = "ModelMatrix"          ::: M44 GLfloat
 type YNormalMatrix     = "NormalMatrix"         ::: M33 GLfloat
 type YViewToWorldMatrix= "ViewToWorldMatrix"    ::: M33 GLfloat
+type YViewToScreen     = "ViewToScreenMatrix"   ::: M44 GLfloat
 
 type YVPMatrix         = "VPMatrix"             ::: M44 GLfloat
 type YMVPMatrix        = "MVPMatrix"            ::: M44 GLfloat
@@ -43,6 +44,9 @@ normalMatrix = SField
 
 projectionMatrix :: SField YProjectionMatrix
 projectionMatrix = SField
+
+viewToScreenMatrix :: SField YViewToScreen
+viewToScreenMatrix = SField
 
 viewMatrix :: SField YViewMatrix
 viewMatrix = SField
@@ -91,9 +95,10 @@ perspectiveUniforms vp cam =
         far   = realToFrac $ cam^.cameraZFar
         fov   = realToFrac $ cam^.cameraFov
         projM = projectionMatrix3D near far fov (fromIntegral <$> vp^.viewportRect) :: M44 GLfloat
-        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)                       :: M44 GLfloat
+        viewM = (fmap . fmap) realToFrac (cam^.cameraMatrix)                        :: M44 GLfloat
         vpM   = projM !*! viewM
     in viewMatrix       =: viewM <+>
+       -- projectionMatrix =: projM <+>
        vpMatrix         =: vpM
 
 

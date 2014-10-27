@@ -23,7 +23,8 @@ import           Yage.Light
 import           Yage.Resources                 as Res
 import           Yage.Geometry                  hiding ( Face )
 
-import           Data.Traversable               (mapM)
+import qualified Data.Sequence                  as S
+
 import qualified Graphics.GLUtil.Camera3D       as Cam
 
 import           Yage.Rendering.RenderEntity
@@ -34,7 +35,7 @@ import qualified Graphics.Rendering.OpenGL      as GL
 data Entity mesh mat = Entity
     { _renderData            :: !mesh
     , _materials             :: !mat
-    , _entityTransformation  :: !( Transformation Float )
+    , _entityTransformation  :: !( Transformation Double )
     , _drawSettings          :: !GLDrawSettings
     }
 
@@ -44,9 +45,9 @@ data LightEntity mesh = LightEntity (Entity mesh ()) !Light
 
 
 data Environment lit sky = Environment
-    { _envLights       :: ![ lit ]
-    , _envSky          :: !( Maybe sky )
-    , _envAmbient      :: !AmbientLight
+    { _envLights       :: Seq lit
+    , _envSky          :: ( Maybe sky )
+    , _envAmbient      :: AmbientLight
     }
 
 makeLenses ''Environment
@@ -54,7 +55,7 @@ makeLenses ''Environment
 
 
 data Scene cam ent env gui = Scene
-    { _sceneEntities    :: [ ent ]
+    { _sceneEntities    :: Seq ent
     , _sceneEnvironment :: env
     , _sceneCamera      :: cam
     , _sceneGui         :: gui
@@ -68,49 +69,60 @@ makeLenses ''Scene
 --}
 
 emptyScene :: cam -> gui -> Scene cam ent (Environment lit skymat) gui
-emptyScene cam = Scene [] emptyEnvironment cam
+emptyScene cam = Scene S.empty emptyEnvironment cam
+{-# INLINE emptyScene #-}
 
 
 emptyEnvironment :: Environment lit mat
-emptyEnvironment = Environment [] Nothing (AmbientLight 0)
+emptyEnvironment = Environment S.empty Nothing (AmbientLight 0)
+{-# INLINE emptyEnvironment #-}
 
 
 addEntity :: Scene cam ent env dat -> ent -> Scene cam ent env dat
-addEntity scene ent = scene & sceneEntities <>~ [ent]
+addEntity scene ent = scene & sceneEntities %~ (S.|> ent)
+{-# INLINE addEntity #-}
 
 
 addLight :: Scene cam ent (Environment lit mat) dat -> lit -> Scene cam ent (Environment lit mat) dat
-addLight scene l = scene & sceneEnvironment.envLights <>~ [l]
+addLight scene l = scene & sceneLights %~ (S.|> l)
+{-# INLINE addLight #-}
 
 
 entitiesCount :: Scene cam ent (Environment l m) dat -> Int
 entitiesCount = length . _sceneEntities
+{-# INLINE entitiesCount #-}
 
 
 lightCount :: Scene cam ent (Environment l m) dat -> Int
 lightCount = length . _envLights . _sceneEnvironment
+{-# INLINE lightCount #-}
 
 
 sceneSky :: Lens' (Scene cam ent (Environment lit sky) dat) (Maybe sky)
 sceneSky = sceneEnvironment.envSky
+{-# INLINE sceneSky #-}
+
+sceneLights :: Lens' (Scene cam ent (Environment lit sky) dat) (Seq lit)
+sceneLights = sceneEnvironment.envLights
+{-# INLINE sceneLights #-}
 
 
-mkCameraHandle :: V3 Float -> V3 Float -> V3 Float -> Quaternion Float -> V3 Float -> CameraHandle
+mkCameraHandle :: V3 Double -> V3 Double -> V3 Double -> Quaternion Double -> V3 Double -> CameraHandle
 mkCameraHandle = Cam.Camera
 
 {--
 ## Entity Shortcuts
 --}
 
-entityPosition    :: Lens' (Entity vert mat) (V3 Float)
+entityPosition    :: Lens' (Entity vert mat) (V3 Double)
 entityPosition    = entityTransformation.transPosition
 
 
-entityScale       :: Lens' (Entity vert mat) (V3 Float)
+entityScale       :: Lens' (Entity vert mat) (V3 Double)
 entityScale       = entityTransformation.transScale
 
 
-entityOrientation :: Lens' (Entity vert mat) (Quaternion Float)
+entityOrientation :: Lens' (Entity vert mat) (Quaternion Double)
 entityOrientation = entityTransformation.transOrientation
 
 
@@ -125,17 +137,7 @@ entityLight = lens getter setter where
   getter (LightEntity _ light) = light
   setter (LightEntity entity _) light = LightEntity entity light
 
-
-lightPosition :: Lens' (LightEntity mesh) (V3 Float)
-lightPosition = lightEntity.entityPosition
-
-lightOrientation :: Lens' (LightEntity mesh) (Quaternion Float)
-lightOrientation = lightEntity.entityOrientation
-
-lightRadius :: Lens' (LightEntity mesh) (V3 Float)
-lightRadius = lightEntity.entityScale
-
-
+{--
 instance ( HasResources vert ent ent', HasResources vert env env'
          , HasResources vert gui gui'
          ) =>
@@ -168,6 +170,7 @@ instance ( HasResources vert mesh mesh' ) =>
          requestResources (LightEntity ent light) =
             LightEntity <$> requestResources ent
                         <*> pure light
+--}
 
 toRenderEntity :: ShaderData u t ->
                   Entity (Mesh vert) mat ->
@@ -180,14 +183,14 @@ toRenderEntity shaderData ent =
 
 
 -- | creates an `Entity` with:
---      an empty `Mesh`
---      the default `Material` as `TexSRGB8`
---      id Transformation
---      settings for triangle primitive rendering and back-face culling
-basicEntity :: ( Storable (Vertex geo), Default mat ) => Entity (MeshResource (Vertex geo)) mat
+--     - an empty `Mesh`
+--     - the default `Material` as `TexSRGB8`
+--     - id Transformation
+--     - settings for triangle primitive rendering and back-face culling
+basicEntity :: ( Storable (Vertex vert), Default mat ) => Entity (Mesh (Vertex vert)) mat
 basicEntity =
     Entity
-        { _renderData           = MeshPure emptyMesh
+        { _renderData           = emptyMesh
         , _materials            = def
         , _entityTransformation = idTransformation
         , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
@@ -203,8 +206,7 @@ instance ( LinearInterpolatable cam
          , LinearInterpolatable ent
          , LinearInterpolatable env
          , LinearInterpolatable dat
-         ) =>
-         LinearInterpolatable (Scene cam ent env dat) where
+         ) => LinearInterpolatable (Scene cam ent env dat) where
     lerp alpha u v =
         u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)

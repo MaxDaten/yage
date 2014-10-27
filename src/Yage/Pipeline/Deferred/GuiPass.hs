@@ -52,7 +52,7 @@ data GUIChannels = GUIChannels
 -- | run
 runGuiPass :: Texture -> YageRenderSystem GUI Texture
 runGuiPass _underlayTexture viewport gui = do
-    passData `runPass` ( fmap toRenderEntity $ itoList $ gui^.guiElements )
+    passData `runPass` ( toRenderEntity <$> gui^.guiElements.to itoList.to fromList )
     return $ colorTex
 
     where
@@ -61,7 +61,7 @@ runGuiPass _underlayTexture viewport gui = do
     passData    = orthographicUniforms (gui^.guiCamera) `ShaderData` RNil
 
     texSpec     = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    colorTex    = mkTexture "YAGE.GUI.COLOR" $ TextureBuffer GL.Texture2D texSpec
+    colorTex    = mkTargetTexture "YAGE.GUI.COLOR" texSpec
     target      = RenderTarget "YAGE.GUI" $ GUIChannels
                     { guiColor = colorTex
                     , guiDepth = Renderbuffer "YAGE.GUI.DEPTH" $ mkTextureSpec' (viewport^.rectangle.extend) GL.DepthComponent
@@ -69,7 +69,7 @@ runGuiPass _underlayTexture viewport gui = do
 
     passDescr   :: GUIPass
     passDescr   = passPreset target (viewport^.rectangle) shader
-                    & passPreRendering %~ flip (>>) glSettings
+                    & passPreRendering .~ glSettings
 
     runPass     = runRenderPass passDescr
 
@@ -82,9 +82,10 @@ runGuiPass _underlayTexture viewport gui = do
                         }
 
     glSettings = io $ do
+        GL.viewport     GL.$= (viewport^.rectangle.glViewport)
         GL.clearColor    GL.$= GL.Color4 0 0 0 0
         GL.blendEquation GL.$= GL.FuncAdd
-        GL.blendFunc     GL.$= (GL.One, GL.One)
+        GL.blendFunc     GL.$= (GL.SrcAlpha, GL.OneMinusSrcAlpha)
         GL.blend         GL.$= GL.Enabled
 
         GL.depthFunc    GL.$= Just GL.Less
@@ -96,7 +97,9 @@ runGuiPass _underlayTexture viewport gui = do
         let near              = realToFrac $ cam^.cameraZNear
             far               = realToFrac $ cam^.cameraZFar
             Rectangle xy0 xy1 = fromIntegral <$> viewport^.viewportRect
-            projM             = orthographicMatrix (xy0^._x) (xy1^._x) (xy0^._x) (xy1^._y) near far  :: M44 GLfloat
+            V2 xRatio yRatio  = realToFrac <$> viewport^.viewportPixelRatio
+            projM             = orthographicMatrix ( xy0^._x / xRatio) ( xy1^._x / xRatio )
+                                                   ( xy0^._y / yRatio) ( xy1^._y / yRatio ) near far  :: M44 GLfloat
             viewM             = (fmap . fmap) realToFrac (cam^.cameraMatrix)                         :: M44 GLfloat
             vpM               = projM !*! viewM
         in vpMatrix         =: vpM
@@ -110,8 +113,8 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
             tex      = mkTexture ( buffer^.tbufTexture.fontMetric.fontName.packedChars ) $ Texture2D imgTex
 
             uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: TXT
-            textures = SField =: tex
+                       guiType  =: TXT
+            textures = textureSampler   =: tex
             shData   = ShaderData uniforms textures
         in RenderEntity ( buffer^.tbufMesh )
                         ( shData )
@@ -119,8 +122,8 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
 
     go (GUISDF (mesh, texture) transformation) =
         let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: SDF
-            textures = SField      =: texture
+                       guiType  =: SDF
+            textures = textureSampler   =: texture
             shData   = ShaderData uniforms textures
         in RenderEntity ( mesh )
                         ( shData )
@@ -128,8 +131,8 @@ toRenderEntity (ident, guiElement) = go guiElement & entMesh.meshId .~ ident
 
     go (GUIImage (mesh, texture) transformation) =
         let uniforms = modelMatrix =: (fmap realToFrac <$> transformation^.transformationMatrix) <+>
-                       guiType =: IMG
-            textures = SField      =: texture
+                       guiType  =: IMG
+            textures = textureSampler   =: texture
             shData   = ShaderData uniforms textures
         in RenderEntity ( mesh )
                         ( shData )
@@ -147,11 +150,6 @@ instance FramebufferSpec GUIChannels RenderTargets where
 
     fboDepth GUIChannels{guiDepth} =
         Just $ Attachment DepthAttachment $ RenderbufferTarget guiDepth
-
-
-instance Implicit (FieldNames GUIElementTexture) where
-    implicitly =
-        SField =: "ElementTexture"
 
 instance GL.AsUniform GUIElementType where
     asUniform ty = GL.asUniform ((fromIntegral $ fromEnum ty) :: GL.GLint)

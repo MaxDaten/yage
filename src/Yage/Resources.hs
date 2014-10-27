@@ -4,34 +4,139 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE NamedFieldPuns         #-}
 
 module Yage.Resources
-    ( YageResources, runYageResources
-    , ResourceLoader(..), ResourceRegistry
-    , MeshResource (..), MeshFileType(..), TextureResource(..), HasResources(..)
-    , MeshFilePath, SubMeshSelection
-    , requestMeshResource, requestTextureResource
-    , initialRegistry
-    , mkSelection
+    ( module Acquire
+    , module Yage.Resources
+    , module Yage.Rendering.Mesh
+    , module Yage.Rendering.Resources
+    , module Yage.Font
+    , Cube(..)
     ) where
 
 import           Yage.Lens
-import           Yage.Prelude             hiding (Index)
+import           Yage.Prelude                     hiding (Index)
 
-import           Data.Digest.XXHash
-import qualified Data.Trie                as T
-
+import           Data.Acquire                     as Acquire
 import           Codec.Picture
 
-import           Control.Monad.RWS.Strict hiding (mapM)
-import qualified Data.Map.Strict          as M
-import qualified Data.Set                 as S
+import qualified Data.Map.Strict                  as M
+import qualified Data.Set                         as S
 
+import           Yage.Geometry
 import           Yage.Rendering.Mesh
-import           Yage.Rendering.Resources hiding (loadedTextures)
+import           Yage.Rendering.Resources
+
+import qualified Yage.Formats.Obj                 as OBJ
+import qualified Yage.Formats.Ygm                 as YGM
+import qualified Yage.Formats.Font                as Font
+import           Yage.Font                        ( FontTexture )
+
 
 import           Yage.Images
 
+
+
+type YageResource = Acquire
+
+{--
+data Selection =
+      SelectAll
+    | IncludeSelection [Text]
+    | ExcludeSelection [Text]
+--}
+type SubMeshSelection = S.Set Text
+type MeshFilePath = (FilePath, SubMeshSelection)
+
+-- TODO : gl VBO
+meshResource :: Storable (Vertex v) => IO (Mesh (Vertex v)) -> YageResource (Mesh (Vertex v))
+meshResource loadMesh = mkAcquire loadMesh (const $ return ())
+
+
+
+textureResource :: FilePath -> YageResource Texture
+textureResource filePath = mkAcquire loadTexture (const $ return ()) where
+    loadTexture = do
+        eImg <- (fromDynamic =<<) <$> readImage (fpToString filePath)
+        case eImg of
+            Left err    -> error err
+            Right img   -> return $ mkTexture (encodeUtf8 $ fpToText filePath) $ Texture2D img
+
+
+fontResource :: FilePath -> YageResource FontTexture
+fontResource filePath = mkAcquire (Font.readFontTexture filePath) (const $ return ())
+
+
+loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadOBJ fromInternal (filepath,subSelection) = do
+    OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
+    createMesh $ M.mapKeys decodeUtf8 geoGroup
+
+    where
+
+    createMesh geoGroup
+        | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
+        | otherwise = do
+            let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
+                tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
+                packed          = zipWith packer geos tbnGeos
+                mesh            = emptyMesh & meshId .~ (encodeUtf8 $ fpToText filepath)
+            return $ foldl' appendGeometry mesh packed
+
+    converter p t n = fromInternal $ YGM.internalFormat p t n
+
+    packer (ident, (pos, tex)) (_,tbn) = (encodeUtf8 ident, packGeos converter pos tex tbn)
+
+
+loadYGM :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
+    createMesh YGM.YGM{..}
+        | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
+        | otherwise =
+            let geoMap = convertVertices <$> M.filterWithKey (isSelected subSelection) ygmModels
+                mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
+            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (encodeUtf8 k, geo)) mesh geoMap
+
+    convertVertices = geoVertices %~ map fromInternal
+
+
+mkSelection :: [ Text ] -> SubMeshSelection
+mkSelection = S.fromList
+{-# INLINE mkSelection #-}
+
+
+isSelected :: SubMeshSelection -> Text -> a -> Bool
+isSelected selection key _ | S.null selection = True
+                           | otherwise = key `S.member` selection
+{-# INLINE isSelected #-}
+
+
+isValidSelection :: SubMeshSelection -> Map Text a -> Bool
+isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet theMap)
+{-# INLINE isValidSelection #-}
+
+
+-- | extracts the `TextureImages` from the `Cube` `Texture` fields and creates
+-- a new Texture with Cube `TextureData`
+cubeTexture :: Cube Texture -> Texture
+cubeTexture cubeTexs@Cube{cubeFaceRight} =
+    let cubeImgs = cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
+    in cubeFaceRight
+        & textureId   <>~ "-CubeMap"
+        & textureData .~ TextureCube cubeImgs
+    where
+    getTextureImg (Texture2D img) = img
+    getTextureImg _ = error "requestResources: invalid TextureData"
+
+{--
+data MeshResource vert =
+      MeshFile MeshFilePath MeshFileType
+    | MeshPure (Mesh vert)
+
+
+meshFile :: FilePath -> SubMeshSelection -> Either String (YageResource (Mesh vert))
+meshFile filepath selection =
 
 data ResourceRegistry vert = ResourceRegistry
     { loadedMeshes   :: M.Map XXHash (Mesh vert)
@@ -43,17 +148,6 @@ data MeshFileType =
       OBJFile
     | YGMFile
 
-{--
-data Selection =
-      SelectAll
-    | IncludeSelection [Text]
-    | ExcludeSelection [Text]
---}
-type SubMeshSelection = S.Set Text
-type MeshFilePath = (FilePath, SubMeshSelection)
-data MeshResource vert = 
-      MeshFile MeshFilePath MeshFileType
-    | MeshPure (Mesh vert)
 
 
 data TextureResource =
@@ -146,9 +240,9 @@ loadMesh' loader path = do
 --}
 
 hashPath :: MeshFilePath -> XXHash
-hashPath (filepath, subs) = 
+hashPath (filepath, subs) =
     let pathBS = encodeUtf8 . fpToText $ filepath
-    in xxHash' (concat $ pathBS:(map encodeUtf8 $ S.toList subs)) 
+    in xxHash' (concat $ pathBS:(map encodeUtf8 $ S.toList subs))
 
 initialRegistry :: ResourceRegistry geo
 initialRegistry = ResourceRegistry M.empty T.empty
@@ -177,3 +271,5 @@ instance HasResources vert Texture Texture where
 
 instance HasResources vert () () where
     requestResources _ = return ()
+
+--}

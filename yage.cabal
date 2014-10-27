@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.2.0.0
+version:             0.4.1.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -51,7 +51,6 @@ library
                         
                         Yage.Uniforms
                         Yage.Uniforms.Material
-                        Yage.Uniforms.Light
                         Yage.Uniforms.MVP
                         Yage.Uniforms.Camera
                         
@@ -70,6 +69,7 @@ library
                         Yage.Wire.Movement
                         Yage.Wire.Input
                         Yage.Wire.Analytic
+                        Yage.Wire.Resources
 
                         Yage.Texture.Atlas
                         Yage.Texture.Atlas.Builder
@@ -86,14 +86,13 @@ library
                         Yage.Pipeline.Deferred.SkyPass
                         Yage.Pipeline.Deferred.ScreenPass
                         Yage.Pipeline.Deferred.DownsamplePass
+                        Yage.Pipeline.Deferred.GlareDetectionPass
                         Yage.Pipeline.Deferred.AdditiveCompose
                         Yage.Pipeline.Deferred.BrightFilter
                         Yage.Pipeline.Deferred.GaussFilter
                         Yage.Pipeline.Deferred.Sampler
                         Yage.Pipeline.Deferred.GuiPass
                         
-                        Yage.Pipeline.Deferred.ResourceLoader
-
                         Yage.TH.Shader
 
   other-modules:        Paths_yage
@@ -150,9 +149,11 @@ library
 
                         , aeson                 == 0.8.*
                         , vinyl                 == 0.4.3
-                        , vinyl-glsl            == 0.2.0.0
+                        , vinyl-glsl            == 0.2.1.0
                         
                         , containers            == 0.5.*
+                        , semigroups            == 0.15.*
+                        , mono-traversable      == 0.6.*
                         , comonad               == 4.2.*
                         , generic-deriving      == 1.6.*
                         , bytestring-trie       == 0.2.*
@@ -162,6 +163,7 @@ library
                         , aeson                 == 0.8.*
                         
                         , text-binary           == 0.1.*
+                        , resourcet             == 1.1.*
                         , bytestring            == 0.10.*
                         , data-default
 

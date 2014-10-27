@@ -5,7 +5,6 @@ module Yage.Color
     ) where
 
 import Yage.Prelude
-import Yage.Math (clamp)
 
 import Data.Colour.SRGB                         as Color
 import Data.Colour.SRGB.Linear                  as Color

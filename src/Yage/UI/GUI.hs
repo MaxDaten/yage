@@ -13,9 +13,10 @@ import           Yage.Camera
 import           Yage.Geometry
 import           Yage.Rendering
 import           Yage.Transformation
-import qualified Data.Map.Lazy           as M
-import           Yage.Resources
+
 import           Yage.Rendering.Textures
+
+import qualified Data.Map.Lazy           as M
 
 type GUIVertex = Vertex (Y'P2TX2C4 GLfloat)
 
@@ -23,9 +24,9 @@ data GUIElementType = TXT | SDF | IMG
     deriving ( Show, Enum )
 
 data GUIElement =
-      GUIFont TextBuffer ( Transformation Float )
-    | GUISDF ( Mesh GUIVertex, Texture ) (Transformation Float)
-    | GUIImage ( Mesh GUIVertex, Texture ) (Transformation Float)
+      GUIFont TextBuffer ( Transformation Double )
+    | GUISDF ( Mesh GUIVertex, Texture ) ( Transformation Double )
+    | GUIImage ( Mesh GUIVertex, Texture ) ( Transformation Double )
     deriving ( Show )
 
 data GUI = GUI
@@ -36,7 +37,7 @@ data GUI = GUI
 makeLenses ''GUI
 
 emptyGUI :: GUI
-emptyGUI = GUI (mkCameraGui (-1, 1)) M.empty
+emptyGUI = GUI (mkCameraGui (1.0001, -1.0001)) M.empty
 
 
 -- | creates a camera suitable for 2D gui rendering.
@@ -48,34 +49,31 @@ emptyGUI = GUI (mkCameraGui (-1, 1)) M.empty
 -- the camera is moved to z=far.
 -- ordering of viewable layers is in the ascending range [0..100] (floating)
 mkCameraGui :: (Double, Double) -> Camera
-mkCameraGui nearFar@(near, _) =
-    -- fov is not needed for 2d, viewfield in 2d just defined with ortho-matrix
-    mkCameraFps 90 nearFar idTransformation
-        & cameraLocation._z .~ realToFrac near
+mkCameraGui nearFar = mkCameraFps 90 nearFar
 
 
-guiImageSDF :: Texture -> V4 Float -> V2 Float -> V2 Float -> GUIElement
+guiImageSDF :: Texture -> V4 Double -> V2 Double -> V2 Double -> GUIElement
 guiImageSDF img color pos size =
     let trans = idTransformation & transScale._xy    .~ size
                                  & transPosition._xy .~ pos
     in GUISDF  ( unitColorQuad color, img ) trans
 
 
-guiImage :: Texture -> V4 Float -> V2 Float -> V2 Float -> GUIElement
+guiImage :: Texture -> V4 Double -> V2 Double -> V2 Double -> GUIElement
 guiImage img color pos size =
     let trans = idTransformation & transScale._xy    .~ size
                                  & transPosition._xy .~ pos
     in GUIImage  ( unitColorQuad color, img ) trans
 
 
-guiImageId :: Texture -> V4 Float -> V2 Float -> GUIElement
+guiImageId :: Texture -> V4 Double -> V2 Double -> GUIElement
 guiImageId img color pos =
     let size  = fromIntegral <$> img^.textureSpec.texSpecDimension
         trans = idTransformation & transScale._xy    .~ size
                                  & transPosition._xy .~ pos
     in GUIImage  ( unitColorQuad color, img ) trans
 
-elementTransformation :: Lens' GUIElement (Transformation Float)
+elementTransformation :: Lens' GUIElement (Transformation Double)
 elementTransformation = lens getter setter where
     getter (GUIFont _ trans)    = trans
     getter (GUISDF _ trans)     = trans
@@ -85,17 +83,19 @@ elementTransformation = lens getter setter where
     setter (GUISDF   a _) trans  = GUISDF a trans
     setter (GUIImage a _) trans  = GUIImage a trans
 
+elementLayer :: Lens' GUIElement Double
+elementLayer = elementTransformation.transPosition._z
 
-elementPosition :: Lens' GUIElement (V3 Float)
-elementPosition = elementTransformation.transPosition
+elementPosition :: Lens' GUIElement (V2 Double)
+elementPosition = elementTransformation.transPosition._xy
 
-elementScale :: Lens' GUIElement (V2 Float)
+elementScale :: Lens' GUIElement (V2 Double)
 elementScale = elementTransformation.transScale._xy
 
-elementOrientation :: Lens' GUIElement (Quaternion Float)
+elementOrientation :: Lens' GUIElement (Quaternion Double)
 elementOrientation = elementTransformation.transOrientation
 
-unitColorQuad :: V4 Float -> Mesh GUIVertex
+unitColorQuad :: V4 Double -> Mesh GUIVertex
 unitColorQuad color = mkFromVerticesF "GUI.UNIT.QUAD" . vertices . triangles $ targetFace
     where
     targetFace  :: Face GUIVertex
@@ -104,6 +104,7 @@ unitColorQuad color = mkFromVerticesF "GUI.UNIT.QUAD" . vertices . triangles $ t
         ( position2 =: V2 0 0 <+> texture2 =: V2 0 0 <+> color4 =: (realToFrac <$> color) )
         ( position2 =: V2 1 0 <+> texture2 =: V2 1 0 <+> color4 =: (realToFrac <$> color) )
         ( position2 =: V2 1 1 <+> texture2 =: V2 1 1 <+> color4 =: (realToFrac <$> color) )
+{-# INLINE unitColorQuad #-}
 
 
 instance LinearInterpolatable GUI where
@@ -113,6 +114,3 @@ instance LinearInterpolatable GUI where
 
 instance LinearInterpolatable GUIElement where
     lerp alpha u v = u & elementTransformation .~ lerp alpha (u^.elementTransformation) (v^.elementTransformation)
-
-instance HasResources vert GUI GUI where
-    requestResources = return

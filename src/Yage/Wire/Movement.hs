@@ -22,7 +22,7 @@ import Yage.Camera
 
 
 smoothTranslation :: (Real t) =>
-                  V3 Float -> Float -> Float -> Key -> YageWire t (V3 Float) (V3 Float)
+                  V3 Double -> Double -> Double -> Key -> YageWire t (V3 Double) (V3 Double)
 smoothTranslation dir acc att key =
     let trans = integral 0 . arr (signorm dir ^*) . velocity acc att key
     in proc inTransV -> do
@@ -37,7 +37,7 @@ velocity !acc !att !trigger =
 
 
 smoothRotationByKey :: (Real t) =>
-                    Float -> Float -> V3 Float -> Key -> YageWire t (Quaternion Float) (Quaternion Float)
+                    Double -> Double -> V3 Double -> Key -> YageWire t (Quaternion Double) (Quaternion Double)
 smoothRotationByKey acc att !axis !key =
     let angleVel    = velocity acc att key
         rot         = axisAngle axis <$> integral 0 . angleVel
@@ -48,7 +48,7 @@ smoothRotationByKey acc att !axis !key =
 ---------------------------------------------------------------------------------------------------
 
 
-rotationByVelocity :: (Real t) => V3 Float -> V3 Float -> YageWire t (V2 Float) (Quaternion Float)
+rotationByVelocity :: (Real t) => V3 Double -> V3 Double -> YageWire t (V2 Double) (Quaternion Double)
 rotationByVelocity !xMap !yMap =
     let applyOrientations   = arr (axisAngle xMap . (^._x)) &&& arr (axisAngle yMap . (^._y))
         combineOrientations = arr (\(!qu, !qr) -> qu * qr)
@@ -82,9 +82,9 @@ translationWire basis = liftA2 (!*) (pure basis) . wire3d
 
 -- | relative to local space
 fpsCameraMovement :: Real t =>
-    V3 Float ->
+    V3 Double ->
     -- ^ starting position
-    YageWire t () (V3 Float) ->
+    YageWire t () (V3 Double) ->
     -- ^ the source of the current translation velocity
     YageWire t Camera Camera
     -- ^ updates the camera translation
@@ -97,7 +97,7 @@ fpsCameraMovement startPos movementSource =
 
 -- | look around like fps
 fpsCameraRotation :: (Real t) =>
-               YageWire t () (V2 Float) ->
+               YageWire t () (V2 Double) ->
                YageWire t Camera Camera
 fpsCameraRotation velocitySource =
     proc cam -> do
@@ -110,7 +110,7 @@ fpsCameraRotation velocitySource =
 
 -- | rotation about focus point
 -- http://gamedev.stackexchange.com/a/20769
-arcBallRotation :: ( Real t ) => YageWire t () (V2 Float) -> YageWire t (V3 Float, Camera) Camera
+arcBallRotation :: ( Real t ) => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
 arcBallRotation velocitySource =
     proc (focusPoint, cam) -> do
         let focusToCam = cam^.cameraLocation - focusPoint

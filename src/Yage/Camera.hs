@@ -17,7 +17,7 @@ import           Linear                              hiding (lerp, slerp)
 import qualified Linear                              (lerp, slerp)
 
 
-type CameraHandle = Cam.Camera Float
+type CameraHandle = Cam.Camera Double
 deriving instance Show CameraHandle
 deriving instance Eq CameraHandle
 deriving instance Ord CameraHandle
@@ -32,39 +32,42 @@ makeLenses ''CameraPlanes
 data Camera = Camera
     { _cameraHandle :: !CameraHandle
     , _cameraPlanes :: !CameraPlanes
-    , _cameraFov    :: !Float
+    , _cameraFov    :: !Double
     } deriving ( Show, Eq, Ord, Generic )
 
 makeLenses ''Camera
 
 
-mkCameraFps :: Float -> (Double, Double) -> Transformation Float -> Camera
-mkCameraFps fov (near,far) trans =
+mkCameraFps :: Double -> (Double, Double) -> Camera
+mkCameraFps fov (near,far) =
     Camera Cam.fpsCamera (CameraPlanes near far) fov
-        & cameraTransformation .~ trans
 
 
-
-cameraTransformation :: Lens' Camera (Transformation Float)
+cameraTransformation :: Lens' Camera (Transformation Double)
 cameraTransformation = cameraHandle.handleTransformation
 
-cameraLocation :: Lens' Camera (V3 Float)
+cameraLocation :: Lens' Camera (V3 Double)
 cameraLocation = cameraTransformation.transPosition
 
-cameraOrientation :: Lens' Camera (Quaternion Float)
+cameraOrientation :: Lens' Camera (Quaternion Double)
 cameraOrientation = cameraTransformation.transOrientation
 
-cameraForward :: Lens' Camera (V3 Float)
+cameraForward :: Lens' Camera (V3 Double)
 cameraForward = lens getter setter where
     getter cam = Cam.forward $ cam^.cameraHandle
     setter cam fwd = cam & cameraHandle %~ \hnd -> hnd{ Cam.forward = fwd }
 
-cameraUpward :: Lens' Camera (V3 Float)
+cameraUpward :: Lens' Camera (V3 Double)
 cameraUpward = lens getter setter where
     getter cam = Cam.upward $ cam^.cameraHandle
     setter cam up = cam & cameraHandle %~ \hnd -> hnd{ Cam.upward = up }
 
-handleTransformation :: Lens' CameraHandle (Transformation Float)
+cameraRightward :: Lens' Camera (V3 Double)
+cameraRightward = lens getter setter where
+    getter cam = Cam.rightward $ cam^.cameraHandle
+    setter cam r = cam & cameraHandle %~ \hnd -> hnd{ Cam.rightward = r }
+
+handleTransformation :: Lens' CameraHandle (Transformation Double)
 handleTransformation = lens getter setter where
     getter Cam.Camera{Cam.orientation, Cam.location}
         = Transformation location orientation 1
@@ -82,7 +85,7 @@ cameraZFar :: Lens' Camera Double
 cameraZFar = cameraPlanes.camZFar
 
 
-cameraMatrix :: Getter Camera (M44 Float)
+cameraMatrix :: Getter Camera (M44 Double)
 cameraMatrix = cameraHandle.to Cam.camMatrix
 
 -- | for chaining like:
@@ -90,25 +93,25 @@ cameraMatrix = cameraHandle.to Cam.camMatrix
 -- >>>     `pan`   turn
 -- >>>     `tilt`  tilting
 --
-dolly :: CameraHandle -> V3 Float -> CameraHandle
+dolly :: CameraHandle -> V3 Double -> CameraHandle
 dolly = flip Cam.dolly
 
-panRad :: CameraHandle -> Float -> CameraHandle
+panRad :: CameraHandle -> Double -> CameraHandle
 panRad = flip Cam.panRad
 
-pan :: CameraHandle -> Float -> CameraHandle
+pan :: CameraHandle -> Double -> CameraHandle
 pan = flip Cam.pan
 
-tiltRad :: CameraHandle -> Float -> CameraHandle
+tiltRad :: CameraHandle -> Double -> CameraHandle
 tiltRad = flip Cam.tiltRad
 
-tilt :: CameraHandle -> Float -> CameraHandle
+tilt :: CameraHandle -> Double -> CameraHandle
 tilt = flip Cam.tilt
 
-rollRad :: CameraHandle -> Float -> CameraHandle
+rollRad :: CameraHandle -> Double -> CameraHandle
 rollRad = flip Cam.rollRad
 
-roll :: CameraHandle -> Float -> CameraHandle
+roll :: CameraHandle -> Double -> CameraHandle
 roll = flip Cam.roll
 
 
@@ -134,6 +137,6 @@ instance LinearInterpolatable CameraPlanes where
 instance LinearInterpolatable Camera where
     lerp alpha u v = u & cameraHandle .~ lerp alpha (u^.cameraHandle) (v^.cameraHandle)
                        & cameraPlanes .~ lerp alpha (u^.cameraPlanes) (v^.cameraPlanes)
-                       & cameraFov    .~ lerp alpha (u^.cameraFov)    (v^.cameraFov)
+                       & cameraFov    .~ (Linear.lerp alpha (V1 $ u^.cameraFov) (V1 $ v^.cameraFov))^._x
 
 

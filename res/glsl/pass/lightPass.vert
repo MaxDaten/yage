@@ -1,18 +1,40 @@
 #version 410 core
 
-uniform mat4 ViewMatrix        = mat4(0.0);
-uniform mat4 VPMatrix          = mat4(0.0);
-uniform mat4 ModelMatrix       = mat4(0.0);
+#include "Common.glsl"
+#include "BRDF.glsl"
+
+uniform mat4 ViewMatrix;
+uniform mat4 VPMatrix;
+uniform mat4 ModelMatrix;
+uniform mat4 ViewToScreenMatrix;
+uniform LightData Light;
+
+uniform ivec2 ViewportDim;
 
 in vec3 vPosition;
 
-out mat4 ViewSpace;
 out vec3 VertexPosVS;
+out vec4 ScreenPos;
 
 mat4 MVPMatrix = VPMatrix * ModelMatrix;
 void main()
 {
-    VertexPosVS     = vec3(ViewMatrix * ModelMatrix * vec4(vPosition, 1.0));
-    ViewSpace       = ViewMatrix;
-    gl_Position     = MVPMatrix * vec4( vPosition, 1.0 );
+    vec4 OutPosition;
+       
+    if (IsPositionalLight( Light ))
+    {
+        VertexPosVS     = (ViewMatrix * ModelMatrix * vec4(vPosition, 1.0)).xyz;
+        OutPosition     = MVPMatrix * vec4( vPosition, 1.0 );
+    } 
+    // directional light
+    else
+    {
+        VertexPosVS     = (ViewToScreenMatrix * ModelMatrix * vec4(vPosition.xy, 1.0, 0.0)).xyz;
+        OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
+    }
+    // in NDC
+    ScreenPos    = OutPosition;
+    gl_Position  = OutPosition;
+
+    UNUSED(ViewportDim);
 }

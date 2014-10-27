@@ -18,9 +18,11 @@ import qualified Graphics.GLUtil.Camera3D            as Cam
 
 
 data Viewport a = Viewport
-    { _viewportRect   :: Rectangle a
-      -- ^ as container for xy and wh, with 0/0 top/left
-    , _viewportGamma  :: Float
+    { _viewportRect       :: Rectangle a
+      -- ^ as xy1 und xy2, with 0/0 top/left
+    , _viewportPixelRatio :: V2 Double
+    -- ^ usually 1:1, on retina displays 2:2
+    , _viewportGamma      :: Float
     }
     deriving ( Typeable, Functor, Show, Eq, Generic )
 
@@ -35,10 +37,11 @@ instance HasRectangle (Viewport Int) Int where
 glViewport :: HasRectangle t Int => Getter t (GL.Position, GL.Size)
 glViewport = rectangle.to get where
     get :: Rectangle Int -> (GL.Position, GL.Size)
-    get (Rectangle xy wh) =
-        ( GL.Position ( fromIntegral $ xy^._x ) ( fromIntegral $ xy^._y )
-        , GL.Size     ( fromIntegral $ wh^._x ) ( fromIntegral $ wh^._y )
-        )
+    get rect@( Rectangle (V2 x y) _ ) =
+        let (V2 w h) = rect^.extend
+        in ( GL.Position ( fromIntegral $ x ) ( fromIntegral $ y )
+           , GL.Size     ( fromIntegral $ w ) ( fromIntegral $ h )
+           )
 
 
 
@@ -52,33 +55,6 @@ projectionMatrix3D zNear zFar fov (Rectangle _ wh) = Cam.projectionMatrix
         ( wh^._x / wh^._y )
         ( realToFrac $ zNear )
         ( realToFrac $ zFar )
-
-{--
-projectionMatrix2D :: (Conjugate a, Epsilon a, RealFloat a) =>
-    a ->
-    -- ^ zNear
-    a ->
-    -- ^ zFar
-    Rectangle a ->
-    -- ^ xy wh
-    M44 a
-    -- ^ projection matrix
-projectionMatrix2D zNear zFar (Rectangle xy0 xy1) =
-    orthographicMatrix -- 0/0 bottom left
-        ( xy0^._x ) -- viewport left to left
-        ( xy1^._x ) -- viewport right to right
-        ( xy0^._y ) -- viewport bottom to top
-        ( xy1^._y ) -- viewport top to bottom
-        ( realToFrac $ zNear )
-        ( realToFrac $ zFar )
-    --orthographicMatrix -- 0/0 bottom left
-    --    ( xy0^._x ) -- viewport left to left
-    --    ( xy1^._x ) -- viewport right to right
-    --    ( xy0^._y ) -- viewport top to bottom
-    --    ( xy1^._y ) -- viewport bottom to top
-    --    ( realToFrac $ zNear )
-    --    ( realToFrac $ zFar )
---}
 
 
 -- | glOrtho convention

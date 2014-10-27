@@ -1,11 +1,12 @@
+{-# LANGUAGE MultiWayIf      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Transformation where
 
-import Yage.Prelude
-import Yage.Lens
-import Yage.Math hiding (lerp)
-import qualified Linear (lerp, slerp) 
-import Control.Applicative
+import           Control.Applicative
+import qualified Linear              (lerp, slerp)
+import           Yage.Lens
+import           Yage.Math           hiding (lerp)
+import           Yage.Prelude
 
 data Transformation a = Transformation
     { _transPosition    :: !(V3 a)
@@ -22,16 +23,30 @@ idTransformation = Transformation 0 1 1
 
 transformationMatrix :: Num a => Getter (Transformation a) (M44 a)
 transformationMatrix = to get where
-    get trans = 
+    get trans =
         let scaleM       = kronecker . point $ trans^.transScale
             transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
         in transM !*! scaleM
+
 
 inverseTransformation :: (Conjugate a, RealFloat a) => Transformation a -> Transformation a
 inverseTransformation t =
     t   & transScale            %~ recip
         & transPosition         %~ negate
         & transOrientation._ijk %~ negate
+
+
+-- | Creates a Quaternion from a orthonormalized vector space
+--   and a normalized look-at direction vector
+lookAt :: (Epsilon a, RealFloat a, Show a) => M33 a -> V3 a -> Quaternion a
+lookAt (V3 _wx wy wz) directionVector =
+    let axis   = normalize $ wy `cross` directionVector
+        theta  = wy `dot` directionVector
+    in if | nearZero (theta - 1) -> 1
+          | nearZero (theta + 1) -> axisAngle wz pi
+          | otherwise            -> axisAngle axis (acos theta)
+{-# SPECIALISE INLINE lookAt :: M33 Float -> V3 Float -> Quaternion Float #-}
+{-# SPECIALISE INLINE lookAt :: M33 Double -> V3 Double -> Quaternion Double #-}
 
 
 instance Applicative Transformation where
@@ -45,10 +60,11 @@ instance RealFloat a => Num (Transformation a) where
     negate = fmap negate
     abs = fmap abs
     signum = fmap signum
-    fromInteger = pure . fromInteger 
+    fromInteger = pure . fromInteger
+
 
 instance (RealFloat a, Epsilon a) => Epsilon (Transformation a) where
-    nearZero (Transformation p o s) = nearZero p && nearZero o && nearZero s  
+    nearZero (Transformation p o s) = nearZero p && nearZero o && nearZero s
 
 instance RealFloat a => Default (Transformation a) where
     def = idTransformation
@@ -64,6 +80,11 @@ instance RealFloat a => LinearInterpolatable (Transformation a) where
                        & transOrientation .~ Linear.slerp (u^.transOrientation) (v^.transOrientation) (realToFrac alpha)
     {-# INLINE lerp #-}
 
+
 instance LinearInterpolatable Float where
+    lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
+    {-# INLINE lerp #-}
+
+instance LinearInterpolatable Double where
     lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
     {-# INLINE lerp #-}

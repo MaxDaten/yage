@@ -11,17 +11,20 @@ import Yage.Transformation
 
 
 data HDRCamera = HDRCamera
-    { _hdrCamera        :: Camera
-    , _hdrExposure      :: Float
-    , _hdrExposureBias  :: Float
-    , _hdrWhitePoint    :: Float
+    { _hdrCameraHandle  :: Camera
+    , _hdrExposure      :: Double
+    , _hdrExposureBias  :: Double
+    , _hdrWhitePoint    :: Double
     , _hdrBloomSettings :: HDRBloomSettings
     } deriving ( Show, Eq, Ord, Generic )
 
 data HDRBloomSettings = HDRBloomSettings
     { _bloomPreDownsampling :: Int
     , _bloomGaussPasses     :: Int
-    , _bloomFactor          :: Float
+    , _bloomFactor          :: Double
+    , _bloomThreshold       :: Double
+    -- ^ ~ 0.5 - 0.8 [Kawase04, Page 29]
+    , _bloomWidth           :: Double
     } deriving ( Show, Eq, Ord, Generic )
 
 makeLenses ''HDRBloomSettings
@@ -32,11 +35,13 @@ defaultBloomSettings = HDRBloomSettings
     { _bloomPreDownsampling = 2
     , _bloomGaussPasses     = 7
     , _bloomFactor          = 0.3
+    , _bloomThreshold       = 0.6
+    , _bloomWidth           = 1.0
     }
 
 defaultHDRCamera :: Camera -> HDRCamera
 defaultHDRCamera camera = HDRCamera
-    { _hdrCamera        = camera
+    { _hdrCameraHandle        = camera
     , _hdrExposure      = 0.5
     , _hdrExposureBias  = 1.0
     , _hdrWhitePoint    = 0.5
@@ -51,7 +56,7 @@ instance LinearInterpolatable HDRBloomSettings where
 
 instance LinearInterpolatable HDRCamera where
     lerp alpha u v =
-        u & hdrCamera        .~ lerp alpha (u^.hdrCamera) (v^.hdrCamera)
+        u & hdrCameraHandle  .~ lerp alpha (u^.hdrCameraHandle) (v^.hdrCameraHandle)
           & hdrExposure      .~ lerp alpha (u^.hdrExposure) (v^.hdrExposure)
           & hdrExposureBias  .~ lerp alpha (u^.hdrExposureBias) (v^.hdrExposureBias)
           & hdrWhitePoint    .~ lerp alpha (u^.hdrWhitePoint) (v^.hdrWhitePoint)

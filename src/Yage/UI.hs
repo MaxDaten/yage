@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-module Yage.UI 
+module Yage.UI
     ( module Yage.UI
-    , module Yage.UI.Types 
+    , module Yage.UI.Types
     ) where
 
 import             Yage.Prelude
@@ -20,8 +20,8 @@ import             Yage.UI.Types
 findKeyEvent :: InputState -> (KeyEvent -> Bool) -> Maybe KeyEvent
 findKeyEvent = flip find . _keyEvents . _keyboard
 
-keyIs :: Key -> KeyState -> (InputState -> Bool)
-keyIs key state = isJust . flip findKeyEvent (\(KeyEvent k _ s _) -> key == k && s == state)
+keyStateIs :: Key -> KeyState -> (InputState -> Bool)
+keyStateIs key state = isJust . flip findKeyEvent (\(KeyEvent k _ s _) -> key == k && s == state)
 
 
 clearEvents :: InputState -> InputState

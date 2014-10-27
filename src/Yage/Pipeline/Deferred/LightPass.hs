@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing -fno-warn-orphans -fno-warn-type-defaults #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -29,7 +28,43 @@ import Yage.Pipeline.Deferred.GeometryPass
 
 import qualified Graphics.Rendering.OpenGL as GL
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewportDim, YZProjRatio, YGamma, YViewToWorldMatrix ]
+
+
+type YLightPosition              = "Light.LightPosition"             ::: V4 GLfloat
+type YConeAnglesAndRadius        = "Light.LightConeAnglesAndRadius"  ::: V3 GLfloat
+type YLightColor                 = "Light.LightColor"                ::: V3 GLfloat
+type YLightDirection             = "Light.LightDirection"            ::: V3 GLfloat
+-- type YLightAttenuation   = "Light.Attenuation"     ::: V3 GLfloat
+-- type YSpecularExp        = "Light.SpecularExp"     ::: GLfloat
+
+type YLightAttributes    = [ YLightPosition
+                           , YConeAnglesAndRadius
+                           , YLightDirection
+                           , YLightColor
+                           -- , YLightAttenuation
+                           -- , YSpecularExp
+                           ]
+
+
+uLightPosition :: SField YLightPosition
+uLightPosition = SField
+
+uConeAnglesAndRadius :: SField YConeAnglesAndRadius
+uConeAnglesAndRadius = SField
+
+uLightColor :: SField YLightColor
+uLightColor = SField
+
+uLightDirection :: SField YLightDirection
+uLightDirection = SField
+
+-- uLightAttenuation :: SField YLightAttenuation
+-- uLightAttenuation = SField
+
+-- uLightSpecularExp :: SField YSpecularExp
+-- uLightSpecularExp = SField
+
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio, YGamma ]
 type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -47,13 +82,9 @@ type LitShader = Shader LitUni LitTex LitVertex
 
 type LightPass = YageDeferredPass LitPassChannels LitShader
 
-type LitEntityT f    = LightEntity (f LitVertex)
-type LitEntityRes    = LitEntityT Mesh
-type LitEntityDraw   = LitEntityT Mesh
+type LitPassScene ent sky = Scene ent (Environment Light sky)
 
-type LitPassScene ent sky = Scene ent (Environment LitEntityDraw sky)
-
-lightPass :: GeometryPass -> Viewport Int -> (Environment LitEntityDraw sky) -> LightPass
+lightPass :: GeometryPass -> Viewport Int -> (Environment Light sky) -> LightPass
 lightPass base viewport environment =
     passPreset target (viewport^.rectangle) (ShaderUnit shaderProg)
        & passPreRendering .~ preRendering
@@ -61,14 +92,14 @@ lightPass base viewport environment =
     where
 
     target =
-        let GeoPassChannels{..} = renderTargets base
+        let GeoPassChannelsF{..} = renderTargets base
         in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
                                 }
 
-    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGB GL.RGB32F
-    lightTex        = mkTexture "lbuffer" $ TextureBuffer GL.Texture2D lightSpec
+    lightSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.Float GL.RGBA GL.RGBA16F
+    lightTex        = mkTargetTexture "lbuffer" lightSpec
 
     shaderProg = ShaderProgramUnit
                     { _shaderName    = "LightPass.hs"
@@ -85,7 +116,7 @@ lightPass base viewport environment =
         GL.depthFunc    GL.$= Nothing           -- disable func add
         GL.depthMask    GL.$= GL.Disabled       -- writing to depth is disabled
 
-        GL.blend        GL.$= GL.Enabled        --- could reject background frags!
+        GL.blend        GL.$= GL.Enabled        -- could reject background frags!
         GL.blendEquation GL.$= GL.FuncAdd
         GL.blendFunc    GL.$= (GL.One, GL.One)
 
@@ -98,45 +129,32 @@ lightPass base viewport environment =
 
 
 
-litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> RenderMaterial MaterialColorAlpha  -> ShaderData LitPerFrameUni LitPerFrameTex
+litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> Material MaterialColorAlpha  -> ShaderData LitPerFrameUni LitPerFrameTex
 litPerFrameData base viewport camera envMat = ShaderData lightUniforms attributeTextures
     where
 
     lightUniforms   :: Uniforms LitPerFrameUni
     lightUniforms   =
-        let (V2 near far)           = realToFrac <$> V2 (-camera^.cameraPlanes.camZNear) (-camera^.cameraPlanes.camZFar)
-            zProj                   = V2 ( far / ( far - near ) ) ( ( (-far) * near ) / ( far - near ) )
+        let (V2 near far)           = realToFrac <$> V2 (camera^.cameraPlanes.camZNear) (camera^.cameraPlanes.camZFar)
+            zProj                   = V2 ( ( far + near ) / ( far - near ) )
+                                         ( ( 2.0 * near * far ) / ( far - near ) )
             dim                     = fromIntegral <$> viewport^.rectangle.extend
             theGamma                = realToFrac $ viewport^.viewportGamma
-            invCam                  = camera & cameraTransformation %~ inverseTransformation
+            Rectangle xy0 xy1       = fromIntegral <$> viewport^.rectangle
+            viewToScreenM           = orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
         in
         perspectiveUniforms viewport camera     <+>
+        viewToScreenMatrix  =: viewToScreenM    <+>
         viewportDim         =: dim              <+>
         zProjRatio          =: zProj            <+>
-        gamma               =: theGamma         <+>
-        viewToWorldMatrix   =: (fmap realToFrac <$> invCam^.cameraMatrix^.to m44_to_m33)
+        gamma               =: theGamma
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
-        materialTexture =: (gAlbedoChannel $ renderTargets base)    <+>
-        materialTexture =: (gNormalChannel $ renderTargets base)    <+>
-        materialTexture =: (gDepthChannel  $ renderTargets base)    <+>
-        materialTexture =: (extract $ envMat^.matTexture)
-
-
-
-
-mkLight :: Light -> LitEntityRes
-mkLight light =
-    let vol           = lightData
-        lightEnt     = Entity vol () idTransformation (GLDrawSettings GL.Triangles (Just GL.Front))
-    in LightEntity lightEnt light
-    where
-    lightData :: Mesh LitVertex
-    lightData = case lightType light of
-        Pointlight{}      -> mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
-        Spotlight{}       -> error "Yage.Pipeline.Deferred.Light.mkLight: Spotlight not supported"
-        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.mkLight: OmniDirectional not supported"
+        textureSampler =: (gAlbedoChannel $ renderTargets base)    <+>
+        textureSampler =: (gNormalChannel $ renderTargets base)    <+>
+        textureSampler =: (gDepthChannel  $ renderTargets base)    <+>
+        textureSampler =: (envMat^.matTexture)
 
 
 instance FramebufferSpec LitPassChannels RenderTargets where
@@ -149,32 +167,66 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 
-toLitEntity :: LitEntityDraw -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
-toLitEntity (LightEntity ent light) = toRenderEntity ( ShaderData uniforms mempty ) ent
+toLitEntity :: Viewport Int -> Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
+toLitEntity viewport cam Light{..} = case _lightType of
+
+    Pointlight{..}      ->
+        let transform  = idTransformation & transPosition .~ _pLightPosition
+                                          & transScale    .~ pure _pLightRadius
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to viewSpacePos._xyz.to point )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> ( 0 & _z .~ _pLightRadius ) )
+                        <+> uLightDirection             =: ( realToFrac      <$> 0.0 )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "plight" . map (position3 =:) . vertices . triangles $ geoSphere 2 1
+        in RenderEntity renderData (ShaderData uniforms mempty) lightVolumeSettings
+
+    Spotlight{..}       ->
+        let half                = _sLightOuterAngle / 2.0
+            basisRadius         = _sLightRadius * sin half / sin (pi / 2.0 - half)
+            normalizedLightDir  = normalize $ _sLightDirection^.to viewSpaceDirection._xyz
+            transform           = idTransformation
+                                    & transPosition    .~ ( realToFrac <$> _sLightPosition )
+                                    & transScale       .~ V3 basisRadius _sLightRadius basisRadius
+                                    & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
+                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz.to point )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 (cos $ _sLightInnerAngle / 2) (cos $ _sLightOuterAngle / 2) _sLightRadius )
+                        <+> uLightDirection             =: ( realToFrac      <$> normalizedLightDir )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "slight" . map (position3 =:) . vertices . triangles $ cone 1 1 24
+        in RenderEntity renderData (ShaderData uniforms mempty) lightVolumeSettings
+
+    -- | Directional lighting is rendered with a fullscreen quad
+    DirectionalLight{..}  ->
+        let dim          = realToFrac <$> viewport^.rectangle.extend
+            trans        = idTransformation & transPosition._xy .~ 0.5 * dim
+                                            & transScale        .~ V3 ( dim^._x ) (- (dim^._y) ) (1)
+            scaleM       = kronecker . point $ trans^.transScale
+            transM       = mkTransformation (trans^.transOrientation) (trans^.transPosition)
+            modelM       = transM !*! scaleM
+
+            uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> modelM )
+                        <+> uLightPosition              =: ( realToFrac      <$> 0.0 )
+                        <+> uConeAnglesAndRadius        =: ( realToFrac      <$> 0.0 )
+                        <+> uLightDirection             =: ( realToFrac      <$> _dLightDirection^.to viewSpaceDirection._xyz )
+                        <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
+            renderData = mkFromVerticesF "dlight" . vertices . triangles $ targetFace
+
+        in RenderEntity renderData (ShaderData uniforms mempty) (GLDrawSettings GL.Triangles (Just GL.Back))
+
     where
-    uniforms =
-        modelMatrix =: ((fmap.fmap) realToFrac $ ent^.entityTransformation.transformationMatrix) <+>
-        lightAttributes
+    worldSpace           = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+    lightEnergy          = _lightColor ^* _lightIntensity
+    viewSpacePos p       = cam^.cameraMatrix !* point p
+    viewSpaceDirection d = normalize $ cam^.cameraMatrix !* vector d
+    lightVolumeSettings  = GLDrawSettings GL.Triangles (Just GL.Front)
 
-
-    lightAttributes :: Uniforms YLightAttributes
-    lightAttributes =
-        let lightAttr = lightAttribs light
-            (attConst, attLinear, attQuad) = lAttrAttenuation lightAttr
-        in case lightType light of
-        Pointlight{..}    -> U.lightPosition =: (realToFrac <$> ent^.entityPosition )                   <+>
-                             U.lightRadius   =: (realToFrac <$> ent^.entityScale )                      <+>
-                             U.lightColor    =: (realToFrac <$> lAttrColor lightAttr )                  <+>
-                             U.lightAtten    =: (realToFrac <$> V3 attConst attLinear attQuad )         <+>
-                             U.lightSpecExp  =: (realToFrac  $ lAttrSpecularExp lightAttr )
-        Spotlight{..}     -> error "Yage.Pipeline.Deferred.Light.lightAttributes: Spotlight not supported"
-        OmniDirectional   -> error "Yage.Pipeline.Deferred.Light.lightAttributes: OmniDirectional not supported"
-
-
-
-instance Implicit (FieldNames LitPerFrameTex) where
-    implicitly =
-        SField =: "AlbedoTexture" <+>
-        SField =: "NormalTexture" <+>
-        SField =: "DepthTexture"  <+>
-        SField =: "EnvironmentCubeMap"
+    targetFace           :: Face LitVertex
+    targetFace           = Face
+        (position3 =: V3 (-0.5) ( 0.5) 0.0)
+        (position3 =: V3 (-0.5) (-0.5) 0.0)
+        (position3 =: V3 ( 0.5) (-0.5) 0.0)
+        (position3 =: V3 ( 0.5) ( 0.5) 0.0)
