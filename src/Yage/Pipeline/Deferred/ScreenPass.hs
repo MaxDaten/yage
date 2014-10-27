@@ -27,7 +27,7 @@ type ScreenTex    = [ TextureSampler "TextureSamplers[0]"
                     , TextureSampler "TextureSamplers[1]"
                     ]
 
-type ScreenShader = Shader '[] ScreenTex TargetVertex
+type ScreenShader = Shader '[ YNumSamples ] ScreenTex TargetVertex
 
 type ScreenPass   = YageDeferredPass DefaultRenderTarget ScreenShader
 
@@ -81,10 +81,10 @@ screenPass viewport textures =
 
     where
 
-    screenFrameData :: [ Texture ] -> ShaderData '[] ScreenTex
+    screenFrameData :: [ Texture ] -> ShaderData '[ "N_SAMPLES" ::: V1 GLint ] ScreenTex
     screenFrameData (tex0:tex1:[]) =
         let sampler = textureSampler =: tex0 <+> textureSampler =: tex1
-        in ShaderData mempty sampler
+        in ShaderData (numSamples =: 2) sampler
     screenFrameData _ = error "invalid texture argument count"
 
 

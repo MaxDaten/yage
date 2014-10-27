@@ -15,7 +15,7 @@ import Yage.Rendering hiding (ShaderSource)
 import Yage.TH.Shader
 import Yage.Pipeline.Deferred.Common
 
-type YNumSamples = "N_SAMPLES" ::: GLint
+type YNumSamples = "N_SAMPLES" ::: V1 GLint
 type YSampleWeights s = (s::Symbol) ::: [V1 GLfloat]
 
 numSamples :: SField YNumSamples

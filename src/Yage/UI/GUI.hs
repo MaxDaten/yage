@@ -37,7 +37,7 @@ data GUI = GUI
 makeLenses ''GUI
 
 emptyGUI :: GUI
-emptyGUI = GUI (mkCameraGui (-1, 1)) M.empty
+emptyGUI = GUI (mkCameraGui (1.0001, -1.0001)) M.empty
 
 
 -- | creates a camera suitable for 2D gui rendering.
@@ -49,10 +49,7 @@ emptyGUI = GUI (mkCameraGui (-1, 1)) M.empty
 -- the camera is moved to z=far.
 -- ordering of viewable layers is in the ascending range [0..100] (floating)
 mkCameraGui :: (Double, Double) -> Camera
-mkCameraGui nearFar@(near, _) =
-    -- fov is not needed for 2d, viewfield in 2d just defined with ortho-matrix
-    mkCameraFps 90 nearFar
-        & cameraLocation._z .~ realToFrac near
+mkCameraGui nearFar = mkCameraFps 90 nearFar
 
 
 guiImageSDF :: Texture -> V4 Double -> V2 Double -> V2 Double -> GUIElement
