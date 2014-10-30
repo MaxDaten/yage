@@ -181,8 +181,8 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
 defaultGeoMaterial :: GeoMaterial
 defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
-        normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture "NORMALDUMMY" $ Texture2D $ zNormalDummy TexSRGB8)
-        roughnessMat = mkMaterial 1.0 $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
+        normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture2D "NORMALDUMMY" $ zNormalDummy TexSRGB8)
+        roughnessMat = mkMaterial 1.0 $ mkTexture2D "ROUGHDUMMY" $ zeroNormalDummy TexY8
     in GeoMaterial albedoMat normalMat roughnessMat
 
 

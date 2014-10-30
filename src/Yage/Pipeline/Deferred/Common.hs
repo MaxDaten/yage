@@ -101,7 +101,7 @@ mkSingleTargetHDR32 name size = RenderTarget (name ++ "-fbo")
 -- - repetition repeated
 mkTargetTexture :: ByteString -> BufferSpec -> Texture
 mkTargetTexture name spec =
-    let tex = mkTexture name $ TextureBuffer GL.Texture2D spec
+    let tex = mkTextureBuffer name GL.Texture2D spec
     in tex & textureConfig.texConfFiltering.texMipmapFilter  .~ Nothing
            & textureConfig.texConfFiltering.texMinFilter     .~ GL.Linear'
            & textureConfig.texConfFiltering.texMagFilter     .~ GL.Linear'

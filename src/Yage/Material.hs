@@ -72,9 +72,7 @@ mkMaterial color texture = Material color texture idTransformation
 
 
 defaultMaterial :: (MaterialPixel pixel, Default col) => TextureCtr pixel -> Material col
-defaultMaterial ctr =
-    let texture = Texture "WHITEDUMMY" defaultTextureConfig $ Texture2D (whiteDummy ctr)
-    in mkMaterial def texture
+defaultMaterial ctr = mkMaterial def $ mkTexture2D "WHITEDUMMY" (whiteDummy ctr)
 
 
 defaultMaterialSRGB :: Material MaterialColorAlpha
