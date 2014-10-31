@@ -26,9 +26,9 @@ loadTexture2D filepath = io $ do
 
 -- | extracts the `TextureImages` from the `Cube` `Texture` fields and creates
 -- a new Texture with Cube `TextureData`
-cubeTexture :: Cube Texture -> Texture
-cubeTexture cubeTexs@Cube{cubeFaceRight} =
-    mkTextureCubeMip (cubeFaceRight^.textureId ++ "-CubeMap") $ nonNull cubeImgs
+cubeTextureToTexture :: ByteString -> Cube Texture -> Texture
+cubeTextureToTexture ident cubeTexs =
+    mkTextureCubeMip ident $ mkMipMapChain ( unsafeHead cubeImgs ) ( unsafeTail cubeImgs )
     where
     getTextureImg :: TextureData -> [TextureImage]
     getTextureImg (Texture2D img) = toList img
