@@ -67,8 +67,8 @@ type GeoPassScene env = Scene Camera GeoEntity env
 
 -------------------------------------------------------------------------------
 -- | Fragment code
-geoFragmentProgramm :: GLSL.ShaderSource FragmentShader
-geoFragmentProgramm = [GLSL.yFragment|
+geoFragmentProgram :: GLSL.ShaderSource FragmentShader
+geoFragmentProgram = [GLSL.yFragment|
 #version 410 core
 
 #include "pass/Common.glsl"
@@ -134,7 +134,7 @@ geoPass viewport =
     shaderProg = ShaderProgramUnit
                  { _shaderName       = "GeometryPass.hs"
                  , _shaderSources    = [ $(vertexFile "res/glsl/pass/geoPass.vert")^.shaderSource
-                                       , geoFragmentProgramm^.shaderSource
+                                       , geoFragmentProgram^.shaderSource
                                        ]
                  }
 

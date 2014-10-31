@@ -107,8 +107,6 @@ skyPass target viewport =
                                        ]
                     }
 
-
-
     preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
 
