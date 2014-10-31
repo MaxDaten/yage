@@ -92,7 +92,7 @@ lightPass base viewport environment =
     where
 
     target =
-        let GeoPassChannelsF{..} = renderTargets base
+        let GeoPassChannelsF{..} = base^.renderTargets
         in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
@@ -151,9 +151,9 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
-        textureSampler =: (gAlbedoChannel $ renderTargets base)    <+>
-        textureSampler =: (gNormalChannel $ renderTargets base)    <+>
-        textureSampler =: (gDepthChannel  $ renderTargets base)    <+>
+        textureSampler =: ( base^.renderTargets.to gAlbedoChannel )   <+>
+        textureSampler =: ( base^.renderTargets.to gNormalChannel )   <+>
+        textureSampler =: ( base^.renderTargets.to gDepthChannel  )   <+>
         textureSampler =: (envMat^.matTexture)
 
 

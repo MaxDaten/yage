@@ -35,13 +35,13 @@ hdrLightingPass geometryPass viewport scene =
         lightDescr      = L.lightPass geometryPass viewport (scene^.sceneEnvironment)
         lightData       = L.litPerFrameData geometryPass viewport cam (scene^.environmentMap)
 
-        lightTex        = L.lBufferChannel . renderTargets $ lightDescr
+        lightTex        = lightDescr^.renderTargets.to L.lBufferChannel
         lights          = scene^.sceneEnvironment.envLights
         skyData         = S.skyFrameData viewport cam
 
         skyChannels     = RenderTarget "fbo-sky" S.SkyInChannels
-                            { S.sBufferChannel = lightDescr^.to renderTargets.to L.lBufferChannel
-                            , S.sDepthChannel  = lightDescr^.to renderTargets.to L.lDepthChannel
+                            { S.sBufferChannel = lightDescr^.renderTargets.to L.lBufferChannel
+                            , S.sDepthChannel  = lightDescr^.renderTargets.to L.lDepthChannel
                             }
         skyPass         = runRenderPass $ S.skyPass skyChannels viewport
         lightPass       = runRenderPass lightDescr
