@@ -1,3 +1,5 @@
+{-# LANGUAGE Arrows #-}
+{-# LANGUAGE TupleSections #-}
 module Yage.Wire.Input where
 
 import Yage.Prelude
@@ -7,11 +9,10 @@ import Yage.UI
 
 import Yage.Wire.Analytic
 import Yage.Wire.Types
+import Yage.Wire.Event
 import Control.Wire
 
-import Control.Wire.Unsafe.Event
 import FRP.Netwire as Netwire
-
 
 -------------------------------------------------------------------------------
 -- State Events
@@ -23,31 +24,28 @@ mouseVelocity = derivativeF . currentMousePosition
 mouseAcceleration :: (Real t, RealFloat a) => YageWire t b (V2 a)
 mouseAcceleration = derivativeF . mouseVelocity
 
+
+keyboardEvent :: (Num t) => YageWire t a (Netwire.Event KeyEvent)
+keyboardEvent = go []
+    where
+    go evQueue = mkSF $ \(Timed _ inputSt) _ ->
+        (maybeToEvent $ listToMaybe evQueue, go (drop 1 evQueue ++ (inputSt^.keyboard.keyEvents)))
+
 -- | fires ONCE everytime a `key` is pressed
-keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event a)
-keyJustPressed !key = go
-    where go = mkSF $ \(Timed _ inputSt) x ->
-            if (key `keyStateIs` KeyState'Pressed) inputSt
-            then (Event x, go)
-            else (NoEvent, go)
+keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event KeyEvent)
+keyJustPressed !key = filterE (\(KeyEvent k _int s _mod) -> key == k && s == KeyState'Pressed) . keyboardEvent
 
 
-keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event a)
-keyJustReleased !key = go
-    where go = mkSF $ \(Timed _ inputSt) x ->
-            if (key `keyStateIs` KeyState'Released) inputSt
-            then (Event x, go)
-            else (NoEvent, go)
+keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event KeyEvent)
+keyJustReleased !key = filterE (\(KeyEvent k _int s _mod) -> key == k && s == KeyState'Released) . keyboardEvent
 
 
 -- | acts like `id` while `key` is down, inhibits while `key` is up
 whileKeyDown :: (Num t) => Key -> YageWire t a a
-whileKeyDown !key = go
-    where go = mkPure $ \(Timed _ inputSt) x ->
-            if (inputSt^.keyboard.keysDown.contains key)
-            then (Right x    , go)
-            else (Left mempty, go)
-
+whileKeyDown !key = proc x -> do
+    pressed  <- keyJustPressed key -< ()
+    released <- keyJustReleased key -< ()
+    between -< (x, pressed, released)
 
 currentMousePosition :: (Real t, Fractional a) => YageWire t b (V2 a)
 currentMousePosition = go
@@ -55,3 +53,12 @@ currentMousePosition = go
 
 currentInputState :: (Num t) => YageWire t a InputState
 currentInputState = mkSF $ \(Timed _ inputState) _ -> (inputState, currentInputState)
+
+
+-- | a wire for switching between two values 'a' & 'b', starting with 'a'.
+--   'trigger' is the event source.
+toggle :: Monad m =>
+        Wire s e m (Wire s e m a b) (Event (Wire s e m a b))
+        -> b -> b -> Wire s e m a b
+toggle = go where go trigger a b = dSwitch $ pure a &&& (trigger . pure (go trigger b a))
+

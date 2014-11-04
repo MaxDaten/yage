@@ -1,4 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -16,27 +18,27 @@ import           Linear
 ---------------------------------------------------------------------------------------------------
 
 data MouseButtonEvent = MouseButtonEvent !MouseButton !MouseButtonState !ModifierKeys
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable, Generic )
 
 data MouseState = MouseState
     { _mousePosition      :: !(V2 Double) -- | screen coords relative to upper left corner
     , _mouseScroll        :: !(V2 Double)
     , _mouseButtonEvents  :: !([MouseButtonEvent])
     }
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable, Generic )
 
 makeLenses ''MouseState
 
 ---------------------------------------------------------------------------------------------------
 
 data KeyEvent = KeyEvent !Key !Int !KeyState !ModifierKeys
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable, Generic )
 
 data KeyboardState = KeyboardState
     { _keyEvents :: !([KeyEvent])
-    , _keysDown  :: !(Set Key)
-    } 
-    deriving ( Show, Typeable )
+    -- ^ the stream key events in order of occurrence, newest last
+    }
+    deriving ( Show, Typeable, Generic )
 
 
 makeLenses ''KeyboardState
@@ -47,7 +49,7 @@ data JoystickState = JoystickState
     { _joyButtons :: !([JoystickButtonState]) -- TODO
     , _joyAxes    :: !([Axis])
     }
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable, Generic )
 
 makeLenses ''JoystickState
 
@@ -58,7 +60,7 @@ data InputState = InputState
     , _mouse    :: !MouseState           -- | current pressed buttons and mouse position
     , _joystick :: !(Maybe JoystickState)  -- | current pressed buttons and axes
     }
-    deriving (Show, Typeable)
+    deriving ( Show, Typeable, Generic )
 
 makeLenses ''InputState
 
@@ -105,9 +107,26 @@ instance Semigroup JoystickState
 
 
 instance Monoid KeyboardState where
-    mempty = KeyboardState mempty mempty
-    mappend (KeyboardState a a') (KeyboardState b b') = KeyboardState (a <> b) (a' <> b')
+    mempty = KeyboardState mempty
+    mappend (KeyboardState a) (KeyboardState b) = KeyboardState (a <> b)
 
 instance Semigroup KeyboardState
 
-
+deriving instance Generic JoystickButtonState
+deriving instance Generic MouseButtonState
+deriving instance Generic KeyState
+deriving instance Generic ModifierKeys
+deriving instance Generic MouseButton
+deriving instance Generic Key
+instance NFData JoystickState       where rnf = genericRnf
+instance NFData JoystickButtonState where rnf = genericRnf
+instance NFData MouseState          where rnf = genericRnf
+instance NFData MouseButton         where rnf = genericRnf
+instance NFData Key                 where rnf = genericRnf
+instance NFData MouseButtonEvent    where rnf = genericRnf
+instance NFData MouseButtonState    where rnf = genericRnf
+instance NFData KeyboardState       where rnf = genericRnf
+instance NFData KeyEvent            where rnf = genericRnf
+instance NFData ModifierKeys        where rnf = genericRnf
+instance NFData KeyState            where rnf = genericRnf
+instance NFData InputState          where rnf = genericRnf
