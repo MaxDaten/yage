@@ -78,13 +78,13 @@ instance EventCtr (YageLoopState t s) where
     --cursorEnterCallback    = cursorEnterCallback . _eventCtr
     keyCallback YageLoopState{_inputState} = return $ \_winH key code state modifier -> do
         atomically $! modifyTVar' _inputState $!! \i ->
-            i & keyboard.keyEvents             <>~ [KeyEvent key code state modifier]
+            i & keyboardEvents   <>~ [KeyEvent key code state modifier]
 
     cursorPositionCallback YageLoopState{_inputState} = return $ \_winH x y ->
-        atomically $! modifyTVar' _inputState $!! mouse.mousePosition .~ V2 x y
+        atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseMoveEvent (V2 x y)]
 
     mouseButtonCallback YageLoopState{_inputState} = return $ \_winH button state modifier ->
-        atomically $! modifyTVar' _inputState $!! mouse.mouseButtonEvents <>~ [MouseButtonEvent button state modifier]
+        atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
 

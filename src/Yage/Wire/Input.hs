@@ -29,11 +29,17 @@ keyboardEvent :: (Num t) => YageWire t a (Netwire.Event KeyEvent)
 keyboardEvent = go []
     where
     go evQueue = mkSF $ \(Timed _ inputSt) _ ->
-        (maybeToEvent $ listToMaybe evQueue, go (drop 1 evQueue ++ (inputSt^.keyboard.keyEvents)))
+        (maybeToEvent $ listToMaybe evQueue, go (drop 1 evQueue ++ inputSt^.keyboardEvents ))
+
+mouseEvent :: (Num t) => YageWire t a (Netwire.Event MouseEvent)
+mouseEvent = go []
+    where
+    go evQueue = mkSF $ \(Timed _ inputSt) _ ->
+        (maybeToEvent $ listToMaybe evQueue, go (drop 1 evQueue ++ inputSt^.mouseEvents ))
 
 -- | fires ONCE everytime a `key` is pressed
 keyJustPressed :: (Num t) => Key -> YageWire t a (Netwire.Event KeyEvent)
-keyJustPressed !key = filterE (\(KeyEvent k _int s _mod) -> key == k && s == KeyState'Pressed) . keyboardEvent
+keyJustPressed !key = filterE (keyStateIs key KeyState'Pressed) . keyboardEvent
 
 
 keyJustReleased :: (Num t) => Key -> YageWire t a (Netwire.Event KeyEvent)
@@ -48,8 +54,10 @@ whileKeyDown !key = proc x -> do
     between -< (x, pressed, released)
 
 currentMousePosition :: (Real t, Fractional a) => YageWire t b (V2 a)
-currentMousePosition = go
-    where go = mkSF $ \(Timed _ inputSt) _ -> (realToFrac <$> inputSt^.mouse.mousePosition, go)
+currentMousePosition = ( pos <$> hold . filterE isMouseMoveEvent . mouseEvent ) <|> 0
+    where pos (MouseMoveEvent p) = realToFrac <$> p
+          pos _ = error "impossible"
+
 
 currentInputState :: (Num t) => YageWire t a InputState
 currentInputState = mkSF $ \(Timed _ inputState) _ -> (inputState, currentInputState)
