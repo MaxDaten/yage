@@ -1,18 +1,18 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE Arrows        #-}
 {-# LANGUAGE TupleSections #-}
 module Yage.Wire.Input where
 
-import Yage.Prelude
-import Yage.Lens
-import Yage.Math
-import Yage.UI
+import           Yage.Lens
+import           Yage.Math
+import           Yage.Prelude
+import           Yage.UI
 
-import Yage.Wire.Analytic
-import Yage.Wire.Types
-import Yage.Wire.Event
-import Control.Wire
+import           Control.Wire
+import           Yage.Wire.Analytic
+import           Yage.Wire.Event
+import           Yage.Wire.Types
 
-import FRP.Netwire as Netwire
+import           FRP.Netwire        as Netwire
 
 -------------------------------------------------------------------------------
 -- State Events
@@ -66,8 +66,6 @@ currentInputState = mkSF $ \(Timed _ inputState) _ -> (inputState, currentInputS
 
 -- | a wire for switching between two values 'a' & 'b', starting with 'a'.
 --   'trigger' is the event source.
-toggle :: Monad m =>
-        Wire s e m (Wire s e m a b) (Event (Wire s e m a b))
-        -> b -> b -> Wire s e m a b
-toggle = go where go trigger a b = dSwitch $ pure a &&& (trigger . pure (go trigger b a))
-
+toggle :: Monad m => Wire s e m a (Event d) -> b -> b -> Wire s e m a b
+toggle trigger a b = dSwitch $ pure a &&& (fmap (fmap . const $ toggle trigger b a) trigger)
+{-# INLINE toggle #-}
