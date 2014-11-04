@@ -53,8 +53,9 @@ whileKeyDown !key = proc x -> do
     released <- keyJustReleased key -< ()
     between -< (x, pressed, released)
 
+-- | a signal wire with the stream of the mouse position
 currentMousePosition :: (Real t, Fractional a) => YageWire t b (V2 a)
-currentMousePosition = ( pos <$> hold . filterE isMouseMoveEvent . mouseEvent ) <|> 0
+currentMousePosition = pos <$> hold . filterE isMouseMoveEvent . mouseEvent <|> 0
     where pos (MouseMoveEvent p) = realToFrac <$> p
           pos _ = error "impossible"
 
