@@ -17,12 +17,20 @@ import           FRP.Netwire        as Netwire
 -------------------------------------------------------------------------------
 -- State Events
 
-mouseVelocity :: (Real t, RealFloat a) => YageWire t b (V2 a)
-mouseVelocity = derivativeF . currentMousePosition
+mouseVelocity :: (Real t, RealFloat a, Fractional t) => YageWire t b (V2 a)
+mouseVelocity = -- rSwitch (pure 0) . (0 &&& deriveVelocity <$> mouseMovedE)
+    overA _x derivative <<<
+    overA _y derivative <<< currentMousePosition
+
+    where
+    mouseMovedE = ( pos <$> hold . filterE isMouseMoveEvent . mouseEvent )
+    pos (MouseMoveEvent p) = realToFrac <$> p
+    pos _ = error "impossible"
 
 
-mouseAcceleration :: (Real t, RealFloat a) => YageWire t b (V2 a)
-mouseAcceleration = derivativeF . mouseVelocity
+
+mouseAcceleration :: (Real t, RealFloat a, Fractional t) => YageWire t b (V2 a)
+mouseAcceleration = overA _y derivative . overA _x derivative . mouseVelocity
 
 
 keyboardEvent :: (Num t) => YageWire t a (Netwire.Event KeyEvent)
@@ -55,7 +63,7 @@ whileKeyDown !key = proc x -> do
 
 -- | a signal wire with the stream of the mouse position
 currentMousePosition :: (Real t, Fractional a) => YageWire t b (V2 a)
-currentMousePosition = pos <$> hold . filterE isMouseMoveEvent . mouseEvent <|> 0
+currentMousePosition = ( pos <$> hold . filterE isMouseMoveEvent . mouseEvent ) <|> 0
     where pos (MouseMoveEvent p) = realToFrac <$> p
           pos _ = error "impossible"
 

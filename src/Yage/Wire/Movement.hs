@@ -118,8 +118,8 @@ arcBallRotation velocitySource =
         x    <- integral 0                      -< velV^._x
         y    <- integrateBounded (-90, 90) 0    -< velV^._y
 
-        --pos  <- integral 0                  -<
         let rotCam = cam & cameraHandle   %~ flip pan x
                          & cameraHandle   %~ flip tilt y
-            pos    = (rotCam^.cameraOrientation) `rotate` focusToCam + focusPoint
-        returnA -< rotCam & cameraLocation .~ pos
+            pos     = (rotCam^.cameraOrientation) `rotate` (focusToCam + focusPoint)
+        returnA -< rotCam & cameraLocation     .~ pos
+

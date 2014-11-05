@@ -14,7 +14,7 @@ import Yage.Transformation
 import qualified Graphics.GLUtil.Camera3D            as Cam
 
 import           Linear                              hiding (lerp, slerp)
-import qualified Linear                              (lerp, slerp)
+import qualified Linear                              (lerp)
 
 
 type CameraHandle = Cam.Camera Double
@@ -123,8 +123,9 @@ instance LinearInterpolatable CameraHandle where
             { Cam.forward       = linLerp      (Cam.forward u)      (Cam.forward v)
             , Cam.upward        = linLerp      (Cam.upward u)       (Cam.upward v)
             , Cam.rightward     = linLerp      (Cam.rightward u)    (Cam.rightward v)
-            , Cam.orientation   = Linear.slerp (Cam.orientation u)  (Cam.orientation v) (realToFrac alpha)
-            , Cam.location      = linLerp      (Cam.location u)     (Cam.location v)
+            -- FIXME : lerping here leads to massive jittering, don't no why
+            , Cam.orientation   = (Cam.orientation v) -- Linear.slerp (Cam.orientation u)  (Cam.orientation v) (realToFrac alpha)
+            , Cam.location      = (Cam.location v) -- linLerp      (Cam.location u)     (Cam.location v)
             }
 
 instance LinearInterpolatable CameraPlanes where
