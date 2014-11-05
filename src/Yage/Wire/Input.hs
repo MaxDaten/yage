@@ -8,7 +8,6 @@ import           Yage.Prelude
 import           Yage.UI
 
 import           Control.Wire
-import           Yage.Wire.Analytic
 import           Yage.Wire.Event
 import           Yage.Wire.Types
 
@@ -17,19 +16,13 @@ import           FRP.Netwire        as Netwire
 -------------------------------------------------------------------------------
 -- State Events
 
-mouseVelocity :: (Real t, RealFloat a, Fractional t) => YageWire t b (V2 a)
-mouseVelocity = -- rSwitch (pure 0) . (0 &&& deriveVelocity <$> mouseMovedE)
+mouseVelocity :: (Real t, RealFloat a) => YageWire t b (V2 a)
+mouseVelocity =
     overA _x derivative <<<
     overA _y derivative <<< currentMousePosition
 
-    where
-    mouseMovedE = ( pos <$> hold . filterE isMouseMoveEvent . mouseEvent )
-    pos (MouseMoveEvent p) = realToFrac <$> p
-    pos _ = error "impossible"
 
-
-
-mouseAcceleration :: (Real t, RealFloat a, Fractional t) => YageWire t b (V2 a)
+mouseAcceleration :: (Real t, RealFloat a) => YageWire t b (V2 a)
 mouseAcceleration = overA _y derivative . overA _x derivative . mouseVelocity
 
 
