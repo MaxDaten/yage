@@ -19,6 +19,7 @@ import           Yage.Lens
 import           Yage.Prelude                     hiding (Index)
 
 import           Data.Acquire                     as Acquire
+import           Control.Monad.Trans.Resource     as Acquire
 
 import qualified Data.Map.Strict                  as M
 import qualified Data.Set                         as S

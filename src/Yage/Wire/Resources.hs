@@ -1,11 +1,12 @@
 module Yage.Wire.Resources where
 
-import Yage.Prelude hiding (any)
-import Yage.Resources
+import           Yage.Prelude              hiding (any, on)
+import           Yage.Resources
 
 
-import Control.Wire
-import Yage.Wire.Types
+import           Control.Wire
+import           Control.Wire.Unsafe.Event
+import           Yage.Wire.Types
 
 
 
@@ -30,3 +31,19 @@ constTextureW = constResourceAllocationW
 constFontW :: YageResource FontTexture -> YageWire t b FontTexture
 constFontW = constResourceAllocationW
 {-# INLINE constFontW #-}
+
+
+-- | loads resources each time the carrying 'Event' occurs. The previous loaded
+-- resource is free.
+allocationOnEvent :: YageWire t (Event (YageResource a)) a
+allocationOnEvent = off
+    where
+    off = mkGenN $ event
+        ( return (Left (), off) )
+        ( allocateRes )
+    on releaseKey loaded = mkGenN $ event
+        ( return (Right loaded, on releaseKey loaded) )
+        ( \res -> release releaseKey >> allocateRes res )
+
+    allocateRes = fmap (\(k,a) -> (Right a, on k a)) . allocateAcquire
+
