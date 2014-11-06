@@ -24,8 +24,8 @@ data CubeMapSelection = CubeMapSelection
     -- ^ a projection from FilePath to mipmap level and cube face
     }
 
-amdCubemapSelection :: FilePath -> Text -> CubeMapSelection
-amdCubemapSelection dir ext = CubeMapSelection
+amdSeperateFiles :: FilePath -> Text -> CubeMapSelection
+amdSeperateFiles dir ext = CubeMapSelection
     { selectionDirectory     = dir
     , selectionFiles         = matchFiles
     , selectionLevelAndSide  = matchLevelAndSide
