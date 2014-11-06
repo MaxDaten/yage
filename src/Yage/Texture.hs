@@ -11,17 +11,22 @@ import Data.Traversable
 
 import Yage.Rendering.Textures
 import Yage.Rendering.Resources
-import Yage.Rendering.Textures.MipMapChain
+import Yage.Material
 
 data TextureLoadError = TextureLoadError String deriving ( Show, Typeable )
 instance Exception TextureLoadError
 
-loadTexture2D :: MonadIO m => FilePath -> m Texture
-loadTexture2D filepath = io $ do
+loadImage :: MonadIO m => FilePath -> m TextureImage
+loadImage filepath = io $ do
     eImg <- (fromDynamic =<<) <$> readImage (fpToString filepath)
     case eImg of
-        Left err    -> throwM $ TextureLoadError $ "Yage.Texture.loadTexture2D" ++ err
-        Right img   -> return $ mkTexture2D (encodeUtf8 $ fpToText filepath) img
+        Left err    -> throwM $ TextureLoadError $ "Yage.Texture.loadTexture2D: " ++ err
+        Right img   -> return img
+
+
+loadTexture2D :: MonadIO m => FilePath -> m Texture
+loadTexture2D filepath =
+    liftM (mkTexture2D (encodeUtf8 $ fpToText filepath)) $ loadImage filepath
 
 
 -- | extracts the `TextureImages` from the `Cube` `Texture` fields and creates
@@ -36,3 +41,14 @@ cubeTextureToTexture ident cubeTexs =
 
     cubeImgs :: [Cube TextureImage]
     cubeImgs = sequenceA $ cubeTexs & mapped %~ ( \tex -> getTextureImg $ tex^.textureData )
+
+
+defaultCubeMap :: Texture
+defaultCubeMap = cubeTextureToTexture "DefaultCubeMap" $ mkTexture2D "" <$>
+    Cube   { cubeFaceRight  = TexRGB8 `pxTexture` red
+           , cubeFaceLeft   = TexRGB8 `pxTexture` magenta
+           , cubeFaceTop    = TexRGB8 `pxTexture` lime
+           , cubeFaceBottom = TexRGB8 `pxTexture` yellow
+           , cubeFaceFront  = TexRGB8 `pxTexture` blue
+           , cubeFaceBack   = TexRGB8 `pxTexture` cyan
+           }
