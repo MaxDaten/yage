@@ -54,9 +54,26 @@ meshResource :: Storable (Vertex v) => IO (Mesh (Vertex v)) -> YageResource (Mes
 meshResource loadMesh = mkAcquire loadMesh (const $ return ())
 
 
+imageResource :: FilePath -> YageResource TextureImage
+imageResource filePath = mkAcquire (loadImage filePath) (const $ return ())
+
 
 textureResource :: FilePath -> YageResource Texture
-textureResource filePath = mkAcquire (loadTexture2D filePath) (const $ return ()) where
+textureResource filePath = mkAcquire (loadTexture2D filePath) (const $ return ())
+
+
+-- | loads a 'MipMapChain' of images-files
+textureResourceMips :: MipMapChain FilePath -> YageResource Texture
+textureResourceMips files =
+    let baseName = files^.to mipMapBase.to fpToString.packedChars
+    in mkTexture2DMip baseName <$> traverse imageResource files
+
+
+-- | loads a 'Cube' with a 'MipMapChain's on each side. We use 'MipMapChain (Cube FilePath)'
+-- as an automatic proove that each 'MipMapChain' on each 'Cube' face has the same length.
+cubeTextureResourceMips :: ByteString -> MipMapChain (Cube FilePath) -> YageResource Texture
+cubeTextureResourceMips ident files =
+    mkTextureCubeMip ident <$> (traverse . traverse) imageResource files
 
 
 fontResource :: FilePath -> YageResource FontTexture
