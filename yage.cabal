@@ -61,6 +61,7 @@ library
                         Yage.Formats.Obj
                         Yage.Formats.Ygm
                         Yage.Formats.Font
+                        Yage.Formats.AMDCubeMap
                         
                         Yage.UI
                         Yage.UI.GUI
@@ -164,6 +165,8 @@ library
                         , vector                == 0.10.*
                         , binary                == 0.7.*
                         , aeson                 == 0.8.*
+                        , regex-compat          >= 0.95
+                        , regex-posix           >= 0.95
                         
                         , text-binary           == 0.1.*
                         , resourcet             == 1.1.*
@@ -180,6 +183,7 @@ library
                         , text                  >= 0.11
                         , attoparsec            == 0.12.*
                         , system-filepath       == 0.4.*
+                        , directory             >= 1.2
 
                         , lens                  == 4.3.*
                         , colour                >= 2.3.3
