@@ -34,16 +34,20 @@ constFontW = constResourceAllocationW
 
 
 -- | loads resources each time the carrying 'Event' occurs. The previous loaded
--- resource is free.
-allocationOnEvent :: YageWire t (Event (YageResource a)) a
-allocationOnEvent = off
+-- resource is freed.
+allocationOnEvent :: YageWire t (Event (YageResource a)) (Event a)
+allocationOnEvent = unloaded
     where
-    off = mkGenN $ event
-        ( return (Left (), off) )
-        ( allocateRes )
-    on releaseKey loaded = mkGenN $ event
-        ( return (Right loaded, on releaseKey loaded) )
-        ( \res -> release releaseKey >> allocateRes res )
+    unloaded =
+        mkGenN $ event (return (Right NoEvent, unloaded)) (\res -> do
+            (k, a) <- allocateAcquire res
+            return (Right $ Event a, loaded k)
+            )
 
-    allocateRes = fmap (\(k,a) -> (Right a, on k a)) . allocateAcquire
+    loaded key =
+        mkGenN $ event (return (Right NoEvent, loaded key)) (\res -> do
+            release key
+            (k, a) <- allocateAcquire res
+            return (Right $ Event a, loaded k)
+            )
 
