@@ -4,8 +4,6 @@ module Yage.Wire.Analytic where
 import Yage.Prelude hiding (any)
 import Yage.Math
 
-import Data.Foldable
-
 import Control.Wire
 
 -------------------------------------------------------------------------------
