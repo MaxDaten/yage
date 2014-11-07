@@ -2,6 +2,7 @@ module Yage.Formats.AMDCubeMap where
 
 import               Yage.Prelude                       hiding ( toList )
 
+
 import               System.Directory
 import               Data.List                          ( (!!) )
 import               Data.Foldable                      ( toList )
@@ -41,8 +42,8 @@ amdSeperateFiles dir ext = CubeMapSelection
     toCubeSide i = toList glCubeFaces !! i
 
 
-singleCubemapFiles :: CubeMapSelection -> ByteString -> YageResource Texture
-singleCubemapFiles CubeMapSelection{..} ident = do
+singleCubemapMipFiles :: CubeMapSelection -> YageResource (MipMapChain TextureCube)
+singleCubemapMipFiles CubeMapSelection{..} = do
     selectedFiles <- io $ filter selectionFiles . map fromString
                             <$> getDirectoryContents (fpToString selectionDirectory)
 
@@ -54,4 +55,5 @@ singleCubemapFiles CubeMapSelection{..} ident = do
     case mMipCubes of
         Nothing -> io $ throwIO $ LoadCubeMapException $
                         "at least one complete cube map with base texture for MipMapChain required!"
-        Just mipCubes  -> cubeTextureResourceMips ident mipCubes
+        Just mipCubes  -> seperateCubeMipsRes mipCubes
+

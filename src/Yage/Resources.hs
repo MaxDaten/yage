@@ -33,6 +33,7 @@ import qualified Yage.Formats.Ygm                 as YGM
 import qualified Yage.Formats.Font                as Font
 import           Yage.Font                        ( FontTexture )
 import           Yage.Texture
+import           Yage.Texture.CubeMapCross
 
 
 import           Yage.Images
@@ -50,35 +51,35 @@ data Selection =
 type SubMeshSelection = S.Set Text
 type MeshFilePath = (FilePath, SubMeshSelection)
 
+
 -- TODO : gl VBO
-meshResource :: Storable (Vertex v) => IO (Mesh (Vertex v)) -> YageResource (Mesh (Vertex v))
-meshResource loadMesh = mkAcquire loadMesh (const $ return ())
+meshRes :: Storable (Vertex v) => IO (Mesh (Vertex v)) -> YageResource (Mesh (Vertex v))
+meshRes loadMesh = mkAcquire loadMesh (const $ return ())
 
 
-imageResource :: FilePath -> YageResource TextureImage
-imageResource filePath = mkAcquire (loadImage filePath) (const $ return ())
+-- TODO : GL Texture resource
+imageRes :: FilePath -> YageResource TextureImage
+imageRes filePath = mkAcquire (loadImage filePath) (const $ return ())
 
 
-textureResource :: FilePath -> YageResource Texture
-textureResource filePath = mkAcquire (loadTexture2D filePath) (const $ return ())
-
-
--- | loads a 'MipMapChain' of images-files
-textureResourceMips :: MipMapChain FilePath -> YageResource Texture
-textureResourceMips files =
-    let baseName = files^.to mipMapBase.to fpToString.packedChars
-    in mkTexture2DMip baseName <$> traverse imageResource files
+-- | loads a 'MipMapChain' of seperate images-files
+imageMipsRes:: MipMapChain FilePath -> YageResource (MipMapChain TextureImage)
+imageMipsRes = traverse imageRes
 
 
 -- | loads a 'Cube' with a 'MipMapChain's on each side. We use 'MipMapChain (Cube FilePath)'
 -- as an automatic proove that each 'MipMapChain' on each 'Cube' face has the same length.
-cubeTextureResourceMips :: ByteString -> MipMapChain (Cube FilePath) -> YageResource Texture
-cubeTextureResourceMips ident files =
-    mkTextureCubeMip ident <$> (traverse . traverse) imageResource files
+-- Each Cube face has a destinct file to load.
+seperateCubeMipsRes :: MipMapChain (Cube FilePath) -> YageResource (MipMapChain TextureCube)
+seperateCubeMipsRes = (traverse . traverse) imageRes
 
 
-fontResource :: FilePath -> YageResource FontTexture
-fontResource filePath = mkAcquire (Font.readFontTexture filePath) (const $ return ())
+cubeCrossMipsRes :: CrossOrientation -> MipMapChain FilePath -> YageResource (MipMapChain TextureCube)
+cubeCrossMipsRes orient files = (fmap.fmap) (seperateCubeMapCross orient) $ imageMipsRes files
+
+
+fontRes :: FilePath -> YageResource FontTexture
+fontRes filePath = mkAcquire (Font.readFontTexture filePath) (const $ return ())
 
 
 loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
