@@ -12,7 +12,7 @@ module Yage.Resources
     , module Yage.Rendering.Mesh
     , module Yage.Rendering.Resources
     , module Yage.Font
-    , Cube(..)
+    , Cube(..), CrossOrientation(..)
     ) where
 
 import           Yage.Lens
