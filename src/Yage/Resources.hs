@@ -61,14 +61,14 @@ meshRes loadMesh = mkAcquire loadMesh (const $ return ())
 
 -- TODO : GL Texture resource
 imageRes :: FilePath -> YageResource TextureImage
-imageRes filePath = mkAcquire (loadImage . traceShowId $ filePath) (const $ return ())
+imageRes filePath = mkAcquire (loadImage filePath) (const $ return ())
 
 
 -- | loads a 'MipMapChain' from seperate images-files. The 'FilePath' is globbed
 -- (@see 'System.FilePath.Glob') and sorted.
 imageMipsRes:: FilePath -> YageResource (MipMapChain TextureImage)
 imageMipsRes fpToGlob = do
-    globbed <- traceShowId . sort <$> globFp fpToGlob
+    globbed <- sort <$> globFp fpToGlob
     case mipMapChain globbed of
         Just mipmaps -> traverse imageRes mipmaps
         Nothing -> throwIO $ MipMapMissingBaseException $
