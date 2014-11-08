@@ -168,6 +168,7 @@ library
                         , aeson                 == 0.8.*
                         , regex-compat          >= 0.95
                         , regex-posix           >= 0.95
+                        , Glob                  >= 0.7.5
                         
                         , text-binary           == 0.1.*
                         , resourcet             == 1.1.*

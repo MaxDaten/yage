@@ -41,6 +41,8 @@ import           Yage.Images
 
 
 type YageResource = Acquire
+data ResourceLoadingException = MipMapMissingBaseException String deriving ( Show, Typeable )
+instance Exception ResourceLoadingException
 
 {--
 data Selection =
@@ -59,12 +61,18 @@ meshRes loadMesh = mkAcquire loadMesh (const $ return ())
 
 -- TODO : GL Texture resource
 imageRes :: FilePath -> YageResource TextureImage
-imageRes filePath = mkAcquire (loadImage filePath) (const $ return ())
+imageRes filePath = mkAcquire (loadImage . traceShowId $ filePath) (const $ return ())
 
 
--- | loads a 'MipMapChain' of seperate images-files
-imageMipsRes:: MipMapChain FilePath -> YageResource (MipMapChain TextureImage)
-imageMipsRes = traverse imageRes
+-- | loads a 'MipMapChain' from seperate images-files. The 'FilePath' is globbed
+-- (@see 'System.FilePath.Glob') and sorted.
+imageMipsRes:: FilePath -> YageResource (MipMapChain TextureImage)
+imageMipsRes fpToGlob = do
+    globbed <- traceShowId . sort <$> globFp fpToGlob
+    case mipMapChain globbed of
+        Just mipmaps -> traverse imageRes mipmaps
+        Nothing -> throwIO $ MipMapMissingBaseException $
+                        "at least a base image required but globbed nothing: " ++ fpToString fpToGlob
 
 
 -- | loads a 'Cube' with a 'MipMapChain's on each side. We use 'MipMapChain (Cube FilePath)'
@@ -74,8 +82,8 @@ seperateCubeMipsRes :: MipMapChain (Cube FilePath) -> YageResource (MipMapChain 
 seperateCubeMipsRes = (traverse . traverse) imageRes
 
 
-cubeCrossMipsRes :: CrossOrientation -> MipMapChain FilePath -> YageResource (MipMapChain TextureCube)
-cubeCrossMipsRes orient files = (fmap.fmap) (seperateCubeMapCross orient) $ imageMipsRes files
+cubeCrossMipsRes :: CrossOrientation -> FilePath -> YageResource (MipMapChain TextureCube)
+cubeCrossMipsRes orient = (fmap.fmap) (seperateCubeMapCross orient) . imageMipsRes
 
 
 fontRes :: FilePath -> YageResource FontTexture

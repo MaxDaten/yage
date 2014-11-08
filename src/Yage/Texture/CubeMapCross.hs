@@ -47,8 +47,8 @@ seperateCubeMapCross crossOrientation texImg =
     withTextureImageCtr texImg $ \(ctr, img) ->
         let srcWidth    = imageWidth img
             srcHeight   = imageHeight img
-            faceWidth   = traceShowId $ srcWidth `div` 3
-            faceHeight  = traceShowId $ srcHeight `div` 4
+            faceWidth   = srcWidth `div` 3
+            faceHeight  = srcHeight `div` 4
             ranges      = case crossOrientation of
                             HorizontalCross -> horizontalCross
                             VerticalCross   -> verticalCross
