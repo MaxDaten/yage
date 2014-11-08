@@ -22,7 +22,7 @@ uniform vec2 ZProjRatio;
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
 uniform sampler2D DepthTexture;
-uniform samplerCube EnvironmentCubeMap;
+uniform samplerCube RadianceEnvironment;
 uniform float Gamma = 2.2;
 
 
@@ -68,7 +68,7 @@ vec3 SpecularTerm ( Surface surface, float NoL, vec3 L, vec3 V )
     float a2 = a * a;
     float Energy = 1;
     vec3 N   = surface.Normal;
-    // vec3 R   = reflect(-V, N);
+    vec3 R   = reflect(-V, N);
     
     vec3 H    = normalize( V + L );
     // float NoL = saturate( dot(N, L) );
@@ -82,7 +82,15 @@ vec3 SpecularTerm ( Surface surface, float NoL, vec3 L, vec3 V )
     // float G   = 1;
     vec3 F    = Fresnel( surface.Specular, VoH );
 
-    return (Energy * D * G) * F;
+    // log( SpecularPower / MaxSpecularPower ) / log( PowerDrop )
+    // float MipMapLevel = log( D / 2048 ) / log( 0.25 );
+    // float SpecularPower = exp2(10 * ((-1) * Roughness + 1));
+    // float MipMapLevel = -0.5 * log2( SpecularPower + 0.0001 ) + 5.5;
+    // vec3 ambientSpec  = textureLod( RadianceEnvironment, R, MipMapLevel ).rgb;
+    UNUSED(RadianceEnvironment);
+    vec3 SpecularColor = (Energy * D * G) * F;
+    vec2 envBRDF = EnvironmentBRDF( Roughness, NoV );
+    return SpecularColor * envBRDF.x + envBRDF.y;
 }
 
 vec3 DiffuseTerm ( Surface surface )
@@ -157,6 +165,5 @@ void main()
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb += 0.5 * EncodeTextureNormal( surface.Normal );
 
-    UNUSED(EnvironmentCubeMap);
 }
 

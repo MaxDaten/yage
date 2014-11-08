@@ -108,9 +108,32 @@ float GeometricSchlick( float Roughness, float NoV, float NoL )
 
     Approximation of self shadowing due the microsurfaces
 */
-float Geometric ( float Roughness, float NoV, float NoL)
+float Geometric( float Roughness, float NoV, float NoL)
 {
     return GeometricSchlick( Roughness, NoV, NoL );
 }
+
+
+/*
+    https://www.unrealengine.com/blog/physically-based-shading-on-mobile
+*/
+vec2 EnvironmentBRDFApprox( float Roughness, float NoV )
+{
+    const vec4 c0 = vec4( -1, -0.0275, -0.572, 0.022);
+    const vec4 c1 = vec4(  1,  0.0425,   1.04, -0.04);
+    vec4 r = Roughness * c0 + c1;
+    float a004 = min( r.x * r.x, exp2( -9.28 * NoV ) ) * r.x + r.y;
+    vec2 AB = vec2( -1.04, 1.04 ) * a004 + r.zw;
+    return AB; 
+}
+
+/*
+    # The preintegrated Environment BRDF
+*/
+vec2 EnvironmentBRDF( float Roughness, float NoV )
+{
+    return EnvironmentBRDFApprox( Roughness, NoV); 
+}
+
 
 #endif // BRDF
