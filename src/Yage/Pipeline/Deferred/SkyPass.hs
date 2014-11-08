@@ -41,7 +41,12 @@ data SkyInChannels = SkyInChannels
 type SkyPass = PassDescr SkyInChannels SkyShader
 
 
-type SkyMaterial = Material MaterialColorAlpha
+data SkyMaterial = SkyMaterial
+    { _skyEnvironmentMap :: Material MaterialColorAlpha
+    , _skyRadianceMap    :: Material MaterialColorAlpha
+    }
+
+makeLenses ''SkyMaterial
 
 type SkyEntity = Entity (Mesh SkyVertex) SkyMaterial
 
@@ -132,7 +137,15 @@ toSkyEntity sky = toRenderEntity shData sky
     uniforms = modelMatrix =: ( sky^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )
 
     material :: YSkyData
-    material = materialUniformsColor $ sky^.materials
+    material = materialUniformsColor $ sky^.materials.skyEnvironmentMap
+
+
+defaultSkyMaterial :: SkyMaterial
+defaultSkyMaterial = SkyMaterial defaultMaterialSRGB defaultMaterialSRGB
+
+
+instance Default SkyMaterial where
+    def = defaultSkyMaterial
 
 
 instance FramebufferSpec SkyInChannels RenderTargets where
