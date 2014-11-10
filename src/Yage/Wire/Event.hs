@@ -1,7 +1,6 @@
 module Yage.Wire.Event where
 
 import Yage.Prelude
-import Data.Maybe
 import Control.Wire
 import Control.Wire.Unsafe.Event
 
