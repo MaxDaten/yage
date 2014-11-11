@@ -42,7 +42,7 @@ amdSeperateFiles dir ext = CubeMapSelection
     toCubeSide i = toList glCubeFaces !! i
 
 
-singleCubemapMipFiles :: CubeMapSelection -> YageResource (MipMapChain TextureCube)
+singleCubemapMipFiles :: MonadIO m => CubeMapSelection -> m (MipMapChain (Cube FilePath))
 singleCubemapMipFiles CubeMapSelection{..} = do
     selectedFiles <- io $ filter selectionFiles . map fromString
                             <$> getDirectoryContents (fpToString selectionDirectory)
@@ -55,5 +55,5 @@ singleCubemapMipFiles CubeMapSelection{..} = do
     case mMipCubes of
         Nothing -> io $ throwIO $ LoadCubeMapException $
                         "at least one complete cube map with base texture for MipMapChain required!"
-        Just mipCubes  -> seperateCubeMipsRes mipCubes
+        Just mipCubes  -> return $ mipCubes
 
