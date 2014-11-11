@@ -99,13 +99,11 @@ mergeCube orient background cube =
     extract p offset img =
         let V2 x y = p - offset
         in pixelAt img x y
-    size@(V2 w h)     = faceSize * targetFactors
-    faceSize   = V2 (imageWidth $ cubeFaceRight cube) (imageHeight $ cubeFaceRight cube) - 1
-    regions    = fmap (\r -> round <$> r `rescale` (fromIntegral <$> size)) (imageRegions orient)
-    targetFactors = case orient of
-        HorizontalCross -> V2 4 3
-        VerticalCross -> V2 3 4
-        Strip -> V2 6 1
+    (V2 w h)          = faceSize * ratio
+    faceSize          = V2 (imageWidth $ cubeFaceRight cube) (imageHeight $ cubeFaceRight cube)
+    (ratio, regions)  = imageRegions orient & _2.mapped.xy1 *~ faceSize
+                                            & _2.mapped.xy2 *~ faceSize
+                                            & _2.mapped.xy2 -~ 1
 
 
 matchLevelAndSide :: FilePath -> (Int,GL.TextureTargetCubeMapFace)
