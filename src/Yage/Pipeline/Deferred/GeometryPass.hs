@@ -182,7 +182,7 @@ defaultGeoMaterial :: GeoMaterial
 defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
         normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture2D "NORMALDUMMY" $ zNormalDummy TexSRGB8)
-        roughnessMat = mkMaterial 1.0 $ mkTexture2D "ROUGHDUMMY" $ zeroNormalDummy TexY8
+        roughnessMat = mkMaterial 1.0 $ mkTexture2D "ROUGHDUMMY" $ whiteDummy TexY8
     in GeoMaterial albedoMat normalMat roughnessMat
 
 
