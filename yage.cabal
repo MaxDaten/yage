@@ -301,6 +301,34 @@ executable shader-tool
                       , containers      == 0.5.*
                       , system-filepath == 0.4.*
 
+-------------------------------------------------------------------------------
+
+executable cube-map-files
+    if flag(library-only)
+      Buildable: False
+
+    hs-source-dirs:     cube-map-files/
+    main-is:            CubeMapFiles.hs
+
+    build-depends:        base
+                        , yage
+                        , yage-contrib    == 0.0.2.0
+                        , yage-rendering  == 0.0.6.0
+                        , yage-geometry   == 0.0.0.3
+                        , lens
+                        , JuicyPixels
+                        , containers
+                        , MonadRandom
+                        , random
+                        , regex-posix     == 0.95.*
+                        , semigroups
+                        , text
+                        , system-filepath
+
+    default-language:     Haskell2010
+    default-extensions:   
+                        NoImplicitPrelude
+
 
 -- Test-Suites
 --------------
