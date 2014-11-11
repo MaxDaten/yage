@@ -28,6 +28,8 @@ uniform float Gamma = 2.2;
 
 in vec3 VertexPosVS;
 in vec4 ScreenPos;
+in mat4 ViewToWorld;
+
 
 // Light in view space (Position, Direction, etc)
 uniform LightData Light;
@@ -46,6 +48,10 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
     attribs.Roughness = channelA.a;
     attribs.Specular  = vec3(0.5);
     attribs.Normal    = normalize( DecodeNormalXY( channelB.rg ) );
+    attribs.Metallic  = 1.0;
+
+    attribs.Specular = mix( 0.08 * attribs.Specular, attribs.Albedo, vec3(attribs.Metallic));
+    attribs.Albedo   -= attribs.Albedo * attribs.Metallic;
     return attribs;
 }
 
@@ -61,14 +67,26 @@ float MaskingRadius( float distance2, float radius )
     return square( saturate( 1 - L0) ); 
 }
 
-vec3 SpecularTerm ( Surface surface, float NoL, vec3 L, vec3 V )
+
+vec3 ApproximateSpecularIBL( vec3 SpecularColor, float Roughness, float NoV, vec3 R)
+{
+    // float MaxMipLevel = 8;
+    float MaxMipLevel = 5;
+    float MipMapLevel = Roughness * MaxMipLevel;
+    vec3 SpecularIBL  = textureLod( RadianceEnvironment, R, MipMapLevel ).rgb;
+
+    vec2 envBRDF = EnvironmentBRDF( Roughness, NoV );
+    return SpecularIBL * (SpecularColor * envBRDF.x + envBRDF.y);
+}
+
+vec3 ReflectanceTerm ( Surface surface, float NoL, vec3 L, vec3 V )
 {
     float Roughness = surface.Roughness;
     float a  = square( Roughness );
-    float a2 = a * a;
-    float Energy = 1;
+    float a2 = square( a );
+    // float Energy = 1;
     vec3 N   = surface.Normal;
-    vec3 R   = reflect(-V, N);
+    vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
     
     vec3 H    = normalize( V + L );
     // float NoL = saturate( dot(N, L) );
@@ -78,24 +96,19 @@ vec3 SpecularTerm ( Surface surface, float NoL, vec3 L, vec3 V )
 
     float D   = SpecularNDF( a2, NoH );
     // float D   = 1;
-    float G   = Geometric( Roughness, NoV, NoL );
+    float G   = Geometric( a, NoV, NoL );
     // float G   = 1;
     vec3 F    = Fresnel( surface.Specular, VoH );
 
-    // log( SpecularPower / MaxSpecularPower ) / log( PowerDrop )
-    // float MipMapLevel = log( D / 2048 ) / log( 0.25 );
-    // float SpecularPower = exp2(10 * ((-1) * Roughness + 1));
-    // float MipMapLevel = -0.5 * log2( SpecularPower + 0.0001 ) + 5.5;
-    // vec3 ambientSpec  = textureLod( RadianceEnvironment, R, MipMapLevel ).rgb;
-    UNUSED(RadianceEnvironment);
-    vec3 SpecularColor = (Energy * D * G) * F;
-    vec2 envBRDF = EnvironmentBRDF( Roughness, NoV );
-    return SpecularColor * envBRDF.x + envBRDF.y;
+    vec3 SpecularColor = D * G * F;
+    // SpecularColor = specularIBL; // <<<<
+
+    return SpecularColor;
 }
 
 vec3 DiffuseTerm ( Surface surface )
 {
-    return Diffuse( surface.Albedo );
+    return Diffuse( surface.Albedo - surface.Albedo * surface.Metallic );
 }
 
 float SpotAttenuation( vec3 L, LightData light )
@@ -111,6 +124,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     // vector from origin (view space) to lit point
     vec3 P  = surface.Position;
     vec3 L  = -light.LightDirection;
+    vec3 N   = surface.Normal;
     // direction from lit point to the view
     vec3 V  = normalize(-P);
 
@@ -136,16 +150,26 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     }
 
     vec3 OutColor = vec3(0.0);
+    vec3 DiffuseShading  = vec3(0.0);
+    vec3 SpecularShading = vec3(0.0);
+    vec3 DiffAndSpecIBL  = vec3(0.0);
+    float NoV = saturate( dot(N, V) );
 
     if ( Attenuation > 0 )
     {
-        float NoL = saturate(dot( surface.Normal, L));
-        vec3 DiffuseShading  = DiffuseTerm( surface );
-        vec3 SpecularShading = SpecularTerm( surface, NoL, L, V );
-        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
-    }
+        float NoL = saturate( dot( surface.Normal, L ) );
+        DiffuseShading  = DiffuseTerm( surface );
+        SpecularShading = ReflectanceTerm( surface, NoL, L, V );
 
-    return OutColor;
+        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
+        // OutColor = SpecularShading; // <<<<
+    }
+    vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
+    vec3 WorldNormal = vec3(ViewToWorld * vec4(N, 0.0));
+    DiffAndSpecIBL += DiffuseShading * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
+    DiffAndSpecIBL += ApproximateSpecularIBL( SpecularShading, surface.Roughness, NoV, R );
+
+    return DiffAndSpecIBL;
 }
 
 void main()
@@ -156,11 +180,12 @@ void main()
     vec4 albedoCh       = texture( AlbedoTexture, gBufferUV ).rgba;
     vec4 normalCh       = vec4(texture( NormalTexture, gBufferUV ).rg, 0, 0);
     float zBufferDepth  = texture( DepthTexture, gBufferUV ).r;
-
     
     Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
     pixelColor.rgb  = SurfaceShading ( surface, Light );
+
     
+    // pixelColor.rgb = vec3(surface.Roughness);
     // pixelColor.rgb  += vec3(0.05, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb += 0.5 * EncodeTextureNormal( surface.Normal );

@@ -52,8 +52,8 @@ vec3 Diffuse( vec3 diffuseColor )
 // [Walter et al. 2007, "Microfacet models for refraction through rough surfaces"]
 float D_GGX( float m2, float NoH )
 {
-    float d2 = square( ( NoH * m2 - NoH ) * NoH + 1 );
-    return m2 / ( PI * d2 );
+    float d = ( NoH * m2 - NoH ) * NoH + 1;
+    return m2 / ( PI * d * d );
 }
 
 
@@ -90,9 +90,9 @@ vec3 Fresnel( vec3 specularColor, float VoH )
 
 
 // [Karis 2013, "Real Shading in Unreal Engine 4"]
-float GeometricSchlick( float Roughness, float NoV, float NoL )
+float GeometricSchlick( float a, float NoV, float NoL )
 {
-    float k = square(Roughness) * 0.5;
+    float k = a * 0.5;
     float GV = NoV * (1 - k) + k;
     float GL = NoL * (1 - k) + k;
     return 0.25 / ( GV * GL );
@@ -108,9 +108,9 @@ float GeometricSchlick( float Roughness, float NoV, float NoL )
 
     Approximation of self shadowing due the microsurfaces
 */
-float Geometric( float Roughness, float NoV, float NoL)
+float Geometric( float a, float NoV, float NoL)
 {
-    return GeometricSchlick( Roughness, NoV, NoL );
+    return GeometricSchlick( a, NoV, NoL );
 }
 
 
