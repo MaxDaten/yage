@@ -8,6 +8,7 @@ import Yage.Prelude
 import Yage.Lens
 
 import Data.Traversable
+import Filesystem.Path
 
 import Yage.Rendering.Textures
 import Yage.Rendering.Resources
@@ -22,6 +23,17 @@ loadImage filepath = io $ do
     case eImg of
         Left err    -> throwM $ TextureLoadError $ "Yage.Texture.loadTexture2D: " ++ err
         Right img   -> return img
+
+-- | fix SRGB drop
+writeTextureImage :: MonadIO m => FilePath -> TextureImage -> m ()
+writeTextureImage fp = io . write fp
+    where
+    write file (TexY8 (GLTexture img))    = writePng (fpToString $ replaceExtension file "png") img
+    write file (TexYF (GLTexture img))    = writeHDR (fpToString $ replaceExtension file "hdr") (promoteImage img)
+    write file (TexRGB8 (GLTexture img))  = writePng (fpToString $ replaceExtension file "png") img
+    write file (TexRGBF (GLTexture img))  = writeHDR (fpToString $ replaceExtension file "hdr") img
+    write file (TexRGBA8 (GLTexture img)) = writePng (fpToString $ replaceExtension file "png") img
+    write file (TexSRGB8 (GLTexture img)) = writePng (fpToString $ replaceExtension file "png") (convertImage img :: Image PixelRGB8)
 
 
 loadTexture2D :: MonadIO m => FilePath -> m Texture
