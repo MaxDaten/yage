@@ -1,4 +1,4 @@
-module Yage.Texture.CubeMapCross where
+module Yage.Texture.CubeImageLayout where
 
 import               Yage.Prelude
 import               Yage.Lens                          ( (<&>) )
@@ -8,7 +8,7 @@ import               Yage.Rendering.Textures
 import               Yage.Geometry.D2.Rectangle
 
 
-data CrossOrientation = HorizontalCross | VerticalCross deriving ( Show, Ord, Eq )
+data CubeImageLayout = HorizontalCross | VerticalCross | Strip deriving ( Show, Read, Ord, Eq, Typeable )
 
 -- | normalized ranges for a standard vertical cube map cross
 verticalCross :: Cube (Rectangle Double)
@@ -40,19 +40,32 @@ horizontalCross =
     , cubeFaceBack      = Rectangle (V2 (3 * x4rd) (1 * y3rd)) (V2 (4 * x4rd) (2 * y3rd))
     }
 
+-- | normalized ranges for a cube map strip
+stripCross :: Cube (Rectangle Double)
+stripCross =
+    let x6rd = 1/6
+    in Cube
+    { cubeFaceRight     = Rectangle (V2 (0 * x6rd) 0) (V2 (1 * x6rd) 1)
+    , cubeFaceLeft      = Rectangle (V2 (1 * x6rd) 0) (V2 (2 * x6rd) 1)
+    , cubeFaceTop       = Rectangle (V2 (2 * x6rd) 0) (V2 (3 * x6rd) 1)
+    , cubeFaceBottom    = Rectangle (V2 (3 * x6rd) 0) (V2 (4 * x6rd) 1)
+    , cubeFaceFront     = Rectangle (V2 (4 * x6rd) 0) (V2 (5 * x6rd) 1)
+    , cubeFaceBack      = Rectangle (V2 (5 * x6rd) 0) (V2 (6 * x6rd) 1)
+    }
 
+imageRegions :: CubeImageLayout -> Cube (Rectangle Double)
+imageRegions HorizontalCross = horizontalCross
+imageRegions VerticalCross = verticalCross
+imageRegions Strip = stripCross
 
-seperateCubeMapCross :: CrossOrientation -> TextureImage -> TextureCube
-seperateCubeMapCross crossOrientation texImg =
+seperateCubeMapImage :: CubeImageLayout -> TextureImage -> TextureCube
+seperateCubeMapImage crossOrientation texImg =
     withTextureImageCtr texImg $ \(ctr, img) ->
         let srcWidth    = imageWidth img
             srcHeight   = imageHeight img
             faceWidth   = srcWidth `div` 3
             faceHeight  = srcHeight `div` 4
-            ranges      = case crossOrientation of
-                            HorizontalCross -> horizontalCross
-                            VerticalCross   -> verticalCross
-
+            ranges      = imageRegions crossOrientation
         in ranges <&> (\range -> ctr . GLTexture $
             generateImage (copyRange img range) faceWidth faceHeight)
 

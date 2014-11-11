@@ -77,7 +77,7 @@ library
                         Yage.Texture.Atlas
                         Yage.Texture.Atlas.Builder
                         Yage.Texture.TextureAtlas
-                        Yage.Texture.CubeMapCross
+                        Yage.Texture.CubeImageLayout
 
                         Yage.Pipeline.Deferred
                         Yage.Pipeline.Types

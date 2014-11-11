@@ -12,7 +12,7 @@ module Yage.Resources
     , module Yage.Rendering.Mesh
     , module Yage.Rendering.Resources
     , module Yage.Font
-    , Cube(..), CrossOrientation(..)
+    , Cube(..), CubeImageLayout(..)
     ) where
 
 import           Yage.Lens
@@ -33,7 +33,7 @@ import qualified Yage.Formats.Ygm                 as YGM
 import qualified Yage.Formats.Font                as Font
 import           Yage.Font                        ( FontTexture )
 import           Yage.Texture
-import           Yage.Texture.CubeMapCross
+import           Yage.Texture.CubeImageLayout
 
 
 import           Yage.Images
@@ -82,8 +82,8 @@ seperateCubeMipsRes :: MipMapChain (Cube FilePath) -> YageResource (MipMapChain 
 seperateCubeMipsRes = (traverse . traverse) imageRes
 
 
-cubeCrossMipsRes :: CrossOrientation -> FilePath -> YageResource (MipMapChain TextureCube)
-cubeCrossMipsRes orient = (fmap.fmap) (seperateCubeMapCross orient) . imageMipsRes
+cubeCrossMipsRes :: CubeImageLayout -> FilePath -> YageResource (MipMapChain TextureCube)
+cubeCrossMipsRes orient = (fmap.fmap) (seperateCubeMapImage orient) . imageMipsRes
 
 
 fontRes :: FilePath -> YageResource FontTexture

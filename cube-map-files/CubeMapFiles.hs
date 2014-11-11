@@ -23,7 +23,7 @@ import           Text.Regex.Posix
 import           Yage.Formats.AMDCubeMap
 import           Yage.Rendering.Textures
 import           Yage.Texture
-import           Yage.Texture.CubeMapCross
+import           Yage.Texture.CubeImageLayout
 
 import           Yage.Geometry.D2.Rectangle
 
@@ -36,7 +36,7 @@ import qualified Yage.Core.OpenGL           as GL
 main :: IO ()
 main = do
     ( inDirGlob  :: FilePath
-        , outMode   :: CrossOrientation
+        , outMode   :: CubeImageLayout
         , outFile   :: FilePath ) <- readArgs
 
     mips <- groupWith (fst.matchLevelAndSide) <$> globFp inDirGlob
@@ -57,7 +57,7 @@ main = do
 
     where
     -- | the center of the conversion
-    writeOut :: CrossOrientation -> FilePath -> Cube TextureImage -> IO ()
+    writeOut :: CubeImageLayout -> FilePath -> Cube TextureImage -> IO ()
     writeOut orient fp cube@Cube{cubeFaceRight} =
         let out = case cubeFaceRight of
                     TexRGB8  (GLTexture img) ->
@@ -84,7 +84,7 @@ main = do
 
 
 
-mergeCube :: Pixel p => CrossOrientation -> p -> Cube (Image p) -> Image p
+mergeCube :: Pixel p => CubeImageLayout -> p -> Cube (Image p) -> Image p
 mergeCube orient background cube =
     generateImage (\x y -> extractImages $ V2 x y) w h
     where
@@ -105,7 +105,7 @@ mergeCube orient background cube =
     targetFactors = case orient of
         HorizontalCross -> V2 4 3
         VerticalCross -> V2 3 4
-        StripCross -> V2 6 1
+        Strip -> V2 6 1
 
 
 matchLevelAndSide :: FilePath -> (Int,GL.TextureTargetCubeMapFace)
