@@ -101,7 +101,7 @@ mergeCube orient background cube =
         in pixelAt img x y
     size@(V2 w h)     = faceSize * targetFactors
     faceSize   = V2 (imageWidth $ cubeFaceRight cube) (imageHeight $ cubeFaceRight cube) - 1
-    regions    = traceShowId $ fmap (\r -> round <$> r `rescale` (fromIntegral <$> size)) (imageRegions orient)
+    regions    = fmap (\r -> round <$> r `rescale` (fromIntegral <$> size)) (imageRegions orient)
     targetFactors = case orient of
         HorizontalCross -> V2 4 3
         VerticalCross -> V2 3 4
