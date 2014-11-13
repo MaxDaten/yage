@@ -45,10 +45,10 @@ Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
     // extrapolate the view space position of the pixel to the zFar plane
     attribs.Position  = PositionVSFromDepth( bufferDepth, ZProjRatio, VertexPosVS );
     attribs.Albedo    = channelA.rgb;
-    attribs.Roughness = channelA.a;
+    attribs.Roughness = max(channelA.a, 0.02);
     attribs.Specular  = vec3(0.5);
     attribs.Normal    = normalize( DecodeNormalXY( channelB.rg ) );
-    attribs.Metallic  = 1.0;
+    attribs.Metallic  = 0.0;
 
     attribs.Specular = mix( 0.08 * attribs.Specular, attribs.Albedo, vec3(attribs.Metallic));
     attribs.Albedo   -= attribs.Albedo * attribs.Metallic;
@@ -79,36 +79,30 @@ vec3 ApproximateSpecularIBL( vec3 SpecularColor, float Roughness, float NoV, vec
     return SpecularIBL * (SpecularColor * envBRDF.x + envBRDF.y);
 }
 
-vec3 ReflectanceTerm ( Surface surface, float NoL, vec3 L, vec3 V )
+vec3 ReflectanceTerm ( Surface surface, vec3 L, vec3 V )
 {
     float Roughness = surface.Roughness;
     float a  = square( Roughness );
     float a2 = square( a );
     // float Energy = 1;
     vec3 N   = surface.Normal;
-    vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
     
     vec3 H    = normalize( V + L );
-    // float NoL = saturate( dot(N, L) );
+    float NoL = saturate( dot(N, L) );
     float NoV = saturate( dot(N, V) );
     float NoH = saturate( dot(N, H) );
     float VoH = saturate( dot(V, H) );
 
     float D   = SpecularNDF( a2, NoH );
-    // float D   = 1;
     float G   = Geometric( a, NoV, NoL );
-    // float G   = 1;
-    vec3 F    = Fresnel( surface.Specular, VoH );
+    vec3 F    = Fresnel( surface.Specular, VoH ) ;
 
-    vec3 SpecularColor = D * G * F;
-    // SpecularColor = specularIBL; // <<<<
-
-    return SpecularColor;
+    return D * G * F;
 }
 
 vec3 DiffuseTerm ( Surface surface )
 {
-    return Diffuse( surface.Albedo - surface.Albedo * surface.Metallic );
+    return Diffuse( surface.Albedo );
 }
 
 float SpotAttenuation( vec3 L, LightData light )
@@ -125,6 +119,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     vec3 P  = surface.Position;
     vec3 L  = -light.LightDirection;
     vec3 N   = surface.Normal;
+
     // direction from lit point to the view
     vec3 V  = normalize(-P);
 
@@ -141,7 +136,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
         Attenuation               = DistanceAttenuation * RadiusMask;
 
         // direction to the light
-        L = normalize( PtoL );
+        L = PtoL / sqrt( distance2 );
         
         if ( IsSpotlight( light ) )
         {
@@ -152,24 +147,29 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     vec3 OutColor = vec3(0.0);
     vec3 DiffuseShading  = vec3(0.0);
     vec3 SpecularShading = vec3(0.0);
-    vec3 DiffAndSpecIBL  = vec3(0.0);
+    float NoL = saturate( dot( N, L ) );
     float NoV = saturate( dot(N, V) );
 
     if ( Attenuation > 0 )
     {
-        float NoL = saturate( dot( surface.Normal, L ) );
         DiffuseShading  = DiffuseTerm( surface );
-        SpecularShading = ReflectanceTerm( surface, NoL, L, V );
-
-        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
-        // OutColor = SpecularShading; // <<<<
+        SpecularShading = ReflectanceTerm( surface, L, V );
+        DiffuseShading  *= light.LightColor.rgb * NoL * Attenuation;
+        SpecularShading *= light.LightColor.rgb * NoL * Attenuation;
+        // OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading+SpecularShading); // <<<<
     }
     vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
     vec3 WorldNormal = vec3(ViewToWorld * vec4(N, 0.0));
-    DiffAndSpecIBL += DiffuseShading * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
-    DiffAndSpecIBL += ApproximateSpecularIBL( SpecularShading, surface.Roughness, NoV, R );
 
-    return DiffAndSpecIBL;
+    //...
+    // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
+    vec3 DiffuseAmbient = surface.Albedo * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
+    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
+
+    OutColor += DiffuseShading * DiffuseAmbient;
+    OutColor += SpecularShading * SpecularAmbient;
+
+    return OutColor;
 }
 
 void main()

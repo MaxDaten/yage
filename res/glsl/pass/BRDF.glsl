@@ -103,14 +103,37 @@ float GeometricSchlick( float a, float NoV, float NoL )
 }
 
 
+float GeometricSmithJointApprox( float a, float NoV, float NoL )
+{
+    float GV = NoL * ( NoV * ( 1 - a) + a);
+    float GL = NoV * ( NoL * ( 1 - a) + a);
+    return 0.5 / ( GV * GL );
+}
+
+
+float GeometricSmith( float a, float NoV, float NoL )
+{
+    float a2 = a * a;
+    float GL = NoV + sqrt( NoV * ( NoV - NoV * a2) + a2 );
+    float GV = NoL * sqrt( NoL * ( NoL - NoL * a2) + a2 );
+    return 1 / ( GV * GL );
+}
+
+
 /*
     # The Geometric Attenuation
 
     Approximation of self shadowing due the microsurfaces
+    
+    Vis = G / ( 4*NoL*NoV ) 
+    [Lazarov 2011, "Physically Based Lighting in Black Ops"]
 */
 float Geometric( float a, float NoV, float NoL)
 {
     return GeometricSchlick( a, NoV, NoL );
+    // return GeometricSmith( a, NoV, NoL );
+    // return max(NoV, NoL);
+    // return GeometricSmithJointApprox( a, NoV, NoL );
 }
 
 
