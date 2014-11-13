@@ -89,13 +89,14 @@ vec3 ReflectanceTerm ( Surface surface, vec3 L, vec3 V )
     
     vec3 H    = normalize( V + L );
     float NoL = saturate( dot(N, L) );
-    float NoV = saturate( dot(N, V) );
+    float NoV = abs(dot(N, V)) + 1e-5f; // avoid artifact [Lagarde & Rousiers 2014, Moving Frostbite to Physically Based Rendering, S.12]
     float NoH = saturate( dot(N, H) );
     float VoH = saturate( dot(V, H) );
+    float LoH = saturate( dot(L, H) );
 
     float D   = SpecularNDF( a2, NoH );
     float G   = Geometric( a, NoV, NoL );
-    vec3 F    = Fresnel( surface.Specular, VoH ) ;
+    vec3 F    = Fresnel( surface.Specular, 1, LoH ) ; // or VoH (is the same ;)
 
     return D * G * F;
 }
@@ -154,9 +155,9 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     {
         DiffuseShading  = DiffuseTerm( surface );
         SpecularShading = ReflectanceTerm( surface, L, V );
-        DiffuseShading  *= light.LightColor.rgb * NoL * Attenuation;
-        SpecularShading *= light.LightColor.rgb * NoL * Attenuation;
-        // OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading+SpecularShading); // <<<<
+        // DiffuseShading  *= light.LightColor.rgb * NoL * Attenuation;
+        // SpecularShading *= light.LightColor.rgb * NoL * Attenuation;
+        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading+SpecularShading); // <<<<
     }
     vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
     vec3 WorldNormal = vec3(ViewToWorld * vec4(N, 0.0));
@@ -166,8 +167,8 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     vec3 DiffuseAmbient = surface.Albedo * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
     vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
-    OutColor += DiffuseShading * DiffuseAmbient;
-    OutColor += SpecularShading * SpecularAmbient;
+    OutColor += DiffuseShading + DiffuseAmbient;
+    OutColor += SpecularShading + SpecularAmbient;
 
     return OutColor;
 }

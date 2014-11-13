@@ -70,10 +70,11 @@ float SpecularNDF( float Roughness4, float NoH )
 
 // [Schlick 1994, "An Inexpensive BRDF Model for Physically-Based Rendering"]
 // [Lagarde 2012, "Spherical Gaussian approximation for Blinn-Phong, Phong and Fresnel"]
-vec3 FresnelSchlick( vec3 F0, float VoH )
+vec3 FresnelSchlick( vec3 F0, float F90, float VoH )
 {
     // gauss approximation
-    return F0 + ( 1 - F0 ) * exp2( (-5.55473 * VoH - 6.98316) * VoH );
+    return F0 + ( F90 - F0 ) * pow(1.0 - VoH, 5.0);
+    // return F0 + ( 1 - F0 ) * exp2( (-5.55473 * VoH - 6.98316) * VoH );
 }
 
 
@@ -83,9 +84,9 @@ vec3 FresnelSchlick( vec3 F0, float VoH )
     The fraction of transmitted (and probably absorbed) energy to reflected energy
     [Lengyel 2004, 6.9.3]
 */
-vec3 Fresnel( vec3 specularColor, float VoH )
+vec3 Fresnel( vec3 F0, float F90, float VoH )
 {
-    return FresnelSchlick( specularColor, VoH);
+    return FresnelSchlick( F0, F90, VoH);
 }
 
 
@@ -111,12 +112,13 @@ float GeometricSmithJointApprox( float a, float NoV, float NoL )
 }
 
 
+// [Lagarde & Rousiers 2014, Moving Frostbite to Physically Based Rendering, S.12]
 float GeometricSmith( float a, float NoV, float NoL )
 {
     float a2 = a * a;
-    float GL = NoV + sqrt( NoV * ( NoV - NoV * a2) + a2 );
-    float GV = NoL * sqrt( NoL * ( NoL - NoL * a2) + a2 );
-    return 1 / ( GV * GL );
+    float GL = NoV * sqrt( (-NoL * a2 + NoL) * NoL + a2 );
+    float GV = NoL * sqrt( (-NoV * a2 + NoV) * NoV + a2 );
+    return 0.5 / ( GV + GL );
 }
 
 
@@ -130,8 +132,8 @@ float GeometricSmith( float a, float NoV, float NoL )
 */
 float Geometric( float a, float NoV, float NoL)
 {
-    return GeometricSchlick( a, NoV, NoL );
-    // return GeometricSmith( a, NoV, NoL );
+    // return GeometricSchlick( a, NoV, NoL );
+    return GeometricSmith( a, NoV, NoL );
     // return max(NoV, NoL);
     // return GeometricSmithJointApprox( a, NoV, NoL );
 }
