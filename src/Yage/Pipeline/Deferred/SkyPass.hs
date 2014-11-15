@@ -4,12 +4,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 module Yage.Pipeline.Deferred.SkyPass where
 
 import           Yage.Prelude
 import           Yage.Lens
 
 import           Yage.Rendering
+import           Yage.Geometry
 
 import           Yage.Scene
 import           Yage.Viewport
@@ -19,23 +21,34 @@ import           Yage.HDR
 import           Yage.TH.Shader                     as GLSL
 
 import           Yage.Pipeline.Deferred.Common
-import           Yage.Pipeline.Deferred.LightPass
 
 import qualified Graphics.Rendering.OpenGL          as GL
 
 
 type SkyEntityUni      = '[ YModelMatrix ] ++ YSkyMaterial
 
+type SkyVertex         = Vertex (Y'P3 GLfloat)
 
 type SkyUni = PerspectiveUniforms ++ SkyEntityUni
 type SkyTextures = '[ YSkyTex ]
-type SkyShader = Shader SkyUni SkyTextures LitVertex
-type SkyPass = PassDescr LitPassChannels SkyShader
+type SkyShader = Shader SkyUni SkyTextures SkyVertex
+
+data SkyInChannels = SkyInChannels
+    { sBufferChannel :: Texture
+    , sDepthChannel  :: Texture
+    }
+
+type SkyPass = PassDescr SkyInChannels SkyShader
 
 
-type SkyMaterial = Material MaterialColorAlpha
+data SkyMaterial = SkyMaterial
+    { _skyEnvironmentMap :: Material MaterialColorAlpha
+    , _skyRadianceMap    :: Material MaterialColorAlpha
+    }
 
-type SkyEntity = Entity (Mesh LitVertex) SkyMaterial
+makeLenses ''SkyMaterial
+
+type SkyEntity = Entity (Mesh SkyVertex) SkyMaterial
 
 
 -------------------------------------------------------------------------------
@@ -85,9 +98,9 @@ void main()
 
 
 
-skyPass :: LightPass -> Viewport Int -> SkyPass
-skyPass lighting viewport =
-    passPreset (lighting^.passTarget) (viewport^.rectangle) (ShaderUnit shaderProg)
+skyPass :: RenderTarget SkyInChannels -> Viewport Int -> SkyPass
+skyPass target viewport =
+    passPreset target (viewport^.rectangle) (ShaderUnit shaderProg)
         & passPreRendering .~ preRendering
 
     where
@@ -98,8 +111,6 @@ skyPass lighting viewport =
                                        , skyFragmentProgram^.shaderSource
                                        ]
                     }
-
-
 
     preRendering   = io $ do
         GL.viewport     GL.$= viewport^.glViewport
@@ -119,12 +130,29 @@ skyFrameData :: Viewport Int -> Camera -> ShaderData PerspectiveUniforms '[]
 skyFrameData viewport camera = ShaderData (perspectiveUniforms viewport camera) mempty
 
 
-toSkyEntity :: SkyEntity -> RenderEntity LitVertex (ShaderData SkyEntityUni SkyTextures)
+toSkyEntity :: SkyEntity -> RenderEntity SkyVertex (ShaderData SkyEntityUni SkyTextures)
 toSkyEntity sky = toRenderEntity shData sky
     where
     shData   = ShaderData uniforms RNil `append` material
     uniforms = modelMatrix =: ( sky^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )
 
     material :: YSkyData
-    material = materialUniformsColor $ sky^.materials
+    material = materialUniformsColor $ sky^.materials.skyEnvironmentMap
+
+
+defaultSkyMaterial :: SkyMaterial
+defaultSkyMaterial = SkyMaterial defaultMaterialSRGB defaultMaterialSRGB
+
+
+instance Default SkyMaterial where
+    def = defaultSkyMaterial
+
+
+instance FramebufferSpec SkyInChannels RenderTargets where
+    fboColors SkyInChannels{sBufferChannel} =
+        [ Attachment (ColorAttachment 0) $ TextureTarget GL.Texture2D sBufferChannel 0
+        ]
+
+    fboDepth SkyInChannels{sDepthChannel} =
+        Just $ Attachment DepthAttachment $ TextureTarget GL.Texture2D sDepthChannel 0
 

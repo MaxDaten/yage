@@ -20,7 +20,7 @@ import             Data.Foldable                   (traverse_)
 import             Control.Monad.State             (gets)
 import             Control.Monad.Trans.Resource    as Resource
 ---------------------------------------------------------------------------------------------------
-import             Yage.Wire                       as Wire hiding ((<+>))
+import             Yage.Wire                       as Wire hiding ( (<+>), at, force )
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
@@ -76,16 +76,15 @@ instance EventCtr (YageLoopState t s) where
     --windowFocusCallback    = windowFocusCallback . _eventCtr
     --windowIconifyCallback  = windowIconifyCallback . _eventCtr
     --cursorEnterCallback    = cursorEnterCallback . _eventCtr
-    keyCallback YageLoopState{_inputState} = return $ \_winH key code state modifier ->
-        atomically $ modifyTVar' _inputState $ \i ->
-            i & keyboard.keyEvents             <>~ [KeyEvent key code state modifier]
-              & keyboard.keysDown.contains key .~  (state == KeyState'Pressed || state == KeyState'Repeating)
+    keyCallback YageLoopState{_inputState} = return $ \_winH key code state modifier -> do
+        atomically $! modifyTVar' _inputState $!! \i ->
+            i & keyboardEvents   <>~ [KeyEvent key code state modifier]
 
     cursorPositionCallback YageLoopState{_inputState} = return $ \_winH x y ->
-        atomically $ modifyTVar' _inputState $ mouse.mousePosition .~ V2 x y
+        atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseMoveEvent (V2 x y)]
 
     mouseButtonCallback YageLoopState{_inputState} = return $ \_winH button state modifier ->
-        atomically $ modifyTVar' _inputState $ mouse.mouseButtonEvents <>~ [MouseButtonEvent button state modifier]
+        atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
 
@@ -120,7 +119,9 @@ yageLoop :: (Real time, LinearInterpolatable scene) =>
          YageLoopState time scene ->
          Application AnyException (YageLoopState time scene)
 yageLoop win oldState = do
-    inputSt                 <- io $! atomically $ readModifyTVar (oldState^.inputState) clearEvents
+    inputSt                 <- io $ atomically $ readModifyTVar (oldState^.inputState) clearEvents
+    debugM $ format "{}" (Only $ Shown inputSt)
+
     (frameDT, newSession)   <- io $ stepSession $ oldState^.timing.loopSession
     let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
 
@@ -135,8 +136,8 @@ yageLoop win oldState = do
 
 
     -- log loaded resources and render trace
-    traverse_ ( noticeM . show . format "[ResourceLog]: {}" . Only . Shown ) (rStats^.resourceLog)
-    traverse_ ( noticeM . show . format "[RenderTrace]: {}" . Only . Shown ) (rStats^.renderLog.rlTrace)
+    traverse_ ( debugM . format "[ResourceLog]: {}" . Only . Shown ) (rStats^.resourceLog)
+    traverse_ ( debugM . format "[RenderTrace]: {}" . Only . Shown ) (rStats^.renderLog.rlTrace)
 
     return $! oldState
         & renderStats             .~ rStats
@@ -149,18 +150,22 @@ yageLoop win oldState = do
 
     -- | logic simulation
     -- selects small time increments and perform simulation steps to catch up with the frame time
-    simulate remainder sim input = {-# SCC simulate #-} simulate' remainder sim sim input
+    simulate remainder sim input = {-# SCC simulate #-} do
+        -- initial step with 0.0 deltaT and input (inject input into system)
+        ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
+        simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim
 
-    simulate' remainder currentSim prevSim input
-        | remainder < ( currentSim^.simDeltaT ) = return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
+    simulate' remainder currentSim prevSim
+        | remainder < ( currentSim^.simDeltaT ) = do
+            return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
         | otherwise = do
-            nextSim <- stepSimulation currentSim input
-            simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim input
+            nextSim <- stepSimulation currentSim
+            simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim
 
     -- perform one step in simulation
-    stepSimulation sim input = do
+    stepSimulation sim = do
         ( ds      , s )     <- io $ stepSession $ sim^.simSession
-        ( newScene, w )     <- stepWire (sim^.simWire) (ds input) (Right ())
+        ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
         return $! newScene `seq` ( sim & simScene     .~ newScene
                                        & simSession   .~ s
                                        & simWire      .~ w )
@@ -196,6 +201,7 @@ readModifyTVar tvar f = do
     var <- readTVar tvar
     modifyTVar' tvar f
     return var
+{-# INLINE readModifyTVar #-}
 
 instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
     lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)

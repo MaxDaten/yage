@@ -15,12 +15,13 @@ in vec3 vPosition;
 
 out vec3 VertexPosVS;
 out vec4 ScreenPos;
+out mat4 ViewToWorld;
 
 mat4 MVPMatrix = VPMatrix * ModelMatrix;
 void main()
 {
     vec4 OutPosition;
-       
+    ViewToWorld = inverse( ViewMatrix ); // TODO : to uniform
     if (IsPositionalLight( Light ))
     {
         VertexPosVS     = (ViewMatrix * ModelMatrix * vec4(vPosition, 1.0)).xyz;

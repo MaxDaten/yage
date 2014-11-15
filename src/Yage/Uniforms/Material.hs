@@ -23,6 +23,7 @@ type YMaterialUni c m   = [ YMaterialColor c, YTextureMatrix m ]
 type YMaterialColor c   = (c::Symbol) ::: V4 GLfloat
 type YMaterialIntensity c = (c::Symbol) ::: V1 GLfloat
 type YMaterialTex t     = TextureSampler t
+type TextureLod t       = (t::Symbol) ::: V1 GLfloat
 type YTextureMatrix m   = (m::Symbol) ::: M44 GLfloat
 
 type YTextureSize t     = (t::Symbol) ::: V4 GLfloat
@@ -64,6 +65,9 @@ textureSampler = SField
 
 textureArray :: KnownSymbol t => SField (TextureArray t)
 textureArray = SField
+
+textureLod :: KnownSymbol t => SField (TextureLod t)
+textureLod = SField
 
 textureMatrix :: KnownSymbol m => SField (YTextureMatrix m)
 textureMatrix = SField

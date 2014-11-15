@@ -4,8 +4,6 @@ module Yage.Wire.Analytic where
 import Yage.Prelude hiding (any)
 import Yage.Math
 
-import Data.Foldable
-
 import Control.Wire
 
 -------------------------------------------------------------------------------
@@ -36,16 +34,3 @@ integrateBounded (lower,upper) = loop
             n  = clamp x lower upper
         in x' `seq` ( Right x', loop n )
 
-
-derivativeF :: (Foldable f, Fractional (f a), RealFloat a, HasTime t s, Monoid e)
-            => Wire s e m (f a) (f a)
-derivativeF = looping 0
-    where
-    looping x' =
-        mkPure $ \ds x ->
-            let dt  = realToFrac (dtime ds)
-                dx  = (x - x') / dt
-                mdx | any isNaN dx       = Right 0
-                    | any isInfinite dx  = Left mempty
-                    | otherwise          = Right dx
-            in x' `seq` (mdx, looping x)

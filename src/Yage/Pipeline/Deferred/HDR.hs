@@ -33,13 +33,17 @@ hdrLightingPass geometryPass viewport scene =
         bloomSettings   = scene^.sceneCamera.hdrBloomSettings
 
         lightDescr      = L.lightPass geometryPass viewport (scene^.sceneEnvironment)
-        lightData       = L.litPerFrameData geometryPass viewport cam (scene^.environmentMap)
+        lightData       = L.litPerFrameData geometryPass viewport cam (scene^.radianceMap.matTexture)
 
-        lightTex        = L.lBufferChannel . renderTargets $ lightDescr
+        lightTex        = lightDescr^.renderTargets.to L.lBufferChannel
         lights          = scene^.sceneEnvironment.envLights
         skyData         = S.skyFrameData viewport cam
 
-        skyPass         = runRenderPass $ S.skyPass lightDescr viewport
+        skyChannels     = RenderTarget "fbo-sky" S.SkyInChannels
+                            { S.sBufferChannel = lightDescr^.renderTargets.to L.lBufferChannel
+                            , S.sDepthChannel  = lightDescr^.renderTargets.to L.lDepthChannel
+                            }
+        skyPass         = runRenderPass $ S.skyPass skyChannels viewport
         lightPass       = runRenderPass lightDescr
 
         composeAndToneMap base ts = T.runToneMapPass base ts viewport (scene^.sceneCamera)
@@ -93,5 +97,11 @@ environmentMap :: Getter (HDRScene ent dat) (Material MaterialColorAlpha)
 environmentMap = sceneEnvironment.to getter where
     -- TODO : BLACK DUMMY after resource overhaul
     getter (Environment _ Nothing _)        = error "Yage.Pipeline.Deferred.HDR.environmentMap: missing env map"
-    getter (Environment _ (Just sky) _)     = sky^.materials
+    getter (Environment _ (Just sky) _)     = sky^.materials.S.skyEnvironmentMap
+
+radianceMap :: Getter (HDRScene ent dat) (Material MaterialColorAlpha)
+radianceMap = sceneEnvironment.to getter where
+    -- TODO : BLACK DUMMY after resource overhaul
+    getter (Environment _ Nothing _)        = error "Yage.Pipeline.Deferred.HDR.environmentMap: missing env map"
+    getter (Environment _ (Just sky) _)     = sky^.materials.S.skyRadianceMap
 

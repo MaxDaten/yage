@@ -65,7 +65,7 @@ uLightDirection = SField
 -- uLightSpecularExp = SField
 
 type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio, YGamma ]
-type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YEnvironmentCubeMap ]
+type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YMaterialTex "RadianceEnvironment" ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 
@@ -92,7 +92,7 @@ lightPass base viewport environment =
     where
 
     target =
-        let GeoPassChannelsF{..} = renderTargets base
+        let GeoPassChannelsF{..} = base^.renderTargets
         in RenderTarget "light-fbo" $ LitPassChannels
                                 { lBufferChannel   = lightTex
                                 , lDepthChannel    = gDepthChannel
@@ -129,8 +129,8 @@ lightPass base viewport environment =
 
 
 
-litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> Material MaterialColorAlpha  -> ShaderData LitPerFrameUni LitPerFrameTex
-litPerFrameData base viewport camera envMat = ShaderData lightUniforms attributeTextures
+litPerFrameData :: GeometryPass -> Viewport Int -> Camera -> Texture -> ShaderData LitPerFrameUni LitPerFrameTex
+litPerFrameData base viewport camera radianceMap = ShaderData lightUniforms attributeTextures
     where
 
     lightUniforms   :: Uniforms LitPerFrameUni
@@ -151,10 +151,10 @@ litPerFrameData base viewport camera envMat = ShaderData lightUniforms attribute
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
-        textureSampler =: (gAlbedoChannel $ renderTargets base)    <+>
-        textureSampler =: (gNormalChannel $ renderTargets base)    <+>
-        textureSampler =: (gDepthChannel  $ renderTargets base)    <+>
-        textureSampler =: (envMat^.matTexture)
+        textureSampler =: ( base^.renderTargets.to gAlbedoChannel )   <+>
+        textureSampler =: ( base^.renderTargets.to gNormalChannel )   <+>
+        textureSampler =: ( base^.renderTargets.to gDepthChannel  )   <+>
+        textureSampler =: radianceMap
 
 
 instance FramebufferSpec LitPassChannels RenderTargets where

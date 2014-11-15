@@ -18,6 +18,7 @@ struct Surface
     vec3 Albedo;
     vec3 Specular;
     vec3 Normal;
+    float Metallic;
     float Roughness;
 };
 

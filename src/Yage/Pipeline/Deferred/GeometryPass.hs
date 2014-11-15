@@ -67,8 +67,8 @@ type GeoPassScene env = Scene Camera GeoEntity env
 
 -------------------------------------------------------------------------------
 -- | Fragment code
-geoFragmentProgramm :: GLSL.ShaderSource FragmentShader
-geoFragmentProgramm = [GLSL.yFragment|
+geoFragmentProgram :: GLSL.ShaderSource FragmentShader
+geoFragmentProgram = [GLSL.yFragment|
 #version 410 core
 
 #include "pass/Common.glsl"
@@ -134,7 +134,7 @@ geoPass viewport =
     shaderProg = ShaderProgramUnit
                  { _shaderName       = "GeometryPass.hs"
                  , _shaderSources    = [ $(vertexFile "res/glsl/pass/geoPass.vert")^.shaderSource
-                                       , geoFragmentProgramm^.shaderSource
+                                       , geoFragmentProgram^.shaderSource
                                        ]
                  }
 
@@ -181,8 +181,8 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
 defaultGeoMaterial :: GeoMaterial
 defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
-        normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture "NORMALDUMMY" $ Texture2D $ zNormalDummy TexSRGB8)
-        roughnessMat = mkMaterial 1.0 $ mkTexture "ROUGHDUMMY" $ Texture2D $ zeroNormalDummy TexY8
+        normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture2D "NORMALDUMMY" $ zNormalDummy TexSRGB8)
+        roughnessMat = mkMaterial 1.0 $ mkTexture2D "ROUGHDUMMY" $ whiteDummy TexY8
     in GeoMaterial albedoMat normalMat roughnessMat
 
 

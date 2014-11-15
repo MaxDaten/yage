@@ -7,23 +7,16 @@ module Yage.UI
 
 import             Yage.Prelude
 import             Yage.Lens
-
 import             Yage.Core.Application.Event
 import             Yage.UI.Types
 
+keyStateIs :: Key -> KeyState -> KeyEvent -> Bool
+keyStateIs key state (KeyEvent k _int s _mod) = key == k && s == state
 
---keyPressed :: Key -> Set Event -> Bool
---keyPressed key' es = not.null $ filter p es
---    where p (EventKey _ e)    = e^.key == key' && elem (e^.keyState) [KeyState'Pressed, KeyState'Repeating]
---          p _                 = False
-
-findKeyEvent :: InputState -> (KeyEvent -> Bool) -> Maybe KeyEvent
-findKeyEvent = flip find . _keyEvents . _keyboard
-
-keyStateIs :: Key -> KeyState -> (InputState -> Bool)
-keyStateIs key state = isJust . flip findKeyEvent (\(KeyEvent k _ s _) -> key == k && s == state)
-
+isMouseMoveEvent :: MouseEvent -> Bool
+isMouseMoveEvent (MouseMoveEvent _) = True
+isMouseMoveEvent _ = False
 
 clearEvents :: InputState -> InputState
-clearEvents i = i & mouse.mouseButtonEvents .~ mempty
-                  & keyboard.keyEvents      .~ mempty
+clearEvents i = i & mouseEvents     .~ mempty
+                  & keyboardEvents  .~ mempty
