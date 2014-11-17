@@ -116,11 +116,12 @@ loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile fi
     createMesh YGM.YGM{..}
         | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
         | otherwise =
-            let geoMap = convertVertices <$> M.filterWithKey (isSelected subSelection) ygmModels
-                mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
-            in  M.foldlWithKey (\m k geo -> m `appendGeometry` (encodeUtf8 k, geo)) mesh geoMap
-
-    convertVertices = geoVertices %~ map fromInternal
+            let mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
+            in {-# SCC "loadYGM.fold" #-} M.foldlWithKey acc mesh ygmModels
+    acc m k geo
+        | (isSelected subSelection k geo) = m `appendGeometry` (encodeUtf8 k, fmap fromInternal geo)
+        | otherwise = m
+    {-# INLINE acc #-}
 
 
 mkSelection :: [ Text ] -> SubMeshSelection

@@ -15,6 +15,7 @@ import           Yage.Lens
 import           Yage.Core.Application as Core (Key(..), KeyState(..), MouseButton(..), MouseButtonState(..), ModifierKeys(..), JoystickButtonState(..))
 
 import           Linear
+import           Linear.Instances ()
 ---------------------------------------------------------------------------------------------------
 
 data MouseEvent =

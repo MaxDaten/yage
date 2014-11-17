@@ -1,28 +1,29 @@
-{-# LANGUAGE DeriveGeneric          #-}
-{-# LANGUAGE NamedFieldPuns         #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE UndecidableInstances   #-}
-{-# LANGUAGE DeriveDataTypeable     #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Yage.Formats.Ygm
     ( module Yage.Formats.Ygm
     ) where
 
-import Yage.Prelude
-import Yage.Lens
+import           Yage.Lens
+import           Yage.Prelude
 
-import Data.Map (keys)
-import Data.Binary
-import Data.Text.Binary as Bin ()
-import Data.Vinyl.Instances ()
 
-import Codec.Compression.GZip
-import qualified Data.ByteString.Lazy as B
-import Control.Parallel.Strategies
+import           Data.Binary
+import           Data.Map                    (keys)
+import           Data.Text.Binary            as Bin ()
+import           Data.Vinyl.Instances        ()
 
-import Yage.Geometry
-import Linear
+import           Codec.Compression.GZip
+import           Control.Parallel.Strategies
+import qualified Data.ByteString.Lazy        as B
+
+import           Linear
+import           Yage.Geometry
 
 -- yage geometry model
 type InternalFormat a = Y'P3TX2TN a
@@ -38,11 +39,12 @@ ygmToFile name = B.writeFile (fpToString name) . compress . encode
 
 ygmFromFile :: FilePath -> IO YGM
 ygmFromFile path = do
-    ygm <- decode . decompress <$> (B.readFile $ fpToString path)
-    return ygm { ygmModels = ygmModels ygm `using` parTraversable rdeepseq }
+    !ygm <- ({-# SCC "decode" #-} decode) .
+            ({-# SCC "decompress" #-} decompress) <$>
+             {-# SCC "readFile" #-} (B.readFile (fpToString path))
+    return ygm { ygmModels = {-# SCC "ygmModels" #-} ygmModels ygm `using` parTraversable ({-# SCC "deepsec" #-} rdeepseq) }
 
-
-internalFormat :: ( Real a, Fractional a, Fractional b ) => 
+internalFormat :: ( Real a, Fractional a, Fractional b ) =>
                Pos a ->
                Tex a ->
                TBN a ->
@@ -58,7 +60,7 @@ internalFormat pos tex tangentBasis@(V3 t _b n) =
 
 
 sameModels :: YGM -> YGM -> Bool
-sameModels a b = (ygmModels a) == (ygmModels b) 
+sameModels a b = (ygmModels a) == (ygmModels b)
 
 instance Show YGM where
     show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown $ keys ygmModels)
