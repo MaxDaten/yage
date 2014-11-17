@@ -107,7 +107,8 @@ library
                         
                         Yage.UI.Types
 
-  ghc-options:          -j4 -fno-warn-orphans
+  -- context stack currently for the vinyl records 
+  ghc-options:          -j4 -fcontext-stack=36
   ghc-prof-options:     -rtsopts -Wall -prof -auto-all -caf-all
 
 

@@ -3,6 +3,7 @@
 uniform mat4 AlbedoTextureMatrix    = mat4(1.0);
 uniform mat4 NormalTextureMatrix    = mat4(1.0);
 uniform mat4 RoughnessTextureMatrix = mat4(1.0);
+uniform mat4 MetallicTextureMatrix  = mat4(1.0);
 uniform mat4 ViewMatrix          = mat4(1.0);
 uniform mat4 VPMatrix            = mat4(1.0);
 uniform mat4 ModelMatrix         = mat4(1.0);
@@ -17,6 +18,7 @@ in vec4 vTangentZ;
 out vec2 AlbedoST;
 out vec2 NormalST;
 out vec2 RoughnessST;
+out vec2 MetallicST;
 out vec3 VertexPos_View;
 out mat3 TangentToView;
 
@@ -30,6 +32,7 @@ void main()
     AlbedoST             = (AlbedoTextureMatrix * vec4(vTexture, 0.0, 1.0)).st;
     NormalST             = (NormalTextureMatrix * vec4(vTexture, 0.0, 1.0)).st;
     RoughnessST          = (RoughnessTextureMatrix * vec4(vTexture, 0.0, 1.0)).st;
+    MetallicST           = (MetallicTextureMatrix  * vec4(vTexture, 0.0, 1.0)).st;
     
     vec3 tangentZ        = normalize( NormalMatrix * vTangentZ.xyz );
     vec3 tangentX        = normalize( NormalMatrix * vTangentX.xyz );

@@ -17,16 +17,9 @@
 #include "GBuffer.glsl"
 #include "BRDF.glsl"
 
-uniform vec2 ZProjRatio;
 
-uniform sampler2D AlbedoTexture;
-uniform sampler2D NormalTexture;
-uniform sampler2D DepthTexture;
 uniform samplerCube RadianceEnvironment;
-uniform float Gamma = 2.2;
 
-
-in vec3 VertexPosVS;
 in vec4 ScreenPos;
 in mat4 ViewToWorld;
 
@@ -38,22 +31,6 @@ uniform LightData Light;
 layout (location = 0) out vec4 pixelColor;
 
 
-Surface GetSurfaceAttributes( vec4 channelA, vec4 channelB, float bufferDepth )
-{
-    Surface attribs;
-    
-    // extrapolate the view space position of the pixel to the zFar plane
-    attribs.Position  = PositionVSFromDepth( bufferDepth, ZProjRatio, VertexPosVS );
-    attribs.Albedo    = channelA.rgb;
-    attribs.Roughness = max(channelA.a, 0.02);
-    attribs.Specular  = vec3(0.5);
-    attribs.Normal    = normalize( DecodeNormalXY( channelB.rg ) );
-    attribs.Metallic  = 0.0;
-
-    attribs.Specular = mix( 0.08 * attribs.Specular, attribs.Albedo, vec3(attribs.Metallic));
-    attribs.Albedo   -= attribs.Albedo * attribs.Metallic;
-    return attribs;
-}
 
 float DistanceAttenuationInverseSquare( float distance2 )
 {
@@ -103,7 +80,7 @@ vec3 ReflectanceTerm ( Surface surface, vec3 L, vec3 V )
 
 vec3 DiffuseTerm ( Surface surface )
 {
-    return Diffuse( surface.Albedo );
+    return Diffuse( surface.Albedo.rgb );
 }
 
 float SpotAttenuation( vec3 L, LightData light )
@@ -164,7 +141,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
     //...
     // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
-    vec3 DiffuseAmbient = surface.Albedo * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
+    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
     vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
     OutColor += DiffuseShading + DiffuseAmbient;
@@ -177,12 +154,7 @@ void main()
 {
     vec2 gBufferUV = 0.5 + 0.5 * ScreenPos.xy / ScreenPos.w;
     
-    // the channel for albedo rgb + distance from View
-    vec4 albedoCh       = texture( AlbedoTexture, gBufferUV ).rgba;
-    vec4 normalCh       = vec4(texture( NormalTexture, gBufferUV ).rg, 0, 0);
-    float zBufferDepth  = texture( DepthTexture, gBufferUV ).r;
-    
-    Surface surface = GetSurfaceAttributes( albedoCh, normalCh, zBufferDepth );
+    Surface surface = DecodeGBuffer( gBufferUV );
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
     

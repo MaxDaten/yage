@@ -64,8 +64,8 @@ uLightDirection = SField
 -- uLightSpecularExp :: SField YSpecularExp
 -- uLightSpecularExp = SField
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio, YGamma ]
-type LitPerFrameTex     = [ YAlbedoTex, YNormalTex, YDepthTex, YMaterialTex "RadianceEnvironment" ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio ]
+type LitPerFrameTex     = [ YMaterialTex "inChannelA", YMaterialTex "inChannelB", YDepthTex, YMaterialTex "RadianceEnvironment" ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
 
@@ -139,15 +139,13 @@ litPerFrameData base viewport camera radianceMap = ShaderData lightUniforms attr
             zProj                   = V2 ( ( far + near ) / ( far - near ) )
                                          ( ( 2.0 * near * far ) / ( far - near ) )
             dim                     = fromIntegral <$> viewport^.rectangle.extend
-            theGamma                = realToFrac $ viewport^.viewportGamma
             Rectangle xy0 xy1       = fromIntegral <$> viewport^.rectangle
             viewToScreenM           = orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
         in
         perspectiveUniforms viewport camera     <+>
         viewToScreenMatrix  =: viewToScreenM    <+>
         viewportDim         =: dim              <+>
-        zProjRatio          =: zProj            <+>
-        gamma               =: theGamma
+        zProjRatio          =: zProj
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =

@@ -40,6 +40,10 @@ type YRoughnessTex      = YMaterialTex "RoughnessTexture"
 type YRoughnessMaterial = [ YMaterialIntensity "RoughnessIntensity", YTextureMatrix "RoughnessTextureMatrix" ]
 type YRoughnessData     = YMaterialData YRoughnessMaterial YRoughnessTex
 
+type YMetallicTex       = YMaterialTex "MetallicTexture"
+type YMetallicMaterial  = [ YMaterialIntensity "MetallicIntensity", YTextureMatrix "MetallicTextureMatrix" ]
+type YMetallicData      = YMaterialData YMetallicMaterial YMetallicTex
+
 type YDepthTex          = YMaterialTex "DepthTexture"
 type YDepthColor        = YMaterialColor "DepthColor"
 

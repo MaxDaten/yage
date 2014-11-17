@@ -28,15 +28,15 @@ import Yage.Pipeline.Deferred.Common
 
 type GeoPerFrameUni    = PerspectiveUniforms
 
-type GeoPerEntityUni   = [ YModelMatrix
-                         , YNormalMatrix
+type GeoPerEntityUni   = [ YModelMatrix, YNormalMatrix
+                         , YMaterialColor "AlbedoColor"           , YTextureMatrix "AlbedoTextureMatrix"
+                         , YMaterialColor "NormalColor"           , YTextureMatrix "NormalTextureMatrix"
+                         , YMaterialIntensity "RoughnessIntensity", YTextureMatrix "RoughnessTextureMatrix"
+                         , YMaterialIntensity "MetallicIntensity" , YTextureMatrix "MetallicTextureMatrix"
                          ]
-                         ++ YAlbedoMaterial
-                         ++ YNormalMaterial
-                         ++ YRoughnessMaterial
 
 type GeoUniforms       = GeoPerFrameUni ++ GeoPerEntityUni
-type GeoTextures       = [ YAlbedoTex, YNormalTex, YRoughnessTex ]
+type GeoTextures       = [ YMaterialTex "AlbedoTexture", YMaterialTex "NormalTexture", YMaterialTex "RoughnessTexture", YMaterialTex "MetallicTexture" ]
 type GeoVertex         = Vertex (Y'P3TX2TN GLfloat)
 type GeoShader         = Shader GeoUniforms GeoTextures GeoVertex
 
@@ -51,6 +51,7 @@ data GeoMaterial = GeoMaterial
     { _albedoMaterial    :: Material MaterialColorAlpha
     , _normalMaterial    :: Material MaterialColorAlpha
     , _roughnessMaterial :: Material Double
+    , _metallicMaterial  :: Material Double
     }
 
 makeLenses ''GeoMaterial
@@ -77,43 +78,36 @@ geoFragmentProgram = [GLSL.yFragment|
 uniform sampler2D AlbedoTexture;
 uniform sampler2D NormalTexture;
 uniform sampler2D RoughnessTexture;
+uniform sampler2D MetallicTexture;
 
 uniform vec4 AlbedoColor;
 uniform vec4 NormalColor;
 uniform float RoughnessIntensity;
+uniform float MetallicIntensity;
 
 in vec3 VertexPos_View;
 in vec2 AlbedoST;
 in vec2 NormalST;
 in vec2 RoughnessST;
-smooth in mat3 TangentToView;
+in vec2 MetallicST;
 
-// Red Green Blue Depth
-layout (location = 0) out vec4 OutAlbedo;
-layout (location = 1) out vec2 OutNormal;
-// layout (location = 2) out vec3 specularOut;
-// layout (location = 3) out vec3 glossyOut;
-
-
-vec4 GetAlbedoColor()
+Surface GetSurface(void)
 {
-    return AlbedoColor * texture( AlbedoTexture, AlbedoST );
-}
+    Surface surface;
+    surface.Albedo      = texture( AlbedoTexture, AlbedoST ) * AlbedoColor;
+    surface.Roughness   = texture( RoughnessTexture, RoughnessST ).r * RoughnessIntensity;
+    surface.Metallic    = texture( MetallicTexture, MetallicST ).r * MetallicIntensity;
 
-float GetRoughness()
-{
-    return RoughnessIntensity * texture( RoughnessTexture, RoughnessST ).r;
+    surface.Normal      = DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb ) * NormalColor.rgb;
+
+    return surface;
 }
 
 
 void main()
 {
-    OutAlbedo.rgb   = GetAlbedoColor().rgb;
-    OutAlbedo.a     = GetRoughness();
-
-    vec3 texNormal = texture( NormalTexture, NormalST ).rgb;
-    vec3 Normal    = NormalColor.rgb * DecodeTextureNormal( texNormal );
-    OutNormal.rg   = EncodeNormalXY ( normalize ( TangentToView * Normal ) );
+    Surface surface = GetSurface();
+    EncodeGBuffer( surface );
 }
 |]
 -- ============================================================================
@@ -146,7 +140,7 @@ geoPass viewport =
                         }
 
     baseSpec        = mkTextureSpec' (viewport^.rectangle.extend) GL.RGBA
-    normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.HalfFloat GL.RG GL.RG16F
+    normSpec        = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.RGBA GL.RGBA16F
     depthSpec       = mkTextureSpec (viewport^.rectangle.extend) GL.UnsignedByte GL.DepthComponent GL.DepthComponent24
 
 {--
@@ -165,7 +159,8 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
     shaderData = ShaderData uniforms RNil `append`
                  materialUniformsColor (ent^.materials.albedoMaterial) `append`
                  materialUniformsColor (ent^.materials.normalMaterial) `append`
-                 materialUniformsIntensity (ent^.materials.roughnessMaterial)
+                 materialUniformsIntensity (ent^.materials.roughnessMaterial) `append`
+                 materialUniformsIntensity (ent^.materials.metallicMaterial)
     uniforms =
         modelMatrix       =: ( ent^.entityTransformation.transformationMatrix & traverse.traverse %~ realToFrac )           <+>
         normalMatrix      =: ( theNormalMatrix & traverse.traverse %~ realToFrac )
@@ -183,7 +178,8 @@ defaultGeoMaterial =
     let albedoMat    = defaultMaterialSRGB
         normalMat    = defaultMaterialSRGB & matTexture .~ (mkTexture2D "NORMALDUMMY" $ zNormalDummy TexSRGB8)
         roughnessMat = mkMaterial 1.0 $ mkTexture2D "ROUGHDUMMY" $ whiteDummy TexY8
-    in GeoMaterial albedoMat normalMat roughnessMat
+        metallicMat  = mkMaterial 1.0 $ mkTexture2D "METALLDUMMY" $ whiteDummy TexY8
+    in GeoMaterial albedoMat normalMat roughnessMat metallicMat
 
 
 instance Default GeoMaterial where
