@@ -19,8 +19,15 @@ out vec2 AlbedoST;
 out vec2 NormalST;
 out vec2 RoughnessST;
 out vec2 MetallicST;
-out vec3 VertexPos_View;
-out mat3 TangentToView;
+out mat3 TangentInverse;
+
+// Gram-Schmidt
+mat3 orthogonalize ( mat3 basis )
+{
+    vec3 t = basis[0] - dot(basis[2], basis[0]) * basis[2];
+    vec3 b = basis[1] - dot(basis[2], basis[1]) * basis[2] - dot(t, basis[1]) * t;
+    return mat3(normalize(t), normalize(b), normalize(basis[2]));
+}
 
 void main()
 {
@@ -34,11 +41,10 @@ void main()
     RoughnessST          = (RoughnessTextureMatrix * vec4(vTexture, 0.0, 1.0)).st;
     MetallicST           = (MetallicTextureMatrix  * vec4(vTexture, 0.0, 1.0)).st;
     
-    vec3 tangentZ        = normalize( NormalMatrix * vTangentZ.xyz );
-    vec3 tangentX        = normalize( NormalMatrix * vTangentX.xyz );
-    vec3 tangentY        = normalize( cross( tangentZ, tangentX ) * vTangentZ.w );
-    TangentToView        = mat3( tangentX, tangentY, tangentZ );
+    vec3 tangentZ        = NormalMatrix * vTangentZ.xyz;
+    vec3 tangentX        = NormalMatrix * vTangentX.xyz;
+    vec3 tangentY        = normalize(cross( tangentZ, tangentX ) * vTangentZ.w);
+    TangentInverse       = mat3( tangentX, tangentY, tangentZ );
     
-    VertexPos_View  = vec3( ModelToView * vec4(vPosition, 1.0) );
     gl_Position     = ModelToProj * vec4( vPosition, 1.0 );
 }

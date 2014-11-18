@@ -64,7 +64,7 @@ uLightDirection = SField
 -- uLightSpecularExp :: SField YSpecularExp
 -- uLightSpecularExp = SField
 
-type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio ]
+type LitPerFrameUni     = PerspectiveUniforms ++ [ YViewToScreen, YViewportDim, YZProjRatio, "CameraPosition" ::: V3 GLfloat ]
 type LitPerFrameTex     = [ YMaterialTex "inChannelA", YMaterialTex "inChannelB", YDepthTex, YMaterialTex "RadianceEnvironment" ]
 
 type LitPerEntityUni    = '[ YModelMatrix ] ++ YLightAttributes
@@ -145,7 +145,8 @@ litPerFrameData base viewport camera radianceMap = ShaderData lightUniforms attr
         perspectiveUniforms viewport camera     <+>
         viewToScreenMatrix  =: viewToScreenM    <+>
         viewportDim         =: dim              <+>
-        zProjRatio          =: zProj
+        zProjRatio          =: zProj            <+>
+        SField              =: ( realToFrac <$> camera^.cameraLocation )
 
     attributeTextures :: Textures LitPerFrameTex
     attributeTextures =
@@ -166,14 +167,14 @@ instance FramebufferSpec LitPassChannels RenderTargets where
 
 
 toLitEntity :: Viewport Int -> Camera -> Light -> RenderEntity LitVertex (ShaderData LitPerEntityUni '[])
-toLitEntity viewport cam Light{..} = case _lightType of
+toLitEntity viewport _cam Light{..} = case _lightType of
 
     Pointlight{..}      ->
         let transform  = idTransformation & transPosition .~ _pLightPosition
                                           & transScale    .~ pure _pLightRadius
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to viewSpacePos._xyz.to point )
+                        <+> uLightPosition              =: ( realToFrac      <$> _pLightPosition^.to point )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> ( 0 & _z .~ _pLightRadius ) )
                         <+> uLightDirection             =: ( realToFrac      <$> 0.0 )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
@@ -183,14 +184,14 @@ toLitEntity viewport cam Light{..} = case _lightType of
     Spotlight{..}       ->
         let half                = _sLightOuterAngle / 2.0
             basisRadius         = _sLightRadius * sin half / sin (pi / 2.0 - half)
-            normalizedLightDir  = normalize $ _sLightDirection^.to viewSpaceDirection._xyz
+            normalizedLightDir  = normalize $ _sLightDirection
             transform           = idTransformation
                                     & transPosition    .~ ( realToFrac <$> _sLightPosition )
                                     & transScale       .~ V3 basisRadius _sLightRadius basisRadius
                                     & transOrientation .~ lookAt worldSpace ( normalize _sLightDirection )
 
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> transform^.transformationMatrix )
-                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to viewSpacePos._xyz.to point )
+                        <+> uLightPosition              =: ( realToFrac      <$> _sLightPosition^.to point )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> V3 (cos $ _sLightInnerAngle / 2) (cos $ _sLightOuterAngle / 2) _sLightRadius )
                         <+> uLightDirection             =: ( realToFrac      <$> normalizedLightDir )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
@@ -209,7 +210,7 @@ toLitEntity viewport cam Light{..} = case _lightType of
             uniforms   =    modelMatrix                 =: ( fmap realToFrac <$> modelM )
                         <+> uLightPosition              =: ( realToFrac      <$> 0.0 )
                         <+> uConeAnglesAndRadius        =: ( realToFrac      <$> 0.0 )
-                        <+> uLightDirection             =: ( realToFrac      <$> _dLightDirection^.to viewSpaceDirection._xyz )
+                        <+> uLightDirection             =: ( realToFrac      <$> _dLightDirection )
                         <+> uLightColor                 =: ( realToFrac      <$> lightEnergy )
             renderData = mkFromVerticesF "dlight" . vertices . triangles $ targetFace
 
@@ -218,8 +219,8 @@ toLitEntity viewport cam Light{..} = case _lightType of
     where
     worldSpace           = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
     lightEnergy          = _lightColor ^* _lightIntensity
-    viewSpacePos p       = cam^.cameraMatrix !* point p
-    viewSpaceDirection d = normalize $ cam^.cameraMatrix !* vector d
+    -- viewSpacePos p       = cam^.cameraMatrix !* point p
+    -- viewSpaceDirection d = normalize $ cam^.cameraMatrix !* vector d
     lightVolumeSettings  = GLDrawSettings GL.Triangles (Just GL.Front)
 
     targetFace           :: Face LitVertex

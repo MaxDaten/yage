@@ -19,9 +19,9 @@
 
 
 uniform samplerCube RadianceEnvironment;
+uniform vec3 CameraPosition;
 
 in vec4 ScreenPos;
-in mat4 ViewToWorld;
 
 
 // Light in view space (Position, Direction, etc)
@@ -85,7 +85,7 @@ vec3 DiffuseTerm ( Surface surface )
 
 float SpotAttenuation( vec3 L, LightData light )
 {
-    vec3 direction = -light.LightDirection;
+    vec3 direction = light.LightDirection;
     float inner = light.LightConeAnglesAndRadius.x;
     float outer = light.LightConeAnglesAndRadius.y;
     return square(saturate( dot(L, direction) - outer ) / (outer -  inner) );
@@ -96,10 +96,10 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     // vector from origin (view space) to lit point
     vec3 P  = surface.Position;
     vec3 L  = -light.LightDirection;
-    vec3 N   = surface.Normal;
+    vec3 N  = surface.Normal;
 
     // direction from lit point to the view
-    vec3 V  = normalize(-P);
+    vec3 V  = normalize( CameraPosition - P );
 
     float Attenuation = 1.0;
 
@@ -132,20 +132,17 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     {
         DiffuseShading  = DiffuseTerm( surface );
         SpecularShading = ReflectanceTerm( surface, L, V );
-        // DiffuseShading  *= light.LightColor.rgb * NoL * Attenuation;
-        // SpecularShading *= light.LightColor.rgb * NoL * Attenuation;
-        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading+SpecularShading); // <<<<
+        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading); // <<<<
     }
-    vec3 R   = vec3(ViewToWorld * vec4(reflect( -V, N ), 0.0));
-    vec3 WorldNormal = vec3(ViewToWorld * vec4(N, 0.0));
+    vec3 R   = reflect( -V, N );
 
     //...
     // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
-    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, WorldNormal, 5 ).rgb;
+    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
     vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
-    OutColor += DiffuseShading + DiffuseAmbient;
-    OutColor += SpecularShading + SpecularAmbient;
+    OutColor += DiffuseAmbient;
+    OutColor += SpecularAmbient;
 
     return OutColor;
 }
@@ -157,7 +154,6 @@ void main()
     Surface surface = DecodeGBuffer( gBufferUV );
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
-    
     // pixelColor.rgb = vec3(surface.Roughness);
     // pixelColor.rgb  += vec3(0.05, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);

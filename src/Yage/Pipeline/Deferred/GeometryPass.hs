@@ -69,7 +69,7 @@ type GeoPassScene env = Scene Camera GeoEntity env
 -------------------------------------------------------------------------------
 -- | Fragment code
 geoFragmentProgram :: GLSL.ShaderSource FragmentShader
-geoFragmentProgram = [GLSL.yFragment|
+geoFragmentProgram = [yFragment|
 #version 410 core
 
 #include "pass/Common.glsl"
@@ -85,11 +85,14 @@ uniform vec4 NormalColor;
 uniform float RoughnessIntensity;
 uniform float MetallicIntensity;
 
-in vec3 VertexPos_View;
+uniform mat4 ModelMatrix         = mat4(1.0);
+
 in vec2 AlbedoST;
 in vec2 NormalST;
 in vec2 RoughnessST;
 in vec2 MetallicST;
+in mat3 TangentInverse;
+
 
 Surface GetSurface(void)
 {
@@ -98,8 +101,8 @@ Surface GetSurface(void)
     surface.Roughness   = texture( RoughnessTexture, RoughnessST ).r * RoughnessIntensity;
     surface.Metallic    = texture( MetallicTexture, MetallicST ).r * MetallicIntensity;
 
-    surface.Normal      = DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb ) * NormalColor.rgb;
-
+    surface.Normal      = normalize( TangentInverse * DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb ) );
+    UNUSED(NormalColor);
     return surface;
 }
 
@@ -170,7 +173,7 @@ toGeoEntity camera ent = toRenderEntity shaderData ent
         let invCam        = camera & cameraTransformation %~ inverseTransformation
             invViewM      = fmap realToFrac <$> invCam^.cameraMatrix
             invModelM     = ent^.entityTransformation.to inverseTransformation.transformationMatrix
-        in adjoint $ invModelM^.to m44_to_m33 !*! invViewM^.to m44_to_m33
+        in adjoint $ invModelM^.to m44_to_m33 -- !*! invViewM^.to m44_to_m33
 
 
 defaultGeoMaterial :: GeoMaterial

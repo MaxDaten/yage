@@ -8,13 +8,13 @@
 
 /*
     0 : simple z reconstruction
-    1 : spherical map transformation
+    1 : spherical map transformation (view space)
+    2 : octahedron transformation (world space)
 */
-#define NORMAL_ENCODING_TYPE 1
+#define NORMAL_ENCODING_TYPE 2
 // Red Green Blue Depth
 layout (location = 0) out vec4 channelA;
 layout (location = 1) out vec4 channelB;
-smooth in mat3 TangentToView;
 
 
 uniform sampler2D inChannelA;
@@ -22,6 +22,7 @@ uniform sampler2D inChannelB;
 uniform sampler2D DepthTexture;
 uniform vec2 ZProjRatio;
 in vec3 VertexPosVS;
+in mat4 ViewToWorld;
 
 
 struct Surface 
@@ -57,7 +58,7 @@ vec3 DecodeNormalZ( vec2 Normal )
 
 vec2 EncodeNormalSpheremap( vec3 Normal )
 {
-    return normalize( Normal.xy ) * sqrt( Normal.z * 0.5 + 0.5 );
+    return normalize( Normal.xy ) * sqrt( Normal.z );
 }
 
 
@@ -65,11 +66,35 @@ vec3 DecodeNormalSpheremap( vec4 NormalEncoded )
 {
     vec3 NN = NormalEncoded.xyz;
 
-    NN.z      = dot( NN.xy, NN.xy ) * 2.0 - 1.0;
+    NN.z      = dot( NN.xy, NN.xy );
     NN.xy     = normalize(NN.xy) * sqrt( 1 - NN.z * NN.z );
     return NN;
 }
 
+// [http://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/]
+vec2 OctWrap( vec2 v )
+{
+    return ( 1.0 - abs( v.yx ) ) * vec2( v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0 );
+}
+
+vec2 EncodeNormalOctahedron( vec3 n )
+{
+    n.xy /= dot( vec3(1.0), abs(n));
+    n.xy = n.z <= 0.0 ? OctWrap( n.xy ) : n.xy;
+    // n.xy = n.xy;// * 0.5 + 0.5;
+    return n.xy;
+}
+ 
+vec3 DecodeNormalOctahedron( vec2 encN )
+{
+    // encN = encN * 2.0 - 1.0;
+ 
+    vec3 n;
+    n.z = 1.0 - dot( vec2(1.0), abs( encN ));
+    n.xy = n.z < 0.0 ? OctWrap( encN.xy ) : encN.xy;
+    n = normalize( n );
+    return n;
+}
 
 vec2 EncodeNormalXY( vec3 Normal )
 {
@@ -77,6 +102,8 @@ vec2 EncodeNormalXY( vec3 Normal )
     return Normal.rg;
 #elif NORMAL_ENCODING_TYPE == 1
     return EncodeNormalSpheremap( Normal );
+#elif NORMAL_ENCODING_TYPE == 2
+    return EncodeNormalOctahedron( Normal );
 #endif
 }
 
@@ -87,6 +114,8 @@ vec3 DecodeNormalXY( vec2 Normal )
     return DecodeNormalZ( Normal );
 #elif NORMAL_ENCODING_TYPE == 1
     return DecodeNormalSpheremap( vec4(Normal, 0, 0) );
+#elif NORMAL_ENCODING_TYPE == 2
+    return DecodeNormalOctahedron( Normal );
 #endif
 }
 
@@ -96,7 +125,7 @@ void EncodeGBuffer( Surface surface )
     channelA.rgb   = surface.Albedo.rgb;
     channelA.a     = surface.Roughness;
 
-    channelB.rg    = EncodeNormalXY ( normalize ( TangentToView * surface.Normal ) );
+    channelB.rg    = EncodeNormalXY ( normalize ( surface.Normal ) );
     
     channelB.b     = surface.Metallic;
     channelB.a     = 0.0; // currently unused
@@ -112,12 +141,14 @@ Surface DecodeGBuffer( vec2 uv )
     Surface surface;
 
     // extrapolate the view space position of the pixel to the zFar plane
-    surface.Position  = PositionVSFromDepth( bufferDepth, ZProjRatio, VertexPosVS );
+    vec4 position  = ViewToWorld * vec4(PositionVSFromDepth( bufferDepth, ZProjRatio, VertexPosVS ), 1.0);
+    surface.Position = position.xyz;
+
     surface.Albedo    = vec4(chA.rgb, 1.0);
     surface.Roughness = max(chA.a, 0.02);
     surface.Specular  = vec3(0.5);
-    surface.Normal    = normalize( DecodeNormalXY( chB.rg ) );
-    surface.Metallic  = chB.b;
+    surface.Normal    = DecodeNormalXY( chB.rg );
+    surface.Metallic  = 1.0; //chB.b;
 
     surface.Specular = mix( 0.08 * surface.Specular, surface.Albedo.rgb, vec3(surface.Metallic));
     surface.Albedo   -= surface.Albedo * surface.Metallic;

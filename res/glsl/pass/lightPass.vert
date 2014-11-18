@@ -30,6 +30,7 @@ void main()
     // directional light
     else
     {
+        // we render a full screen quad for directional lights
         VertexPosVS     = (ViewToScreenMatrix * ModelMatrix * vec4(vPosition.xy, 1.0, 0.0)).xyz;
         OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
     }
