@@ -33,80 +33,81 @@ Flag library-only
 
 library
   hs-source-dirs:       src/
-  exposed-modules:      Yage
-                        Yage.Font
-                        Yage.Scene
-                        Yage.Camera
-                        Yage.Light
+  exposed-modules:      
+    Yage
+    Yage.Font
+    Yage.Scene
+    Yage.Camera
+    Yage.Light
 
-                        Yage.Resources
-                        Yage.Material
-                        Yage.Texture
-                        Yage.Images
-                        Yage.Color
-                        Yage.Geometry
-                        Yage.Viewport
-                        Yage.Transformation
-                        Yage.HDR
-                        
-                        Yage.Uniforms
-                        Yage.Uniforms.Material
-                        Yage.Uniforms.MVP
-                        Yage.Uniforms.Camera
-                        
-                        Yage.Image.SDF
-                        Yage.Image.BilinearInterpolation
+    Yage.Resources
+    Yage.Material
+    Yage.Texture
+    Yage.Images
+    Yage.Color
+    Yage.Geometry
+    Yage.Viewport
+    Yage.Transformation
+    Yage.HDR
+    
+    Yage.Uniforms
+    Yage.Uniforms.Material
+    Yage.Uniforms.MVP
+    Yage.Uniforms.Camera
+    
+    Yage.Image.SDF
+    Yage.Image.BilinearInterpolation
 
-                        Yage.Formats.Obj.Parser
-                        Yage.Formats.Obj
-                        Yage.Formats.Ygm
-                        Yage.Formats.Font
-                        Yage.Formats.AMDCubeMap
-                        
-                        Yage.UI
-                        Yage.UI.GUI
-                        
-                        Yage.Wire
-                        Yage.Wire.Movement
-                        Yage.Wire.Input
-                        Yage.Wire.Analytic
-                        Yage.Wire.Resources
-                        Yage.Wire.Utils
-                        Yage.Wire.Debug
+    Yage.Formats.Obj.Parser
+    Yage.Formats.Obj
+    Yage.Formats.Ygm
+    Yage.Formats.Font
+    Yage.Formats.AMDCubeMap
+    
+    Yage.UI
+    Yage.UI.GUI
+    
+    Yage.Wire
+    Yage.Wire.Movement
+    Yage.Wire.Input
+    Yage.Wire.Analytic
+    Yage.Wire.Resources
+    Yage.Wire.Utils
+    Yage.Wire.Debug
 
-                        Yage.Texture.Atlas
-                        Yage.Texture.Atlas.Builder
-                        Yage.Texture.TextureAtlas
-                        Yage.Texture.CubeImageLayout
+    Yage.Texture.Atlas
+    Yage.Texture.Atlas.Builder
+    Yage.Texture.TextureAtlas
+    Yage.Texture.CubeImageLayout
 
-                        Yage.Rendering.RenderSystem
-                        Yage.Rendering.Resources.GL.Base
-                        Yage.Rendering.Resources.GL.Buffer
-                        Yage.Rendering.Resources.GL.Framebuffer
-                        Yage.Rendering.Resources.GL.Renderbuffer
-                        Yage.Rendering.Resources.GL.Shader
-                        Yage.Rendering.Resources.GL.Texture
-                        Yage.Rendering.Resources.GL.TextureFormat
+    Yage.Rendering.RenderSystem
+    Yage.Rendering.Resources.GL.Base
+    Yage.Rendering.Resources.GL.Buffer
+    Yage.Rendering.Resources.GL.Framebuffer
+    Yage.Rendering.Resources.GL.Renderbuffer
+    Yage.Rendering.Resources.GL.Shader
+    Yage.Rendering.Resources.GL.Texture
+    Yage.Rendering.Resources.GL.TextureFormat
 
-                        Yage.Pipeline.Deferred
-                        Yage.Pipeline.Types
-                        
-                        Yage.Pipeline.Deferred.Common
-                        Yage.Pipeline.Deferred.HDR
-                        Yage.Pipeline.Deferred.GeometryPass
-                        Yage.Pipeline.Deferred.LightPass
-                        Yage.Pipeline.Deferred.ToneMapPass
-                        Yage.Pipeline.Deferred.SkyPass
-                        Yage.Pipeline.Deferred.ScreenPass
-                        Yage.Pipeline.Deferred.DownsamplePass
-                        Yage.Pipeline.Deferred.GlareDetectionPass
-                        Yage.Pipeline.Deferred.AdditiveCompose
-                        Yage.Pipeline.Deferred.BrightFilter
-                        Yage.Pipeline.Deferred.GaussFilter
-                        Yage.Pipeline.Deferred.Sampler
-                        Yage.Pipeline.Deferred.GuiPass
-                        
-                        Yage.TH.Shader
+    Yage.Pipeline.Deferred
+    Yage.Pipeline.Types
+    
+    Yage.Pipeline.Deferred.Common
+    Yage.Pipeline.Deferred.HDR
+    Yage.Pipeline.Deferred.GeometryPass
+    Yage.Pipeline.Deferred.LightPass
+    Yage.Pipeline.Deferred.ToneMapPass
+    Yage.Pipeline.Deferred.SkyPass
+    Yage.Pipeline.Deferred.ScreenPass
+    Yage.Pipeline.Deferred.DownsamplePass
+    Yage.Pipeline.Deferred.GlareDetectionPass
+    Yage.Pipeline.Deferred.AdditiveCompose
+    Yage.Pipeline.Deferred.BrightFilter
+    Yage.Pipeline.Deferred.GaussFilter
+    Yage.Pipeline.Deferred.Sampler
+    Yage.Pipeline.Deferred.GuiPass
+    
+    Yage.TH.Shader
 
   other-modules:        Paths_yage
                         Yage.Font.TextBuffer
