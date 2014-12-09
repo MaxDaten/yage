@@ -25,7 +25,8 @@ import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
-import             Yage.Rendering
+
+import             Yage.Rendering.RenderSystem
 import             Yage.Pipeline.Types
 
 import             Yage.UI

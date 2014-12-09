@@ -45,7 +45,7 @@ library
     Yage.Texture
     Yage.Images
     Yage.Color
-    Yage.Geometry
+--    Yage.Geometry
     Yage.Viewport
     Yage.Transformation
     Yage.HDR
@@ -127,26 +127,26 @@ library
 
   default-language:     Haskell2010
   default-extensions:   
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        BangPatterns
-                        UnicodeSyntax
-                        LambdaCase
-                        PatternGuards
-                        RecordWildCards
-                        
-                        MultiParamTypeClasses
-                        FlexibleInstances
-                        TypeSynonymInstances
-                        DataKinds
-                        ConstraintKinds
+    NoImplicitPrelude
+    OverloadedStrings
+    BangPatterns
+    UnicodeSyntax
+    LambdaCase
+    PatternGuards
+    RecordWildCards
+    
+    MultiParamTypeClasses
+    FlexibleInstances
+    TypeSynonymInstances
+    DataKinds
+    ConstraintKinds
 
-                        StandaloneDeriving
-                        DeriveFunctor
-                        DeriveDataTypeable
-                        DeriveTraversable
-                        DeriveFoldable
-                        DeriveGeneric
+    StandaloneDeriving
+    DeriveFunctor
+    DeriveDataTypeable
+    DeriveTraversable
+    DeriveFoldable
+    DeriveGeneric
 
   build-depends:          base                  < 5
                         , template-haskell      < 3

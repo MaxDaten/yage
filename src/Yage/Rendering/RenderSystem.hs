@@ -62,6 +62,7 @@ runPipeline scene sys = do
   (t,_,_) <- runRWST (runSys sys) scene ()
   return t
 
+{--
 type Viewport = V2 Int
 data Env = Env
   { _envViewport :: Viewport }
@@ -76,6 +77,7 @@ data Scene = Scene
   , sceneViewport :: Viewport
   }
 makeFields ''Scene
+
 
 mkGeoPass :: (MonadIO m, Functor m, HasViewport env Viewport) => Acquire (RenderSystem m env (Texture PixelRGBA8, Texture PixelRGBA8, Texture PixelRGBA8))
 mkGeoPass = do
@@ -110,3 +112,4 @@ main = -- the pipeline
       lit     <- lightPass -< gbuffer
       screenPass  -< lit
   -- end pipeline
+--}
