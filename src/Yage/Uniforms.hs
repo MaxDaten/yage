@@ -1,10 +1,2 @@
-module Yage.Uniforms
-    ( module Uniforms
-    ) where
-
-import Yage.Uniforms.MVP                        as Uniforms
-import Yage.Uniforms.Material                   as Uniforms
-import Yage.Uniforms.Camera                     as Uniforms
-
-import Yage.Rendering.Shader                    as Uniforms
+module Yage.Uniforms where
 
