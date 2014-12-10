@@ -1,21 +1,21 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Yage.Images
-  ( module Yage.Images
-  , module Tex
+module Yage.Image
+  ( module Yage.Image
   , module Color
+  , module Img
   ) where
 
+import           Yage.Lens
+import           Yage.Math
+import           Yage.Prelude
 
-import Yage.Prelude
-import Yage.Math
-import Yage.Lens
+import           Yage.Color
 
-import Yage.Color
+import           Codec.Picture              as Img
+import           JuicySRGB                  as Color
+import           Quine.Image                as Img
 
-import Yage.Rendering.Textures                  as Tex
-import JuicySRGB                                as Color
-
-import Yage.Geometry.D2.Rectangle
+import           Yage.Geometry.D2.Rectangle
 
 type ImageDimension = V2 Int
 type ImagePosition = V2 Int
