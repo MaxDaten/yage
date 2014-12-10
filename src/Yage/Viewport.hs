@@ -4,22 +4,24 @@
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Viewport
     ( module Yage.Viewport
-    , module Rectangle
     ) where
 
 import Yage.Prelude
 import Yage.Math
+import Yage.Rendering.GL
 import Yage.Lens
-import Yage.Geometry.D2.Rectangle as Rectangle (Rectangle(..), GetRectangle(..), HasRectangle(..), rectangle, asRectangle, extend)
+import Data.Data
+import Foreign.Marshal.Array
+import Quine.StateVar
+import Yage.Geometry.D2.Rectangle
 
 data Viewport a = Viewport
-    { _viewportRect       :: Rectangle a
-      -- ^ as xy1 und xy2, with 0/0 top/left
-    , _viewportPixelRatio :: V2 Double
-    -- ^ usually 1:1, on retina displays 2:2
-    , _viewportGamma      :: Float
-    }
-    deriving ( Typeable, Functor, Show, Eq, Generic )
+  { _viewportRect       :: Rectangle a
+    -- ^ as xy1 und xy2, with 0/0 top/left
+  , _viewportPixelRatio :: V2 Double
+  -- ^ usually 1:1, on retina displays 2:2
+  , _viewportGamma      :: Float
+  } deriving (Show,Eq,Functor,Data,Typeable,Generic)
 
 makeLenses ''Viewport
 
@@ -29,28 +31,24 @@ instance HasRectangle (Viewport Int) Int where
     {-# INLINE rectangle #-}
 
 
-glViewport :: HasRectangle t Int => Getter t (GL.Position, GL.Size)
-glViewport = rectangle.to get where
-    get :: Rectangle Int -> (GL.Position, GL.Size)
-    get rect@( Rectangle (V2 x y) _ ) =
-        let (V2 w h) = rect^.extend
-        in ( GL.Position ( fromIntegral $ x ) ( fromIntegral $ y )
-           , GL.Size     ( fromIntegral $ w ) ( fromIntegral $ h )
-           )
-
-
+viewport :: StateVar (Rectangle Int)
+viewport = StateVar g s where
+  g = do
+    [x,y,w,h] <- fmap fromIntegral <$> (allocaArray 4 $ \ptr -> glGetIntegerv GL_VIEWPORT ptr >> peekArray 4 ptr)
+    return $ Rectangle (V2 x y) (V2 w h)
+  s (Rectangle (V2 x y) (V2 w h)) = glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
 
 -- | creates the projectiom matrix for the given viewport
 -- for Camera2D: create an orthographic matrix with origin at the
 -- top left corner of the screen
 -- for Camera3D: creates a perspective projection matrix
 projectionMatrix3D :: (Conjugate a, Epsilon a, RealFloat a) => a -> a -> a -> Rectangle a -> M44 a
-projectionMatrix3D zNear zFar fov (Rectangle _ wh) = Cam.projectionMatrix
-        ( realToFrac fov )
-        ( wh^._x / wh^._y )
-        ( realToFrac $ zNear )
-        ( realToFrac $ zFar )
-
+projectionMatrix3D zNear zFar fov (Rectangle _ wh) =
+  perspective
+    ( realToFrac fov )
+    ( wh^._x / wh^._y )
+    ( realToFrac $ zNear )
+    ( realToFrac $ zFar )
 
 -- | glOrtho convention
 orthographicMatrix :: (Conjugate a, Epsilon a, RealFloat a)

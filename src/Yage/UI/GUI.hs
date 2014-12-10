@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -funbox-strict-fields            #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.UI.GUI
     ( module Yage.UI.GUI
@@ -8,17 +9,22 @@ import           Yage.Prelude
 import           Yage.Lens
 import           Yage.Math               hiding ( lerp )
 
+import           Data.Data
 import           Yage.Font
+import           Yage.Rendering.Mesh
 import           Yage.Camera
 import           Yage.Geometry
-import           Yage.Rendering
 import           Yage.Transformation
-
-import           Yage.Rendering.Textures
-
+import           Quine.GL.Types
 import qualified Data.Map.Lazy           as M
 
-type GUIVertex = Vertex (Y'P2TX2C4 GLfloat)
+data GUIVertex = GUIVertex
+    { guiPosition :: !Vec2
+    , guiTexture  :: !Vec2
+    , guiColor    :: !Vec4
+    } deriving (Eq,Ord,Show,Data,Typeable,Generic)
+
+makeLenses ''GUIVertex
 
 data GUIElementType = TXT | SDF | IMG
     deriving ( Show, Enum )
