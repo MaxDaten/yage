@@ -7,12 +7,12 @@ module Yage.Rendering.Resources.GL.Texture (
   , resizeTexture2D
   ) where
 
-import           Yage.Core.OpenGL
 import           Yage.Prelude
+import           Yage.Rendering.GL
 
 import           Data.Data
 import           Foreign.Ptr
-import           Yage.Rendering.Backend.Resource
+import           Yage.Rendering.Resources.GL.Base
 
 import           Codec.Picture                   as Img
 import           Codec.Picture.Types             as Img

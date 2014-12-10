@@ -2,33 +2,27 @@
 module Yage.Rendering.Resources.GL.Renderbuffer
   ( Renderbuffer
   , createRenderbuffer
-  , module Yage.Rendering.Backend.TextureFormat
+  , resizeRenderbuffer
+  , module TextureFormat
   ) where
 
-import           Yage.Core.OpenGL
 import           Yage.Prelude
+import           Yage.Rendering.GL
 
-import           Data.Data
-import qualified Quine.GL.Renderbuffer                as GL
+import           Quine.GL.Renderbuffer
 import           Quine.Image
 import           Quine.StateVar
-import           Yage.Rendering.Backend.Resource
-import           Yage.Rendering.Backend.TextureFormat
+import           Yage.Rendering.Resources.GL.Base
+import           Yage.Rendering.Resources.GL.TextureFormat as TextureFormat
 
 
-
-newtype Renderbuffer a = Renderbuffer (GL.Renderbuffer)
-  deriving( Show,Eq,Ord,Data,Typeable,Generic )
-
-createRenderbuffer :: forall a. ImageFormat a => Int -> Int -> Acquire (Renderbuffer a)
+createRenderbuffer :: ImageFormat a => Int -> Int -> Acquire (Renderbuffer a)
 createRenderbuffer width height = do
   rbuff <- glResource
-  GL.boundRenderbuffer GL.RenderbufferTarget $= rbuff
-  glRenderbufferStorage GL_RENDERBUFFER (fromIntegral $ internalFormat (Proxy::Proxy a)) (fromIntegral width) (fromIntegral height)
-  return $ Renderbuffer rbuff
+  resizeRenderbuffer rbuff width height
 
-resizeRenderbuffer :: MonadIO m => Renderbuffer a -> m (Renderbuffer a)
-resizeRenderbuffer rbuff = do
-  GL.boundRenderbuffer GL.RenderbufferTarget $= rbuff
+resizeRenderbuffer :: forall a m. (ImageFormat a, MonadIO m) => Renderbuffer a -> Int -> Int -> m (Renderbuffer a)
+resizeRenderbuffer rbuff width height = do
+  boundRenderbuffer RenderbufferTarget $= rbuff
   glRenderbufferStorage GL_RENDERBUFFER (fromIntegral $ internalFormat (Proxy::Proxy a)) (fromIntegral width) (fromIntegral height)
   return rbuff

@@ -16,7 +16,7 @@ module Yage.Rendering.Resources.GL.TextureFormat
   ) where
 
 import           Yage.Prelude
-import           Yage.Core.OpenGL
+import           Yage.Rendering.GL
 
 import           Codec.Picture
 import           Data.Data

@@ -18,7 +18,6 @@ module Yage.Rendering.RenderSystem
 
 import           Yage.Lens                          hiding (elements)
 import           Yage.Prelude                       hiding (Element, pass)
-import           Yage.Core.OpenGL
 
 import           Control.Arrow
 import           Control.Monad.Trans.Resource

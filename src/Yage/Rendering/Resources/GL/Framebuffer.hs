@@ -11,16 +11,16 @@ module Yage.Rendering.Resources.GL.Framebuffer
   , createFramebuffer
   ) where
 
-import Yage.Prelude
-import Yage.Core.OpenGL
+import           Yage.Prelude
+import           Yage.Rendering.GL
 
-import Control.Monad
-import Control.Exception
-import Data.Foldable
+import           Control.Exception
+import           Control.Monad
+import           Data.Foldable
 
-import Quine.StateVar
-import Quine.GL.Framebuffer
-import Yage.Rendering.Backend.Resource
+import           Quine.GL.Framebuffer
+import           Quine.StateVar
+import           Yage.Rendering.Resources.GL.Base
 
 data Attachment = forall a. FramebufferAttachment a => Attachment a
 

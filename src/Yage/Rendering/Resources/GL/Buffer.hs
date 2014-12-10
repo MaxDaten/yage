@@ -7,7 +7,7 @@ module Yage.Rendering.Resources.GL.Buffer
 
 import           Yage.Prelude
 
-import           Yage.Rendering.Backend.Resource
+import           Yage.Rendering.Resources.GL.Base
 
 import           Quine.GL.Buffer            as Img
 import           Quine.StateVar

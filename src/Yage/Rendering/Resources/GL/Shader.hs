@@ -1,5 +1,7 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TupleSections   #-}
+
 module Yage.Rendering.Resources.GL.Shader
   ( compileProgram
   , createShaderPipeline
@@ -7,10 +9,10 @@ module Yage.Rendering.Resources.GL.Shader
   , fileToShaderType
   ) where
 
-import           Quine.GL.ProgramPipeline
-import           Yage.Core.OpenGL
 import           Yage.Prelude
-import           Yage.Rendering.Backend.Resource
+import           Quine.GL.ProgramPipeline
+import           Yage.Rendering.GL
+import           Yage.Rendering.Resources.GL.Base
 
 import           Quine.GL                        as GL ()
 import           Quine.GL.Program
@@ -35,6 +37,7 @@ shaderTypeToPipelineStage = \case
   GL_GEOMETRY_SHADER        -> GL_GEOMETRY_SHADER_BIT
   GL_FRAGMENT_SHADER        -> GL_FRAGMENT_SHADER_BIT
   GL_COMPUTE_SHADER         -> GL_COMPUTE_SHADER_BIT
+  _                         -> error "unknown ShaderType"
 
 compileProgram :: MonadIO m => FilePath -> [FilePath] -> m (ShaderType, Program)
 compileProgram fp paths = do
