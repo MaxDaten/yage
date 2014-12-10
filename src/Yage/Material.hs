@@ -1,22 +1,20 @@
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+
 module Yage.Material
     ( module Yage.Material
     , module Material
-    , module Comonad
-    , Cube(..)
     ) where
 
 import Yage.Prelude
 import Yage.Lens
-import Yage.Images                   as Material
+import Yage.Image                    as Material
 import Yage.Color                    as Material
-import Yage.Rendering.Resources      as Material
 import Yage.Transformation           as Material
 
-import Control.Comonad               as Comonad ( extract )
 import Linear (V3(..), (^*), Quaternion)
 
 
@@ -25,71 +23,67 @@ type MaterialColorAlpha  = AlphaColour Double
 type MaterialPixel       = ColourPixel Double
 -- | resulting texel color will be matColor * matTexture
 -- so white matColor will result in 100% color from matTexture
-data Material col = Material
-    { _matColor          :: !col
-    , _matTexture        :: !Texture
-    , _matTransformation :: !( Transformation Double )
+data Material col tex = Material
+    { _matColor          :: col
+    , _matTexture        :: tex
+    , _matTransformation :: Transformation Double
     }
 
 makeLenses ''Material
 
 
-pxTexture :: MaterialPixel pixel => TextureCtr pixel -> MaterialColor -> TextureImage
-pxTexture ctr = mkTextureImg ctr . constColorPx
+whiteDummy :: MaterialPixel a => Image a
+whiteDummy = constColorPx (white :: Colour Double)
 
 
-whiteDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
-whiteDummy = (`pxTexture` white)
+blackDummy :: MaterialPixel a => Image a
+blackDummy = constColorPx (black :: Colour Double)
 
 
-blackDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
-blackDummy = (`pxTexture` black)
-
-
-redDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
-redDummy = (`pxTexture` red)
+redDummy :: MaterialPixel a => Image a
+redDummy = constColorPx (red :: Colour Double)
 
 
 -- | 1px normal `TextureImage`
 --
 -- asumes an already normalized argument
-constantNormal :: MaterialPixel pixel => V3 Double -> TextureCtr pixel -> TextureImage
-constantNormal normal ctr =
+constantNormal :: MaterialPixel a => V3 Double -> Image a
+constantNormal normal =
     let (V3 nx ny nz) = normal ^* 0.5 + 0.5
-    in ctr `pxTexture` (rgb nx ny nz)
+    in constColorPx (rgb nx ny nz)
 
 
-zeroNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
+zeroNormalDummy :: MaterialPixel a => Image a
 zeroNormalDummy = constantNormal (V3 0 0 0)
 
 
-zNormalDummy :: MaterialPixel pixel => TextureCtr pixel -> TextureImage
+zNormalDummy :: MaterialPixel a => Image a
 zNormalDummy = constantNormal (V3 0 0 1)
 
 
-mkMaterial :: col -> Texture -> Material col
+mkMaterial :: col -> Image a -> Material col (Image a)
 mkMaterial color texture = Material color texture idTransformation
 
 
-defaultMaterial :: (MaterialPixel pixel, Default col) => TextureCtr pixel -> Material col
-defaultMaterial ctr = mkMaterial def $ mkTexture2D "WHITEDUMMY" (whiteDummy ctr)
+defaultMaterial :: (MaterialPixel a, Default col) => Material col (Image a)
+defaultMaterial = mkMaterial def whiteDummy
 
 
-defaultMaterialSRGB :: Material MaterialColorAlpha
-defaultMaterialSRGB = defaultMaterial TexSRGB8
+defaultMaterialSRGB :: Material MaterialColorAlpha (Image PixelRGB8)
+defaultMaterialSRGB = defaultMaterial
 
 
-instance Default (Material MaterialColorAlpha) where
+instance Default (Material MaterialColorAlpha (Image PixelRGB8)) where
     def = defaultMaterialSRGB
 
 --  Lens Shortcuts & Aliases
 
-stpFactor :: Lens' (Material col) (V3 Double)
+stpFactor :: Lens' (Material col i) (V3 Double)
 stpFactor = matTransformation.transScale
 
-stpOffset :: Lens' (Material col) (V3 Double)
+stpOffset :: Lens' (Material col i) (V3 Double)
 stpOffset = matTransformation.transPosition
 
-stpOrientation :: Lens' (Material col) (Quaternion Double)
+stpOrientation :: Lens' (Material col i) (Quaternion Double)
 stpOrientation = matTransformation.transOrientation
 
