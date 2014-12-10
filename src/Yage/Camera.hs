@@ -2,28 +2,43 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Yage.Camera
-    ( Camera(..), HasCamera(..)
-    ) where
+  ( Camera(..), HasCamera(..)
+  , idCamera
+  ) where
 
 
 import Yage.Prelude
 import Yage.Lens
 import Yage.Transformation
 
-import           Linear                              hiding (lerp, slerp)
-import qualified Linear                              (lerp,slerp)
-import Data.Data
+import           Data.Data
+import           Linear    hiding (lerp, slerp)
+import qualified Linear    (lerp, slerp)
 
 data Camera = Camera
-    { _cameraFovy        :: !Double
-    , _cameraPosition    :: !(V3 Double)
-    , _cameraOrientation :: !(Quaternion Double)
-    , _cameraNearZ       :: !Double
-    , _cameraFarZ        :: !Double
-    } deriving (Show,Eq,Ord,Data,Typeable,Generic)
+  { _cameraFovy        :: !Double
+  -- ^ vertical field of view angle in radians
+  , _cameraPosition    :: !(V3 Double)
+  , _cameraOrientation :: !(Quaternion Double)
+  , _cameraNearZ       :: !Double
+  , _cameraFarZ        :: !Double
+  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
 
 makeClassy ''Camera
+
+-- | Creates a 'Camera' positioned at the origin
+idCamera :: Double -> Double -> Double -> Camera
+idCamera fovy near far = Camera fovy 0 1 near far
+
+instance Default Camera where
+  def = idCamera (3*pi/8) 0.1 1000
+
+instance HasPosition Camera (V3 Double) where
+  position = cameraPosition
+
+instance HasOrientation Camera (Quaternion Double) where
+  orientation = cameraOrientation
 
 instance LinearInterpolatable Camera where
   lerp alpha u v =
