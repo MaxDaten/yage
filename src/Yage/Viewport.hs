@@ -12,11 +12,6 @@ import Yage.Math
 import Yage.Lens
 import Yage.Geometry.D2.Rectangle as Rectangle (Rectangle(..), GetRectangle(..), HasRectangle(..), rectangle, asRectangle, extend)
 
-import Yage.Core.OpenGL as GL (Position(..), Size(..))
-import qualified Graphics.GLUtil.Camera3D            as Cam
-
-
-
 data Viewport a = Viewport
     { _viewportRect       :: Rectangle a
       -- ^ as xy1 und xy2, with 0/0 top/left
