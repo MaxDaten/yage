@@ -1,6 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Yage.Image
-  ( module Yage.Image
+  ( constImage
+  , constColorImage
+  , constPx
+  , constColorPx
+  , subImage
+  , imageDimension
+  , imageRectangle
+  , imageByAreaCompare
   , module Color
   , module Img
   ) where
@@ -11,15 +18,20 @@ import           Yage.Lens
 import           Yage.Math
 import           Yage.Color
 import           Codec.Picture              as Img
+import           Codec.Picture.Types
 import           JuicySRGB                  as Color
 import           Quine.Image                as Img
 import           Yage.Geometry.D2.Rectangle
 
+type Texture = DynamicImage
 type ImageDimension = V2 Int
 type ImagePosition = V2 Int
 
 instance GetRectangle (Image p) Int where
-    asRectangle = to imageRectangle
+  asRectangle = to imageRectangle
+
+instance GetRectangle Texture Int where
+  asRectangle = to (dynamicMap imageRectangle)
 
 constImage :: Pixel a => ImageDimension -> a -> Image a
 constImage (V2 w h) value = generateImage (const . const $ value) w h
