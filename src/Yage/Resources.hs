@@ -5,15 +5,16 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE NamedFieldPuns         #-}
+{-# LANGUAGE Rank2Types             #-}
 
 module Yage.Resources
-    ( module Acquire
-    , module Yage.Resources
-    , module Yage.Rendering.Mesh
-    , module Yage.Rendering.Resources
-    , module Yage.Font
-    , Cube(..), CubeImageLayout(..)
-    ) where
+  ( module Acquire
+  , module Yage.Resources
+  , module Yage.Rendering.Mesh
+  , module Yage.Font
+  , module MipmapChain
+  , module Cubemap
+  ) where
 
 import           Yage.Lens
 import           Yage.Prelude                     hiding (Index)
@@ -26,22 +27,20 @@ import qualified Data.Set                         as S
 
 import           Yage.Geometry
 import           Yage.Rendering.Mesh
-import           Yage.Rendering.Resources
-
 import qualified Yage.Formats.Obj                 as OBJ
 import qualified Yage.Formats.Ygm                 as YGM
 import qualified Yage.Formats.Font                as Font
 import           Yage.Font                        ( FontTexture )
-import           Yage.Texture
-import           Yage.Texture.CubeImageLayout
-
-
-import           Yage.Images
-
-
+import           Yage.Image
+import           Yage.Texture.CubeImageLayout     as Cubemap
+import           Quine.MipmapChain                as MipmapChain
+import           Quine.Cubemap                    as Cubemap
 
 type YageResource = Acquire
-data ResourceLoadingException = MipMapMissingBaseException String deriving ( Show, Typeable )
+data ResourceLoadingException =
+    ImageResourceException String
+  | MipMapMissingBaseException String
+  deriving ( Show, Typeable )
 instance Exception ResourceLoadingException
 
 {--
@@ -53,65 +52,61 @@ data Selection =
 type SubMeshSelection = S.Set Text
 type MeshFilePath = (FilePath, SubMeshSelection)
 
-
 -- TODO : gl VBO
-meshRes :: Storable (Vertex v) => IO (Mesh (Vertex v)) -> YageResource (Mesh (Vertex v))
+meshRes :: Storable v => IO (Mesh v) -> YageResource (Mesh v)
 meshRes loadMesh = mkAcquire loadMesh (const $ return ())
 
 
 -- TODO : GL Texture resource
-imageRes :: FilePath -> YageResource TextureImage
-imageRes filePath = mkAcquire (loadImage filePath) (const $ return ())
+imageRes :: FilePath -> YageResource DynamicImage
+imageRes filePath = mkAcquire loadImage (const $ return ())
+  where
+  loadImage = join $ either (throwIO.ImageResourceException) return <$> readImage (fpToString filePath)
 
 
--- | loads a 'MipMapChain' from seperate images-files. The 'FilePath' is globbed
+-- | loads a 'MipmapChain' from seperate images-files. The 'FilePath' is globbed
 -- (@see 'System.FilePath.Glob') and sorted.
-imageMipsRes:: FilePath -> YageResource (MipMapChain TextureImage)
+imageMipsRes:: FilePath -> YageResource (MipmapChain DynamicImage)
 imageMipsRes fpToGlob = do
-    globbed <- sort <$> globFp fpToGlob
-    case mipMapChain globbed of
-        Just mipmaps -> traverse imageRes mipmaps
-        Nothing -> throwIO $ MipMapMissingBaseException $
-                        "at least a base image required but globbed nothing: " ++ fpToString fpToGlob
+  globbed <- sort <$> globFp fpToGlob
+  case mipMapChain globbed of
+    Just mipmaps -> traverse imageRes mipmaps
+    Nothing -> throwIO $ MipMapMissingBaseException $ "at least a base image required but globbed nothing: " ++ fpToString fpToGlob
 
 
--- | loads a 'Cube' with a 'MipMapChain's on each side. We use 'MipMapChain (Cube FilePath)'
--- as an automatic proove that each 'MipMapChain' on each 'Cube' face has the same length.
+-- | loads a 'Cube' with a 'MipmapChain's on each side. We use 'MipmapChain (Cubemap FilePath)'
+-- as an automatic proove that each 'MipmapChain' on each 'Cube' face has the same length.
 -- Each Cube face has a destinct file to load.
-seperateCubeMipsRes :: MipMapChain (Cube FilePath) -> YageResource (MipMapChain TextureCube)
+seperateCubeMipsRes :: MipmapChain (Cubemap FilePath) -> YageResource (MipmapChain (Cubemap DynamicImage))
 seperateCubeMipsRes = (traverse . traverse) imageRes
 
 
-cubeCrossMipsRes :: CubeImageLayout -> FilePath -> YageResource (MipMapChain TextureCube)
-cubeCrossMipsRes orient = (fmap.fmap) (seperateCubeMapImage orient) . imageMipsRes
-
+cubeCrossMipsRes :: CubeImageLayout -> FilePath -> YageResource (MipmapChain (Cubemap DynamicImage))
+cubeCrossMipsRes orient = (fmap.fmap) (fDynamicMap (seperateCubeMapImage orient)) . imageMipsRes
 
 fontRes :: FilePath -> YageResource FontTexture
 fontRes filePath = mkAcquire (Font.readFontTexture filePath) (const $ return ())
 
 
-loadOBJ :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadOBJ :: Storable v => (YGM.YGMVertex -> v) -> MeshFilePath -> IO (Mesh v)
 loadOBJ fromInternal (filepath,subSelection) = do
-    OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
-    createMesh $ M.mapKeys decodeUtf8 geoGroup
+  OBJ.GeometryGroup geoGroup <- OBJ.geometryFromOBJ <$> OBJ.parseOBJFile filepath
+  createMesh $ M.mapKeys decodeUtf8 geoGroup
+  where
+  createMesh geoGroup
+    | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
+    | otherwise = do
+        let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
+            tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
+            packed          = zipWith packer geos tbnGeos
+            mesh            = emptyMesh & meshId .~ (encodeUtf8 $ fpToText filepath)
+        return $ foldl' appendGeometry mesh packed
 
-    where
-
-    createMesh geoGroup
-        | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
-        | otherwise = do
-            let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
-                tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
-                packed          = zipWith packer geos tbnGeos
-                mesh            = emptyMesh & meshId .~ (encodeUtf8 $ fpToText filepath)
-            return $ foldl' appendGeometry mesh packed
-
-    converter p t n = fromInternal $ YGM.internalFormat p t n
-
-    packer (ident, (pos, tex)) (_,tbn) = (encodeUtf8 ident, packGeos converter pos tex tbn)
+  converter p t n = fromInternal $ YGM.ygmFormat p t n
+  packer (ident, (pos, tex)) (_,tbn) = (encodeUtf8 ident, undefined {--packGeos converter pos tex tbn--})
 
 
-loadYGM :: ( Storable (Vertex v) ) => (Vertex YGM.YGMFormat -> Vertex v) -> MeshFilePath -> IO (Mesh (Vertex v))
+loadYGM :: Storable v => (YGM.YGMVertex -> v) -> MeshFilePath -> IO (Mesh v)
 loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
     createMesh YGM.YGM{..}
         | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
@@ -138,4 +133,22 @@ isSelected selection key _ | S.null selection = True
 isValidSelection :: SubMeshSelection -> Map Text a -> Bool
 isValidSelection selection theMap = S.null $ S.difference selection (M.keysSet theMap)
 {-# INLINE isValidSelection #-}
+
+
+fDynamicMap :: forall f. Functor f => (forall pixel. Pixel pixel => Image pixel -> f (Image pixel)) -> DynamicImage -> f DynamicImage
+fDynamicMap f = aux
+  where
+    aux (ImageY8    i)  = fmap ImageY8 (f i)
+    aux (ImageY16   i)  = fmap ImageY16 (f i)
+    aux (ImageYF    i)  = fmap ImageYF (f i)
+    aux (ImageYA8   i)  = fmap ImageYA8 (f i)
+    aux (ImageYA16  i)  = fmap ImageYA16 (f i)
+    aux (ImageRGB8  i)  = fmap ImageRGB8 (f i)
+    aux (ImageRGB16 i)  = fmap ImageRGB16 (f i)
+    aux (ImageRGBF  i)  = fmap ImageRGBF (f i)
+    aux (ImageRGBA8 i)  = fmap ImageRGBA8 (f i)
+    aux (ImageRGBA16 i) = fmap ImageRGBA16 (f i)
+    aux (ImageYCbCr8 i) = fmap ImageYCbCr8 (f i)
+    aux (ImageCMYK8 i)  = fmap ImageCMYK8 (f i)
+    aux (ImageCMYK16 i) = fmap ImageCMYK16 (f i)
 

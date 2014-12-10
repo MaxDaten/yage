@@ -6,7 +6,7 @@ import           Yage.Prelude
 import           Yage.Lens      hiding ( (.=) )
 
 import           Yage.Font
-import           Yage.Images
+import           Yage.Image
 
 import qualified Data.Map       as Map
 

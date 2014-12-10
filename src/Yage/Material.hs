@@ -24,9 +24,9 @@ type MaterialPixel       = ColourPixel Double
 -- | resulting texel color will be matColor * matTexture
 -- so white matColor will result in 100% color from matTexture
 data Material col tex = Material
-    { _matColor          :: col
-    , _matTexture        :: tex
-    , _matTransformation :: Transformation Double
+    { _materialColor          :: col
+    , _materialTexture        :: tex
+    , _materialTransformation :: Transformation Double
     }
 
 makeLenses ''Material
@@ -76,14 +76,17 @@ defaultMaterialSRGB = defaultMaterial
 instance Default (Material MaterialColorAlpha (Image PixelRGB8)) where
     def = defaultMaterialSRGB
 
+instance HasTransformation (Material col tex) Double where
+    transformation = materialTransformation
+
 --  Lens Shortcuts & Aliases
 
 stpFactor :: Lens' (Material col i) (V3 Double)
-stpFactor = matTransformation.transScale
+stpFactor = materialTransformation.scale
 
 stpOffset :: Lens' (Material col i) (V3 Double)
-stpOffset = matTransformation.transPosition
+stpOffset = materialTransformation.position
 
 stpOrientation :: Lens' (Material col i) (Quaternion Double)
-stpOrientation = matTransformation.transOrientation
+stpOrientation = materialTransformation.orientation
 
