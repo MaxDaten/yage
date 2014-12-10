@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Yage.Pipeline.Deferred
-    ( module Yage.Pipeline.Deferred
+module Yage.Rendering.Pipeline.Deferred
+    ( module Yage.Rendering.Pipeline.Deferred
     , module Pass
     , module Yage.Viewport
     , module RenderSystem
@@ -12,22 +12,19 @@ import           Yage.Lens
 import           Yage.Prelude
 
 import           Yage.HDR
-import           Yage.Rendering
 import           Yage.Scene
 import           Yage.UI.GUI
 import           Yage.Viewport
-import           Yage.Rendering.Backend.RenderSystem   as RenderSystem
+import           Yage.Rendering.RenderSystem   as RenderSystem
 
-import           Yage.Pipeline.Types
-
-import           Yage.Pipeline.Deferred.Common         as Pass
-import           Yage.Pipeline.Deferred.DownsamplePass as Pass
-import           Yage.Pipeline.Deferred.GeometryPass   as Pass
-import           Yage.Pipeline.Deferred.GuiPass        as Pass
-import           Yage.Pipeline.Deferred.HDR            as Pass
-import           Yage.Pipeline.Deferred.LightPass      as Pass
-import           Yage.Pipeline.Deferred.ScreenPass     as Pass
-import           Yage.Pipeline.Deferred.SkyPass        as Pass
+import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
+import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
+import           Yage.Rendering.Pipeline.Deferred.GeometryPass   as Pass
+import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
+import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
+import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
+import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
+import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 type DeferredEnvironment = Environment Light Pass.SkyEntity
 type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI

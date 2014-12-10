@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
-module Yage.Pipeline.Deferred.Common
-    ( module Yage.Pipeline.Deferred.Common
-    , module Yage.Pipeline.Types
+module Yage.Rendering.Pipeline.Deferred.Common
+    ( module Yage.Rendering.Pipeline.Deferred.Common
+    , module Yage.Rendering.Pipeline.Types
     ) where
 
 import Yage.Prelude
@@ -10,18 +10,16 @@ import Yage.Lens
 import Yage.Viewport
 import Yage.Geometry
 import Yage.Uniforms as U
-import Yage.Rendering
-import Yage.Rendering.Textures
-import Yage.Pipeline.Types
+import Yage.Rendering.RenderSystem
+-- import Yage.Rendering.Textures
 
-import qualified Yage.Core.OpenGL as GL
+-- import qualified Yage.Core.OpenGL as GL
 
 type YageDeferredPass mrt shader = PassDescr mrt shader
 
 
 {--
 Pass Description
---}
 
 passPreset :: RenderTarget target ->
               Rectangle Int ->
@@ -50,6 +48,7 @@ passPreset target rect shader = PassDescr
         -- GL.clear        [ GL.DepthBuffer ]
     , _passPostRendering  = return ()
     }
+
 
 
 
@@ -107,3 +106,4 @@ mkTargetTexture name spec =
            & textureConfig.texConfFiltering.texMagFilter     .~ GL.Linear'
            & textureConfig.texConfWrapping.texWrapRepetition .~ GL.Mirrored
            & textureConfig.texConfWrapping.texWrapClamping   .~ GL.Clamp
+--}
