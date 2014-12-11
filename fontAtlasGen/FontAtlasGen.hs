@@ -14,7 +14,7 @@ module Main where
 import Yage.Prelude hiding ( sortBy, toList, (<>) )
 import Yage.Lens hiding ( (<.>), argument )
 import Yage.Math (V2(..))
-import Yage.Images
+import Yage.Image
 import Yage.Font
 import Yage.Formats.Font as YFT
 
@@ -99,12 +99,12 @@ fontAtlasGenOpts :: Parser FontAtlasGen
 fontAtlasGenOpts =
     FontAtlasGen <$> fileOption ( long "outFile"   <> short 'o' <> metavar "OUTFILE" <> action "file")
                  <*> fileOption ( long "fontFile"  <> short 'f' <> metavar "FONTFILE" <> action "file")
-                 <*> option ( long "high"      <> short 'i' <> value 4096 <> metavar "PIXEL" )
-                 <*> option ( long "low"       <> short 'l' <> value 512  <> metavar "PIXEL" )
-                 <*> option ( long "dev"       <> short 'd' <> value 100  <> metavar "PIXEL" )
-                 <*> option ( short 'p'                     <> value 14   <> metavar "PT" )
-                 <*> option ( short 'a'                     <> value 10   <> metavar "PIXEL" )
+                 <*> option auto ( long "high"      <> short 'i' <> value 4096 <> metavar "PIXEL" )
+                 <*> option auto ( long "low"       <> short 'l' <> value 512  <> metavar "PIXEL" )
+                 <*> option auto ( long "dev"       <> short 'd' <> value 100  <> metavar "PIXEL" )
+                 <*> option auto ( short 'p'                     <> value 14   <> metavar "PT" )
+                 <*> option auto ( short 'a'                     <> value 10   <> metavar "PIXEL" )
                  <*> ( (Just <$> sdfOption) <|> pure Nothing )
     where
-    sdfOption = option ( long "sdf" <> metavar "PIXEL" <> help "Generate a signed distance field before downscaling to LOWRES" )
+    sdfOption = option auto ( long "sdf" <> metavar "PIXEL" <> help "Generate a signed distance field before downscaling to LOWRES" )
     fileOption = fmap (fpFromText . pack) . strOption
