@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                yage
-version:             0.4.3.0
+version:             0.5.0.0
 synopsis:            yet another graphics engine
 -- description:         
 license:             MIT
@@ -25,6 +25,10 @@ Flag dev
     Default:       False
 
 Flag library
+    Default:       True
+    manual:        True
+
+Flag standalone-exe
     Default:       True
     manual:        True
 
@@ -73,7 +77,7 @@ library
     Yage
     Yage.Font
     Yage.Scene
---    Yage.Camera
+    Yage.Camera
     Yage.Light
 
     Yage.Resources
@@ -241,6 +245,23 @@ library
 
 -- | Tools
 -------------------------------------------------------------------------------
+
+executable standalone-exe
+  main-is:            Main.hs
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+  
+  if !flag(standalone-exe)
+    Buildable: False
+  else
+    build-depends:        
+        base
+      , yage
+      , yage-contrib
+      , lens
+      , JuicyPixels
+      , containers
+      , text
 
 executable textureAtlas
   hs-source-dirs:     test/manuals

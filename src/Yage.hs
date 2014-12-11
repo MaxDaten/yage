@@ -6,10 +6,14 @@
 
 module Yage
     ( yageMain, YageSimulation(..)
+    -- * Reexports
     , module Application
     , module Resource
     , module YagePrelude
     , module Logging
+    , module Viewport
+    , module Linear
+    , module Transformation
     ) where
 
 import             Yage.Prelude                    as YagePrelude
@@ -26,12 +30,12 @@ import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 
-import             Linear                          hiding (lerp)
+import             Linear                          as Linear hiding (lerp, trace)
 import             Yage.Geometry.D2.Rectangle
 import             Yage.Rendering.RenderSystem
-import             Yage.Transformation
+import             Yage.Transformation             as Transformation
 import             Yage.UI
-import             Yage.Viewport
+import             Yage.Viewport                   as Viewport
 
 ---------------------------------------------------------------------------------------------------
 
@@ -124,11 +128,11 @@ yageLoop win oldState = do
     -- step our global timing to integrate our simulation
     ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
 
-    case renderSim^.simScene of
+    (_,renderTime) <-  ioTime $ case renderSim^.simScene of
         Left err    -> ( criticalM $ "err:" ++ show err )
         Right scene -> io $ renderTheScene scene
 
-    setDevStuff simTime
+    setDevStuff simTime renderTime
 
     return $! oldState
         & simulation              .~ newSim
@@ -169,16 +173,16 @@ yageLoop win oldState = do
 
 
     -- debug & stats
-    setDevStuff simTime = do
+    setDevStuff simTime renderTime = do
         title   <- gets appTitle
         gcTime  <- gets appGCTime
         setWindowTitle win $ unpack $
-            format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
-            ( title
-            , fixed 4 $ 1000 * simTime
-            , fixed 4 $ 1000 * gcTime
-            , prec 4 $ 1000 * sum [simTime, gcTime]
-            )
+            format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
+                    ( title
+                    , fixed 4 $ 1000 * simTime
+                    , fixed 4 $ 1000 * renderTime
+                    , fixed 4 $ 1000 * gcTime
+                    , prec 4 $ 1000 * sum [simTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0
