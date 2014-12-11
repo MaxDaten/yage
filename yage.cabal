@@ -24,9 +24,45 @@ Flag dev
     Description:   Turn on development settings, logging and timing.
     Default:       False
 
-Flag library-only
-    Description:   Only the yage-lib
+Flag library
     Default:       True
+    manual:        True
+
+Flag cubemap-files
+    Default:       True
+    manual:        True
+
+Flag shader-tool
+    Default:       True
+    manual:        True
+
+Flag obj2ygm
+    Default:       True
+    manual:        True
+
+Flag fontAtlasGen
+    Default:       True
+    manual:        True
+
+Flag textureAtlas
+    Default:       True
+    manual:        True
+
+Flag test-transformation
+    Default:       True
+    manual:        True
+
+Flag test-parsing-obj
+    Default:       True
+    manual:        True
+
+Flag bench-ygm-criterion
+    Default:       True
+    manual:        True
+
+Flag bench-obj-parser-criterion
+    Default:       True
+    manual:        True
 
 -------------------------------------------------------------------------------
 
@@ -37,13 +73,13 @@ library
     Yage
     Yage.Font
     Yage.Scene
-    Yage.Camera
+--    Yage.Camera
     Yage.Light
 
     Yage.Resources
     Yage.Material
     Yage.Texture
-    Yage.Images
+    Yage.Image
     Yage.Color
 --    Yage.Geometry
     Yage.Viewport
@@ -51,9 +87,9 @@ library
     Yage.HDR
     
     Yage.Uniforms
-    Yage.Uniforms.Material
-    Yage.Uniforms.MVP
-    Yage.Uniforms.Camera
+--    Yage.Uniforms.Material
+--    Yage.Uniforms.MVP
+--    Yage.Uniforms.Camera
     
     Yage.Image.SDF
     Yage.Image.BilinearInterpolation
@@ -68,18 +104,20 @@ library
     Yage.UI.GUI
     
     Yage.Wire
-    Yage.Wire.Movement
-    Yage.Wire.Input
-    Yage.Wire.Analytic
-    Yage.Wire.Resources
-    Yage.Wire.Utils
-    Yage.Wire.Debug
+--    Yage.Wire.Movement
+--    Yage.Wire.Input
+--    Yage.Wire.Analytic
+--    Yage.Wire.Resources
+--    Yage.Wire.Utils
+--    Yage.Wire.Debug
 
     Yage.Texture.Atlas
     Yage.Texture.Atlas.Builder
     Yage.Texture.TextureAtlas
     Yage.Texture.CubeImageLayout
 
+    Yage.Rendering.GL
+    Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
     Yage.Rendering.Resources.GL.Base
     Yage.Rendering.Resources.GL.Buffer
@@ -89,41 +127,40 @@ library
     Yage.Rendering.Resources.GL.Texture
     Yage.Rendering.Resources.GL.TextureFormat
 
-    Yage.Pipeline.Deferred
-    Yage.Pipeline.Types
+    Yage.Rendering.Pipeline.Deferred    
+    Yage.Rendering.Pipeline.Deferred.Common
+    Yage.Rendering.Pipeline.Deferred.HDR
+    Yage.Rendering.Pipeline.Deferred.GeometryPass
+    Yage.Rendering.Pipeline.Deferred.LightPass
+    Yage.Rendering.Pipeline.Deferred.ToneMapPass
+    Yage.Rendering.Pipeline.Deferred.SkyPass
+    Yage.Rendering.Pipeline.Deferred.ScreenPass
+    Yage.Rendering.Pipeline.Deferred.DownsamplePass
+    Yage.Rendering.Pipeline.Deferred.GlareDetectionPass
+    Yage.Rendering.Pipeline.Deferred.AdditiveCompose
+    Yage.Rendering.Pipeline.Deferred.BrightFilter
+    Yage.Rendering.Pipeline.Deferred.GaussFilter
+    Yage.Rendering.Pipeline.Deferred.Sampler
+    Yage.Rendering.Pipeline.Deferred.GuiPass
     
-    Yage.Pipeline.Deferred.Common
-    Yage.Pipeline.Deferred.HDR
-    Yage.Pipeline.Deferred.GeometryPass
-    Yage.Pipeline.Deferred.LightPass
-    Yage.Pipeline.Deferred.ToneMapPass
-    Yage.Pipeline.Deferred.SkyPass
-    Yage.Pipeline.Deferred.ScreenPass
-    Yage.Pipeline.Deferred.DownsamplePass
-    Yage.Pipeline.Deferred.GlareDetectionPass
-    Yage.Pipeline.Deferred.AdditiveCompose
-    Yage.Pipeline.Deferred.BrightFilter
-    Yage.Pipeline.Deferred.GaussFilter
-    Yage.Pipeline.Deferred.Sampler
-    Yage.Pipeline.Deferred.GuiPass
+  other-modules:        
+    Paths_yage
+    Yage.Font.TextBuffer
+    Yage.Font.FontTexture
+    Yage.Wire.Types
+    Yage.Wire.Event
     
-    Yage.TH.Shader
-
-  other-modules:        Paths_yage
-                        Yage.Font.TextBuffer
-                        Yage.Font.FontTexture
-                        Yage.Wire.Types
-                        Yage.Wire.Event
-                        
-                        Yage.UI.Types
+    Yage.UI.Types
 
   -- context stack currently for the vinyl records 
-  ghc-options:          -j4 -fcontext-stack=36
-  ghc-prof-options:     -rtsopts -Wall -prof -auto-all -caf-all
+  ghc-options: -w -j4
+  ghc-prof-options: -rtsopts -prof -auto-all -caf-all
 
 
   if flag(dev)
-    ghc-options:        -Wall
+    ghc-options: -Wall
+    cpp-options: -DGL_ERRCHECK
+
 
   default-language:     Haskell2010
   default-extensions:   
@@ -138,6 +175,7 @@ library
     MultiParamTypeClasses
     FlexibleInstances
     TypeSynonymInstances
+    FunctionalDependencies
     DataKinds
     ConstraintKinds
 
@@ -148,284 +186,278 @@ library
     DeriveFoldable
     DeriveGeneric
 
-  build-depends:          base                  < 5
-                        , template-haskell      < 3
-                        
-                        , yage-contrib          == 0.1.0.0
-                        , yage-core             == 0.0.2.0
-                        , yage-geometry         == 0.0.0.3
+  build-depends:          
+      base                  < 5
+    , template-haskell      < 3
+    
+    , yage-contrib          == 0.1.0.0
+    , yage-core             == 0.0.2.0
+    , yage-geometry         == 0.0.0.3
 
-                        , typography-ft2        == 0.4.*
-                        , gl                    >= 0.6
-                        , quine                 == 0.1
-                        
-                        , time                  >= 1.4
-                        , aeson                 >= 0.8
-                        , containers            >= 0.5
-                        , semigroups            >= 0.15
-                        , mono-traversable      >= 0.6
-                        , comonad               >= 4.2
-                        , generic-deriving      >= 1.6
-                        , bytestring-trie       >= 0.2
-                        , transformers          >= 0.4
-                        , vector                >= 0.10
-                        , binary                >= 0.7
-                        , regex-compat          >= 0.95
-                        , regex-posix           >= 0.95
-                        , Glob                  >= 0.7.5
-                        
-                        , text-binary           >= 0.1
-                        , resourcet             >= 1.1
-                        , bytestring            >= 0.10
-                        , data-default
+    , typography-ft2        == 0.4.*
+    , gl                    >= 0.6
+    , quine                 == 0.1
+    
+    , time                  >= 1.4
+    , aeson                 >= 0.8
+    , containers            >= 0.5
+    , semigroups            >= 0.15
+    , mono-traversable      >= 0.6
+    , comonad               >= 4.2
+    , generic-deriving      >= 1.6
+    , bytestring-trie       >= 0.2
+    , transformers          >= 0.4
+    , vector                >= 0.10
+    , binary                >= 0.7
+    , regex-compat          >= 0.95
+    , regex-posix           >= 0.95
+    , Glob                  >= 0.7.5
+    
+    , text-binary           >= 0.1
+    , resourcet             >= 1.1
+    , bytestring            >= 0.10
+    , data-default
 
-                        , parallel              >= 3.2
-                        , vector-strategies     >= 0.4
-                        , monad-loops           >= 0.4.2
+    , parallel              >= 3.2
+    , vector-strategies     >= 0.4
+    , spool                 >= 0.1
+    , monad-loops           >= 0.4.2
 
-                        , stm                   >= 2.4
-                        , tuple                 >= 0.2
-                        , mtl                   >= 2.2
-                        , text                  >= 0.11
-                        , attoparsec            >= 0.12
-                        , system-filepath       >= 0.4
-                        , directory             >= 1.2
+    , stm                   >= 2.4
+    , tuple                 >= 0.2
+    , mtl                   >= 2.2
+    , text                  >= 0.11
+    , attoparsec            >= 0.12
+    , system-filepath       >= 0.4
+    , directory             >= 1.2
 
-                        , lens                  >= 4.3
-                        , colour                >= 2.3.3
-                        , linear                >= 1.10
-                        , netwire               >= 5
+    , lens                  >= 4.3
+    , colour                >= 2.3.3
+    , linear                >= 1.10
+    , netwire               >= 5
 
-                        , JuicyPixels           >= 3.2
-                        , zlib                  >= 0.5
+    , JuicyPixels           >= 3.2
+    , zlib                  >= 0.5
 
+-- | Tools
 -------------------------------------------------------------------------------
 
 executable textureAtlas
-    if flag(library-only)
-      Buildable: False
+  hs-source-dirs:     test/manuals
+  main-is:            RndTextureAtlas.hs
+  default-language:     Haskell2010
+  default-extensions: NoImplicitPrelude
+  
+  if !flag(textureAtlas)
+    Buildable: False
+  else
+    build-depends:        
+        base
+      , yage
+      , yage-contrib
+      , lens
+      , JuicyPixels
+      , containers
+      , MonadRandom
+      , random
+      , text
 
-    hs-source-dirs:     test/manuals
-    main-is:            RndTextureAtlas.hs
-
-    build-depends:        base
-                        , yage
-                        , yage-contrib
-                        , lens
-                        , JuicyPixels
-                        , containers
-                        , MonadRandom
-                        , random
-                        , text
-
-    default-language:     Haskell2010
-    default-extensions:   
-                        NoImplicitPrelude
 
 -------------------------------------------------------------------------------
 
 executable fontAtlasGen
-    if flag(library-only)
-      Buildable: False
-
-    hs-source-dirs:     fontAtlasGen
-    main-is:            FontAtlasGen.hs
+  hs-source-dirs:     fontAtlasGen
+  main-is:            FontAtlasGen.hs
+  default-language: Haskell2010
+  default-extensions: NoImplicitPrelude
+  
+  if !flag(fontAtlasGen)
+    Buildable: False
+  else
     ghc-options:        -threaded
 
-    build-depends:        base
-                        , yage
-                        , yage-contrib
-                        , lens
-                        , JuicyPixels
-                        , containers
-                        , typography-ft2
-                        , filepath
-                        , mtl
-                        , terminal-progress-bar
-                        , optparse-applicative
-
-
-    default-language:     Haskell2010
-    default-extensions:   
-                        NoImplicitPrelude
-
-
-
-executable obj2ygm
-  if flag(library-only)
-    Buildable: False
-
-  hs-source-dirs:       obj2ygm-src/
-  main-is:              OBJ2YGM.hs
-
-  -- other-modules:        Yage.Examples.Shared
-  ghc-options:          -threaded -j8
-  ghc-prof-options:     -rtsopts -Wall -prof -auto-all
-
-
-  default-extensions:   NoImplicitPrelude
-                        OverloadedStrings
-                        DataKinds
-
-  default-language:     Haskell2010
-
-  build-depends:        base            <  5
-                      , yage
-                      , yage-contrib    == 0.1.0.0
-                      , yage-geometry   == 0.0.0.3
-
-                      , containers      == 0.5.*
-
-
-executable shader-tool
-  if flag(library-only)
-    Buildable: False
-
-  hs-source-dirs:       shader-tool-src/
-  main-is:              ShaderTool.hs
-
-  -- other-modules:        Yage.Examples.Shared
-  ghc-options:          -threaded -j8
-  ghc-prof-options:     -rtsopts -Wall -prof -auto-all
-
-
-  default-extensions:   NoImplicitPrelude
-                        OverloadedStrings
-                        DataKinds
-
-  default-language:     Haskell2010
-
-  build-depends:        base            <  5
-                      , yage
-                      , yage-contrib    == 0.1.0.0
-                      , yage-core       == 0.0.2.0
-                      , yage-geometry   == 0.0.0.3
-
-                      , containers      == 0.5.*
-                      , system-filepath == 0.4.*
+    build-depends:        
+        base
+      , yage
+      , yage-contrib
+      , lens
+      , JuicyPixels
+      , containers
+      , typography-ft2
+      , filepath
+      , mtl
+      , terminal-progress-bar
+      , optparse-applicative
 
 -------------------------------------------------------------------------------
 
-executable cube-map-files
-    if flag(library-only)
-      Buildable: False
+executable obj2ygm
+  hs-source-dirs:       obj2ygm-src/
+  main-is:              OBJ2YGM.hs
+  default-extensions:   
+    NoImplicitPrelude
+    OverloadedStrings
+    DataKinds
+  default-language:     Haskell2010
 
-    hs-source-dirs:     cube-map-files/
-    main-is:            CubeMapFiles.hs
+  if !flag(obj2ygm)
+    Buildable: False
+  else
+    ghc-options:          -threaded -j8
+    ghc-prof-options:     -rtsopts -Wall -prof -auto-all
+    build-depends:        
+        base            <  5
+      , yage
+      , yage-contrib    == 0.1.0.0
+      , yage-geometry   == 0.0.0.3
 
-    build-depends:        base
-                        , yage
-                        , yage-contrib    == 0.1.0.0
-                        , yage-geometry   == 0.0.0.3
-                        , lens
-                        , JuicyPixels
-                        , containers
-                        , MonadRandom
-                        , random
-                        , regex-posix     == 0.95.*
-                        , semigroups
-                        , text
-                        , system-filepath
+      , containers
 
-    default-language:     Haskell2010
-    default-extensions:   
-                        NoImplicitPrelude
+
+executable shader-tool
+  hs-source-dirs:       shader-tool-src/
+  main-is:              ShaderTool.hs
+  default-extensions:   
+    NoImplicitPrelude
+    OverloadedStrings
+    DataKinds
+  default-language:     Haskell2010
+  
+  if !flag(shader-tool)
+    Buildable: False
+  else
+    ghc-options:          -threaded -j8
+    ghc-prof-options:     -rtsopts -Wall -prof -auto-all
+    build-depends:        
+        base            <  5
+      , yage
+      , yage-contrib    == 0.1.0.0
+      , yage-core       == 0.0.2.0
+      , yage-geometry   == 0.0.0.3
+
+      , containers
+      , system-filepath
+
+-------------------------------------------------------------------------------
+
+executable cubemap-files
+  hs-source-dirs:     cubemap-files/
+  main-is: CubeMapFiles.hs
+  default-language: Haskell2010
+  default-extensions: NoImplicitPrelude
+
+  if !flag(cubemap-files)
+    Buildable: False
+  else
+    build-depends:        
+        base
+      , yage
+      , yage-contrib    == 0.1.0.0
+      , yage-geometry   == 0.0.0.3
+      , lens
+      , JuicyPixels
+      , containers
+      , MonadRandom
+      , random
+      , regex-posix     == 0.95.*
+      , semigroups
+      , text
+      , system-filepath
 
 
 -- Test-Suites
 --------------
 
-test-suite parsing-obj
-  type:
-      exitcode-stdio-1.0
-  main-is:
-      ObjParsingTest.hs
-  hs-source-dirs:
-      test
-  ghc-options:         -Wall -threaded
-  ghc-prof-options:     -rtsopts -Wall -prof -auto-all
-
+test-suite test-parsing-obj
+  type: exitcode-stdio-1.0
+  main-is: ObjParsingTest.hs
+  hs-source-dirs: test
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
+  
+  if !flag(test-parsing-obj)
+    Buildable: False
+  else
+    ghc-prof-options: -rtsopts -Wall -prof -auto-all
+    ghc-options: -Wall -threaded
 
-  build-depends:
-      base          == 4.*
-    , yage-contrib
-    , yage
-    , bytestring
-    , attoparsec
+    build-depends:
+        base          == 4.*
+      , yage-contrib
+      , yage
+      , bytestring
+      , attoparsec
 
-    , vector
-    
-    , hspec
-    , QuickCheck
-
-
-test-suite transformation
-    type:              exitcode-stdio-1.0
-    hs-source-dirs:    test
-    main-is:           TransformationTest.hs
-    ghc-options:       -Wall
-    default-language:  Haskell2010
+      , vector
+      
+      , hspec
+      , QuickCheck
 
 
-    build-depends: base
-                 , yage
-                 , hspec
-                 , linear
-                 , lens
-                 , QuickCheck >= 2.7.5
-
+test-suite test-transformation
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    test
+  main-is:           TransformationTest.hs
+  default-language:  Haskell2010
+  if !flag(test-transformation)
+    Buildable: False
+  else
+    ghc-options: -Wall
+    build-depends: 
+        base
+      , yage
+      , hspec
+      , linear
+      , lens
+      , QuickCheck >= 2.7.5
 
 -- Benchmarks
 -------------
 
-executable obj-parser-criterion
-  if flag(library-only)
-      Buildable: False
+executable bench-obj-parser-criterion
   main-is: OBJParserCriterion.hs
-  ghc-options:        -threaded
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
-  hs-source-dirs:
-      test/bench
-  ghc-options: -Wall -rtsopts
-  build-depends:
-    base == 4.*,
-    yage,
-    yage-contrib,
-    vector,
-    parsec,
-    linear,
-    generic-deriving,
-    deepseq-generics,
-    bytestring,
-    criterion == 1.0.*,
-    transformers
+  hs-source-dirs: test/bench
+  
+  if !flag(bench-obj-parser-criterion)
+    Buildable: False
+  else
+    ghc-options: -Wall -threaded -rtsopts
+    build-depends:
+        base >= 4.7
+      , yage
+      , yage-contrib
+      , vector
+      , parsec
+      , linear
+      , generic-deriving
+      , deepseq-generics
+      , bytestring
+      , criterion >= 1.0
+      , transformers
 
 -------------
 
-executable ygm-criterion
-  if flag(library-only)
-      Buildable: False
-  main-is: YgmCriterion.hs
-  ghc-options:        -threaded
+executable bench-ygm-criterion
   default-language:    Haskell2010
+  main-is: YgmCriterion.hs
+  hs-source-dirs: test/bench
   default-extensions:  NoImplicitPrelude
-  hs-source-dirs:
-      test/bench
-  ghc-options: -threaded -Wall -O -with-rtsopts=-N
-  ghc-prof-options:     -rtsopts -prof -auto-all -caf-all
-
-  build-depends:
-    base == 4.*,
-    yage,
-    yage-contrib,
-    vector,
-    parsec,
-    linear,
-    generic-deriving,
-    deepseq-generics,
-    bytestring,
-    criterion == 1.*,
-    transformers
+  if !flag(bench-ygm-criterion)
+    Buildable: False
+  else
+    ghc-options: -threaded -Wall -O -with-rtsopts=-N
+    ghc-prof-options: -rtsopts -prof -auto-all -caf-all
+    build-depends:
+        base >= 4.7
+      , yage
+      , yage-contrib
+      , vector
+      , parsec
+      , linear
+      , generic-deriving
+      , deepseq-generics
+      , bytestring
+      , criterion >= 1.0
+      , transformers
