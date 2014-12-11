@@ -34,7 +34,8 @@ createFramebuffer colors mDepth mStencil = do
   zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] colors
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mDepth
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mStencil
-
+  glDrawBuffer $ GL_COLOR_ATTACHMENT0 + fromIntegral (length colors)
+  glReadBuffer $ GL_COLOR_ATTACHMENT0 + fromIntegral (length colors)
   mErr <- checkFramebufferStatus RWFramebuffer
   case mErr of
     Just err  -> throw err
