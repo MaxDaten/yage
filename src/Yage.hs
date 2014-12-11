@@ -31,6 +31,8 @@ import             Yage.Lens                       as Lens hiding ( Index )
 import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State             (gets)
+import             Control.Exception
+import             Control.Concurrent
 import             Control.Monad.Trans.Resource    as Resource
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ( (<+>), at, force )
@@ -67,13 +69,13 @@ data YageLoopState time scene = YageLoopState
     { _simulation         :: !(YageSimulation time scene)
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
-    , _metrics            :: !Metrics
+    , _metrics            :: Metrics
     }
 
 data Metrics = Metrics
-  { _monitor          :: Monitor
-  , _simulationFrames :: Counter
-  , _renderFrames     :: Counter
+  { _monitor          :: !Monitor
+  , _simulationFrames :: !Counter
+  , _renderFrames     :: !Counter
   }
 
 ---------------------------------------------------------------------------------------------------
@@ -126,15 +128,17 @@ yageMain title config sim dt =
     in do
         tInputState <- newTVarIO mempty
 
-        monitor <- setupMonitoring (config^.monitorOptions)
-        let initState = YageLoopState
+        ekg <- forkMonitor (config^.monitorOptions)
+        simCounter    <- counter "yage.simulation_frames" ekg
+        renderCounter <- counter "yage.render_frames" ekg
+        let metric = Metrics ekg simCounter renderCounter
+            initState = YageLoopState
                         { _simulation         = initSim
                         , _timing             = loopTimingInit
                         , _inputState         = tInputState
-                        , _metrics            = monitor
+                        , _metrics            = metric
                         }
-
-        _ <- execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
+        execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
         return ()
 
 
@@ -152,13 +156,11 @@ yageLoop win oldState = do
 
     -- step our global timing to integrate our simulation
     ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
-
     (_,renderTime) <-  ioTime $ case renderSim^.simScene of
         Left err    -> ( criticalM $ "err:" ++ show err )
         Right scene -> io $ renderTheScene scene
 
     setDevStuff simTime renderTime
-
     return $! oldState
         & simulation              .~ newSim
         & timing.loopSession      .~ newSession
@@ -220,10 +222,6 @@ readModifyTVar tvar f = do
     return var
 {-# INLINE readModifyTVar #-}
 
-setupMonitoring :: MonitorOptions -> IO Metrics
-setupMonitoring options = do
-  ekg <- forkMonitor options
-  Metrics ekg <$> counter "yage.simulation" ekg <*> counter "yage.simulation" ekg
 
 instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
     lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)

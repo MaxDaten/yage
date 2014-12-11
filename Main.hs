@@ -2,12 +2,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Yage
 import Yage.Wire
 import Yage.Lens
 import Yage.GL
+import Quine.Monitor
+import Control.Concurrent
 
 
 appConf :: ApplicationConfig
@@ -34,7 +37,7 @@ data Configuration = Configuration
 makeLenses ''Configuration
 
 configuration :: Configuration
-configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True True)
+configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True False)
 
 data Scene = Scene
   { _mainViewport  :: Viewport Int
