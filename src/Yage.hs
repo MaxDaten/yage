@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage
@@ -30,7 +31,7 @@ import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
 import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
-import             Control.Monad.State             (gets)
+import             Control.Monad.State
 import             Control.Exception
 import             Control.Concurrent
 import             Control.Monad.Trans.Resource    as Resource
@@ -81,10 +82,11 @@ data Metrics = Metrics
 ---------------------------------------------------------------------------------------------------
 makeLenses ''YageTiming
 makeLenses ''YageSimulation
-makeLenses ''YageLoopState
+makeClassy ''YageLoopState
 makeLenses ''Metrics
 
 makeClassy ''ApplicationConfig
+makeClassy ''ApplicationState
 makeClassy ''WindowConfig
 
 ---------------------------------------------------------------------------------------------------
@@ -121,96 +123,102 @@ yageMain ::
     , HasMonitorOptions conf )
     => String -> conf -> YageWire time () scene -> time -> IO ()
 yageMain title config sim dt =
-    -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-    let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
-        appConf           = config^.applicationConfig
-        winConf           = config^.windowConfig
-    in do
-        tInputState <- newTVarIO mempty
+  -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
+  let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
+      appConf           = config^.applicationConfig
+      winConf           = config^.windowConfig
+  in do
+    tInputState <- newTVarIO mempty
 
-        ekg <- forkMonitor (config^.monitorOptions)
-        simCounter    <- counter "yage.simulation_frames" ekg
-        renderCounter <- counter "yage.render_frames" ekg
-        let metric = Metrics ekg simCounter renderCounter
-            initState = YageLoopState
-                        { _simulation         = initSim
-                        , _timing             = loopTimingInit
-                        , _inputState         = tInputState
-                        , _metrics            = metric
-                        }
-        execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
-        return ()
+    ekg <- forkMonitor (config^.monitorOptions)
+    simCounter    <- counter "yage.simulation_frames" ekg
+    renderCounter <- counter "yage.render_frames" ekg
+    let metric = Metrics ekg simCounter renderCounter
+        initState = YageLoopState
+                    { _simulation         = initSim
+                    , _timing             = loopTimingInit
+                    , _inputState         = tInputState
+                    , _metrics            = metric
+                    }
+    execApplication title appConf $ do
+      win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+      registerWindowCallbacks win initState
+      makeContextCurrent $ Just win
 
+      evalStateT (core win) initState
 
--- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (Real time, LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene ()) =>
-    Window ->
-    YageLoopState time scene ->
-    Application AnyException (YageLoopState time scene)
-yageLoop win oldState = do
-    inputSt                 <- io $ atomically $ readModifyTVar (oldState^.inputState) clearEvents
-    debugM $ format "{}" (Only $ Shown inputSt)
+  where
 
-    (frameDT, newSession)   <- io $ stepSession $ oldState^.timing.loopSession
-    let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
+  core win = forever $ do
+    lift $ pollEvents
+    input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
+    remAccum <- use (timing.remainderAccum)
+    lift $ debugM $ format "{}" (Only $ Shown input)
 
-    -- step our global timing to integrate our simulation
-    ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
+    -- step out core session to get elasped time
+    (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
+    let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
+
+    -- process multiple simulation steps to catch up
+    sim <- use simulation
+    cnt <- use (metrics.simulationFrames)
+    ((renderSim, newSim, newRemainder), simTime) <- ioTime $ liftResourceT $ simulate currentRemainder sim input cnt
+    -- render simulation representation
     (_,renderTime) <-  ioTime $ case renderSim^.simScene of
-        Left err    -> ( criticalM $ "err:" ++ show err )
-        Right scene -> io $ renderTheScene scene
+        Left err    -> lift $ criticalM $ "err:" ++ show err
+        Right scene -> renderTheScene scene win
 
-    setDevStuff simTime renderTime
-    return $! oldState
-        & simulation              .~ newSim
-        & timing.loopSession      .~ newSession
-        & timing.remainderAccum   .~ newRemainder
+    setDevStuff simTime renderTime win
 
-    where
+    simulation            .= newSim
 
-    -- | logic simulation
-    -- selects small time increments and perform simulation steps to catch up with the frame time
-    simulate remainder sim input = {-# SCC simulate #-} do
-        -- initial step with 0.0 deltaT and input (inject input into system)
-        ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
-        simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim
+    timing.loopSession    .= newSession
+    timing.remainderAccum .= newRemainder
+    lift $ swapBuffers win
 
-    simulate' remainder currentSim prevSim
-        | remainder < ( currentSim^.simDeltaT ) = do
-            return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
-        | otherwise = do
-            nextSim <- stepSimulation currentSim
-            simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim
+  -- | logic simulation
+  -- selects small time increments and perform simulation steps to catch up with the frame time
+  simulate remainder sim input cnt = {-# SCC simulate #-} do
+      -- initial step with 0.0 deltaT and input (inject input into system)
+      ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
+      simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim cnt
 
-    -- perform one step in simulation
-    stepSimulation sim = do
-        inc $ oldState^.metrics.simulationFrames
-        ( ds      , s )     <- io $ stepSession $ sim^.simSession
-        ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
-        return $! newScene `seq` ( sim & simScene     .~ newScene
-                                       & simSession   .~ s
-                                       & simWire      .~ w )
+  simulate' remainder currentSim prevSim cnt
+      | remainder < ( currentSim^.simDeltaT ) = do
+          return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
+      | otherwise = do
+          nextSim <- stepSimulation currentSim cnt
+          simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim cnt
 
-
-    renderTheScene scene = do
-        winSt           <- io $ readTVarIO ( winState win )
-        inc $ oldState^.metrics.renderFrames
-        let fbRect      = Rectangle 0 $ winSt^.fbSize
-            ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-        {-# SCC rendering #-} runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) (scene^.renderSystem)
+  -- perform one step in simulation
+  stepSimulation sim cnt = do
+      inc cnt
+      ( ds      , s )     <- io $ stepSession $ sim^.simSession
+      ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
+      return $! newScene `seq` ( sim & simScene     .~ newScene
+                                     & simSession   .~ s
+                                     & simWire      .~ w )
 
 
-    -- debug & stats
-    setDevStuff simTime renderTime = do
-        title   <- gets appTitle
-        gcTime  <- gets appGCTime
-        setWindowTitle win $ unpack $
-            format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
-                    ( title
-                    , fixed 4 $ 1000 * simTime
-                    , fixed 4 $ 1000 * renderTime
-                    , fixed 4 $ 1000 * gcTime
-                    , prec 4 $ 1000 * sum [simTime, gcTime] )
+  renderTheScene scene win = do
+    inc =<< use (metrics.renderFrames)
+    winSt           <- io $ readTVarIO ( winState win )
+    let fbRect      = Rectangle 0 $ winSt^.fbSize
+        ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
+    {-# SCC rendering #-} io $ runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) (scene^.renderSystem)
+
+
+  -- debug & stats
+  setDevStuff simTime renderTime win = lift $ do
+      title   <- gets appTitle
+      gcTime  <- gets appGCTime
+      setWindowTitle win $ unpack $
+          format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
+                  ( title
+                  , fixed 4 $ 1000 * simTime
+                  , fixed 4 $ 1000 * renderTime
+                  , fixed 4 $ 1000 * gcTime
+                  , prec 4 $ 1000 * sum [simTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0
