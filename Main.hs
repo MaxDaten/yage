@@ -58,7 +58,7 @@ clearViewport = do
   return $ do
     vp <- view viewport
     Yage.glViewport $= vp^.rectangle
-    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
 main :: IO ()
 main = yageMain "standalone" configuration sceneWire (1/60)

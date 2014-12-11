@@ -32,11 +32,10 @@ import             Yage.Lens                       as Lens hiding ( Index )
 import             Data.Foldable                   (traverse_)
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State
-import             Control.Exception
 import             Control.Concurrent
 import             Control.Monad.Trans.Resource    as Resource
 ---------------------------------------------------------------------------------------------------
-import             Yage.Wire                       as Wire hiding ( (<+>), at, force )
+import             Yage.Wire                       as Wire hiding ( (<+>), at, force, when )
 import             Yage.Core.Application           as Application
 import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
@@ -151,6 +150,7 @@ yageMain title config sim dt =
 
   core win = forever $ do
     lift $ pollEvents
+    lift $ windowShouldClose win >>= \close -> when close $ throwM Shutdown
     input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
     remAccum <- use (timing.remainderAccum)
     lift $ debugM $ format "{}" (Only $ Shown input)
