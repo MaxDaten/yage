@@ -1,4 +1,12 @@
-module Yage.Wire.Resources where
+module Yage.Wire.Resources
+  (
+  -- * Resource Allocation Wires
+    acquireOnce
+  , constMeshW
+  , constTextureW
+  , constFontW
+  , allocationOnEvent
+  ) where
 
 import           Yage.Prelude              hiding (any, on)
 import           Yage.Resources
@@ -14,22 +22,22 @@ import           Yage.Wire.Types
 --
 -- allocates a `YageResource` which is never freed (!)
 -- (beside garbage collection of the haskell data structure)
-constResourceAllocationW :: YageResource a -> YageWire t b a
-constResourceAllocationW res = mkGenN $ \_ -> do
+acquireOnce :: YageResource a -> YageWire t b a
+acquireOnce res = mkGenN $ \_ -> do
     (_key, a) <- allocateAcquire res
     return $ (Right a, mkConst $ Right a)
-{-# INLINE constResourceAllocationW #-}
+{-# INLINE acquireOnce #-}
 
 constMeshW :: YageResource (Mesh vert) -> YageWire t b (Mesh vert)
-constMeshW = constResourceAllocationW
+constMeshW = acquireOnce
 {-# INLINE constMeshW #-}
 
 constTextureW :: YageResource Texture -> YageWire t b Texture
-constTextureW = constResourceAllocationW
+constTextureW = acquireOnce
 {-# INLINE constTextureW #-}
 
 constFontW :: YageResource FontTexture -> YageWire t b FontTexture
-constFontW = constResourceAllocationW
+constFontW = acquireOnce
 {-# INLINE constFontW #-}
 
 

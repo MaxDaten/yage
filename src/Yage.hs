@@ -14,6 +14,9 @@ module Yage
     , module Viewport
     , module Linear
     , module Transformation
+    , module RenderSystem
+    , module Rectangle
+    , module Quine
     ) where
 
 import             Yage.Prelude                    as YagePrelude
@@ -31,11 +34,12 @@ import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 
 import             Linear                          as Linear hiding (lerp, trace)
-import             Yage.Geometry.D2.Rectangle
-import             Yage.Rendering.RenderSystem
+import             Yage.Geometry.D2.Rectangle      as Rectangle
+import             Yage.Rendering.RenderSystem     as RenderSystem
 import             Yage.Transformation             as Transformation
 import             Yage.UI
 import             Yage.Viewport                   as Viewport
+import             Quine.StateVar                  as Quine
 
 ---------------------------------------------------------------------------------------------------
 
@@ -54,7 +58,6 @@ data YageSimulation time scene = YageSimulation
 
 data YageLoopState time scene = YageLoopState
     { _simulation         :: !(YageSimulation time scene)
-    , _pipeline           :: RenderSystem IO scene ()
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
     }
@@ -90,21 +93,19 @@ instance EventCtr (YageLoopState t s) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: ( Real time, LinearInterpolatable scene, HasViewport scene Int ) =>
+yageMain :: ( Real time, LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene () ) =>
          String ->
          ApplicationConfig ->
          WindowConfig ->
          YageWire time () scene ->
-         RenderSystem IO scene () ->
          time -> IO ()
-yageMain title appConf winConf sim thePipeline dt =
+yageMain title appConf winConf sim dt =
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
     in do
         tInputState <- newTVarIO mempty
         let initState = YageLoopState
                         { _simulation         = initSim
-                        , _pipeline           = thePipeline
                         , _timing             = loopTimingInit
                         , _inputState         = tInputState
                         }
@@ -114,10 +115,10 @@ yageMain title appConf winConf sim thePipeline dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (Real time, LinearInterpolatable scene, HasViewport scene Int) =>
-         Window ->
-         YageLoopState time scene ->
-         Application AnyException (YageLoopState time scene)
+yageLoop :: (Real time, LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene ()) =>
+    Window ->
+    YageLoopState time scene ->
+    Application AnyException (YageLoopState time scene)
 yageLoop win oldState = do
     inputSt                 <- io $ atomically $ readModifyTVar (oldState^.inputState) clearEvents
     debugM $ format "{}" (Only $ Shown inputSt)
@@ -165,11 +166,10 @@ yageLoop win oldState = do
 
 
     renderTheScene scene = do
-        let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
         let fbRect      = Rectangle 0 $ winSt^.fbSize
             ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-        {-# SCC rendering #-} runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) thePipeline
+        {-# SCC rendering #-} runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) (scene^.renderSystem)
 
 
     -- debug & stats

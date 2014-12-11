@@ -111,7 +111,7 @@ library
 --    Yage.Wire.Movement
 --    Yage.Wire.Input
 --    Yage.Wire.Analytic
---    Yage.Wire.Resources
+    Yage.Wire.Resources
 --    Yage.Wire.Utils
 --    Yage.Wire.Debug
 

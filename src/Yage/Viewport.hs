@@ -3,9 +3,10 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Viewport
-    ( Viewport(..), HasViewport(..)
-    , glViewport
-    ) where
+  ( Viewport(..), HasViewport(..)
+  , defaultViewport
+  , glViewport
+  ) where
 
 import Yage.Prelude
 import Yage.Math
@@ -29,10 +30,15 @@ data Viewport a = Viewport
 makeClassy ''Viewport
 
 
+
 instance HasRectangle (Viewport Int) Int where
     rectangle = viewportRectangle
     {-# INLINE rectangle #-}
 
+-- | Creates a 'Viewport' from width and height with default 'Gamma'=2.2 and
+-- a 'pixel ratio' of 1
+defaultViewport :: Num a => a -> a -> Viewport a
+defaultViewport w h = Viewport (Rectangle 0 (V2 w h)) 1 2.2
 
 glViewport :: StateVar (Rectangle Int)
 glViewport = StateVar g s where

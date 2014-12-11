@@ -11,9 +11,10 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 module Yage.Rendering.RenderSystem
-    ( module Yage.Rendering.RenderSystem
-    , module Framebuffer
-    ) where
+  ( RenderSystem
+  , HasRenderSystem(..)
+  , runPipeline
+  ) where
 
 
 import           Yage.Lens                          hiding (elements)
@@ -25,20 +26,11 @@ import           Control.Category
 import           Control.Monad.RWS                  (RWST(..), runRWST)
 import           Linear
 
-import           Yage.Rendering.Resources.GL.Base
-import           Yage.Rendering.Resources.GL.Framebuffer as Framebuffer
-import           Yage.Rendering.Resources.GL.Renderbuffer
-import           Yage.Rendering.Resources.GL.Texture
-
-import           Quine.GL.Framebuffer
-import           Quine.GL.Object
-import           Quine.GL.ProgramPipeline
-import           Quine.GL.Renderbuffer
-import           Quine.StateVar
-
 -- |
 newtype RenderSystem m a b = RenderPass { runSys :: RWST a () () m b }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader a)
+
+makeClassy ''RenderSystem
 
 instance Monad m => Arrow (RenderSystem m) where
   arr f = RenderPass $ do
