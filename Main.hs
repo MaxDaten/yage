@@ -25,6 +25,17 @@ winSettings = WindowConfig
     ]
   }
 
+data Configuration = Configuration
+  { _mainAppConfig      :: ApplicationConfig
+  , _mainWindowConfig   :: WindowConfig
+  , _mainMonitorOptions :: MonitorOptions
+  }
+
+makeLenses ''Configuration
+
+configuration :: Configuration
+configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True True)
+
 data Scene = Scene
   { _mainViewport  :: Viewport Int
   , _sceneRenderer :: RenderSystem IO Scene ()
@@ -37,14 +48,26 @@ sceneWire = proc () -> do
   pipeline <- acquireOnce clearViewport -< ()
   returnA -< Scene (defaultViewport 800 600) pipeline
 
-clearViewport = return $ do
-  vp <- view viewport
-  Yage.glViewport $= vp^.rectangle
+clearViewport = do
+  -- Convert output linear RGB to SRGB
+  glEnable GL_FRAMEBUFFER_SRGB
   glClearColor 1 0 0 1
-  glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+  return $ do
+    vp <- view viewport
+    Yage.glViewport $= vp^.rectangle
+    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
 main :: IO ()
-main = yageMain "standalone" appConf winSettings sceneWire (1/60)
+main = yageMain "standalone" configuration sceneWire (1/60)
+
+instance HasMonitorOptions Configuration where
+  monitorOptions = mainMonitorOptions
+
+instance HasWindowConfig Configuration where
+  windowConfig = mainWindowConfig
+
+instance HasApplicationConfig Configuration where
+  applicationConfig = mainAppConfig
 
 instance HasViewport Scene Int where
   viewport = mainViewport

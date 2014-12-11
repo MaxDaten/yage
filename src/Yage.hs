@@ -6,6 +6,12 @@
 
 module Yage
     ( yageMain, YageSimulation(..)
+    -- * Configuration
+    , HasApplicationConfig(..)
+    , HasWindowConfig(..)
+    -- ** Reexports
+    , MonitorOptions(..)
+    , HasMonitorOptions(..)
     -- * Reexports
     , module Application
     , module Resource
@@ -41,6 +47,7 @@ import             Yage.UI
 import             Yage.Viewport                   as Viewport
 import             Quine.StateVar                  as Quine
 
+import             Quine.Monitor
 ---------------------------------------------------------------------------------------------------
 
 data YageTiming = YageTiming
@@ -60,12 +67,23 @@ data YageLoopState time scene = YageLoopState
     { _simulation         :: !(YageSimulation time scene)
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
+    , _metrics            :: !Metrics
     }
+
+data Metrics = Metrics
+  { _monitor          :: Monitor
+  , _simulationFrames :: Counter
+  , _renderFrames     :: Counter
+  }
 
 ---------------------------------------------------------------------------------------------------
 makeLenses ''YageTiming
 makeLenses ''YageSimulation
 makeLenses ''YageLoopState
+makeLenses ''Metrics
+
+makeClassy ''ApplicationConfig
+makeClassy ''WindowConfig
 
 ---------------------------------------------------------------------------------------------------
 --data InternalEventController ectr = InternalEventController
@@ -93,21 +111,27 @@ instance EventCtr (YageLoopState t s) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: ( Real time, LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene () ) =>
-         String ->
-         ApplicationConfig ->
-         WindowConfig ->
-         YageWire time () scene ->
-         time -> IO ()
-yageMain title appConf winConf sim dt =
+yageMain ::
+    ( Real time
+    , LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene ()
+    , HasApplicationConfig conf
+    , HasWindowConfig conf
+    , HasMonitorOptions conf )
+    => String -> conf -> YageWire time () scene -> time -> IO ()
+yageMain title config sim dt =
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
     let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
+        appConf           = config^.applicationConfig
+        winConf           = config^.windowConfig
     in do
         tInputState <- newTVarIO mempty
+
+        monitor <- setupMonitoring (config^.monitorOptions)
         let initState = YageLoopState
                         { _simulation         = initSim
                         , _timing             = loopTimingInit
                         , _inputState         = tInputState
+                        , _metrics            = monitor
                         }
 
         _ <- execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
@@ -158,6 +182,7 @@ yageLoop win oldState = do
 
     -- perform one step in simulation
     stepSimulation sim = do
+        inc $ oldState^.metrics.simulationFrames
         ( ds      , s )     <- io $ stepSession $ sim^.simSession
         ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
         return $! newScene `seq` ( sim & simScene     .~ newScene
@@ -167,6 +192,7 @@ yageLoop win oldState = do
 
     renderTheScene scene = do
         winSt           <- io $ readTVarIO ( winState win )
+        inc $ oldState^.metrics.renderFrames
         let fbRect      = Rectangle 0 $ winSt^.fbSize
             ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
         {-# SCC rendering #-} runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) (scene^.renderSystem)
@@ -193,6 +219,11 @@ readModifyTVar tvar f = do
     modifyTVar' tvar f
     return var
 {-# INLINE readModifyTVar #-}
+
+setupMonitoring :: MonitorOptions -> IO Metrics
+setupMonitoring options = do
+  ekg <- forkMonitor options
+  Metrics ekg <$> counter "yage.simulation" ekg <*> counter "yage.simulation" ekg
 
 instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
     lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)
