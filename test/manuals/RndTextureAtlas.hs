@@ -7,7 +7,7 @@ import Yage.Prelude
 import Yage.Math
 
 import Yage.Data.List (piz)
-import Yage.Images
+import Yage.Image
 
 import Data.Text.Read
 import Control.Monad (when)
