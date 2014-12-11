@@ -1,21 +1,20 @@
 {-# LANGUAGE FlexibleContexts           #-}
 module Yage.Rendering.Pipeline.Deferred.Common
-    ( module Yage.Rendering.Pipeline.Deferred.Common
-    , module Yage.Rendering.Pipeline.Types
-    ) where
+  (
+  ) where
 
-import Yage.Prelude
-import Yage.Lens
+-- import Yage.Prelude
+-- import Yage.Lens
 
-import Yage.Viewport
-import Yage.Geometry
-import Yage.Uniforms as U
-import Yage.Rendering.RenderSystem
+-- import Yage.Viewport
+-- import Yage.Geometry
+-- import Yage.Uniforms as U
+-- import Yage.Rendering.RenderSystem
 -- import Yage.Rendering.Textures
 
 -- import qualified Yage.Core.OpenGL as GL
 
-type YageDeferredPass mrt shader = PassDescr mrt shader
+-- type YageDeferredPass mrt shader = PassDescr mrt shader
 
 
 {--

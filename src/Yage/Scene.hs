@@ -8,9 +8,6 @@
 module Yage.Scene
     ( module Yage.Scene
     , module Yage.Light
-    , Cam.rosCamera, Cam.fpsCamera, Cam.camMatrix, Texture(..)
-    , GLDrawSettings(..)
-
     , module Res
     ) where
 
@@ -18,25 +15,18 @@ module Yage.Scene
 import           Yage.Prelude                   hiding ( mapM )
 import           Yage.Lens
 
-import           Yage.Camera
 import           Yage.Light
 import           Yage.Resources                 as Res
-import           Yage.Geometry                  hiding ( Face )
 
 import qualified Data.Sequence                  as S
 
-import qualified Graphics.GLUtil.Camera3D       as Cam
-
-import           Yage.Rendering.RenderEntity
-import           Yage.Rendering
 import           Yage.Transformation
-import qualified Graphics.Rendering.OpenGL      as GL
 
 data Entity mesh mat = Entity
     { _renderData            :: !mesh
     , _materials             :: !mat
     , _entityTransformation  :: !( Transformation Double )
-    , _drawSettings          :: !GLDrawSettings
+    -- , _drawSettings          :: !GLDrawSettings
     }
 
 makeLenses ''Entity
@@ -107,25 +97,6 @@ sceneLights = sceneEnvironment.envLights
 {-# INLINE sceneLights #-}
 
 
-mkCameraHandle :: V3 Double -> V3 Double -> V3 Double -> Quaternion Double -> V3 Double -> CameraHandle
-mkCameraHandle = Cam.Camera
-
-{--
-## Entity Shortcuts
---}
-
-entityPosition    :: Lens' (Entity vert mat) (V3 Double)
-entityPosition    = entityTransformation.transPosition
-
-
-entityScale       :: Lens' (Entity vert mat) (V3 Double)
-entityScale       = entityTransformation.transScale
-
-
-entityOrientation :: Lens' (Entity vert mat) (Quaternion Double)
-entityOrientation = entityTransformation.transOrientation
-
-
 lightEntity :: Lens' (LightEntity mesh) (Entity mesh ())
 lightEntity = lens getter setter where
   getter (LightEntity entity _) = entity
@@ -137,48 +108,14 @@ entityLight = lens getter setter where
   getter (LightEntity _ light) = light
   setter (LightEntity entity _) light = LightEntity entity light
 
-{--
-instance ( HasResources vert ent ent', HasResources vert env env'
-         , HasResources vert gui gui'
-         ) =>
-        HasResources vert (Scene cam ent env gui) (Scene cam ent' env' gui') where
-    requestResources scene =
-        Scene   <$> ( mapM requestResources $ scene^.sceneEntities )
-                <*> ( requestResources $ scene^.sceneEnvironment )
-                <*> ( pure $ scene^.sceneCamera )
-                <*> ( requestResources $ scene^.sceneGui)
 
-
-instance ( HasResources vert mat mat', HasResources vert mesh mesh' ) =>
-        HasResources vert ( Entity mesh mat ) ( Entity mesh' mat' ) where
-    requestResources entity =
-        Entity <$> ( requestResources $ entity^.renderData )
-               <*> ( requestResources $ entity^.materials )
-               <*> ( pure $ entity^.entityTransformation )
-               <*> ( pure $ entity^.drawSettings )
-
-
-instance ( HasResources vert lit lit', HasResources vert sky sky' ) =>
-         HasResources vert ( Environment lit sky) ( Environment lit' sky' ) where
-    requestResources env =
-        Environment <$> ( mapM requestResources $ env^.envLights )
-                    <*> ( mapM requestResources $ env^.envSky )
-                    <*> ( pure $ env^.envAmbient )
-
-instance ( HasResources vert mesh mesh' ) =>
-         HasResources vert (LightEntity mesh) (LightEntity mesh') where
-         requestResources (LightEntity ent light) =
-            LightEntity <$> requestResources ent
-                        <*> pure light
---}
-
-toRenderEntity :: ShaderData u t ->
-                  Entity (Mesh vert) mat ->
-                  RenderEntity vert (ShaderData u t)
-toRenderEntity shaderData ent =
-    RenderEntity ( ent^.renderData )
-                 ( shaderData )
-                 ( ent^.drawSettings )
+-- toRenderEntity :: ShaderData u t ->
+--                   Entity (Mesh vert) mat ->
+--                   RenderEntity vert (ShaderData u t)
+-- toRenderEntity shaderData ent =
+--     RenderEntity ( ent^.renderData )
+--                  ( shaderData )
+--                  ( ent^.drawSettings )
 
 
 
@@ -187,13 +124,13 @@ toRenderEntity shaderData ent =
 --     - the default `Material` as `TexSRGB8`
 --     - id Transformation
 --     - settings for triangle primitive rendering and back-face culling
-basicEntity :: ( Storable (Vertex vert), Default mat ) => Entity (Mesh (Vertex vert)) mat
+basicEntity :: ( Storable v, Default mat ) => Entity (Mesh v) mat
 basicEntity =
     Entity
         { _renderData           = emptyMesh
         , _materials            = def
         , _entityTransformation = idTransformation
-        , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
+        -- , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
         }
 
 

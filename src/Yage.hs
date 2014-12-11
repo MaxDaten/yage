@@ -26,12 +26,12 @@ import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
 import             Yage.Core.Application.Exception hiding (bracket)
 
+import             Linear                          hiding (lerp)
+import             Yage.Geometry.D2.Rectangle
 import             Yage.Rendering.RenderSystem
-
-import             Yage.UI
-import             Yage.Viewport                   (Viewport(..), Rectangle(..))
 import             Yage.Transformation
-
+import             Yage.UI
+import             Yage.Viewport
 
 ---------------------------------------------------------------------------------------------------
 
@@ -49,12 +49,10 @@ data YageSimulation time scene = YageSimulation
     }
 
 data YageLoopState time scene = YageLoopState
-    { _loadedGLResources  :: !GLResources
-    , _simulation         :: !(YageSimulation time scene)
-    , _pipeline           :: YageRenderSystem scene ()
+    { _simulation         :: !(YageSimulation time scene)
+    , _pipeline           :: RenderSystem IO scene ()
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
-    , _renderStats        :: RStatistics
     }
 
 ---------------------------------------------------------------------------------------------------
@@ -88,12 +86,12 @@ instance EventCtr (YageLoopState t s) where
     --scrollCallback         = scrollCallback . _eventCtr
 
 
-yageMain :: ( LinearInterpolatable scene, Real time ) =>
+yageMain :: ( Real time, LinearInterpolatable scene, HasViewport scene Int ) =>
          String ->
          ApplicationConfig ->
          WindowConfig ->
          YageWire time () scene ->
-         YageRenderSystem scene () ->
+         RenderSystem IO scene () ->
          time -> IO ()
 yageMain title appConf winConf sim thePipeline dt =
     -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
@@ -101,12 +99,10 @@ yageMain title appConf winConf sim thePipeline dt =
     in do
         tInputState <- newTVarIO mempty
         let initState = YageLoopState
-                        { _loadedGLResources  = initialGLRenderResources -- TODO deferred resource loaded to pipeline
-                        , _simulation         = initSim
+                        { _simulation         = initSim
                         , _pipeline           = thePipeline
                         , _timing             = loopTimingInit
                         , _inputState         = tInputState
-                        , _renderStats        = mempty
                         }
 
         _ <- execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
@@ -114,7 +110,7 @@ yageMain title appConf winConf sim thePipeline dt =
 
 
 -- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (Real time, LinearInterpolatable scene) =>
+yageLoop :: (Real time, LinearInterpolatable scene, HasViewport scene Int) =>
          Window ->
          YageLoopState time scene ->
          Application AnyException (YageLoopState time scene)
@@ -128,20 +124,13 @@ yageLoop win oldState = do
     -- step our global timing to integrate our simulation
     ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
 
-    (rRes, rStats) <- case renderSim^.simScene of
-        Left err    -> ( criticalM $ "err:" ++ show err ) >> return (oldState^.loadedGLResources, oldState^.renderStats)
-        Right scene -> renderTheScene scene ( oldState^.loadedGLResources )
+    case renderSim^.simScene of
+        Left err    -> ( criticalM $ "err:" ++ show err )
+        Right scene -> io $ renderTheScene scene
 
-    setDevStuff rStats simTime
-
-
-    -- log loaded resources and render trace
-    traverse_ ( debugM . format "[ResourceLog]: {}" . Only . Shown ) (rStats^.resourceLog)
-    traverse_ ( debugM . format "[RenderTrace]: {}" . Only . Shown ) (rStats^.renderLog.rlTrace)
+    setDevStuff simTime
 
     return $! oldState
-        & renderStats             .~ rStats
-        & loadedGLResources       .~ rRes
         & simulation              .~ newSim
         & timing.loopSession      .~ newSession
         & timing.remainderAccum   .~ newRemainder
@@ -171,26 +160,24 @@ yageLoop win oldState = do
                                        & simWire      .~ w )
 
 
-    renderTheScene scene glResources = do
+    renderTheScene scene = do
         let thePipeline = oldState^.pipeline
         winSt           <- io $ readTVarIO ( winState win )
         let fbRect      = Rectangle 0 $ winSt^.fbSize
             ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-        {-# SCC rendering #-} runRenderSystem ( thePipeline ( Viewport fbRect ratio 2.2 ) scene ) ( glResources )
+        {-# SCC rendering #-} runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) thePipeline
 
 
     -- debug & stats
-    setDevStuff stats simTime = do
+    setDevStuff simTime = do
         title   <- gets appTitle
         gcTime  <- gets appGCTime
         setWindowTitle win $ unpack $
             format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
             ( title
             , fixed 4 $ 1000 * simTime
-            , fixed 4 $ 1000 * stats^.resourcingTime
-            , fixed 4 $ 1000 * stats^.renderingTime
             , fixed 4 $ 1000 * gcTime
-            , prec 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
+            , prec 4 $ 1000 * sum [simTime, gcTime]
             )
 
 loopTimingInit :: YageTiming

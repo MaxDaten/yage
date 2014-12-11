@@ -287,12 +287,12 @@ executable fontAtlasGen
       , filepath
       , mtl
       , terminal-progress-bar
-      , optparse-applicative
+      , optparse-applicative >= 0.11
 
 -------------------------------------------------------------------------------
 
 executable obj2ygm
-  hs-source-dirs:       obj2ygm-src/
+  hs-source-dirs:       obj2ygm/
   main-is:              OBJ2YGM.hs
   default-extensions:   
     NoImplicitPrelude
@@ -315,7 +315,7 @@ executable obj2ygm
 
 
 executable shader-tool
-  hs-source-dirs:       shader-tool-src/
+  hs-source-dirs:       shader-tool/
   main-is:              ShaderTool.hs
   default-extensions:   
     NoImplicitPrelude

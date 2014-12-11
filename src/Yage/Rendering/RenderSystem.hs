@@ -37,7 +37,7 @@ import           Quine.GL.Renderbuffer
 import           Quine.StateVar
 
 -- |
-newtype RenderSystem m a b = RenderPass { runSys :: RWST a () () m b  }
+newtype RenderSystem m a b = RenderPass { runSys :: RWST a () () m b }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader a)
 
 instance Monad m => Arrow (RenderSystem m) where

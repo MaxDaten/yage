@@ -1,14 +1,15 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing        #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Viewport
-    ( module Yage.Viewport
+    ( Viewport(..), HasViewport(..)
+    , glViewport
     ) where
 
 import Yage.Prelude
 import Yage.Math
-import Yage.Rendering.GL
+import qualified Yage.Rendering.GL as GL
 import Yage.Lens
 import Data.Data
 import Foreign.Marshal.Array
@@ -16,27 +17,30 @@ import Quine.StateVar
 import Yage.Geometry.D2.Rectangle
 
 data Viewport a = Viewport
-  { _viewportRect       :: Rectangle a
-    -- ^ as xy1 und xy2, with 0/0 top/left
-  , _viewportPixelRatio :: V2 Double
+  { _viewportRectangle   :: !(Rectangle a)
+    -- with top/left and width/height (gl convention)
+  , _viewportPixelRatio  :: !(V2 Double)
   -- ^ usually 1:1, on retina displays 2:2
-  , _viewportGamma      :: Float
+  , _viewportGamma       :: !Float
+  -- ^ usually 2.2
   } deriving (Show,Eq,Functor,Data,Typeable,Generic)
 
-makeLenses ''Viewport
+-- makeLenses ''Viewport
+makeClassy ''Viewport
 
 
 instance HasRectangle (Viewport Int) Int where
-    rectangle = viewportRect
+    rectangle = viewportRectangle
     {-# INLINE rectangle #-}
 
 
-viewport :: StateVar (Rectangle Int)
-viewport = StateVar g s where
+glViewport :: StateVar (Rectangle Int)
+glViewport = StateVar g s where
   g = do
-    [x,y,w,h] <- fmap fromIntegral <$> (allocaArray 4 $ \ptr -> glGetIntegerv GL_VIEWPORT ptr >> peekArray 4 ptr)
+    [x,y,w,h] <- fmap fromIntegral <$> (allocaArray 4 $ \ptr -> GL.glGetIntegerv GL.GL_VIEWPORT ptr >> peekArray 4 ptr)
     return $ Rectangle (V2 x y) (V2 w h)
-  s (Rectangle (V2 x y) (V2 w h)) = glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+  s (Rectangle (V2 x y) (V2 w h)) = GL.glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+
 
 -- | creates the projectiom matrix for the given viewport
 -- for Camera2D: create an orthographic matrix with origin at the

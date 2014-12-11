@@ -26,25 +26,25 @@ import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
-type DeferredEnvironment = Environment Light Pass.SkyEntity
-type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
+-- type DeferredEnvironment = Environment Light Pass.SkyEntity
+-- type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
 
-yDeferredLighting :: YageRenderSystem DeferredScene ()
-yDeferredLighting viewport scene =
-    let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
-        cam                     = scene^.sceneCamera.hdrCameraHandle
-        baseDescr               = Pass.geoPass viewport
-        runBasePass             = runRenderPass baseDescr
-        baseData                = geoFrameData viewport cam
-    in do
-    -- render out our geometric attributes (color, normal, ...)
-    baseData `runBasePass` ( toGeoEntity cam <$> scene^.sceneEntities )
+-- yDeferredLighting :: YageRenderSystem DeferredScene ()
+-- yDeferredLighting viewport scene =
+--     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
+--         cam                     = scene^.sceneCamera.hdrCameraHandle
+--         baseDescr               = Pass.geoPass viewport
+--         runBasePass             = runRenderPass baseDescr
+--         baseData                = geoFrameData viewport cam
+--     in do
+--     -- render out our geometric attributes (color, normal, ...)
+--     baseData `runBasePass` ( toGeoEntity cam <$> scene^.sceneEntities )
 
-    -- calculate lighting based on attributes + bloom & apply tone mapping
-    hdrTex <- Pass.hdrLightingPass baseDescr viewport scene
+--     -- calculate lighting based on attributes + bloom & apply tone mapping
+--     hdrTex <- Pass.hdrLightingPass baseDescr viewport scene
 
-    -- rendered gui elements (TODO: should be gamma correct)
-    guiTex <- Pass.runGuiPass hdrTex viewport ( scene^.sceneGui )
+--     -- rendered gui elements (TODO: should be gamma correct)
+--     guiTex <- Pass.runGuiPass hdrTex viewport ( scene^.sceneGui )
 
-    -- bring it to the default render target - the screen
-    Pass.screenPass viewport [ hdrTex, guiTex ]
+--     -- bring it to the default render target - the screen
+--     Pass.screenPass viewport [ hdrTex, guiTex ]
