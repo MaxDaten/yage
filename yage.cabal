@@ -85,6 +85,7 @@ library
     Yage.Texture
     Yage.Image
     Yage.Color
+    Yage.GL
 --    Yage.Geometry
     Yage.Viewport
     Yage.Transformation
@@ -120,7 +121,6 @@ library
     Yage.Texture.TextureAtlas
     Yage.Texture.CubeImageLayout
 
-    Yage.Rendering.GL
     Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
     Yage.Rendering.Resources.GL.Base
@@ -155,6 +155,7 @@ library
     Yage.Wire.Event
     
     Yage.UI.Types
+    Yage.Rendering.GL
 
   -- context stack currently for the vinyl records 
   ghc-options: -w -j4

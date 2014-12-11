@@ -1,10 +1,13 @@
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import Yage
 import Yage.Wire
 import Yage.Lens
+import Yage.GL
 
 
 appConf :: ApplicationConfig
@@ -23,22 +26,31 @@ winSettings = WindowConfig
   }
 
 data Scene = Scene
-  { _mainViewport :: Viewport Int
+  { _mainViewport  :: Viewport Int
+  , _sceneRenderer :: RenderSystem IO Scene ()
   }
 
 makeLenses ''Scene
 
 sceneWire :: YageWire t () Scene
-sceneWire = pure $ Scene (undefined)
+sceneWire = proc () -> do
+  pipeline <- acquireOnce clearViewport -< ()
+  returnA -< Scene (defaultViewport 800 600) pipeline
 
-sceneRenderer = return ()
-
+clearViewport = return $ do
+  vp <- view viewport
+  Yage.glViewport $= vp^.rectangle
+  glClearColor 1 0 0 1
+  glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
 main :: IO ()
-main = yageMain "standalone" appConf winSettings sceneWire sceneRenderer (1/60)
+main = yageMain "standalone" appConf winSettings sceneWire (1/60)
 
 instance HasViewport Scene Int where
   viewport = mainViewport
 
 instance LinearInterpolatable Scene where
   lerp _ _ = id
+
+instance HasRenderSystem Scene IO Scene () where
+  renderSystem = sceneRenderer
