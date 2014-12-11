@@ -2,7 +2,7 @@ module Yage.Wire.Resources where
 
 import           Yage.Prelude              hiding (any, on)
 import           Yage.Resources
-
+import           Yage.Texture
 
 import           Control.Wire
 import           Control.Wire.Unsafe.Event
