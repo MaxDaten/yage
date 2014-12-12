@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage
-    ( yageMain, YageSimulation(..)
+    ( yageMain, YageSimulation
     -- * Configuration
     , HasApplicationConfig(..)
     , HasWindowConfig(..)
@@ -14,6 +14,7 @@ module Yage
     , MonitorOptions(..)
     , HasMonitorOptions(..)
     -- * Reexports
+    , module Resources
     , module Application
     , module Resource
     , module YagePrelude
@@ -26,7 +27,7 @@ module Yage
     , module Quine
     ) where
 
-import             Yage.Prelude                    as YagePrelude
+import             Yage.Prelude                    as YagePrelude hiding (bracket, onException, finally, catch)
 import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
 import             Data.Foldable                   (traverse_)
@@ -45,9 +46,12 @@ import             Linear                          as Linear hiding (lerp, trace
 import             Yage.Geometry.D2.Rectangle      as Rectangle
 import             Yage.Rendering.RenderSystem     as RenderSystem
 import             Yage.Transformation             as Transformation
+import             Yage.Resources                  as Resources
 import             Yage.UI
 import             Yage.Viewport                   as Viewport
+import             Yage.Internal.Debug
 import             Quine.StateVar                  as Quine
+import             Graphics.GL.Core45
 
 import             Quine.Monitor
 ---------------------------------------------------------------------------------------------------
@@ -143,7 +147,7 @@ yageMain title config sim dt =
       win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
       registerWindowCallbacks win initState
       makeContextCurrent $ Just win
-
+      installGLDebugHook =<< io (getLogger "opengl.debughook")
       evalStateT (core win) initState
 
   where

@@ -123,6 +123,7 @@ library
 
     Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
+    Yage.Rendering.Resources.GL
     Yage.Rendering.Resources.GL.Base
     Yage.Rendering.Resources.GL.Buffer
     Yage.Rendering.Resources.GL.Framebuffer
@@ -146,6 +147,8 @@ library
     Yage.Rendering.Pipeline.Deferred.GaussFilter
     Yage.Rendering.Pipeline.Deferred.Sampler
     Yage.Rendering.Pipeline.Deferred.GuiPass
+
+    Yage.Internal.Debug
     
   other-modules:        
     Paths_yage

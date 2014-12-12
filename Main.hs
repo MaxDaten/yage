@@ -10,7 +10,8 @@ import Yage.Wire
 import Yage.Lens
 import Yage.GL
 import Quine.Monitor
-import Control.Concurrent
+import Yage.Rendering.Resources.GL
+import Quine.GL.VertexArray
 
 
 appConf :: ApplicationConfig
@@ -24,6 +25,8 @@ winSettings = WindowConfig
     , WindowHint'ContextVersionMinor  1
     , WindowHint'OpenGLProfile        OpenGLProfile'Core
     , WindowHint'OpenGLForwardCompat  True
+    , WindowHint'OpenGLDebugContext   True
+    , WindowHint'sRGBCapable          True
     , WindowHint'RefreshRate          60
     ]
   }
@@ -48,14 +51,24 @@ makeLenses ''Scene
 
 sceneWire :: YageWire t () Scene
 sceneWire = proc () -> do
-  pipeline <- acquireOnce clearViewport -< ()
+  pipeline <- acquireOnce simplePipeline -< ()
   returnA -< Scene (defaultViewport 800 600) pipeline
 
-clearViewport = do
-  -- Convert output linear RGB to SRGB
+simplePipeline :: YageResource (RenderSystem IO Scene ())
+simplePipeline = do
   glEnable GL_FRAMEBUFFER_SRGB
+  vpPass <- drawTriangle
+  return $ proc scene -> do
+    vpPass -< scene
+
+
+drawTriangle :: YageResource (RenderSystem IO Scene ())
+drawTriangle = do
+  -- Convert output linear RGB to SRGB
   glClearColor 1 0 0 1
+  vao <- glResource
   return $ do
+    boundVertexArray $= vao
     vp <- view viewport
     Yage.glViewport $= vp^.rectangle
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
