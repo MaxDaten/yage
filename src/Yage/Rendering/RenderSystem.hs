@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows            #-} -- REMOVE ME
+{-# OPTIONS_GHC -Wall            #-} -- REMOVE ME
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -47,11 +47,18 @@ instance Monad m => Category (RenderSystem m) where
     (c, st'', w') <- runRWST (runSys f) b st'
     return (c, st'', w `mappend` w')
 
+instance Monad m => Profunctor (RenderSystem m) where
+  -- lmap f p = RenderPass $ RWST $ \a st -> runRWST (runSys p) (f a) st
+  dimap f g p = RenderPass $ RWST $ \a st -> do
+    (b, st', w) <- runRWST (runSys p) (f a) st
+    return (g b, st', w)
+
 
 runPipeline :: MonadIO m => scene -> RenderSystem m scene t -> m t
 runPipeline scene sys = do
   (t,_,_) <- runRWST (runSys sys) scene ()
   return t
+
 
 {--
 type Viewport = V2 Int
