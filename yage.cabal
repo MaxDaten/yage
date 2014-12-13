@@ -149,6 +149,7 @@ library
     Yage.Rendering.Pipeline.Deferred.GuiPass
 
     Yage.Internal.Debug
+    Yage.Rendering.GL
     
   other-modules:        
     Paths_yage
@@ -158,7 +159,6 @@ library
     Yage.Wire.Event
 
     Yage.UI.Types
-    Yage.Rendering.GL
 
   ghc-options: -w -O2
 --  ghc-prof-options: -rtsopts -prof -auto-all -caf-all
@@ -206,6 +206,7 @@ library
     , quine                 == 0.1
     , ekg                   >= 0.4.0.5
     
+    , file-embed
     , time                  >= 1.4
     , aeson                 >= 0.8
     , containers            >= 0.5
@@ -268,6 +269,8 @@ executable standalone-exe
       , JuicyPixels
       , containers
       , text
+      , file-embed
+      , filepath
 
 executable textureAtlas
   hs-source-dirs:     test/manuals
