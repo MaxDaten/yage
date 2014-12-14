@@ -71,10 +71,8 @@ simplePipeline = do
   -- Convert output linear RGB to SRGB
   glEnable GL_FRAMEBUFFER_SRGB
   throwErrors
-  print "buildNamedStrings"
-  io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
-  throwErrors
-  print "buildNamedStrings2"
+  throwWith "buildNamedStrings" $
+    io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
   trianglePass <- drawTriangle
   return $ proc scene -> do
     trianglePass -< scene
@@ -86,8 +84,8 @@ drawTriangle = do
 
   throwErrors
   print "create shader program"
-  transformVert <- compile GL_VERTEX_SHADER   "res/glsl/pass-vertex.vert"
-  colorFrag     <- compile GL_FRAGMENT_SHADER "res/glsl/pass-color.frag"
+  transformVert <- compile ["/res/glsl"] GL_VERTEX_SHADER   "res/glsl/pass-vertex.vert"
+  colorFrag     <- compile ["/res/glsl"] GL_FRAGMENT_SHADER "res/glsl/pass-color.frag"
   throwErrors
   print "link"
   prog <- link [transformVert,colorFrag]
@@ -109,7 +107,7 @@ drawTriangle = do
   throwErrors
 
   print "setup attributes"
-  vertexAttribPointer 0 $ Layout 3 GL_FLOAT False (sizeOf (error "undefined access" :: Vec3)) nullPtr
+  setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (sizeOf (error "undefined access" :: Vec3)) nullPtr)
   boundVertexArray $= def
   throwErrors
 
@@ -118,13 +116,11 @@ drawTriangle = do
     vp <- view viewport
     Yage.glViewport $= vp^.rectangle
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
-    currentProgram $= prog
+    currentProgram   $= prog
     boundVertexArray $= vao
     boundBufferAt ElementArrayBuffer $= ebo
-    throwErrors
-    glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
-    throwErrors
-
+    throwWith "drawing" $
+      glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
 
 main :: IO ()
