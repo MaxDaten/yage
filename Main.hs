@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
 import Yage hiding ((</>))
@@ -90,7 +91,7 @@ drawTriangle = do
   print "link"
   prog <- link [transformVert,colorFrag]
   Just aPosition <- attributeLocation prog "aPosition"
-  -- Just aColor    <- attributeLocation prog "aColor"
+  Just aColor    <- attributeLocation prog "aColor"
   throwErrors
 
   print "create buffer and buffer data"
@@ -101,13 +102,18 @@ drawTriangle = do
 
   print "buffer data"
   boundBufferAt ArrayBuffer $= vbo
-  bufferData    ArrayBuffer $= (StaticDraw, [V3 (-1) 0 0, V3 1 0 0, V3 0 1 0, V3 0 (-1) 0] :: [Vec3])
+  bufferData    ArrayBuffer $= (StaticDraw, [ (V3 (-1) 0 0, V3 1 0 0)
+                                            , (V3 1 0 0   , V3 0 1 0)
+                                            , (V3 0 1 0   , V3 0 0 1)
+                                            , (V3 0 (-1) 0, V3 1 1 0)
+                                            ] :: [(Vec3, Vec3)])
   boundBufferAt ElementArrayBuffer $= ebo
   bufferData    ElementArrayBuffer $= (StaticDraw, [0, 1, 2, 0, 3, 1] :: [Word8])
   throwErrors
 
   print "setup attributes"
-  setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (sizeOf (error "undefined access" :: Vec3)) nullPtr)
+  setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
+  setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
   boundVertexArray $= def
   throwErrors
 
@@ -143,3 +149,9 @@ instance LinearInterpolatable Game where
 
 instance HasRenderSystem Game IO Game () where
   renderSystem = sceneRenderer
+
+instance (Storable a, Storable b) => Storable (a,b) where
+  sizeOf _ = sizeOf (undefined::a) + sizeOf (undefined::b)
+  alignment _ = max (alignment (undefined::a)) (alignment (undefined::b))
+  peek ptr = (,) <$> peek (castPtr ptr) <*> peek (castPtr $ ptr `plusPtr` sizeOf (undefined::a))
+  poke ptr (a,b) = poke (castPtr ptr) a >> poke (ptr `plusPtr` sizeOf (undefined::a)) b

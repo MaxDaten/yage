@@ -5,11 +5,11 @@
 // Passes vertex position & color
 
 layout(location = 0) in vec3 aPosition;
-// layout(location = 3) in vec3 aColor;
+layout(location = 3) in vec3 aColor;
 
 out vec3 color;
 
 void main() {
-    color = vec3(1,0,0);
+    color = aColor;
     gl_Position = vec4(aPosition, 1.0);
 }
