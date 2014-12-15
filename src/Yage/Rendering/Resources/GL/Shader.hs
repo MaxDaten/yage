@@ -7,6 +7,7 @@ module Yage.Rendering.Resources.GL.Shader
   ( ShaderProgram(..), shaderType, shaderProg, shaderLog
   , compileProgram
   , createShaderPipeline
+  , compileShaderPipeline
   , shaderTypeToPipelineStage
   , fileToShaderType
   , validatePipeline
@@ -34,7 +35,8 @@ data ShaderProgram  = ShaderProgram
 
 makeLenses ''ShaderProgram
 
-data ShaderException = ShaderException [String] deriving (Show,Eq,Data,Typeable,Generic)
+data ShaderException = ShaderException [String]
+  deriving (Show,Eq,Data,Typeable,Generic)
 instance Exception ShaderException
 
 fileToShaderType :: FilePath -> ShaderType
@@ -85,6 +87,9 @@ createShaderPipeline programs = do
   pipeline <- glResource
   forM_ programs $ \prog -> useProgramStages pipeline (shaderTypeToPipelineStage $ prog^.shaderType) (prog^.shaderProg)
   return pipeline
+
+compileShaderPipeline :: [FilePath] -> [FilePath] -> Acquire ProgramPipeline
+compileShaderPipeline files paths = createShaderPipeline =<< mapM (`compileProgram` paths) files
 
 validatePipeline :: MonadIO m => ProgramPipeline -> m [String]
 validatePipeline pipeline = liftM (fmap Char8.unpack . Char8.lines) (validateProgramPipeline pipeline >> programPipelineInfoLog pipeline)

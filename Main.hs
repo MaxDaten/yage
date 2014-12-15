@@ -88,22 +88,16 @@ drawTriangle = do
   vao <- glResource
   boundVertexArray $= vao
 
-  print "create shader pipeline"
-  vert <- compileProgram "res/glsl/pass-vertex.vert" ["/res/glsl"]
-  frag <- compileProgram "res/glsl/pass-color.frag" ["/res/glsl"]
-  unless (null $ vert^.shaderLog) $ print (vert^.shaderLog)
-  unless (null $ frag^.shaderLog) $ print (frag^.shaderLog)
-
-  pipeline <- glResource
-  vertexShader pipeline $= Just (vert^.shaderProg)
-  fragmentShader pipeline $= Just (frag^.shaderProg)
+  pipeline <- compileShaderPipeline ["res/glsl/pass-vertex.vert", "res/glsl/pass-color.frag"] ["/res/glsl"]
   validatePipeline pipeline >>= \l -> unless (null l) $ print l
+  Just vert <- get (vertexShader pipeline)
+  Just frag <- get (fragmentShader pipeline)
   throwErrors
 
-  activeShaderProgram pipeline $= Just (vert^.shaderProg)
+  activeShaderProgram pipeline $= Just vert
   print "attribs"
-  Just aPosition <- attributeLocation (vert^.shaderProg) "aPosition"
-  Just aColor    <- attributeLocation (vert^.shaderProg) "aColor"
+  Just aPosition <- attributeLocation vert "aPosition"
+  Just aColor    <- attributeLocation vert "aColor"
   throwErrors
 
   print "create buffer and buffer data"
