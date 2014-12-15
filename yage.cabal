@@ -271,6 +271,7 @@ executable standalone-exe
       , text
       , file-embed
       , filepath
+      , bytestring
 
 executable textureAtlas
   hs-source-dirs:     test/manuals

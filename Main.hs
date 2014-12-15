@@ -7,7 +7,7 @@
 module Main where
 
 import Yage hiding ((</>))
-import Yage.Wire
+import Yage.Wire hiding (unless)
 import Yage.Lens
 import Yage.GL
 import System.FilePath
@@ -15,6 +15,7 @@ import Yage.Rendering.Resources.GL
 import Foreign.Ptr
 import Foreign.Storable
 import Data.FileEmbed
+import qualified Data.ByteString.Char8 as Char8
 import Quine.Monitor
 import Quine.GL
 import Quine.GL.Attribute
@@ -25,6 +26,7 @@ import Quine.GL.Shader
 import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
+import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 
 appConf :: ApplicationConfig
@@ -82,23 +84,31 @@ simplePipeline = do
 drawTriangle :: YageResource (RenderSystem IO Game ())
 drawTriangle = do
   glClearColor (1/57) (1/43) (1/67) 1
+  throwErrors
+  vao <- glResource
+  boundVertexArray $= vao
 
+  print "create shader pipeline"
+  vert <- compileProgram "res/glsl/pass-vertex.vert" ["/res/glsl"]
+  frag <- compileProgram "res/glsl/pass-color.frag" ["/res/glsl"]
+  unless (null $ vert^.shaderLog) $ print (vert^.shaderLog)
+  unless (null $ frag^.shaderLog) $ print (frag^.shaderLog)
+
+  pipeline <- glResource
+  vertexShader pipeline $= Just (vert^.shaderProg)
+  fragmentShader pipeline $= Just (frag^.shaderProg)
+  validatePipeline pipeline >>= \l -> unless (null l) $ print l
   throwErrors
-  print "create shader program"
-  transformVert <- compile ["/res/glsl"] GL_VERTEX_SHADER   "res/glsl/pass-vertex.vert"
-  colorFrag     <- compile ["/res/glsl"] GL_FRAGMENT_SHADER "res/glsl/pass-color.frag"
-  throwErrors
-  print "link"
-  prog <- link [transformVert,colorFrag]
-  Just aPosition <- attributeLocation prog "aPosition"
-  Just aColor    <- attributeLocation prog "aColor"
+
+  activeShaderProgram pipeline $= Just (vert^.shaderProg)
+  print "attribs"
+  Just aPosition <- attributeLocation (vert^.shaderProg) "aPosition"
+  Just aColor    <- attributeLocation (vert^.shaderProg) "aColor"
   throwErrors
 
   print "create buffer and buffer data"
-  vao <- glResource
   vbo <- glResource
   ebo <- glResource
-  boundVertexArray $= vao
 
   print "buffer data"
   boundBufferAt ArrayBuffer $= vbo
@@ -122,7 +132,7 @@ drawTriangle = do
     vp <- view viewport
     Yage.glViewport $= vp^.rectangle
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
-    currentProgram   $= prog
+    boundProgramPipeline $= pipeline
     boundVertexArray $= vao
     boundBufferAt ElementArrayBuffer $= ebo
     throwWith "drawing" $
