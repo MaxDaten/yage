@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -ddump-splices #-}
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -85,28 +84,22 @@ simplePipeline = do
 drawTriangle :: YageResource (RenderSystem IO Game ())
 drawTriangle = do
   glClearColor (1/57) (1/43) (1/67) 1
-  throwErrors
   vao <- glResource
   boundVertexArray $= vao
 
-  pipeline <- compileShaderPipeline [ $(embedShaderFile "res/glsl/pass-vertex.vert")
-                                    , $(embedShaderFile "res/glsl/pass-color.frag")] ["/res/glsl"]
+  pipeline <- [ $(embedShaderFile "res/glsl/pass-vertex.vert")
+              , $(embedShaderFile "res/glsl/pass-color.frag")]
+              `compileShaderPipeline` ["/res/glsl"]
   validatePipeline pipeline >>= \l -> unless (null l) $ print l
   Just vert <- get (vertexShader pipeline)
   Just frag <- get (fragmentShader pipeline)
-  throwErrors
 
   activeShaderProgram pipeline $= Just vert
-  print "attribs"
   Just aPosition <- attributeLocation vert "aPosition"
   Just aColor    <- attributeLocation vert "aColor"
-  throwErrors
 
-  print "create buffer and buffer data"
   vbo <- glResource
   ebo <- glResource
-
-  print "buffer data"
   boundBufferAt ArrayBuffer $= vbo
   bufferData    ArrayBuffer $= (StaticDraw, [ (V3 (-1) 0 0, V3 1 0 0)
                                             , (V3 1 0 0   , V3 0 1 0)
@@ -115,9 +108,7 @@ drawTriangle = do
                                             ] :: [(Vec3, Vec3)])
   boundBufferAt ElementArrayBuffer $= ebo
   bufferData    ElementArrayBuffer $= (StaticDraw, [0, 1, 2, 0, 3, 1] :: [Word8])
-  throwErrors
 
-  print "setup attributes"
   setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
   setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
   boundVertexArray $= def
