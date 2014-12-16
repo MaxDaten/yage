@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -ddump-splices #-}
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -88,7 +89,8 @@ drawTriangle = do
   vao <- glResource
   boundVertexArray $= vao
 
-  pipeline <- compileShaderPipeline ["res/glsl/pass-vertex.vert", "res/glsl/pass-color.frag"] ["/res/glsl"]
+  pipeline <- compileShaderPipeline [ $(embedShaderFile "res/glsl/pass-vertex.vert")
+                                    , $(embedShaderFile "res/glsl/pass-color.frag")] ["/res/glsl"]
   validatePipeline pipeline >>= \l -> unless (null l) $ print l
   Just vert <- get (vertexShader pipeline)
   Just frag <- get (fragmentShader pipeline)
