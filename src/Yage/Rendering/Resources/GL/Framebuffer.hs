@@ -17,6 +17,7 @@ import           Yage.Rendering.GL
 import           Control.Exception
 import           Control.Monad
 import           Data.Foldable
+import           Foreign.Marshal.Array
 
 import           Quine.GL.Framebuffer
 import           Quine.StateVar
@@ -26,7 +27,8 @@ data Attachment = forall a. FramebufferAttachment a => Attachment a
 
 -- | creates a 'Framebuffer' from a list of color attachments one optional depth and one optional
 -- stencil attachment. The color attachments will be indexed from 'GL_COLOR_ATTACHMENT0' to
--- 'GL_COLOR_ATTACHMENT0' + n
+-- 'GL_COLOR_ATTACHMENT0' + n all color buffers are enabled for drawing and the first color attachment
+-- for reading
 createFramebuffer :: [Attachment] -> Maybe Attachment -> Maybe Attachment -> Acquire Framebuffer
 createFramebuffer colors mDepth mStencil = do
   fb <- glResource :: Acquire Framebuffer
@@ -34,8 +36,13 @@ createFramebuffer colors mDepth mStencil = do
   zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] colors
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mDepth
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mStencil
-  glDrawBuffer $ GL_COLOR_ATTACHMENT0 + fromIntegral (length colors)
-  glReadBuffer $ GL_COLOR_ATTACHMENT0 + fromIntegral (length colors)
+  let cs =  (+) GL_COLOR_ATTACHMENT0 . fromIntegral <$> [0.. (length colors)-1]
+
+  glDrawBuffer GL_NONE
+  glReadBuffer GL_NONE
+  io $ withArray cs $ \ptr -> do
+    glDrawBuffers (fromIntegral $ length colors) ptr
+  traverse_ glReadBuffer $ listToMaybe cs
   mErr <- checkFramebufferStatus RWFramebuffer
   case mErr of
     Just err  -> throw err
