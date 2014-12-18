@@ -6,7 +6,8 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage
-    ( yageMain, YageSimulation
+    ( yageMain
+    , YageSim, YageConf
     -- * Configuration
     , HasApplicationConfig(..)
     , HasWindowConfig(..)
@@ -117,14 +118,10 @@ instance EventCtr (YageLoopState t s) where
         atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
+type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, HasRenderSystem sim (ResourceT IO) sim (), Real time)
+type YageConf conf = (HasApplicationConfig conf, HasWindowConfig conf, HasMonitorOptions conf )
 
-yageMain ::
-  ( Real time
-  , LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene (ResourceT IO) scene ()
-  , HasApplicationConfig conf
-  , HasWindowConfig conf
-  , HasMonitorOptions conf )
-  => String -> conf -> YageWire time () scene -> time -> IO ()
+yageMain :: (YageSim time sim, YageConf conf) => String -> conf -> YageWire time () sim -> time -> IO ()
 yageMain title config sim dt =
   -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
   let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
@@ -150,15 +147,14 @@ yageMain title config sim dt =
       installGLDebugHook =<< io (getLogger "opengl.debughook")
       evalStateT (runCore win) initState
 
-
-runCore :: (MonadApplication m, MonadIO m, MonadResource m, MonadState (YageLoopState time scene) m, HasRenderSystem scene (ResourceT IO) scene (), HasViewport scene Int, LinearInterpolatable scene, Num time) => Window -> m ()
+runCore :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
 runCore win = forever $ do
   liftApp $ pollEvents
   liftApp $ windowShouldClose win >>= \close -> when close $ throwM Shutdown
   core win
   liftApp $ swapBuffers win
 
-core :: (MonadApplication m, MonadResource m, HasRenderSystem scene (ResourceT IO) scene (), HasViewport scene Int, MonadState (YageLoopState time scene) m, LinearInterpolatable scene, Num time) => Window -> m ()
+core :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
 core win = do
   input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
   remAccum <- use (timing.remainderAccum)
@@ -211,10 +207,6 @@ core win = do
                                    & simSession   .~ s
                                    & simWire      .~ w )
 
-{--
-  renderTheScene scene win = do
---}
-
 -- debug & stats
 setDevStuff simTime renderTime win = do
   title   <- gets appTitle
@@ -236,13 +228,6 @@ readModifyTVar tvar f = do
     modifyTVar' tvar f
     return var
 {-# INLINE readModifyTVar #-}
-
-{--
-
-instance (Throws SomeException l, MonadBase IO m, MonadThrow m, MonadIO m, MonadResource m) => MonadResource (EMT l m) where
-    liftResourceT = lift . liftResourceT
-
---}
 
 instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
     lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)
