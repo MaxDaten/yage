@@ -21,18 +21,18 @@ import           Yage.Lens                          hiding (elements)
 import           Yage.Prelude                       hiding (Element, pass)
 
 import           Control.Arrow
-import           Control.Monad.Trans.Resource
 import           Control.Category
 import           Control.Monad.RWS                  (RWST(..), runRWST)
-import           Linear
 
 -- |
-newtype RenderSystem m a b = RenderPass { runSys :: RWST a () () m b }
+newtype RenderSystemT m a b = RenderPass { runSys :: RWST a () () m b }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader a)
 
-makeClassy ''RenderSystem
+type RenderSystem = RenderSystemT IO
 
-instance Monad m => Arrow (RenderSystem m) where
+makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystemT
+
+instance Monad m => Arrow (RenderSystemT m) where
   arr f = RenderPass $ do
     a <- ask
     return $ f a
@@ -40,21 +40,21 @@ instance Monad m => Arrow (RenderSystem m) where
     (c, st', w) <- runRWST (runSys s) b st
     return ((c, d), st', w)
 
-instance Monad m => Category (RenderSystem m) where
+instance Monad m => Category (RenderSystemT m) where
   id = RenderPass $ RWST $ \a st -> return (a, st, mempty)
   f . g = RenderPass $ RWST $ \a st -> do
     (b, st', w) <- runRWST (runSys g) a st
     (c, st'', w') <- runRWST (runSys f) b st'
     return (c, st'', w `mappend` w')
 
-instance Monad m => Profunctor (RenderSystem m) where
+instance Monad m => Profunctor (RenderSystemT m) where
   -- lmap f p = RenderPass $ RWST $ \a st -> runRWST (runSys p) (f a) st
   dimap f g p = RenderPass $ RWST $ \a st -> do
     (b, st', w) <- runRWST (runSys p) (f a) st
     return (g b, st', w)
 
 
-runPipeline :: MonadIO m => scene -> RenderSystem m scene t -> m t
+runPipeline :: MonadIO m => scene -> RenderSystemT m scene t -> m t
 runPipeline scene sys = do
   (t,_,_) <- runRWST (runSys sys) scene ()
   return t

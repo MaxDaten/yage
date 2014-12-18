@@ -49,6 +49,9 @@ createTexture2DImage target img = do
 createTexture2D :: ImageFormat px => GL.TextureTarget -> Int -> Int -> Acquire (Texture px)
 createTexture2D target width height = do
   tex <- glResource
+  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex
+  GL.texParameteri GL_TEXTURE_2D GL_TEXTURE_BASE_LEVEL $= 0
+  GL.texParameteri GL_TEXTURE_2D GL_TEXTURE_MAX_LEVEL $= 0
   resizeTexture2D (Texture target Texture2D tex) width height
 
 

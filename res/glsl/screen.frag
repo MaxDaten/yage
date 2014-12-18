@@ -12,6 +12,7 @@ uniform vec4 iScreenSize;
 
 void main()
 {
-  vec2 uv = gl_FragCoord.xy * iScreenSize.zw;
+  iScreenSize.zw;
+  vec2 uv = gl_FragCoord.xy / textureSize(iTexture, 0);
   fragColor = iColor * texture(iTexture, uv);
 }

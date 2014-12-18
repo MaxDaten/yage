@@ -62,7 +62,7 @@ configuration = Configuration appConf winSettings (MonitorOptions "localhost" 80
 
 data Game = Game
   { _mainViewport  :: Viewport Int
-  , _sceneRenderer :: RenderSystem IO Game ()
+  , _sceneRenderer :: RenderSystem Game ()
   }
 
 makeLenses ''Game
@@ -72,22 +72,23 @@ sceneWire = proc () -> do
   pipeline <- acquireOnce simplePipeline -< ()
   returnA -< Game (defaultViewport 800 600) pipeline
 
-simplePipeline :: YageResource (RenderSystem IO Game ())
+simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
   -- Convert output linear RGB to SRGB
   throwWith "GL_FRAMEBUFFER_SRGB" $ glEnable GL_FRAMEBUFFER_SRGB
   throwWith "buildNamedStrings" $
     io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
-  -- trianglePass <- drawTriangle
+
+  trianglePass   <- drawTriangle
   screenQuadPass <- drawToScreen
+
   return $ do
     game <- ask
-    -- screenQuadPass . fmap (,game^.mainViewport) trianglePass
-    screenQuadPass . return (game^.mainViewport)
+    screenQuadPass . fmap (,game^.mainViewport) trianglePass
 
 -- * Draw Triangle
 
-drawTriangle :: YageResource (RenderSystem IO Game (Texture PixelRGBA8))
+drawTriangle :: YageResource (RenderSystem Game (Texture PixelRGBA8))
 drawTriangle = do
   vao <- glResource
   boundVertexArray $= vao
@@ -123,7 +124,7 @@ drawTriangle = do
 
   -- Framebuffer
   targetTexture <- createTexture2D GL_TEXTURE_2D 1600 1200
-  depthBuffer  <- createRenderbuffer 1600 1200 :: Acquire (Renderbuffer (DepthComponent24 Float))
+  depthBuffer   <- createRenderbuffer 1600 1200 :: Acquire (Renderbuffer (DepthComponent24 Float))
   fb <- createFramebuffer [mkAttachment targetTexture] (Just $ mkAttachment depthBuffer) Nothing
 
   -- rendering
@@ -151,7 +152,7 @@ drawTriangle = do
 
 -- * Draw To Screen
 
-drawToScreen :: YageResource (RenderSystem IO (Viewport Int) ())
+drawToScreen :: YageResource (RenderSystem (Texture PixelRGBA8, Viewport Int) ())
 drawToScreen = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -161,22 +162,18 @@ drawToScreen = do
               `compileShaderPipeline` ["/res/glsl"]
   validatePipeline pipeline >>= \log -> unless (null log) $ error $ unlines log
 
-  Right dynImg <- io (readImage "spectrum_gradient.png")
-  dummyTex <- createTexture2DImage GL_TEXTURE_2D dynImg
-
   Just frag <- get (fragmentShader pipeline)
   iTexture    <- programUniform1i frag `liftM` uniformLocation frag "iTexture"
   iColor      <- programUniform4f frag `liftM` uniformLocation frag "iColor"
   iScreenSize <- programUniform4f frag `liftM` uniformLocation frag "iScreenSize"
   iColor   $= (1 :: Vec4)
   iTexture $= 6
-  -- activeShaderProgram pipeline $= Just frag
 
   return $ do
     throwWith "fbo" $ do
       boundFramebuffer RWFramebuffer $= def
 
-    vp <- ask
+    (tex, vp) <- ask
     glVp <- get Yage.glViewport
     when (vp^.rectangle /= glVp) $ do
       Yage.glViewport $= vp^.rectangle
@@ -188,7 +185,7 @@ drawToScreen = do
     currentProgram $= def
 
     boundProgramPipeline $= pipeline
-    bindTexture GL_TEXTURE_2D iTexture $= Just dummyTex
+    bindTexture GL_TEXTURE_2D iTexture $= Just tex
     iScreenSize   $= vp^.screenSize
 
     throwWith "drawing" $
