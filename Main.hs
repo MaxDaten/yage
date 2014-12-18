@@ -1,10 +1,13 @@
-{-# LANGUAGE Arrows #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE Arrows                #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE FlexibleInstances     #-}
+
 module Main where
 
 import Yage hiding ((</>))
@@ -212,7 +215,7 @@ instance HasViewport Game Int where
 instance LinearInterpolatable Game where
   lerp _ _ = id
 
-instance HasRenderSystem Game IO Game () where
+instance HasRenderSystem Game (ResourceT IO) Game () where
   renderSystem = sceneRenderer
 
 instance (Storable a, Storable b) => Storable (a,b) where

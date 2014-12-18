@@ -11,7 +11,8 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 
 module Yage.Rendering.RenderSystem
-  ( RenderSystem
+  ( RenderSystemT
+  , RenderSystem
   , HasRenderSystem(..)
   , runPipeline
   ) where
@@ -23,12 +24,13 @@ import           Yage.Prelude                       hiding (Element, pass)
 import           Control.Arrow
 import           Control.Category
 import           Control.Monad.RWS                  (RWST(..), runRWST)
+import           Control.Monad.Trans.Resource
 
 -- |
 newtype RenderSystemT m a b = RenderPass { runSys :: RWST a () () m b }
   deriving (Functor, Applicative, Monad, MonadIO, MonadReader a)
 
-type RenderSystem = RenderSystemT IO
+type RenderSystem a b = (RenderSystemT (ResourceT IO) a b)
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystemT
 

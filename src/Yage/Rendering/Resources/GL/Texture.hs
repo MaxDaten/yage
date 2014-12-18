@@ -54,13 +54,11 @@ createTexture2D target width height = do
   GL.texParameteri GL_TEXTURE_2D GL_TEXTURE_MAX_LEVEL $= 0
   resizeTexture2D (Texture target Texture2D tex) width height
 
-
 resizeTexture2D :: (MonadIO m, ImageFormat a) => Texture a -> Int -> Int -> m (Texture a)
 resizeTexture2D tex@(Texture target _ obj) width height = do
   GL.boundTexture target GL_TEXTURE_BINDING_2D $= obj
   glTexImage2D target 0 (internalFormat tex) (fromIntegral width) (fromIntegral height) 0 (pixelFormat tex) (pixelType tex) nullPtr
   return tex
-
 
 bindTexture :: HasGetter (g Int32) Int32 => GL.TextureTarget -> g Int32 -> SettableStateVar (Maybe (Texture a))
 bindTexture target st = SettableStateVar s where
@@ -68,7 +66,6 @@ bindTexture target st = SettableStateVar s where
     unit <- get st
     GL.activeTexture $= fromIntegral unit
     GL.boundTexture target 0 $= maybe def (\(Texture _ _ obj) -> obj) mtex
-
 
 instance FramebufferAttachment (Texture a) where
   attach target slot (Texture _ _ obj) = attach target slot obj

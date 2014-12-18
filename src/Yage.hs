@@ -119,12 +119,12 @@ instance EventCtr (YageLoopState t s) where
 
 
 yageMain ::
-    ( Real time
-    , LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene IO scene ()
-    , HasApplicationConfig conf
-    , HasWindowConfig conf
-    , HasMonitorOptions conf )
-    => String -> conf -> YageWire time () scene -> time -> IO ()
+  ( Real time
+  , LinearInterpolatable scene, HasViewport scene Int, HasRenderSystem scene (ResourceT IO) scene ()
+  , HasApplicationConfig conf
+  , HasWindowConfig conf
+  , HasMonitorOptions conf )
+  => String -> conf -> YageWire time () scene -> time -> IO ()
 yageMain title config sim dt =
   -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
   let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
@@ -148,81 +148,84 @@ yageMain title config sim dt =
       registerWindowCallbacks win initState
       makeContextCurrent $ Just win
       installGLDebugHook =<< io (getLogger "opengl.debughook")
-      evalStateT (core win) initState
+      evalStateT (runCore win) initState
 
-  where
 
-  core win = forever $ do
-    lift $ pollEvents
-    lift $ windowShouldClose win >>= \close -> when close $ throwM Shutdown
-    input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
-    remAccum <- use (timing.remainderAccum)
-    lift $ debugM $ format "{}" (Only $ Shown input)
+runCore :: (MonadApplication m, MonadIO m, MonadResource m, MonadState (YageLoopState time scene) m, HasRenderSystem scene (ResourceT IO) scene (), HasViewport scene Int, LinearInterpolatable scene, Num time) => Window -> m ()
+runCore win = forever $ do
+  liftApp $ pollEvents
+  liftApp $ windowShouldClose win >>= \close -> when close $ throwM Shutdown
+  core win
+  liftApp $ swapBuffers win
 
-    -- step out core session to get elasped time
-    (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
-    let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
+core :: (MonadApplication m, MonadResource m, HasRenderSystem scene (ResourceT IO) scene (), HasViewport scene Int, MonadState (YageLoopState time scene) m, LinearInterpolatable scene, Num time) => Window -> m ()
+core win = do
+  input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
+  remAccum <- use (timing.remainderAccum)
+  liftApp $ debugM $ format "{}" (Only $ Shown input)
+  -- step out core session to get elasped time
+  (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
+  let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
+  -- process multiple simulation steps to catch up
+  sim <- use simulation
+  cnt <- use (metrics.simulationFrames)
+  ((renderSim, newSim, newRemainder), simTime) <- ioTime $ liftResourceT $ simulate currentRemainder sim input cnt
 
-    -- process multiple simulation steps to catch up
-    sim <- use simulation
-    cnt <- use (metrics.simulationFrames)
-    ((renderSim, newSim, newRemainder), simTime) <- ioTime $ liftResourceT $ simulate currentRemainder sim input cnt
-    -- render simulation representation
-    (_,renderTime) <-  ioTime $ case renderSim^.simScene of
-        Left err    -> lift $ criticalM $ "err:" ++ show err
-        Right scene -> renderTheScene scene win
+  -- render simulation representation
+  (_,renderTime) <-  ioTime $ case renderSim^.simScene of
+      Left err    -> liftApp $ criticalM $ "err:" ++ show err
+      Right scene -> do
+        inc =<< use (metrics.renderFrames)
+        winSt  <- io $ readTVarIO ( winState win )
+        let fbRect      = Rectangle 0 $ winSt^.fbSize
+            ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
+            sc          = scene & viewport .~ Viewport fbRect ratio 2.2
+        liftResourceT $ runPipeline sc (sc^.renderSystem)
 
-    setDevStuff simTime renderTime win
+  liftApp $ setDevStuff simTime renderTime win
+  simulation            .= newSim
+  timing.loopSession    .= newSession
+  timing.remainderAccum .= newRemainder
 
-    simulation            .= newSim
-
-    timing.loopSession    .= newSession
-    timing.remainderAccum .= newRemainder
-    lift $ swapBuffers win
-
+ where
   -- | logic simulation
   -- selects small time increments and perform simulation steps to catch up with the frame time
   simulate remainder sim input cnt = {-# SCC simulate #-} do
-      -- initial step with 0.0 deltaT and input (inject input into system)
-      ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
-      simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim cnt
+    -- initial step with 0.0 deltaT and input (inject input into system)
+    ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
+    simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim cnt
 
   simulate' remainder currentSim prevSim cnt
-      | remainder < ( currentSim^.simDeltaT ) = do
-          return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
-      | otherwise = do
-          nextSim <- stepSimulation currentSim cnt
-          simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim cnt
+    | remainder < ( currentSim^.simDeltaT ) = do
+        return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
+    | otherwise = do
+        nextSim <- stepSimulation currentSim cnt
+        simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim cnt
 
   -- perform one step in simulation
   stepSimulation sim cnt = do
-      inc cnt
-      ( ds      , s )     <- io $ stepSession $ sim^.simSession
-      ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
-      return $! newScene `seq` ( sim & simScene     .~ newScene
-                                     & simSession   .~ s
-                                     & simWire      .~ w )
+    inc cnt
+    ( ds      , s )     <- io $ stepSession $ sim^.simSession
+    ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
+    return $! newScene `seq` ( sim & simScene     .~ newScene
+                                   & simSession   .~ s
+                                   & simWire      .~ w )
 
-
+{--
   renderTheScene scene win = do
-    inc =<< use (metrics.renderFrames)
-    winSt           <- io $ readTVarIO ( winState win )
-    let fbRect      = Rectangle 0 $ winSt^.fbSize
-        ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-    {-# SCC rendering #-} io $ runPipeline (scene & viewport .~ Viewport fbRect ratio 2.2) (scene^.renderSystem)
+--}
 
-
-  -- debug & stats
-  setDevStuff simTime renderTime win = lift $ do
-      title   <- gets appTitle
-      gcTime  <- gets appGCTime
-      setWindowTitle win $ unpack $
-          format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
-                  ( title
-                  , fixed 4 $ 1000 * simTime
-                  , fixed 4 $ 1000 * renderTime
-                  , fixed 4 $ 1000 * gcTime
-                  , prec 4 $ 1000 * sum [simTime, gcTime] )
+-- debug & stats
+setDevStuff simTime renderTime win = do
+  title   <- gets appTitle
+  gcTime  <- gets appGCTime
+  setWindowTitle win $ unpack $
+    format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
+      ( title
+      , fixed 4 $ 1000 * simTime
+      , fixed 4 $ 1000 * renderTime
+      , fixed 4 $ 1000 * gcTime
+      , prec 4 $ 1000 * sum [simTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0
@@ -234,6 +237,12 @@ readModifyTVar tvar f = do
     return var
 {-# INLINE readModifyTVar #-}
 
+{--
+
+instance (Throws SomeException l, MonadBase IO m, MonadThrow m, MonadIO m, MonadResource m) => MonadResource (EMT l m) where
+    liftResourceT = lift . liftResourceT
+
+--}
 
 instance LinearInterpolatable scene => LinearInterpolatable (YageSimulation t scene) where
     lerp alpha u v = u & simScene .~ (lerp alpha <$> u^.simScene <*> v^.simScene)

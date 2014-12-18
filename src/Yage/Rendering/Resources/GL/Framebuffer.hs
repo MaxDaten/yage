@@ -15,7 +15,7 @@ import           Yage.Prelude
 import           Yage.Rendering.GL
 
 import           Control.Exception
-import           Control.Monad
+import           Control.Monad (zipWithM_)
 import           Data.Foldable
 import           Foreign.Marshal.Array
 
@@ -47,6 +47,10 @@ createFramebuffer colors mDepth mStencil = do
   case mErr of
     Just err  -> throw err
     _         -> return fb
+
+acquireFramebuffer :: [Acquire Attachment] -> Maybe (Acquire Attachment) -> Maybe (Acquire Attachment) -> Acquire Framebuffer
+acquireFramebuffer colorsA mDepthA mStencilA =
+  join $ liftM3 createFramebuffer (sequence colorsA) (sequence mDepthA) (sequence mStencilA)
 
 -- | wraps an instance of 'FramebufferAttachment' into an 'Attachment' to allow a homomorphic
 -- color attachment list
