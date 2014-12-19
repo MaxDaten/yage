@@ -8,7 +8,10 @@
 {-# LANGUAGE Rank2Types             #-}
 
 module Yage.Resources
-  ( module Acquire
+  (
+  -- * Resource Slot
+    Slot, mkEmptySlot, ($:=), slot
+  , module Acquire
   , module Yage.Resources
   , module Yage.Rendering.Mesh
   , module Yage.Font
@@ -35,6 +38,7 @@ import           Yage.Image
 import           Yage.Texture.CubeImageLayout     as Cubemap
 import           Quine.MipmapChain                as MipmapChain
 import           Quine.Cubemap                    as Cubemap
+import           Quine.StateVar
 
 type YageResource = Acquire
 data ResourceLoadingException =
@@ -42,6 +46,34 @@ data ResourceLoadingException =
   | MipMapMissingBaseException String
   deriving ( Show, Typeable )
 instance Exception ResourceLoadingException
+
+--{-- switch to IORef for lower cost
+newtype Slot a = Slot (IORef (Maybe (ReleaseKey, a)))
+  deriving (Typeable,Generic)
+
+infixr 2 $:=
+
+mkEmptySlot :: Acquire (Slot a)
+mkEmptySlot = mkAcquire (Slot <$> newIORef Nothing) freeSlot where
+  freeSlot (Slot var) = do
+    mr <- atomicModifyIORef' var $ \v -> (Nothing,v)
+    case mr of
+      Nothing -> return ()
+      Just (key,_) -> release key
+
+($:=) :: MonadResource m => Slot a -> Acquire a -> m ()
+($:=) = slot
+
+slot :: MonadResource m => Slot a -> Acquire a -> m ()
+slot (Slot ref) aq = do
+  res <- allocateAcquire aq
+  mold <- io $ atomicModifyIORef' ref $! \val -> (Just res, val)
+  case mold of
+    Just (key,_) -> release key
+    Nothing      -> return ()
+
+instance HasGetter (Slot a) (Maybe a) where
+  get (Slot ref) = fmap snd `liftM` (io $ readIORef ref)
 
 {--
 data Selection =
