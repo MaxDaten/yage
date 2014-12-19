@@ -17,18 +17,18 @@ module Yage.Rendering.RenderSystem
   , runPipeline
   ) where
 
-
 import           Yage.Lens                          hiding (elements)
 import           Yage.Prelude                       hiding (Element, pass)
 
 import           Control.Arrow
 import           Control.Category
 import           Control.Monad.RWS                  (RWST(..), runRWST)
+import           Control.Monad.Base
 import           Control.Monad.Trans.Resource
 
 -- |
 newtype RenderSystemT m a b = RenderPass { runSys :: RWST a () () m b }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadReader a)
+  deriving (Functor, Applicative, Monad, MonadReader a)
 
 type RenderSystem a b = (RenderSystemT (ResourceT IO) a b)
 
@@ -61,55 +61,11 @@ runPipeline scene sys = do
   (t,_,_) <- runRWST (runSys sys) scene ()
   return t
 
-
-{--
-type Viewport = V2 Int
-data Env = Env
-  { _envViewport :: Viewport }
-
-makeFields ''Env
-
-newtype Element = Element ()
-  deriving (Show)
-
-data Scene = Scene
-  { sceneElements :: [Element]
-  , sceneViewport :: Viewport
-  }
-makeFields ''Scene
-
-
-mkGeoPass :: (MonadIO m, Functor m, HasViewport env Viewport) => Acquire (RenderSystem m env (Texture PixelRGBA8, Texture PixelRGBA8, Texture PixelRGBA8))
-mkGeoPass = do
-  gBuffer@[tex1,tex2,tex3] <- replicateM 3 $ createTexture2D GL_TEXTURE_2D 256 256
-  fb <- createFramebuffer (fmap mkAttachment gBuffer) Nothing Nothing
-  return $ do
-    boundFramebuffer RWFramebuffer $= fb
-    vp@(V2 w h) <- view viewport
-    forM_ gBuffer (\tex -> void $ resizeTexture2D tex w h)
-    liftIO $ print $ "; viewport: " ++ show vp
-    return (tex1, tex2, tex3)
-
-
-lightPass :: MonadIO m => RenderSystem m (Texture PixelRGBA8, Texture PixelRGBA8,Texture PixelRGBA8) (Texture PixelRGBA8)
-lightPass = do
-  (a, b, c) <- ask
-  liftIO $ print (a, b, c)
-  return $ c
-
-screenPass = undefined
-
-main :: IO ()
-main = -- the pipeline
-  runResourceT $ do
-    let vp = V2 800 600 :: Viewport
-        scene    = Scene [] vp
-
-    (_key, geoPass) <- allocateAcquire mkGeoPass
-    runPipeline scene $ proc scene -> do
-      -- lit <- lightPass . geoPass   -< scene
-      gbuffer <- geoPass   -< scene
-      lit     <- lightPass -< gbuffer
-      screenPass  -< lit
-  -- end pipeline
---}
+instance MonadIO m => MonadIO (RenderSystemT m r) where
+  liftIO = RenderPass . liftIO
+instance MonadBase IO m => MonadBase IO (RenderSystemT m r) where
+  liftBase = RenderPass . liftBase
+instance MonadThrow m => MonadThrow (RenderSystemT m r) where
+  throwM = RenderPass . throwM
+instance MonadResource m => MonadResource (RenderSystemT m r) where
+  liftResourceT = RenderPass . liftResourceT
