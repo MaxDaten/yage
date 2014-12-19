@@ -9,6 +9,7 @@ module Yage.Rendering.Resources.GL.Framebuffer
   ( Attachment
   , mkAttachment
   , createFramebuffer
+  , attachFramebuffer
   ) where
 
 import           Yage.Prelude
@@ -32,6 +33,10 @@ data Attachment = forall a. FramebufferAttachment a => Attachment a
 createFramebuffer :: [Attachment] -> Maybe Attachment -> Maybe Attachment -> Acquire Framebuffer
 createFramebuffer colors mDepth mStencil = do
   fb <- glResource :: Acquire Framebuffer
+  attachFramebuffer fb colors mDepth mStencil
+
+attachFramebuffer :: (MonadIO m, Applicative m) => Framebuffer -> [Attachment] -> Maybe Attachment -> Maybe Attachment -> m Framebuffer
+attachFramebuffer fb colors mDepth mStencil = do
   boundFramebuffer RWFramebuffer $= fb
   zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] colors
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mDepth
