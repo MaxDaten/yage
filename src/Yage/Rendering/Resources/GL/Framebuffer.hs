@@ -10,6 +10,7 @@ module Yage.Rendering.Resources.GL.Framebuffer
   , mkAttachment
   , createFramebuffer
   , attachFramebuffer
+  , acquireFramebuffer
   ) where
 
 import           Yage.Prelude

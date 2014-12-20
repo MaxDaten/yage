@@ -8,6 +8,7 @@ module Yage.Rendering.Resources.GL.Base
   ) where
 
 import Yage.Prelude
+import Yage.Lens
 
 import Data.Acquire
 import Quine.GL.Object

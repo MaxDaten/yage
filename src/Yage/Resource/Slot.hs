@@ -13,7 +13,7 @@
 module Yage.Resource.Slot
   (
   -- * Resource Slot
-    Slot, mkSlot, slot
+    Slot, mkSlot, slot, readSlotResource
   ) where
 
 import           Yage.Lens
@@ -52,6 +52,9 @@ slot :: MonadResource m => Slot a -> YageResource a -> m ()
 slot (Slot ref) aq = liftIO $ atomicModifyIORef' ref (\val -> (Left aq, val)) >>= \case
     Left _ -> return ()
     Right (key,_) -> release key
+
+readSlotResource :: Slot a -> YageResource a
+readSlotResource (Slot ref) = io (readIORef ref) >>= either id (return . snd)
 
 instance MonadIO m => HasSetter (Slot a) (YageResource a) m where
   (Slot ref) $= yr = liftIO $ atomicModifyIORef' ref (\val -> (Left yr, val)) >>= \case

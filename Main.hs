@@ -124,19 +124,22 @@ drawTriangle = do
   setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
   setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
 
-  attachmentsSlots <- mkEmptySlot :: Acquire (MSlot (Texture PixelRGBA8, RenderbufferD24F))
-  fbSlot           <- mkEmptySlot :: Acquire (MSlot Framebuffer)
-  lastViewport     <- newIORef (defaultViewport 0 0)
+  colorTex  <- createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Texture PixelRGBA8)
+  depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
+  fbo       <- acquireFramebuffer [mkAttachment <$> readSlotResource (colorTex^.textureGL)] (Just $ pure $ mkAttachment $ depthBuff^.renderbufferGL) Nothing
+  lastViewportRef     <- newIORef (defaultViewport 0 0)
   -- rendering
   return $ do
-    Just fb <- do
-      whenM (shouldResize fbSlot =<< get lastViewport) $ do
-        mainViewport   <- view viewport
-        Yage.glViewport $= mainViewport^.rectangle
-        lastViewport    $= mainViewport
-        recreateFramebuffer fbSlot attachmentsSlots
-      get fbSlot
-    boundFramebuffer RWFramebuffer $= fb
+    mainViewport <- view viewport
+    lastViewport <- get lastViewportRef
+    when (mainViewport /= lastViewport) $ do
+      Yage.glViewport    $= mainViewport^.rectangle
+      lastViewportRef    $= mainViewport
+      let V2 w h = mainViewport^.rectangle.extend
+      c <- get . view textureGL =<< resizeTexture2D colorTex w h
+      void $ resizeRenderbuffer depthBuff w h
+      void $ attachFramebuffer fbo [mkAttachment c] (Just $ mkAttachment depthBuff) Nothing
+    boundFramebuffer RWFramebuffer $= fbo
 
     glClearColor 1 0 1 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
@@ -149,12 +152,11 @@ drawTriangle = do
     throwWith "drawing" $
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
-    Just tex <- get attachmentsSlots
-    return $ fst tex
+    return colorTex
 
+{--
 recreateFramebuffer fbSlot attachmentsSlots = do
   vp    <- view viewport
-  let V2 w h = vp^.rectangle.extend
   attachmentsSlots $= ((,) <$> createTexture2D GL_TEXTURE_2D w h <*> createRenderbuffer w h)
   mFbo <- get fbSlot
   Just (color,depth) <- get attachmentsSlots
@@ -162,11 +164,7 @@ recreateFramebuffer fbSlot attachmentsSlots = do
     Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
     Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
     Just fbo -> void $ attachFramebuffer fbo [mkAttachment color] (Just $ mkAttachment depth) Nothing
-
-shouldResize fbSlot lastVp = do
-  noFbo   <- isNothing <$> get fbSlot
-  mainVp  <- view viewport
-  return $ noFbo || (lastVp /= mainVp)
+--}
 
 -- * Draw To Screen
 
@@ -203,7 +201,7 @@ drawToScreen = do
     currentProgram $= def
 
     boundProgramPipeline $= pipeline
-    bindTexture GL_TEXTURE_2D iTexture $= Just tex
+    bindTexture GL_TEXTURE_2D iTexture (Just tex)
     iScreenSize   $= vp^.screenSize
 
     throwWith "drawing" $
