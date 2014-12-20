@@ -124,16 +124,16 @@ drawTriangle = do
   setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
   setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
 
-  attachmentsSlots <- mkEmptySlot :: Acquire (Slot (Texture PixelRGBA8, RenderbufferD24F))
-  fbSlot           <- mkEmptySlot :: Acquire (Slot Framebuffer)
+  attachmentsSlots <- mkEmptySlot :: Acquire (MSlot (Texture PixelRGBA8, RenderbufferD24F))
+  fbSlot           <- mkEmptySlot :: Acquire (MSlot Framebuffer)
   lastViewport     <- newIORef (defaultViewport 0 0)
   -- rendering
   return $ do
     Just fb <- do
       whenM (shouldResize fbSlot =<< get lastViewport) $ do
-        vp   <- view viewport
-        Yage.glViewport $= vp^.rectangle
-        lastViewport    $= vp
+        mainViewport   <- view viewport
+        Yage.glViewport $= mainViewport^.rectangle
+        lastViewport    $= mainViewport
         recreateFramebuffer fbSlot attachmentsSlots
       get fbSlot
     boundFramebuffer RWFramebuffer $= fb
@@ -155,11 +155,12 @@ drawTriangle = do
 recreateFramebuffer fbSlot attachmentsSlots = do
   vp    <- view viewport
   let V2 w h = vp^.rectangle.extend
-  attachmentsSlots $:= ((,) <$> createTexture2D GL_TEXTURE_2D w h <*> createRenderbuffer w h)
+  attachmentsSlots $= ((,) <$> createTexture2D GL_TEXTURE_2D w h <*> createRenderbuffer w h)
   mFbo <- get fbSlot
   Just (color,depth) <- get attachmentsSlots
   case mFbo of
-    Nothing  -> fbSlot $:= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
+    Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
+    Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
     Just fbo -> void $ attachFramebuffer fbo [mkAttachment color] (Just $ mkAttachment depth) Nothing
 
 shouldResize fbSlot lastVp = do

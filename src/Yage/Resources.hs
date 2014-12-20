@@ -6,13 +6,11 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE NamedFieldPuns         #-}
 {-# LANGUAGE Rank2Types             #-}
+{-# LANGUAGE LambdaCase             #-}
 
 module Yage.Resources
-  (
-  -- * Resource Slot
-    Slot, mkEmptySlot, ($:=), slot
-  , module Acquire
-  , module Yage.Resources
+  ( module YRes
+  , module Slot
   , module Yage.Rendering.Mesh
   , module Yage.Font
   , module MipmapChain
@@ -22,58 +20,29 @@ module Yage.Resources
 import           Yage.Lens
 import           Yage.Prelude                     hiding (Index)
 
-import           Data.Acquire                     as Acquire
-import           Control.Monad.Trans.Resource     as Acquire
-
 import qualified Data.Map.Strict                  as M
 import qualified Data.Set                         as S
 
+import           Quine.Cubemap                    as Cubemap
+import           Quine.MipmapChain                as MipmapChain
+import           Quine.StateVar
+import           Yage.Font                        ( FontTexture )
 import           Yage.Geometry
+import           Yage.Image
 import           Yage.Rendering.Mesh
+import           Yage.Resource.MSlot              as Slot
+import           Yage.Resource.Slot               as Slot
+import           Yage.Resource.YageResource       as YRes
+import           Yage.Texture.CubeImageLayout     as Cubemap
+import qualified Yage.Formats.Font                as Font
 import qualified Yage.Formats.Obj                 as OBJ
 import qualified Yage.Formats.Ygm                 as YGM
-import qualified Yage.Formats.Font                as Font
-import           Yage.Font                        ( FontTexture )
-import           Yage.Image
-import           Yage.Texture.CubeImageLayout     as Cubemap
-import           Quine.MipmapChain                as MipmapChain
-import           Quine.Cubemap                    as Cubemap
-import           Quine.StateVar
 
-type YageResource = Acquire
 data ResourceLoadingException =
     ImageResourceException String
   | MipMapMissingBaseException String
   deriving ( Show, Typeable )
 instance Exception ResourceLoadingException
-
---{-- switch to IORef for lower cost
-newtype Slot a = Slot (IORef (Maybe (ReleaseKey, a)))
-  deriving (Typeable,Generic)
-
-infixr 2 $:=
-
-mkEmptySlot :: Acquire (Slot a)
-mkEmptySlot = mkAcquire (Slot <$> newIORef Nothing) freeSlot where
-  freeSlot (Slot var) = do
-    mr <- atomicModifyIORef' var $ \v -> (Nothing,v)
-    case mr of
-      Nothing -> return ()
-      Just (key,_) -> release key
-
-($:=) :: MonadResource m => Slot a -> Acquire a -> m ()
-($:=) = slot
-
-slot :: MonadResource m => Slot a -> Acquire a -> m ()
-slot (Slot ref) aq = do
-  res <- allocateAcquire aq
-  mold <- io $ atomicModifyIORef' ref $! \val -> (Just res, val)
-  case mold of
-    Just (key,_) -> release key
-    Nothing      -> return ()
-
-instance HasGetter (Slot a) (Maybe a) where
-  get (Slot ref) = fmap snd `liftM` (io $ readIORef ref)
 
 {--
 data Selection =

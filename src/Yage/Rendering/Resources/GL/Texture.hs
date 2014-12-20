@@ -60,12 +60,11 @@ createTexture2D target width height = do
 
 resizeTexture2D :: (MonadIO m, ImageFormat a) => Texture a -> Int -> Int -> m (Texture a)
 resizeTexture2D tex@(Texture target _ obj) width height = undefined
--- do
 --   GL.boundTexture target GL_TEXTURE_BINDING_2D $= obj
 --   glTexImage2D target 0 (internalFormat tex) (fromIntegral width) (fromIntegral height) 0 (pixelFormat tex) (pixelType tex) nullPtr
 --   return $ Texture target (Texture2D width height) tex
 
-bindTexture :: HasGetter (g Int32) Int32 => GL.TextureTarget -> g Int32 -> SettableStateVar (Maybe (Texture a))
+bindTexture:: (HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> SettableStateVar (Maybe (Texture px))
 bindTexture target st = SettableStateVar s where
   s mtex = do
     unit <- get st

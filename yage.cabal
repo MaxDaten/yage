@@ -147,6 +147,10 @@ library
     Yage.Rendering.Pipeline.Deferred.GaussFilter
     Yage.Rendering.Pipeline.Deferred.Sampler
     Yage.Rendering.Pipeline.Deferred.GuiPass
+    
+    Yage.Resource.YageResource
+    Yage.Resource.MSlot
+    Yage.Resource.Slot
 
     Yage.Internal.Debug
     Yage.Rendering.GL

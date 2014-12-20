@@ -14,6 +14,7 @@ module Yage.Rendering.Resources.GL.Framebuffer
 
 import           Yage.Prelude
 import           Yage.Rendering.GL
+import           Yage.Resources
 
 import           Control.Exception
 import           Control.Monad (zipWithM_)
@@ -25,6 +26,7 @@ import           Quine.StateVar
 import           Yage.Rendering.Resources.GL.Base
 
 data Attachment = forall a. FramebufferAttachment a => Attachment a
+
 
 -- | creates a 'Framebuffer' from a list of color attachments one optional depth and one optional
 -- stencil attachment. The color attachments will be indexed from 'GL_COLOR_ATTACHMENT0' to
