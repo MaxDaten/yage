@@ -15,10 +15,11 @@ build-type:          Simple
 cabal-version:       >=1.18
 
 
-extra-source-files:
-  res/glsl/pass/*.frag
-  res/glsl/pass/*.vert
-  res/glsl/pass/*.glsl
+data-files:
+  res/glsl/**/*.frag
+  res/glsl/**/*.vert
+  res/glsl/**/*.glsl
+  res/glsl/**/*.h
 
 Flag dev
     Description:   Turn on development settings, logging and timing.
@@ -164,7 +165,7 @@ library
 
     Yage.UI.Types
 
-  ghc-options: -w -O2
+  ghc-options: -Wall -O2
 --  ghc-prof-options: -rtsopts -prof -auto-all -caf-all
 
 

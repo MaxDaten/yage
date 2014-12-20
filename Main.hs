@@ -15,6 +15,7 @@ import Yage.Wire hiding (unless, when)
 import Yage.Lens
 import Yage.Material
 import Yage.GL
+import Yage.Rendering.Pipeline.Deferred.ScreenPass
 import System.FilePath
 import Yage.Rendering.Resources.GL
 import Foreign.Ptr
@@ -128,7 +129,8 @@ drawTriangle = do
   depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
   fbo       <- acquireFramebuffer [mkAttachment <$> readSlotResource (colorTex^.textureGL)] (Just $ pure $ mkAttachment $ depthBuff^.renderbufferGL) Nothing
   lastViewportRef     <- newIORef (defaultViewport 0 0)
-  -- rendering
+
+  -- RenderPass
   return $ do
     mainViewport <- view viewport
     lastViewport <- get lastViewportRef
@@ -153,62 +155,6 @@ drawTriangle = do
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
     return colorTex
-
-{--
-recreateFramebuffer fbSlot attachmentsSlots = do
-  vp    <- view viewport
-  attachmentsSlots $= ((,) <$> createTexture2D GL_TEXTURE_2D w h <*> createRenderbuffer w h)
-  mFbo <- get fbSlot
-  Just (color,depth) <- get attachmentsSlots
-  case mFbo of
-    Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
-    Nothing  -> fbSlot $= createFramebuffer [mkAttachment color] (Just $ mkAttachment depth) Nothing
-    Just fbo -> void $ attachFramebuffer fbo [mkAttachment color] (Just $ mkAttachment depth) Nothing
---}
-
--- * Draw To Screen
-
-drawToScreen :: YageResource (RenderSystem (Texture PixelRGBA8, Viewport Int) ())
-drawToScreen = do
-  emptyvao <- glResource
-  boundVertexArray $= emptyvao
-
-  pipeline <- [ $(embedShaderFile "res/glsl/screen.vert")
-              , $(embedShaderFile "res/glsl/screen.frag")]
-              `compileShaderPipeline` ["/res/glsl"]
-  validatePipeline pipeline >>= \log -> unless (null log) $ error $ unlines log
-
-  Just frag <- get (fragmentShader pipeline)
-  iTexture    <- programUniform1i frag `liftM` uniformLocation frag "iTexture"
-  iColor      <- programUniform4f frag `liftM` uniformLocation frag "iColor"
-  iScreenSize <- programUniform4f frag `liftM` uniformLocation frag "iScreenSize"
-  iColor   $= (1 :: Vec4)
-  iTexture $= 6
-
-  return $ do
-    throwWith "fbo" $ do
-      boundFramebuffer RWFramebuffer $= def
-
-    (tex, vp) <- ask
-    glVp <- get Yage.glViewport
-    when (vp^.rectangle /= glVp) $ do
-      Yage.glViewport $= vp^.rectangle
-
-    glClearColor 0 1 0 1
-    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
-    glDisable GL_DEPTH_TEST
-    boundVertexArray $= emptyvao
-    currentProgram $= def
-
-    boundProgramPipeline $= pipeline
-    bindTexture GL_TEXTURE_2D iTexture (Just tex)
-    iScreenSize   $= vp^.screenSize
-
-    throwWith "drawing" $
-      glDrawArrays GL_TRIANGLES 0 3
-
- where
-  screenSize = to $ \vp -> V4 (fromIntegral $ vp^.xy1._x) (fromIntegral $ vp^.xy1._y) (recip . fromIntegral $ vp^.xy2._x) (recip . fromIntegral $ vp^.xy2._y)
 
 main :: IO ()
 main = yageMain "standalone" configuration sceneWire (1/60)
