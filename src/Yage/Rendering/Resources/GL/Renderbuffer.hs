@@ -21,7 +21,6 @@ import           Yage.Math
 import           Yage.Rendering.GL
 import           Yage.Resources
 
-import           Data.Data
 import qualified Quine.GL.Renderbuffer as GL
 import           Quine.GL.Framebuffer
 import           Quine.Image
@@ -51,4 +50,4 @@ resizeRenderbuffer (Renderbuffer _ rbuff) width height = do
   return $ Renderbuffer (V2 width height) rbuff
 
 instance FramebufferAttachment (Renderbuffer a) where
-  attach target slot = attach target slot . view renderbufferGL
+  attach target s = attach target s . view renderbufferGL

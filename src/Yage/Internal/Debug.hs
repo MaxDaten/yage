@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE PatternSynonyms #-}
 module Yage.Internal.Debug
   ( installGLDebugHook

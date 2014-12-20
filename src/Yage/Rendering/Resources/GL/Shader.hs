@@ -4,7 +4,7 @@
 {-# LANGUAGE TupleSections   #-}
 
 module Yage.Rendering.Resources.GL.Shader
-  ( ShaderProgram(..), shaderType, shaderProg, shaderLog
+  ( ShaderProgram(..), shaderType, shaderProg, shaderLog, filePath
   , compileProgram
   , createShaderPipeline
   , compileShaderPipeline
@@ -28,12 +28,6 @@ import           Quine.GL.Shader                 hiding (shaderType)
 import           Quine.GL.Object
 import           Quine.StateVar
 import Language.Haskell.TH.Syntax
-    ( Exp (AppE, ListE, LitE, TupE, SigE, VarE)
-    , Lit (StringL, StringPrimL, IntegerL)
-    , Q
-    , runIO
-    , Quasi(qAddDependentFile)
-    )
 
 data ShaderProgram  = ShaderProgram
   { _filePath     :: FilePath
@@ -83,8 +77,8 @@ embedShaderFile fp = do
 filePathToExp :: FilePath -> Q Exp
 filePathToExp fp = do
   helper <- [| fpFromString |]
-  let chars = fpToString fp
-  return $! AppE helper $! LitE $! StringL chars
+  let cs = fpToString fp
+  return $! AppE helper $! LitE $! StringL cs
 
 compileProgram :: (FilePath, ByteString) -> [FilePath] -> Acquire ShaderProgram
 compileProgram (fp, src) paths = mkAcquire create free where

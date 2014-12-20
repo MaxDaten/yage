@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-orphans -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
@@ -31,18 +31,12 @@ module Yage
 import             Yage.Prelude                    as YagePrelude hiding (bracket, onException, finally, catch)
 import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
-import             Data.Foldable                   (traverse_)
----------------------------------------------------------------------------------------------------
 import             Control.Monad.State
-import             Control.Concurrent
 import             Control.Monad.Trans.Resource    as Resource
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ( (<+>), at, force, when )
 import             Yage.Core.Application           as Application
-import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
-import             Yage.Core.Application.Exception hiding (bracket)
-
 import             Linear                          as Linear hiding (lerp, trace)
 import             Yage.Geometry.D2.Rectangle      as Rectangle
 import             Yage.Rendering.RenderSystem     as RenderSystem
@@ -52,8 +46,6 @@ import             Yage.UI
 import             Yage.Viewport                   as Viewport
 import             Yage.Internal.Debug
 import             Quine.StateVar                  as Quine
-import             Graphics.GL.Core45
-
 import             Quine.Monitor
 ---------------------------------------------------------------------------------------------------
 
@@ -208,7 +200,8 @@ core win = do
                                    & simWire      .~ w )
 
 -- debug & stats
-setDevStuff simTime renderTime win = do
+setDevStuff :: MonadApplication m => Double -> Double -> Window -> m ()
+setDevStuff simTime renderTime win = liftApp $ do
   title   <- gets appTitle
   gcTime  <- gets appGCTime
   setWindowTitle win $ unpack $

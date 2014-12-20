@@ -9,7 +9,16 @@
 {-# LANGUAGE LambdaCase             #-}
 
 module Yage.Resources
-  ( module YRes
+  ( meshRes
+  , imageRes
+  , imageMipsRes
+  , seperateCubeMipsRes
+  , cubeCrossMipsRes
+  , fontRes
+  , loadOBJ
+  , mkSelection
+  -- * Reexprts
+  , module YRes
   , module Slot
   , module Yage.Rendering.Mesh
   , module Yage.Font
@@ -25,7 +34,6 @@ import qualified Data.Set                         as S
 
 import           Quine.Cubemap                    as Cubemap
 import           Quine.MipmapChain                as MipmapChain
-import           Quine.StateVar
 import           Yage.Font                        ( FontTexture )
 import           Yage.Geometry
 import           Yage.Image
@@ -152,4 +160,3 @@ fDynamicMap f = aux
     aux (ImageYCbCr8 i) = fmap ImageYCbCr8 (f i)
     aux (ImageCMYK8 i)  = fmap ImageCMYK8 (f i)
     aux (ImageCMYK16 i) = fmap ImageCMYK16 (f i)
-
