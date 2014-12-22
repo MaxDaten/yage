@@ -9,7 +9,7 @@ import Yage hiding ((</>))
 import Yage.Lens
 import Yage.Material
 import Yage.GL
--- import System.FilePath
+import Control.Monad.Reader (asks)
 import Yage.Rendering.Resources.GL
 import Quine.GL.Types
 import Quine.GL.Uniform
@@ -40,17 +40,21 @@ drawToScreen = do
   iColor   $= (1 :: Vec4)
   iTexture $= 6
 
+  lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
+
   -- RenderPass
   return $ do
     throwWith "fbo" $ do
       boundFramebuffer RWFramebuffer $= def
 
     (tex, vp) <- ask
-    glVp <- get Yage.glViewport
-    when (vp^.rectangle /= glVp) $ do
+    mainViewport <- asks snd
+    lastViewport <- get lastViewportRef
+    when (lastViewport /= mainViewport) $ do
       Yage.glViewport $= vp^.rectangle
+      lastViewportRef $= mainViewport
 
-    glClearColor 0 1 0 1
+    glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glDisable GL_DEPTH_TEST
     boundVertexArray $= emptyvao
@@ -64,4 +68,8 @@ drawToScreen = do
       glDrawArrays GL_TRIANGLES 0 3
 
  where
-  screenSize = to $ \vp -> V4 (fromIntegral $ vp^.xy1._x) (fromIntegral $ vp^.xy1._y) (recip . fromIntegral $ vp^.xy2._x) (recip . fromIntegral $ vp^.xy2._y)
+  screenSize = to $ \vp -> V4
+    (fromIntegral $ vp^.xy1._x)
+    (fromIntegral $ vp^.xy1._y)
+    (recip . fromIntegral $ vp^.xy2._x)
+    (recip . fromIntegral $ vp^.xy2._y)
