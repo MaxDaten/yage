@@ -1,5 +1,6 @@
 #version 410
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_include : require
 
 // (c) 2014 Jan-Philip Loos
 //

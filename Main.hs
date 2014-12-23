@@ -84,7 +84,7 @@ simplePipeline = do
     io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
 
   trianglePass   <- drawTriangle
-  screenQuadPass <- drawToScreen
+  screenQuadPass <- drawRectangle
 
   return $ do
     game <- ask
@@ -103,10 +103,10 @@ drawTriangle = do
               `compileShaderPipeline` ["/res/glsl"]
   validatePipeline pipeline >>= \l -> unless (null l) $ print l
 
-  Just vert <- get (vertexShader pipeline)
-  Just frag <- get (fragmentShader pipeline)
+  Just vert <- get (vertexShader $ pipeline^.pipelineProgram)
+  Just frag <- get (fragmentShader $ pipeline^.pipelineProgram)
 
-  activeShaderProgram pipeline $= Just vert
+  activeShaderProgram (pipeline^.pipelineProgram) $= Just vert
   Just aPosition <- attributeLocation vert "aPosition"
   Just aColor    <- attributeLocation vert "aColor"
 
@@ -141,6 +141,7 @@ drawTriangle = do
       c <- get . view textureGL =<< resizeTexture2D colorTex w h
       void $ resizeRenderbuffer depthBuff w h
       void $ attachFramebuffer fbo [mkAttachment c] (Just $ mkAttachment depthBuff) Nothing
+
     boundFramebuffer RWFramebuffer $= fbo
 
     glClearColor 1 0 1 1
@@ -149,7 +150,7 @@ drawTriangle = do
 
     boundVertexArray $= vao
     currentProgram $= def
-    boundProgramPipeline $= pipeline
+    boundProgramPipeline $= pipeline^.pipelineProgram
     boundBufferAt ElementArrayBuffer $= ebo
     throwWith "drawing" $
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
