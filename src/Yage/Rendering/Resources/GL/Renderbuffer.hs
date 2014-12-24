@@ -31,7 +31,7 @@ import           Yage.Rendering.Resources.GL.TextureFormat as TextureFormat
 data Renderbuffer a = Renderbuffer
   { _renderbufferDimension :: V2 Int
   , _renderbufferGL        :: (GL.Renderbuffer a)
-  } deriving (Typeable)
+  } deriving (Show,Typeable)
 
 type RenderbufferD24F = Renderbuffer (DepthComponent24 Float)
 type RenderbufferD32F = Renderbuffer (DepthComponent32 Float)

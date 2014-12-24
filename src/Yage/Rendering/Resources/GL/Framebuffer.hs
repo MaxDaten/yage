@@ -26,7 +26,9 @@ import           Quine.GL.Framebuffer
 import           Quine.StateVar
 import           Yage.Rendering.Resources.GL.Base
 
-data Attachment = forall a. FramebufferAttachment a => Attachment a
+data Attachment = forall a. (FramebufferAttachment a, Show a) => Attachment a
+
+deriving instance Show Attachment
 
 
 -- | creates a 'Framebuffer' from a list of color attachments one optional depth and one optional
@@ -40,12 +42,14 @@ createFramebuffer colors mDepth mStencil = throwWithStack $ do
 
 attachFramebuffer :: (MonadIO m, Applicative m) => Framebuffer -> [Attachment] -> Maybe Attachment -> Maybe Attachment -> m Framebuffer
 attachFramebuffer fb colors mDepth mStencil = throwWithStack $ do
-  boundFramebuffer RWFramebuffer $= fb
-  zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] colors
-  traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mDepth
-  traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) mStencil
+  throwWithStack $ return ()
+  throwWithStack $ boundFramebuffer RWFramebuffer $= fb
+  throwWithStack $ zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] $ traceShowId $ colors
+  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) $ traceShowId $ mDepth
+  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) $ traceShowId $ mStencil
   let cs =  (+) GL_COLOR_ATTACHMENT0 . fromIntegral <$> [0.. (length colors)-1]
 
+  throwWithStack $ return ()
   glDrawBuffer GL_NONE
   glReadBuffer GL_NONE
   io $ withArray cs $ \ptr -> do
@@ -62,5 +66,5 @@ acquireFramebuffer colorsA mDepthA mStencilA = throwWithStack $
 
 -- | wraps an instance of 'FramebufferAttachment' into an 'Attachment' to allow a homomorphic
 -- color attachment list
-mkAttachment :: FramebufferAttachment a => a -> Attachment
+mkAttachment :: (FramebufferAttachment a, Show a) => a -> Attachment
 mkAttachment = Attachment
