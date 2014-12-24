@@ -15,17 +15,16 @@ module Yage.Rendering.Resources.GL.Texture (
   , resizeTexture2D
   -- * Binding
   , bindTexture
+  , bindTextures
   ) where
 
-import           Yage.Prelude
 import           Yage.Lens
-import           Yage.Math
-import           Yage.Rendering.GL               as GL
+import           Yage.Math         hiding (unit)
+import           Yage.Prelude
+import           Yage.Rendering.GL as GL
 
 import           Data.Data
-import           Foreign.Ptr
 import           Yage.Rendering.Resources.GL.Base
-import           Yage.Wire.Resources
 import           Yage.Resources
 import           Yage.Geometry.D2.Rectangle
 
@@ -55,35 +54,39 @@ makeLenses ''Texture
 
 -- | Creates a 'Texture' initialized with an image
 createTexture2DImage :: (Image2D i, GetRectangle i Int) => GL.TextureTarget -> i -> YageResource (Texture a)
-createTexture2DImage target img = do
-  slot <- mkSlot glResource
-  tex     <- readSlotResource slot
+createTexture2DImage target img = throwWithStack $ do
+  texSlot <- mkSlot glResource
+  tex     <- readSlotResource texSlot
   GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex
   store img target
-  return $ Texture target (Texture2D width height) 1 slot
+  return $ Texture target (Texture2D w h) 1 texSlot
  where
-  V2 width height = img^.asRectangle.xy2
+  V2 w h = img^.asRectangle.xy2
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
 createTexture2D :: forall px. ImageFormat px => GL.TextureTarget -> Int -> Int -> YageResource (Texture px)
-createTexture2D target width height = do
-  slot    <- mkSlot glResource
-  tex     <- readSlotResource slot
+createTexture2D target w h = throwWithStack $ do
+  texSlot    <- mkSlot glResource
+  tex     <- readSlotResource texSlot
   GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex
-  glTexStorage2D target 1 (internalFormat (Proxy::Proxy px)) (fromIntegral width) (fromIntegral height)
-  return $ Texture target (Texture2D width height) 1 slot
+  glTexStorage2D target 1 (internalFormat (Proxy::Proxy px)) (fromIntegral w) (fromIntegral h)
+  return $ Texture target (Texture2D w h) 1 texSlot
 
 resizeTexture2D :: forall px m. (MonadResource m, ImageFormat px) => Texture px -> Int -> Int -> m (Texture px)
-resizeTexture2D tex@(Texture target _ level slot) width height = do
-  slot $= glResource
-  obj <- get slot
+resizeTexture2D (Texture target _ level texSlot) w h = throwWithStack $ do
+  texSlot $= glResource
+  obj <- get texSlot
   GL.boundTexture target GL_TEXTURE_BINDING_2D $= obj
-  glTexStorage2D target level (internalFormat (Proxy::Proxy px)) (fromIntegral width) (fromIntegral height)
-  return $ Texture target (Texture2D width height) level slot
+  glTexStorage2D target level (internalFormat (Proxy::Proxy px)) (fromIntegral w) (fromIntegral h)
+  return $ Texture target (Texture2D w h) level texSlot
 
 bindTexture:: (MonadResource m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
-bindTexture target st mtex = do
+bindTexture target st mtex = throwWithStack $ do
   unit <- liftIO $ get st
+  bindTextures target [(fromIntegral unit, mtex)]
+
+bindTextures:: MonadResource m => GL.TextureTarget -> [(Int32, Maybe (Texture px))] -> m ()
+bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= fromIntegral unit
   tex <- maybe (return def) (get . view textureGL) mtex
   GL.boundTexture target 0 $= tex

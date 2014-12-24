@@ -14,6 +14,7 @@ void main()
   {
     vec2 uv = gl_FragCoord.xy / textureSize(iTextures[i], 0);
     vec4 texColor = iColors[i] * texture(iTextures[i], uv);
-    fragColor = mix(fragColor, texColor, texColor.a);
+    // fragColor = mix(fragColor, texColor, texColor.a);
+    fragColor = texColor;
   }
 }

@@ -39,12 +39,12 @@ type RenderbufferD32F = Renderbuffer (DepthComponent32 Float)
 makeLenses ''Renderbuffer
 
 createRenderbuffer :: ImageFormat a => Int -> Int -> Acquire (Renderbuffer a)
-createRenderbuffer width height = do
+createRenderbuffer width height = throwWithStack $ do
   rbuff <- glResource
   resizeRenderbuffer (Renderbuffer (V2 width height) rbuff) width height
 
 resizeRenderbuffer :: forall a m. (ImageFormat a, MonadIO m) => Renderbuffer a -> Int -> Int -> m (Renderbuffer a)
-resizeRenderbuffer (Renderbuffer _ rbuff) width height = do
+resizeRenderbuffer (Renderbuffer _ rbuff) width height = throwWithStack $ do
   GL.boundRenderbuffer GL.RenderbufferTarget $= rbuff
   glRenderbufferStorage GL_RENDERBUFFER (fromIntegral $ internalFormat (Proxy::Proxy a)) (fromIntegral width) (fromIntegral height)
   return $ Renderbuffer (V2 width height) rbuff

@@ -74,6 +74,7 @@ Flag bench-obj-parser-criterion
 
 library
   hs-source-dirs:       src/
+  include-dirs: res/glsl
   exposed-modules:      
     Yage
     Yage.Font
@@ -166,12 +167,13 @@ library
     Yage.UI.Types
 
   ghc-options: -Wall -O2
---  ghc-prof-options: -rtsopts -prof -auto-all -caf-all
+--  cpp-options: -strip-eol
+  ghc-prof-options: -rtsopts -prof -fprof-auto-calls
 
 
---  if flag(dev)
---    ghc-options: -Wall
---    cpp-options: -DGL_ERRCHECK
+  if flag(dev)
+    ghc-options: -O0
+    cpp-options: -DGL_ERRCHECK
 
 
   default-language:     Haskell2010
@@ -267,6 +269,8 @@ executable standalone-exe
     Buildable: False
   else
     ghc-options: -threaded -O2 -rtsopts -with-rtsopts=-TN
+    if flag(dev)
+      ghc-options: -O0
     build-depends:        
         base
       , yage
@@ -279,6 +283,7 @@ executable standalone-exe
       , file-embed
       , filepath
       , bytestring
+      , quine
       , utf8-string
 
 executable textureAtlas

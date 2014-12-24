@@ -1,17 +1,21 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module Yage.Rendering.Pipeline.Deferred.ScreenPass
   ( drawRectangle
   ) where
 
 
-import Yage hiding ((</>))
+import Yage hiding ((</>), toList)
 import Yage.Lens
--- import Yage.Material
+import qualified Data.Vector as V
+import Linear.V
 import Yage.GL
-import Control.Monad.Reader (asks)
+import Data.Foldable (toList)
+import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
 import Quine.GL.Types
 import Quine.GL.Uniform
@@ -20,13 +24,14 @@ import Quine.GL.Program
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 
+#include "definitions.h"
 
 includePaths :: [FilePath]
 includePaths = ["/res/glsl"]
 
 -- * Draw To Screen
 
-drawRectangle :: YageResource (RenderSystem (Texture PixelRGBA8, Viewport Int) ())
+drawRectangle :: YageResource (RenderSystem ([(Vec4,Texture PixelRGBA8)], Viewport Int) ())
 drawRectangle = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -37,26 +42,26 @@ drawRectangle = do
   validatePipeline pipeline >>= \logg -> unless (null logg) $ error $ unlines logg
 
   Just frag <- get (fragmentShader $ pipeline^.pipelineProgram)
-  iTextures    <- programUniform1i frag `liftM` uniformLocation frag "iTextures"
-  iColors      <- programUniform4f frag `liftM` uniformLocation frag "iColors[0]"
-  iColors   $= (1 :: Vec4)
-  iTextures $= 6
+  iTextures    <- textureUniforms frag "iTextures"
+  iColors      <- colorUniforms frag "iColors"
+  iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
+  let units = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]
+  iTextures $= (units :: (V MAX_TEXTURES Int32))
 
   lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
 
   -- RenderPass
   return $ do
-    throwWith "fbo" $ do
+    throwWithStack $
       boundFramebuffer RWFramebuffer $= def
 
-    (tex, vp) <- ask
-    mainViewport <- asks snd
+    ((colors, texs), mainViewport) <- over _1 unzip <$> ask
     lastViewport <- get lastViewportRef
     when (lastViewport /= mainViewport) $ do
-      Yage.glViewport $= vp^.rectangle
+      Yage.glViewport $= mainViewport^.rectangle
       lastViewportRef $= mainViewport
 
-    glClearColor 0 0 0 1
+    glClearColor 0 1 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
@@ -64,11 +69,24 @@ drawRectangle = do
     boundVertexArray $= emptyvao
     currentProgram $= def
 
+    -- set shader uniforms
     boundProgramPipeline $= (pipeline^.pipelineProgram)
-    bindTexture GL_TEXTURE_2D iTextures (Just tex)
+    iColors   $= mkColorVector colors
+    iUsedTex  $= fromIntegral (length texs)
+    bindTextures GL_TEXTURE_2D $ zip (toList units) (Just <$> texs)
 
-    throwWith "drawing" $
+    throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
+
+-- | Creates the colors for each layer. The 'V' vector is filled to match the length of 'MAX_TEXTURE' with black.
+mkColorVector :: [Vec4] -> V MAX_TEXTURES Vec4
+mkColorVector cs = fromJust $ fromVector $ V.concat [fromList cs, V.replicate (MAX_TEXTURES - length cs) 0]
+
+textureUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES Int32))
+textureUniforms = programUniform programUniform1iv
+
+colorUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES Vec4))
+colorUniforms = programUniform programUniform4fv
 
  -- where
  --  screenSize = to $ \vp -> V4

@@ -1,5 +1,6 @@
 {-# LANGUAGE Arrows                #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -79,16 +80,19 @@ sceneWire = proc () -> do
 simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
   -- Convert output linear RGB to SRGB
-  throwWith "GL_FRAMEBUFFER_SRGB" $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWith "buildNamedStrings" $
+  traceM "xxx"
+  throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
+  throwWithStack $
     io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
 
+  traceM "alloc"
   trianglePass   <- drawTriangle
   screenQuadPass <- drawRectangle
 
   return $ do
     game <- ask
-    screenQuadPass . fmap (,game^.mainViewport) trianglePass
+    traceM "run"
+    screenQuadPass . fmap (\t -> ([(1,t)],game^.mainViewport)) trianglePass
 
 -- * Draw Triangle
 
@@ -132,6 +136,7 @@ drawTriangle = do
 
   -- RenderPass
   return $ do
+    traceM "drawTriangle"
     mainViewport <- view viewport
     lastViewport <- get lastViewportRef
     when (mainViewport /= lastViewport) $ do
@@ -142,17 +147,23 @@ drawTriangle = do
       void $ resizeRenderbuffer depthBuff w h
       void $ attachFramebuffer fbo [mkAttachment c] (Just $ mkAttachment depthBuff) Nothing
 
-    boundFramebuffer RWFramebuffer $= fbo
+    traceM "boundFramebuffer"
+    {-# SCC boundFramebuffer #-} throwWithStack $
+      boundFramebuffer RWFramebuffer $= fbo
+    traceM "end"
 
     glClearColor 1 0 1 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
 
-    boundVertexArray $= vao
+    traceM "boundVertexArray"
+    {-# SCC boundVertexArray #-} throwWithStack $
+      boundVertexArray $= vao
     currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
     boundBufferAt ElementArrayBuffer $= ebo
-    throwWith "drawing" $
+    traceM "glDrawElements"
+    {-# SCC glDrawElements #-} throwWithStack $
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
     return colorTex
