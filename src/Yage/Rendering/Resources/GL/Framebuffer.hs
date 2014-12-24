@@ -43,7 +43,7 @@ attachFramebuffer fb colors mDepth mStencil = throwWithStack $ do
   boundFramebuffer RWFramebuffer $= fb
   zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] colors
   traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mDepth
-  traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) mStencil
+  traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) mStencil
   let cs =  (+) GL_COLOR_ATTACHMENT0 . fromIntegral <$> [0.. (length colors)-1]
 
   glDrawBuffer GL_NONE
