@@ -150,7 +150,7 @@ core :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim
 core win = do
   input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
   remAccum <- use (timing.remainderAccum)
-  liftApp $ debugM $ format "{}" (Only $ Shown input)
+  liftApp $ debugLog $ format "{}" (Only $ Shown input)
   -- step out core session to get elasped time
   (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
   let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
@@ -161,7 +161,7 @@ core win = do
 
   -- render simulation representation
   (_,renderTime) <-  ioTime $ case renderSim^.simScene of
-      Left err    -> liftApp $ criticalM $ "err:" ++ show err
+      Left err    -> liftApp $ criticalLog $ "err:" ++ show err
       Right scene -> do
         inc =<< use (metrics.renderFrames)
         winSt  <- io $ readTVarIO ( winState win )

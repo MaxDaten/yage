@@ -1,28 +1,41 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Yage.Internal.Debug
   ( installGLDebugHook
   ) where
 
-import Yage.Prelude
+import Yage.Prelude hiding (catch)
 import Yage.Lens
 import Data.Text.Lazy.Lens
-
+import Data.Data
 import Foreign.C.String
 import Foreign.Ptr
 import Graphics.GL.Core33
 import Graphics.GL.Ext.KHR.Debug
 import Graphics.GL.Types
-
+import Yage.Rendering.GL
 import Yage.Core.Application
 
+data DebugHookException =
+    DebugHookException GLError
+  | DebugHookNotSupported
+  deriving (Show,Typeable,Data,Generic)
+
+instance Exception DebugHookException
+
 installGLDebugHook :: Logger -> Application AnyException ()
-installGLDebugHook logger
-  | gl_KHR_debug = do
-    cb <- liftIO $ mkGLDEBUGPROC (glCallback logger)
-    glDebugMessageCallback cb nullPtr
-    glEnable GL_DEBUG_OUTPUT_SYNCHRONOUS
-  | otherwise = io $ logL logger WARNING "GL_KHR_debug not supported: could not install debug hook!"
+installGLDebugHook logger = go `catch` \(e::DebugHookException) -> logging logger WARNING $ "Could not install debug hook: " ++ show e
+ where
+  go :: Throws DebugHookException l => Application l ()
+  go
+   | gl_KHR_debug = do
+     cb <- liftIO $ mkGLDEBUGPROC (glCallback logger)
+     wrapException DebugHookException $ do
+      gl $ glDebugMessageCallback cb nullPtr
+      gl $ glEnable GL_DEBUG_OUTPUT_SYNCHRONOUS
+   | otherwise = throw DebugHookNotSupported
 
 
 glCallback :: Logger -> GLenum -> GLenum -> GLuint -> GLenum -> GLsizei -> Ptr GLchar -> Ptr () -> IO ()

@@ -80,18 +80,15 @@ sceneWire = proc () -> do
 simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
   -- Convert output linear RGB to SRGB
-  traceM "xxx"
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $
     io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
 
-  traceM "alloc"
   trianglePass   <- drawTriangle
   screenQuadPass <- drawRectangle
 
   return $ do
     game <- ask
-    traceM "run"
     screenQuadPass . fmap (\t -> ([(1,t)],game^.mainViewport)) trianglePass
 
 -- * Draw Triangle
@@ -129,8 +126,8 @@ drawTriangle = do
   setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
   setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
 
-  colorTex  <- createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Texture PixelRGBA8)
-  depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
+  colorTex  <- createTexture2D GL_TEXTURE_2D 256 256 :: YageResource (Texture PixelRGBA8)
+  depthBuff <- createRenderbuffer 256 256 :: YageResource RenderbufferD24F
   fbo       <- acquireFramebuffer [mkAttachment <$> readSlotResource (colorTex^.textureGL)] (Just $ pure $ mkAttachment $ depthBuff^.renderbufferGL) Nothing
   lastViewportRef     <- newIORef (defaultViewport 0 0)
 
