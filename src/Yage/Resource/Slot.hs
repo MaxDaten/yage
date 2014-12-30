@@ -13,7 +13,7 @@
 module Yage.Resource.Slot
   (
   -- * Resource Slot
-    Slot, mkSlot, slot, readSlotResource
+    Slot, mkSlot, slot, modifyM
   ) where
 
 import           Yage.Lens
@@ -24,20 +24,9 @@ import           Yage.Prelude                     hiding (Index
 
 import           Data.Acquire                     as Acquire
 import           Control.Monad.Trans.Resource     as Acquire
-import           Control.Monad.Base
 
 import           Data.IORef
-import           Yage.Geometry
-import           Yage.Rendering.Mesh
-import qualified Yage.Formats.Obj                 as OBJ
-import qualified Yage.Formats.Ygm                 as YGM
-import qualified Yage.Formats.Font                as Font
-import           Yage.Font                        ( FontTexture )
-import           Yage.Image
 import           Yage.Resource.YageResource
-import           Yage.Texture.CubeImageLayout     as Cubemap
-import           Quine.MipmapChain                as MipmapChain
-import           Quine.Cubemap                    as Cubemap
 import           Quine.StateVar
 
 newtype Slot a = Slot (IORef (Either (YageResource a) (ReleaseKey, a)))
@@ -53,8 +42,15 @@ slot (Slot ref) aq = liftIO $ atomicModifyIORef' ref (\val -> (Left aq, val)) >>
     Left _ -> return ()
     Right (key,_) -> release key
 
-readSlotResource :: Slot a -> YageResource a
-readSlotResource (Slot ref) = io (readIORef ref) >>= either id (return . snd)
+
+modifyM :: MonadResource m => Slot a -> (a -> YageResource a) -> m ()
+modifyM s m = do
+  x <- get s
+  slot s (m x)
+
+-- danger it dupes resources
+-- readSlotResource :: Slot a -> YageResource a
+-- readSlotResource (Slot ref) = io (readIORef ref) >>= either id (return . snd)
 
 instance MonadIO m => HasSetter (Slot a) (YageResource a) m where
   (Slot ref) $= yr = liftIO $ atomicModifyIORef' ref (\val -> (Left yr, val)) >>= \case

@@ -1,13 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE NamedFieldPuns      #-}
 module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
   , textureTarget
   , textureDimension
   , textureLevel
-  , textureGL
+  , textureObject
   -- * Creation
   , createTexture2D
   , createTexture2DImage
@@ -37,6 +38,7 @@ import           Quine.MipmapChain               as Img
 
 import           Quine.GL.Framebuffer            as Img
 import qualified Quine.GL.Texture                as GL
+import           Quine.GL.Object
 import           Quine.StateVar
 
 
@@ -44,49 +46,52 @@ data TextureDimension = Texture1D Int | Texture2D Int Int | Texture3D Int Int In
   deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
 data Texture a = Texture
-  { _textureTarget    :: GL.TextureTarget
-  , _textureDimension :: TextureDimension
-  , _textureLevel     :: GL.MipmapLevel
-  , _textureGL        :: (Slot GL.Texture)
-  } deriving (Typeable,Generic)
+  { _textureTarget    :: !GL.TextureTarget
+  , _textureDimension :: !TextureDimension
+  , _textureLevel     :: !GL.MipmapLevel
+  , _textureObject    :: !GL.Texture
+  } deriving (Show,Typeable,Generic)
+
+-- type Texture a = Slot (TextureData a)
 
 makeLenses ''Texture
 
 -- | Creates a 'Texture' initialized with an image
 createTexture2DImage :: (Image2D i, GetRectangle i Int) => GL.TextureTarget -> i -> YageResource (Texture a)
 createTexture2DImage target img = throwWithStack $ do
-  texSlot <- mkSlot glResource
-  tex     <- readSlotResource texSlot
-  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex
+  tex <- Texture target (Texture2D w h) 1 <$> glResource
+  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex^.textureObject
   store img target
-  return $ Texture target (Texture2D w h) 1 texSlot
+  return tex
  where
   V2 w h = img^.asRectangle.xy2
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
 createTexture2D :: forall px. ImageFormat px => GL.TextureTarget -> Int -> Int -> YageResource (Texture px)
-createTexture2D target w h = throwWithStack $ do
-  texSlot    <- mkSlot glResource
-  tex     <- readSlotResource texSlot
-  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex
+createTexture2D target w h = throwWithStack $! do
+  tex  <- Texture target (Texture2D w h) 1 <$> glResource
+  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex^.textureObject
   glTexStorage2D target 1 (internalFormat (Proxy::Proxy px)) (fromIntegral w) (fromIntegral h)
-  return $ Texture target (Texture2D w h) 1 texSlot
+  return $ tex
 
-resizeTexture2D :: forall px m. (MonadResource m, ImageFormat px) => Texture px -> Int -> Int -> m (Texture px)
-resizeTexture2D (Texture target _ level texSlot) w h = throwWithStack $ do
-  texSlot $= glResource
-  obj <- get texSlot
-  GL.boundTexture target GL_TEXTURE_BINDING_2D $= obj
-  glTexStorage2D target level (internalFormat (Proxy::Proxy px)) (fromIntegral w) (fromIntegral h)
-  return $ Texture target (Texture2D w h) level texSlot
+resizeTexture2D :: forall px. (ImageFormat px) => Texture px -> Int -> Int -> YageResource (Texture px)
+resizeTexture2D tex w h = throwWithStack $! do
+  t <- createTexture2D (tex^.textureTarget) w h :: YageResource (Texture px)
+  return $ t & textureLevel .~ tex^.textureLevel
 
 bindTexture:: (MonadResource m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
-bindTexture target st mtex = throwWithStack $ do
+bindTexture target st mtex = throwWithStack $! do
   unit <- liftIO $ get st
   bindTextures target [(fromIntegral unit, mtex)]
 
 bindTextures:: MonadResource m => GL.TextureTarget -> [(Int32, Maybe (Texture px))] -> m ()
 bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= fromIntegral unit
-  tex <- maybe (return def) (get . view textureGL) mtex
-  GL.boundTexture target 0 $= tex
+  GL.boundTexture target 0 $= maybe def (view textureObject) mtex
+
+instance FramebufferAttachment (Texture a) where
+  attach (FramebufferTarget target _) p tex =
+    case (tex^.textureDimension) of
+      Texture1D _ -> glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
+      Texture2D _ _ -> glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
+      Texture3D _ _ _ -> glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0

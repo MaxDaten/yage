@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 {-# LANGUAGE Arrows                #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds             #-}
@@ -126,44 +127,42 @@ drawTriangle = do
   setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
   setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
 
-  colorTex  <- createTexture2D GL_TEXTURE_2D 256 256 :: YageResource (Texture PixelRGBA8)
-  depthBuff <- createRenderbuffer 256 256 :: YageResource RenderbufferD24F
-  fbo       <- acquireFramebuffer [mkAttachment <$> readSlotResource (colorTex^.textureGL)] (Just $ pure $ mkAttachment $ depthBuff^.renderbufferGL) Nothing
+  colorTex  <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
+  depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
+  fbo       <- glResource
   lastViewportRef     <- newIORef (defaultViewport 0 0)
 
   -- RenderPass
   return $ do
-    traceM "drawTriangle"
     mainViewport <- view viewport
     lastViewport <- get lastViewportRef
     when (mainViewport /= lastViewport) $ do
       Yage.glViewport    $= mainViewport^.rectangle
       lastViewportRef    $= mainViewport
       let V2 w h = mainViewport^.rectangle.extend
-      c <- get . view textureGL =<< resizeTexture2D colorTex w h
+      modifyM colorTex $ \x -> resizeTexture2D x w h
+      c <- get colorTex
       void $ resizeRenderbuffer depthBuff w h
       void $ attachFramebuffer fbo [mkAttachment c] (Just $ mkAttachment depthBuff) Nothing
 
-    traceM "boundFramebuffer"
     {-# SCC boundFramebuffer #-} throwWithStack $
       boundFramebuffer RWFramebuffer $= fbo
-    traceM "end"
 
     glClearColor 1 0 1 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
 
-    traceM "boundVertexArray"
     {-# SCC boundVertexArray #-} throwWithStack $
       boundVertexArray $= vao
+
     currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
+
     boundBufferAt ElementArrayBuffer $= ebo
-    traceM "glDrawElements"
     {-# SCC glDrawElements #-} throwWithStack $
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
-    return colorTex
+    get colorTex
 
 main :: IO ()
 main = yageMain "standalone" configuration sceneWire (1/60)

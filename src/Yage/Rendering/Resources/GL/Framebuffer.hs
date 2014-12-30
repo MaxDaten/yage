@@ -42,10 +42,10 @@ createFramebuffer colors mDepth mStencil = throwWithStack $ do
 
 attachFramebuffer :: (MonadIO m, Applicative m) => Framebuffer -> [Attachment] -> Maybe Attachment -> Maybe Attachment -> m Framebuffer
 attachFramebuffer fb colors mDepth mStencil = throwWithStack $ do
-  throwWithStack $ boundFramebuffer RWFramebuffer $= traceShowId fb
-  throwWithStack $ zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] $ traceShowId $ colors
-  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) $ traceShowId $ mDepth
-  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) $ traceShowId $ mStencil
+  throwWithStack $ boundFramebuffer RWFramebuffer $= fb
+  throwWithStack $ zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] $ colors
+  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) $ mDepth
+  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) $ mStencil
   let cs =  (+) GL_COLOR_ATTACHMENT0 . fromIntegral <$> [0.. (length colors)-1]
 
   glDrawBuffer GL_NONE
@@ -62,7 +62,7 @@ acquireFramebuffer :: [Acquire Attachment] -> Maybe (Acquire Attachment) -> Mayb
 acquireFramebuffer colorsA mDepthA mStencilA = throwWithStack $
   join $ liftM3 createFramebuffer (sequence colorsA) (sequence mDepthA) (sequence mStencilA)
 
--- | wraps an instance of 'FramebufferAttachment' into an 'Attachment' to allow a homomorphic
+-- | wraps an instance of 'FramebufferAttachment' into an 'Attachment' to allow a polymorphic
 -- color attachment list
 mkAttachment :: (FramebufferAttachment a, Show a) => a -> Attachment
 mkAttachment = Attachment

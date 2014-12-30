@@ -14,6 +14,8 @@ module Yage.Rendering.Resources.GL.Shader
   , shaderTypeToPipelineStage
   , fileToShaderType
   , validatePipeline
+  , throwPipelineValidationError
+  -- * Embeding Shader Sources
   , embedShaderFile
   ) where
 
@@ -50,8 +52,11 @@ data Pipeline = Pipeline
 
 makeLenses ''Pipeline
 
-data ShaderException = ShaderException String FilePath [String]
+data ShaderException =
+    ShaderException String FilePath [String]
+  | PipelineValidationError Pipeline [String]
   deriving (Eq,Show,Data,Typeable,Generic)
+
 instance Exception ShaderException
 
 fileToShaderType :: FilePath -> ShaderType
@@ -129,4 +134,7 @@ validatePipeline Pipeline{..} = do
   validateProgramPipeline _pipelineProgram
   pipeLog <- liftM (fmap (force.Char8.unpack) . Char8.lines) (programPipelineInfoLog _pipelineProgram)
   return $! pipeLog ++ shlog
+
+throwPipelineValidationError :: (MonadThrow m, MonadIO m) => Pipeline -> m ()
+throwPipelineValidationError p = validatePipeline p >>= \l -> unless (null l) $ throwM $ PipelineValidationError p l
 

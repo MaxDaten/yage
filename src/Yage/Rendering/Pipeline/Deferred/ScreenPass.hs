@@ -45,8 +45,7 @@ drawRectangle = do
   iTextures    <- textureUniforms frag "iTextures"
   iColors      <- colorUniforms frag "iColors"
   iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
-  let units = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]
-  iTextures $= (units :: (V MAX_TEXTURES Int32))
+  iTextures    $= textureUnits
 
   lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
 
@@ -66,17 +65,26 @@ drawRectangle = do
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
 
-    boundVertexArray $= emptyvao
-    currentProgram $= def
+    {-# SCC boundVertexArray #-} throwWithStack $
+      boundVertexArray $= emptyvao
 
     -- set shader uniforms
-    boundProgramPipeline $= (pipeline^.pipelineProgram)
-    iColors   $= mkColorVector colors
-    iUsedTex  $= fromIntegral (length texs)
-    bindTextures GL_TEXTURE_2D $ zip (toList units) (Just <$> texs)
+    currentProgram $= def
+    boundProgramPipeline $= pipeline^.pipelineProgram
+
+    throwWithStack $ do
+      iColors   $= mkColorVector colors
+      iUsedTex  $= fromIntegral (length texs)
+      bindTextures GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> texs)
+
+    throwPipelineValidationError pipeline
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
+
+
+textureUnits :: V MAX_TEXTURES Int32
+textureUnits = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]
 
 -- | Creates the colors for each layer. The 'V' vector is filled to match the length of 'MAX_TEXTURE' with black.
 mkColorVector :: [Vec4] -> V MAX_TEXTURES Vec4
