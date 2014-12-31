@@ -81,17 +81,17 @@ resizeTexture2D tex w h = throwWithStack $! do
   t <- createTexture2D (tex^.textureTarget) w h :: YageResource (Texture px)
   return $ t & textureLevel .~ tex^.textureLevel
 
-bindTexture:: (MonadResource m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
+bindTexture:: (MonadIO m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
 bindTexture target st mtex = throwWithStack $! do
   unit <- liftIO $ get st
   bindTextures target [(fromIntegral unit, mtex)]
 
-bindTextures:: MonadResource m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Texture px))] -> m ()
+bindTextures:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Texture px))] -> m ()
 bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= unit
   GL.boundTexture target 0 $= maybe def (view textureObject) mtex
 
-bindTextureSamplers:: MonadResource m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Sampler, Texture px))] -> m ()
+bindTextureSamplers:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Sampler, Texture px))] -> m ()
 bindTextureSamplers target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= unit
   GL.boundTexture target 0 $= maybe def (view $ _2.textureObject) mtex

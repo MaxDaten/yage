@@ -42,6 +42,7 @@ import           Quine.GL.ProgramPipeline
 import           Yage.Rendering.Pipeline.Deferred.Common
 
 #include "definitions.h"
+#include "textureUnits.h"
 includePaths :: [FilePath]
 includePaths = ["/res/glsl"]
 
@@ -52,7 +53,19 @@ data GBuffer = GBuffer
   { _aBuffer     :: Texture PixelRGBA8
   , _bBuffer     :: Texture PixelRGBA8
   , _depthBuffer :: Texture (DepthComponent24 Float)
-  } deriving (Typeable,Show)
+  } deriving (Typeable,Show,Generic)
+
+-- | Uniform StateVars of the fragment shader
+data FragmentShader = FragmentShader
+  { albedoMaterial     :: StateVar (Material MaterialColorAlpha (Texture PixelRGBA8))
+  , normalMaterial     :: StateVar (Material MaterialColorAlpha (Texture PixelRGBA8))
+  , roughnessMaterial  :: StateVar (Material Double (Texture Pixel8))
+  , metallicMaterial   :: StateVar (Material Double (Texture Pixel8))
+  , viewMatrix         :: StateVar Mat4
+  , vpMatrix           :: StateVar Mat4
+  , modelMatrix        :: StateVar Mat4
+  , normalMatrix       :: StateVar Mat3
+  }
 
 -- * Draw To GBuffer
 
@@ -65,7 +78,7 @@ drawGBuffers = do
               , $(embedShaderFile "res/glsl/pass/base.frag")]
               `compileShaderPipeline` includePaths
 
-  Just frag <- get (fragmentShader $ pipeline^.pipelineProgram)
+  Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- get (vertexShader $ pipeline^.pipelineProgram)
 
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
@@ -115,3 +128,30 @@ drawGBuffers = do
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
+
+fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
+fragmentUniforms prog = FragmentShader
+  <$> materialUniformColor prog ALBEDO_UNIT "AlbedoTexture" "AlbedoColor"
+  <*> materialUniformColor prog NORMAL_UNIT "NormalTexture" "NormalColor"
+  <*> materialUniformIntensity prog ROUGHNESS_UNIT "RoughnessTexture" "RoughnessIntensity"
+  <*> materialUniformIntensity prog METALLIC_UNIT "MetallicTexture" "MetallicIntensity"
+  <*> programUniform programUniformMatrix4f prog "ViewMatrix"
+  <*> programUniform programUniformMatrix4f prog "VPMatrix"
+  <*> programUniform programUniformMatrix4f prog "ModelMatrix"
+  <*> programUniform programUniformMatrix3f prog "NormalMatrix"
+
+
+materialUniformColor :: MonadIO m => Program -> TextureUnit -> String -> String -> m (StateVar (Material MaterialColorAlpha (Texture PixelRGBA8)))
+materialUniformColor prog unit texname colorname = do
+  texture <- programUniform programUniform1i prog texname
+  texture $= (fromIntegral unit)
+  liftM matvar (uniformLocation prog colorname)
+ where
+  matvar colorloc = StateVar g (s colorloc)
+  g = error "undefined"
+  s c mat = do
+    bindTextures (mat^.materialTexture.textureTarget) [(unit, Just $ mat^.materialTexture)]
+    programUniform4f prog c $= (realToFrac <$> mat^.materialColor.to linearV4)
+
+materialUniformIntensity :: Program -> TextureUnit -> String -> String -> m (StateVar (Material Double (Texture Pixel8)))
+materialUniformIntensity = undefined
