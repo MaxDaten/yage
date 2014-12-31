@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TupleSections   #-}
@@ -14,7 +15,7 @@ module Yage.Rendering.Resources.GL.Shader
   , shaderTypeToPipelineStage
   , fileToShaderType
   , validatePipeline
-  , throwPipelineValidationError
+  , checkPipelineError
   -- * Embeding Shader Sources
   , embedShaderFile
   ) where
@@ -135,6 +136,11 @@ validatePipeline Pipeline{..} = do
   pipeLog <- liftM (fmap (force.Char8.unpack) . Char8.lines) (programPipelineInfoLog _pipelineProgram)
   return $! pipeLog ++ shlog
 
-throwPipelineValidationError :: (MonadThrow m, MonadIO m) => Pipeline -> m ()
-throwPipelineValidationError p = validatePipeline p >>= \l -> unless (null l) $ throwM $ PipelineValidationError p l
-
+-- | Throws a 'PipelineValidationError' when the validation is not successful (log contains entries) and
+-- the compiler 'GL_ERRCHECK' flag is defined
+checkPipelineError :: (MonadThrow m, MonadIO m) => Pipeline -> m ()
+#ifdef GL_ERRCHECK
+checkPipelineError p = validatePipeline p >>= \l -> unless (null l) $ throwM $ PipelineValidationError p l
+#else
+checkPipelineError = const (return ())
+#endif

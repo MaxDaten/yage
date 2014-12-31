@@ -77,7 +77,7 @@ drawRectangle = do
       iUsedTex  $= fromIntegral (length texs)
       bindTextures GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> texs)
 
-    throwPipelineValidationError pipeline
+    checkPipelineError pipeline
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
