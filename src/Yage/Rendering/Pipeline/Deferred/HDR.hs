@@ -15,7 +15,7 @@ import Yage.Scene
 import Yage.Material
 
 import qualified Yage.Rendering.Pipeline.Deferred.LightPass             as L
-import qualified Yage.Rendering.Pipeline.Deferred.GeometryPass          as G
+import qualified Yage.Rendering.Pipeline.Deferred.BaseGPass             as G
 import qualified Yage.Rendering.Pipeline.Deferred.SkyPass               as S
 import qualified Yage.Rendering.Pipeline.Deferred.GlareDetectionPass    as Glare
 import qualified Yage.Rendering.Pipeline.Deferred.ToneMapPass           as T

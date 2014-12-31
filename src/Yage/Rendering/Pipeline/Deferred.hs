@@ -19,7 +19,7 @@ import           Yage.Rendering.RenderSystem   as RenderSystem
 
 import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
-import           Yage.Rendering.Pipeline.Deferred.GeometryPass   as Pass
+import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass

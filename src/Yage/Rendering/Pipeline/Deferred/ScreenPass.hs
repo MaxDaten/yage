@@ -41,13 +41,12 @@ drawRectangle = do
   pipeline <- [ $(embedShaderFile "res/glsl/pass/drawRectangle.vert")
               , $(embedShaderFile "res/glsl/sampling/alphaBlendTextures.frag")]
               `compileShaderPipeline` includePaths
-  validatePipeline pipeline >>= \logg -> unless (null logg) $ error $ unlines logg
 
   Just frag <- get (fragmentShader $ pipeline^.pipelineProgram)
   iTextures    <- textureUniforms frag "iTextures"
   iColors      <- colorUniforms frag "iColors"
   iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
-  iTextures    $= (fromIntegral <$> textureUnits)
+  iTextures    $= textureUnits
 
   lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
 
@@ -92,8 +91,8 @@ textureUnits = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]
 mkColorVector :: [Vec4] -> V MAX_TEXTURES Vec4
 mkColorVector cs = fromJust $ fromVector $ V.concat [fromList cs, V.replicate (MAX_TEXTURES - length cs) 0]
 
-textureUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES Int32))
-textureUniforms = programUniform programUniform1iv
+textureUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES TextureUnit))
+textureUniforms p str = mapStateVar (fmap fromIntegral) (fmap fromIntegral) `liftM` programUniform programUniform1iv p str
 
 colorUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES Vec4))
 colorUniforms = programUniform programUniform4fv

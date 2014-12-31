@@ -134,12 +134,14 @@ drawTriangle = do
   colorTex  <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
   fbo       <- glResource
-  lastViewportRef     <- newIORef (defaultViewport 0 0)
+  lastViewportRef     <- newIORef (defaultViewport 1 1)
 
   -- RenderPass
   return $ do
     mainViewport <- view viewport
     lastViewport <- get lastViewportRef
+
+    -- resizing the framebuffer
     when (mainViewport /= lastViewport) $ do
       Yage.glViewport    $= mainViewport^.rectangle
       lastViewportRef    $= mainViewport

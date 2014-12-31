@@ -1,7 +1,5 @@
-#ifndef __COMMON__
-#define __COMMON__
-
-#include "GlobalDefs.glsl"
+#ifndef __COMMON_H__
+#define __COMMON_H__
 
 const float PI = 3.1415926535897932f;
 
@@ -60,4 +58,4 @@ vec4 gamma(vec4 x, float y)
 }
 
 
-#endif // __COMMON__
+#endif /* __COMMON_H__ */

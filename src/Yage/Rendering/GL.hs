@@ -42,3 +42,4 @@ throwWithStack = id
 gl :: (Throws GLError l) => Application l a -> Application l a
 gl m = throwWithStack m
   `P.catch` (\(e::GLError) -> throw e)
+{-# INLINE gl #-}

@@ -25,16 +25,16 @@ import           Quine.Image
 
 -- | Plain sized internal formats for the phantom types
 -- <https://www.opengl.org/registry/doc/glspec45.core.pdf> Table 8.13
-newtype DepthComponent16 a  = DepthComponent16 a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype DepthComponent24 a = DepthComponent24 a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype DepthComponent32 a = DepthComponent32 a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype DepthComponent32F a  = DepthComponent32F a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype Depth24Stencil8 a  = Depth24Stencil8 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype Depth32FStencil8 a = Depth32FStencil8 a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype StencilIndex1 a  = StencilIndex1 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype StencilIndex4 a  = StencilIndex4 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype StencilIndex8 a  = StencilIndex8 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
-newtype StencilIndex16 a = StencilIndex16 a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype DepthComponent16 a   = DepthComponent16 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype DepthComponent24 a   = DepthComponent24 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype DepthComponent32 a   = DepthComponent32 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype DepthComponent32F a  = DepthComponent32F a deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype Depth24Stencil8 a    = Depth24Stencil8 a   deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype Depth32FStencil8 a   = Depth32FStencil8 a  deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype StencilIndex1 a      = StencilIndex1 a     deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype StencilIndex4 a      = StencilIndex4 a     deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype StencilIndex8 a      = StencilIndex8 a     deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
+newtype StencilIndex16 a     = StencilIndex16 a    deriving (Num,Eq,Ord,Show,Data,Typeable,Generic)
 
 -- TODO : Full Pixel implementation (important for upload and download)
 instance Pixel a => Pixel (DepthComponent16 a) where
@@ -83,6 +83,21 @@ instance ImageFormat (DepthComponent32 Float) where
   internalFormat _ = GL_DEPTH_COMPONENT32
   pixelFormat    _ = GL_DEPTH_COMPONENT
   pixelType      _ = GL_FLOAT
+
+instance ImageFormat (DepthComponent16 Word8) where
+  internalFormat _ = GL_DEPTH_COMPONENT16
+  pixelFormat    _ = GL_DEPTH_COMPONENT
+  pixelType      _ = GL_UNSIGNED_BYTE
+
+instance ImageFormat (DepthComponent24 Word8) where
+  internalFormat _ = GL_DEPTH_COMPONENT24
+  pixelFormat    _ = GL_DEPTH_COMPONENT
+  pixelType      _ = GL_UNSIGNED_BYTE
+
+instance ImageFormat (DepthComponent32 Word8) where
+  internalFormat _ = GL_DEPTH_COMPONENT32
+  pixelFormat    _ = GL_DEPTH_COMPONENT
+  pixelType      _ = GL_UNSIGNED_BYTE
 
 instance ImageFormat (DepthComponent32F Float) where
   internalFormat _ = GL_DEPTH_COMPONENT32F

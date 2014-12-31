@@ -21,5 +21,5 @@ import Yage.Transformation
 import Yage.Material
 
 import Yage.Rendering.Pipeline.Deferred.Common
-import Yage.Rendering.Pipeline.Deferred.GeometryPass
+import Yage.Rendering.Pipeline.Deferred.BaseGPass
 

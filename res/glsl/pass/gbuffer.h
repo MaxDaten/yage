@@ -3,8 +3,8 @@
    ## Normal Encoding
     - http://aras-p.info/texts/CompactNormalStorage.html
 */
-#ifndef __GBUFFER__
-#define __GBUFFER__
+#ifndef __GBUFFER_H__
+#define __GBUFFER_H__
 
 /*
     0 : simple z reconstruction
@@ -12,9 +12,11 @@
     2 : octahedron transformation (world space)
 */
 #define NORMAL_ENCODING_TYPE 2
+#define CHANNELA 0
+#define CHANNELB 1
 // Red Green Blue Depth
-layout (location = 0) out vec4 channelA;
-layout (location = 1) out vec4 channelB;
+layout (location = CHANNELA) out vec4 channelA;
+layout (location = CHANNELB) out vec4 channelB;
 
 
 uniform sampler2D inChannelA;
@@ -25,7 +27,7 @@ in vec3 VertexPosVS;
 in mat4 ViewToWorld;
 
 
-struct Surface 
+struct Surface
 {
     vec3 Position;
     vec4 Albedo;
@@ -39,7 +41,7 @@ struct Surface
 vec3 DecodeTextureNormal( vec3 TexNormal )
 {
     return TexNormal * 2.0 - 1.0;
-    
+
 }
 
 
@@ -84,11 +86,11 @@ vec2 EncodeNormalOctahedron( vec3 n )
     // n.xy = n.xy;// * 0.5 + 0.5;
     return n.xy;
 }
- 
+
 vec3 DecodeNormalOctahedron( vec2 encN )
 {
     // encN = encN * 2.0 - 1.0;
- 
+
     vec3 n;
     n.z = 1.0 - dot( vec2(1.0), abs( encN ));
     n.xy = n.z < 0.0 ? OctWrap( encN.xy ) : encN.xy;
@@ -126,7 +128,7 @@ void EncodeGBuffer( Surface surface )
     channelA.a     = surface.Roughness;
 
     channelB.rg    = EncodeNormalXY ( normalize ( surface.Normal ) );
-    
+
     channelB.b     = surface.Metallic;
     channelB.a     = 0.0; // currently unused
 }
@@ -137,7 +139,7 @@ Surface DecodeGBuffer( vec2 uv )
     vec4 chA       = texture( inChannelA, uv ).rgba;
     vec4 chB       = texture( inChannelB, uv ).rgba;
     float bufferDepth  = texture( DepthTexture, uv ).r;
-    
+
     Surface surface;
 
     // extrapolate the view space position of the pixel to the zFar plane
@@ -157,4 +159,4 @@ Surface DecodeGBuffer( vec2 uv )
 }
 
 
-#endif // __GBUFFER__
+#endif // __GBUFFER_H__
