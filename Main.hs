@@ -31,12 +31,14 @@ import Quine.GL.Buffer
 import Quine.GL.Error
 import Quine.GL.Program
 import Quine.GL.Shader
+import Quine.GL.Sampler
 import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.Texture hiding (Texture)
 import Quine.GL.VertexArray
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
+import Graphics.GL.Ext.EXT.TextureFilterAnisotropic
 
 appConf :: ApplicationConfig
 appConf = defaultAppConfig{ logPriority = WARNING }
@@ -88,9 +90,11 @@ simplePipeline = do
   trianglePass   <- drawTriangle
   screenQuadPass <- drawRectangle
 
+  baseSampler <- mkBaseSampler
+
   return $ do
     game <- ask
-    screenQuadPass . fmap (\t -> ([(1,t)],game^.mainViewport)) trianglePass
+    screenQuadPass . fmap (\t -> ([(1,baseSampler,t)], game^.mainViewport)) trianglePass
 
 -- * Draw Triangle
 
@@ -163,6 +167,17 @@ drawTriangle = do
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
     get colorTex
+
+mkBaseSampler :: YageResource Sampler
+mkBaseSampler = throwWithStack $ do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $
+    samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
 
 main :: IO ()
 main = yageMain "standalone" configuration sceneWire (1/60)

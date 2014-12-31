@@ -17,6 +17,7 @@ module Yage.Rendering.Resources.GL.Texture (
   -- * Binding
   , bindTexture
   , bindTextures
+  , bindTextureSamplers
   ) where
 
 import           Yage.Lens
@@ -38,6 +39,7 @@ import           Quine.MipmapChain               as Img
 
 import           Quine.GL.Framebuffer            as Img
 import qualified Quine.GL.Texture                as GL
+import           Quine.GL.Sampler                as GL
 import           Quine.GL.Object
 import           Quine.StateVar
 
@@ -84,10 +86,16 @@ bindTexture target st mtex = throwWithStack $! do
   unit <- liftIO $ get st
   bindTextures target [(fromIntegral unit, mtex)]
 
-bindTextures:: MonadResource m => GL.TextureTarget -> [(Int32, Maybe (Texture px))] -> m ()
+bindTextures:: MonadResource m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Texture px))] -> m ()
 bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
-  GL.activeTexture $= fromIntegral unit
+  GL.activeTexture $= unit
   GL.boundTexture target 0 $= maybe def (view textureObject) mtex
+
+bindTextureSamplers:: MonadResource m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Sampler, Texture px))] -> m ()
+bindTextureSamplers target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
+  GL.activeTexture $= unit
+  GL.boundTexture target 0 $= maybe def (view $ _2.textureObject) mtex
+  GL.boundSampler unit $= maybe def (view _1) mtex
 
 instance FramebufferAttachment (Texture a) where
   attach (FramebufferTarget target _) p tex =

@@ -283,8 +283,9 @@ executable standalone-exe
       , file-embed
       , filepath
       , bytestring
-      , quine
       , utf8-string
+      , quine
+      , gl
 
 executable textureAtlas
   hs-source-dirs:     test/manuals

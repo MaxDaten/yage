@@ -21,6 +21,8 @@ import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program
+import Quine.GL.Sampler
+import Quine.GL.Texture hiding (Texture)
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 
@@ -31,7 +33,7 @@ includePaths = ["/res/glsl"]
 
 -- * Draw To Screen
 
-drawRectangle :: YageResource (RenderSystem ([(Vec4,Texture PixelRGBA8)], Viewport Int) ())
+drawRectangle :: YageResource (RenderSystem ([(Vec4,Sampler,Texture PixelRGBA8)], Viewport Int) ())
 drawRectangle = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -45,7 +47,7 @@ drawRectangle = do
   iTextures    <- textureUniforms frag "iTextures"
   iColors      <- colorUniforms frag "iColors"
   iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
-  iTextures    $= textureUnits
+  iTextures    $= (fromIntegral <$> textureUnits)
 
   lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
 
@@ -54,7 +56,7 @@ drawRectangle = do
     throwWithStack $
       boundFramebuffer RWFramebuffer $= def
 
-    ((colors, texs), mainViewport) <- over _1 unzip <$> ask
+    ((colors, sampler, texs), mainViewport) <- over _1 unzip3 <$> ask
     lastViewport <- get lastViewportRef
     when (lastViewport /= mainViewport) $ do
       Yage.glViewport $= mainViewport^.rectangle
@@ -75,7 +77,7 @@ drawRectangle = do
     throwWithStack $ do
       iColors   $= mkColorVector colors
       iUsedTex  $= fromIntegral (length texs)
-      bindTextures GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> texs)
+      bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
 
     checkPipelineError pipeline
 
@@ -83,7 +85,7 @@ drawRectangle = do
       glDrawArrays GL_TRIANGLES 0 3
 
 
-textureUnits :: V MAX_TEXTURES Int32
+textureUnits :: V MAX_TEXTURES TextureUnit
 textureUnits = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]
 
 -- | Creates the colors for each layer. The 'V' vector is filled to match the length of 'MAX_TEXTURE' with black.
