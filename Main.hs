@@ -128,8 +128,8 @@ drawTriangle = do
   boundBufferAt ElementArrayBuffer $= ebo
   bufferData    ElementArrayBuffer $= (StaticDraw, [0, 1, 2, 0, 3, 1] :: [Word8])
 
-  setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) nullPtr)
-  setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (error "undefined access" :: Vec3)) (nullPtr `plusPtr` (sizeOf (error "undefined access" :: Vec3))))
+  setVertexAttribute aPosition $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (undefined :: Vec3)) nullPtr)
+  setVertexAttribute aColor    $= Just (Layout 3 GL_FLOAT False (2 * sizeOf (undefined :: Vec3)) (nullPtr `plusPtr` (sizeOf (undefined :: Vec3))))
 
   colorTex  <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   depthBuff <- createRenderbuffer 1 1 :: YageResource RenderbufferD24F
@@ -149,20 +149,20 @@ drawTriangle = do
       void $ resizeRenderbuffer depthBuff w h
       void $ attachFramebuffer fbo [mkAttachment c] (Just $ mkAttachment depthBuff) Nothing
 
-    {-# SCC boundFramebuffer #-} throwWithStack $
-      boundFramebuffer RWFramebuffer $= fbo
+    boundFramebuffer RWFramebuffer $= fbo
 
     glClearColor 1 0 1 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
 
-    {-# SCC boundVertexArray #-} throwWithStack $
-      boundVertexArray $= vao
+    boundVertexArray $= vao
+    boundBufferAt ElementArrayBuffer $= ebo
 
     currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
 
-    boundBufferAt ElementArrayBuffer $= ebo
+    checkPipelineError pipeline
+
     {-# SCC glDrawElements #-} throwWithStack $
       glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
 
