@@ -1,3 +1,4 @@
+
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.HDR
     ( module Yage.HDR

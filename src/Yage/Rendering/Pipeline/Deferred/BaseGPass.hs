@@ -6,24 +6,29 @@
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE QuasiQuotes        #-}
+{-# LANGUAGE FlexibleContexts   #-}
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
-  (
+  ( GBaseScene
+  , BaseMaterial(..)
+  , baseMaterialAlbedo
+  , baseMaterialNormal
+  , baseMaterialRoughness
+  , baseMaterialMetallic
+  -- * Pass Output
+  , GBuffer(..)
+  , drawGBuffers
   ) where
 
 import           Yage
+import           Yage.Math (m44_to_m33)
 import           Yage.Lens
-import           Yage.Math
-import           Yage.Prelude
 import           Yage.GL
-
-import           Data.Data
-import           Foreign.Ptr
 
 import           Yage.Camera
 import qualified Yage.Formats.Ygm                        as YGM
 import           Yage.Geometry                           as Geometry
-import           Yage.Material
+import           Yage.Material                           hiding (over)
 import           Yage.Scene
 import           Yage.Uniforms                           as Uniforms
 import           Yage.Viewport
@@ -46,7 +51,21 @@ import           Yage.Rendering.Pipeline.Deferred.Common
 includePaths :: [FilePath]
 includePaths = ["/res/glsl"]
 
-type GBaseScene = Scene HDRCamera ({--ent--}) ({--env--}) ({--gui--})
+
+data BaseMaterial = BaseMaterial
+    { _baseMaterialAlbedo    :: Material MaterialColorAlpha (Texture PixelRGBA8)
+    , _baseMaterialNormal    :: Material MaterialColorAlpha (Texture PixelRGBA8)
+    , _baseMaterialRoughness :: Material Double (Texture Pixel8)
+    , _baseMaterialMetallic  :: Material Double (Texture Pixel8)
+    }
+
+makeClassy ''BaseMaterial
+makeFields ''BaseMaterial
+
+instance HasBaseMaterial mat => HasBaseMaterial (Entity mesh mat) where
+  baseMaterial = materials.baseMaterial
+
+type GBaseScene ent env gui = Scene HDRCamera ent env gui
 
 -- | The output GBuffer of this pass
 data GBuffer = GBuffer
@@ -57,19 +76,28 @@ data GBuffer = GBuffer
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { albedoMaterial     :: StateVar (Material MaterialColorAlpha (Texture PixelRGBA8))
-  , normalMaterial     :: StateVar (Material MaterialColorAlpha (Texture PixelRGBA8))
-  , roughnessMaterial  :: StateVar (Material Double (Texture Pixel8))
-  , metallicMaterial   :: StateVar (Material Double (Texture Pixel8))
-  , viewMatrix         :: StateVar Mat4
-  , vpMatrix           :: StateVar Mat4
-  , modelMatrix        :: StateVar Mat4
-  , normalMatrix       :: StateVar Mat3
+  { albedoMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGBA8))
+  , normalMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGBA8))
+  , roughnessMaterial  :: UniformVar (Material Double (Texture Pixel8))
+  , metallicMaterial   :: UniformVar (Material Double (Texture Pixel8))
   }
+
+-- | Uniform StateVars of the fragment shader
+data VertexShader = VertexShader
+  { albedoTextureMatrix     :: UniformVar Mat4
+  , normalTextureMatrix     :: UniformVar Mat4
+  , roughnessTextureMatrix  :: UniformVar Mat4
+  , metallicTextureMatrix   :: UniformVar Mat4
+  , viewMatrix              :: UniformVar Mat4
+  , vpMatrix                :: UniformVar Mat4
+  , modelMatrix             :: UniformVar Mat4
+  , normalMatrix            :: UniformVar Mat3
+  }
+
 
 -- * Draw To GBuffer
 
-drawGBuffers :: YageResource (RenderSystem (GBaseScene,Viewport Int) GBuffer)
+drawGBuffers :: (HasTransformation ent Double, HasBaseMaterial ent) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -79,7 +107,10 @@ drawGBuffers = do
               `compileShaderPipeline` includePaths
 
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
-  Just vert <- get (vertexShader $ pipeline^.pipelineProgram)
+  Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
+
+  -- TODO : setup vertex layout
+  undefined
 
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
@@ -113,45 +144,62 @@ drawGBuffers = do
     glDisable GL_BLEND
 
     -- set globals
+    {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
     currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
-    -- set global shader uniforms
-
-    -- element wise
-    {-# SCC boundVertexArray #-} throwWithStack $
-      boundVertexArray $= vao
-
     checkPipelineError pipeline
 
-    {-# SCC glDrawElements #-} throwWithStack $
-      glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
+    setupSceneGlobals vert frag
+    drawScene vert frag
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
+setupSceneGlobals :: (HasTransformation ent Double, HasBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} = do
+  (scene, mainViewport) <- ask
+  viewMatrix $= fmap realToFrac <$> viewM scene
+  vpMatrix   $= fmap realToFrac <$> viewprojectionM scene mainViewport
+  return ()
+ where
+  viewM scene = scene^.camera.transformationMatrix
+  viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
+
+drawScene :: (HasTransformation ent Double, HasBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene VertexShader{..} FragmentShader{..} = do
+  (scene, mainViewport) <- ask
+  forM_ (scene^.sceneEntities) $ \ent -> do
+    -- set obj globals
+    modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
+    normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
+    -- setup material
+    albedoMaterial    $= ent^.baseMaterial.albedo
+    normalMaterial    $= ent^.baseMaterial.normal
+    roughnessMaterial $= ent^.baseMaterial.roughness
+    metallicMaterial  $= ent^.baseMaterial.metallic
+    -- bind vbo
+    return ()
+      -- for part-batch in ent
+        -- drawBatch
+      -- {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
+
+vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
+vertexUniforms prog = VertexShader
+  <$> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "ViewMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "VPMatrix")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "ModelMatrix")
+  <*> fmap setter (programUniform programUniformMatrix3f prog "NormalMatrix")
+ where
+  setter :: StateVar a -> SettableStateVar a
+  setter (StateVar g s) = SettableStateVar s
 
 fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
 fragmentUniforms prog = FragmentShader
   <$> materialUniformColor prog ALBEDO_UNIT "AlbedoTexture" "AlbedoColor"
   <*> materialUniformColor prog NORMAL_UNIT "NormalTexture" "NormalColor"
-  <*> materialUniformIntensity prog ROUGHNESS_UNIT "RoughnessTexture" "RoughnessIntensity"
-  <*> materialUniformIntensity prog METALLIC_UNIT "MetallicTexture" "MetallicIntensity"
-  <*> programUniform programUniformMatrix4f prog "ViewMatrix"
-  <*> programUniform programUniformMatrix4f prog "VPMatrix"
-  <*> programUniform programUniformMatrix4f prog "ModelMatrix"
-  <*> programUniform programUniformMatrix3f prog "NormalMatrix"
+  <*> materialUniformColor1 prog ROUGHNESS_UNIT "RoughnessTexture" "RoughnessIntensity"
+  <*> materialUniformColor1 prog METALLIC_UNIT "MetallicTexture" "MetallicIntensity"
 
-
-materialUniformColor :: MonadIO m => Program -> TextureUnit -> String -> String -> m (StateVar (Material MaterialColorAlpha (Texture PixelRGBA8)))
-materialUniformColor prog unit texname colorname = do
-  texture <- programUniform programUniform1i prog texname
-  texture $= (fromIntegral unit)
-  liftM matvar (uniformLocation prog colorname)
- where
-  matvar colorloc = StateVar g (s colorloc)
-  g = error "undefined"
-  s c mat = do
-    bindTextures (mat^.materialTexture.textureTarget) [(unit, Just $ mat^.materialTexture)]
-    programUniform4f prog c $= (realToFrac <$> mat^.materialColor.to linearV4)
-
-materialUniformIntensity :: Program -> TextureUnit -> String -> String -> m (StateVar (Material Double (Texture Pixel8)))
-materialUniformIntensity = undefined
