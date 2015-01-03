@@ -6,6 +6,8 @@ module Yage.Viewport
   ( Viewport(..), HasViewport(..)
   , defaultViewport
   , glViewport
+  , projectionMatrix3D
+  , orthographicMatrix
   ) where
 
 import Yage.Prelude

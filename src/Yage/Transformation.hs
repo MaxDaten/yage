@@ -26,19 +26,20 @@ idTransformation :: RealFloat a => Transformation a
 idTransformation = Transformation 0 1 1
 
 
-transformationMatrix :: (Num a, HasPosition t (V3 a), HasScale t (V3 a), HasOrientation t (Quaternion a)) => Getter t (M44 a)
-transformationMatrix = to get where
-  get trans =
+transformationMatrix :: (Num a, HasTransformation t a) => Getter t (M44 a)
+transformationMatrix = transformation.to matrix where
+  matrix trans =
     let scaleM       = kronecker . point $ trans^.scale
         transM       = mkTransformation (trans^.orientation) (trans^.position)
     in transM !*! scaleM
 
 
-inverseTransformation :: (Conjugate a, RealFloat a, HasTransformation t a) => t -> t
-inverseTransformation t =
-  t & transformation.scale            %~ recip
-    & transformation.position         %~ negate
-    & transformation.orientation._ijk %~ negate
+inverseTransformation :: (Conjugate a, RealFloat a, HasTransformation t a) => Getter t t
+inverseTransformation = to invT where
+  invT t =
+    t & transformation.scale            %~ recip
+      & transformation.position         %~ negate
+      & transformation.orientation._ijk %~ negate
 
 
 instance Applicative Transformation where

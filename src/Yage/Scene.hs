@@ -14,6 +14,7 @@ module Yage.Scene
 
 import           Yage.Prelude                   hiding ( mapM )
 import           Yage.Lens
+import           Yage.Camera
 
 import           Yage.Light
 import           Yage.Resources                 as Res
@@ -52,6 +53,9 @@ data Scene cam ent env gui = Scene
     } deriving ( Show )
 
 makeLenses ''Scene
+
+instance HasCamera cam => HasCamera (Scene cam ent env gui) where
+  camera = sceneCamera.camera
 
 
 {--
@@ -133,6 +137,8 @@ basicEntity =
         -- , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
         }
 
+instance HasTransformation (Entity e g) Double where
+  transformation = entityTransformation
 
 -- TODO: Material Interpolation?
 instance LinearInterpolatable (Entity a b) where

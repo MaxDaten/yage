@@ -3,6 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Yage.Camera
   ( Camera(..), HasCamera(..)
+  , nearZ, farZ, fovy
   , idCamera
   ) where
 
@@ -26,19 +27,26 @@ data Camera = Camera
 
 
 makeClassy ''Camera
+makeFields ''Camera
 
 -- | Creates a 'Camera' positioned at the origin
 idCamera :: Double -> Double -> Double -> Camera
-idCamera fovy near far = Camera fovy 0 1 near far
+idCamera fovy' near far = Camera fovy' 0 1 near far
 
 instance Default Camera where
   def = idCamera (3*pi/8) 0.1 1000
 
-instance HasPosition Camera (V3 Double) where
-  position = cameraPosition
+instance HasTransformation Camera Double where
+  transformation = lens getter setter where
+    getter cam = Transformation (cam^.position) (cam^.orientation) (cam^.scale)
+    setter cam trans = cam & position    .~ trans^.position
+                           & orientation .~ trans^.orientation
+                           & scale       .~ trans^.scale
 
-instance HasOrientation Camera (Quaternion Double) where
-  orientation = cameraOrientation
+instance HasScale Camera (V3 Double) where
+  scale = lens g s where
+    g _cam = V3 1 1 1
+    s cam = const cam
 
 instance LinearInterpolatable Camera where
   lerp alpha u v =
