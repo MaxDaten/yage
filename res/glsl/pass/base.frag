@@ -15,7 +15,7 @@ uniform vec4 NormalColor;
 uniform float RoughnessIntensity;
 uniform float MetallicIntensity;
 
-uniform mat4 ModelMatrix = mat4(1.0);
+// uniform mat4 ModelMatrix = mat4(1.0);
 
 in vec2 AlbedoST;
 in vec2 NormalST;
