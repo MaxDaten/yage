@@ -7,50 +7,54 @@
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE QuasiQuotes        #-}
 {-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE RankNTypes         #-}
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
   ( GBaseScene
+  -- * Material
   , BaseMaterial(..)
   , baseMaterialAlbedo
   , baseMaterialNormal
   , baseMaterialRoughness
   , baseMaterialMetallic
+  -- * Render Data
+  , GBaseVertexLayout(..)
+  , HasGBaseVertexLayout(..)
+  , GRenderData(..)
   -- * Pass Output
   , GBuffer(..)
   , drawGBuffers
   ) where
 
-import           Yage
+import           Yage                                    hiding (Layout)
 import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
-
 import           Yage.Camera
-import qualified Yage.Formats.Ygm                        as YGM
-import           Yage.Geometry                           as Geometry
 import           Yage.Material                           hiding (over)
-import           Yage.Scene
+import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms
-import           Yage.Viewport
 import           Yage.HDR
-import           Yage.Rendering.Resources.GL
+import           Yage.Rendering.Resources.GL             hiding (vertexBuffer)
 import           Yage.Rendering.GL
+
+import           Data.Data
+import           Foreign.Ptr
 
 import           Quine.GL.Types
 import           Quine.GL.Uniform
 import           Quine.GL.VertexArray
+import           Quine.GL.Attribute
 import           Quine.GL.Program
-import           Quine.GL.Sampler
-import           Quine.GL.Texture hiding (Texture)
+import           Quine.GL.Buffer
 import           Quine.GL.ProgramPipeline
-
-import           Yage.Rendering.Pipeline.Deferred.Common
 
 #include "definitions.h"
 #include "textureUnits.h"
 includePaths :: [FilePath]
 includePaths = ["/res/glsl"]
 
+-- * Material
 
 data BaseMaterial = BaseMaterial
     { _baseMaterialAlbedo    :: Material MaterialColorAlpha (Texture PixelRGBA8)
@@ -65,14 +69,27 @@ makeFields ''BaseMaterial
 instance HasBaseMaterial mat => HasBaseMaterial (Entity mesh mat) where
   baseMaterial = materials.baseMaterial
 
-type GBaseScene ent env gui = Scene HDRCamera ent env gui
+-- * Render Data
 
--- | The output GBuffer of this pass
-data GBuffer = GBuffer
-  { _aBuffer     :: Texture PixelRGBA8
-  , _bBuffer     :: Texture PixelRGBA8
-  , _depthBuffer :: Texture (DepthComponent24 Float)
-  } deriving (Typeable,Show,Generic)
+data GBaseVertexLayout = GBaseVertexLayout
+  { _vPosition :: !Layout
+  , _vTexture  :: !Layout
+  , _vTangentX :: !Layout
+  , _vTangentZ :: !Layout
+  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
+
+class HasGBaseVertexLayout t where
+  gBaseVertexLayout :: p t -> GBaseVertexLayout
+
+data GRenderData f v = GRenderData
+  { _indexBuffer  :: Buffer (f Word32)
+  , _vertexBuffer :: Buffer (f v)
+  , _elementCount :: Int
+  }
+
+makeClassy ''GRenderData
+
+-- * Shader
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
@@ -94,10 +111,22 @@ data VertexShader = VertexShader
   , normalMatrix            :: UniformVar Mat3
   }
 
+-- * Scene
+
+type GBaseScene ent env gui = Scene HDRCamera ent env gui
+
+-- * Pass Output
+
+-- | The output GBuffer of this pass
+data GBuffer = GBuffer
+  { _aBuffer     :: Texture PixelRGBA8
+  , _bBuffer     :: Texture PixelRGBA8
+  , _depthBuffer :: Texture (DepthComponent24 Float)
+  } deriving (Typeable,Show,Generic)
 
 -- * Draw To GBuffer
 
-drawGBuffers :: (HasTransformation ent Double, HasBaseMaterial ent) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
+drawGBuffers :: (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -164,11 +193,11 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.transformationMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: (HasTransformation ent Double, HasBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene :: (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
-    -- set obj globals
+    -- set ent globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
     -- setup material
@@ -177,10 +206,9 @@ drawScene VertexShader{..} FragmentShader{..} = do
     roughnessMaterial $= ent^.baseMaterial.roughness
     metallicMaterial  $= ent^.baseMaterial.metallic
     -- bind vbo
-    return ()
-      -- for part-batch in ent
-        -- drawBatch
-      -- {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_BYTE nullPtr
+    boundBufferAt ArrayBuffer $= ent^.vertexBuffer
+    boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
+    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_BYTE nullPtr
 
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
 vertexUniforms prog = VertexShader
