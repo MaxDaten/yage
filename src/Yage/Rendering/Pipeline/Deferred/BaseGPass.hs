@@ -12,12 +12,13 @@
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
   ( GBaseScene
+  , GBaseEntity
   -- * Material
-  , BaseMaterial(..)
-  , baseMaterialAlbedo
-  , baseMaterialNormal
-  , baseMaterialRoughness
-  , baseMaterialMetallic
+  , GBaseMaterial(..)
+  , gBaseMaterialAlbedo
+  , gBaseMaterialNormal
+  , gBaseMaterialRoughness
+  , gBaseMaterialMetallic
   -- * Render Data
   , GBaseVertexLayout(..)
   , HasGBaseVertexLayout(..)
@@ -58,18 +59,15 @@ includePaths = ["/res/glsl"]
 
 -- * Material
 
-data BaseMaterial = BaseMaterial
-    { _baseMaterialAlbedo    :: Material MaterialColorAlpha (Texture PixelRGBA8)
-    , _baseMaterialNormal    :: Material MaterialColorAlpha (Texture PixelRGBA8)
-    , _baseMaterialRoughness :: Material Double (Texture Pixel8)
-    , _baseMaterialMetallic  :: Material Double (Texture Pixel8)
+data GBaseMaterial = GBaseMaterial
+    { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (Texture PixelRGBA8)
+    , _gBaseMaterialNormal    :: Material MaterialColorAlpha (Texture PixelRGBA8)
+    , _gBaseMaterialRoughness :: Material Double (Texture Pixel8)
+    , _gBaseMaterialMetallic  :: Material Double (Texture Pixel8)
     }
 
-makeClassy ''BaseMaterial
-makeFields ''BaseMaterial
-
-instance HasBaseMaterial mat => HasBaseMaterial (Entity mesh mat) where
-  baseMaterial = materials.baseMaterial
+makeClassy ''GBaseMaterial
+makeFields ''GBaseMaterial
 
 -- * Render Data
 
@@ -134,7 +132,11 @@ data GBuffer = GBuffer
 
 -- * Draw To GBuffer
 
-drawGBuffers :: forall ent f v env gui. (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
+type GBaseEntity ent v f = (HasTransformation ent Double, HasGBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v)
+
+drawGBuffers
+  :: forall ent v f env gui. GBaseEntity ent v f
+  => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -194,7 +196,7 @@ drawGBuffers = do
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals :: (HasTransformation ent Double, HasBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
   viewMatrix $= fmap realToFrac <$> viewM scene
@@ -204,7 +206,7 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.transformationMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene :: (HasTransformation ent Double, HasGBaseMaterial ent, HasGRenderData ent f v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
@@ -212,10 +214,10 @@ drawScene VertexShader{..} FragmentShader{..} = do
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
     -- setup material
-    albedoMaterial    $= ent^.baseMaterial.albedo
-    normalMaterial    $= ent^.baseMaterial.normal
-    roughnessMaterial $= ent^.baseMaterial.roughness
-    metallicMaterial  $= ent^.baseMaterial.metallic
+    albedoMaterial    $= ent^.gBaseMaterial.albedo
+    normalMaterial    $= ent^.gBaseMaterial.normal
+    roughnessMaterial $= ent^.gBaseMaterial.roughness
+    metallicMaterial  $= ent^.gBaseMaterial.metallic
     -- bind vbo
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
