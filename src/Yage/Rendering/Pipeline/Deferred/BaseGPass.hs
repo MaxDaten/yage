@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans    #-}
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE DeriveFunctor      #-}
@@ -39,6 +40,7 @@ import           Yage.Rendering.Resources.GL             hiding (vertexBuffer)
 import           Yage.Rendering.GL
 
 import           Data.Data
+import           Data.Maybe
 import           Foreign.Ptr
 
 import           Quine.GL.Types
@@ -99,9 +101,15 @@ data FragmentShader = FragmentShader
   , metallicMaterial   :: UniformVar (Material Double (Texture Pixel8))
   }
 
+type VertexAttribute = SettableStateVar (Maybe Layout)
+
 -- | Uniform StateVars of the fragment shader
 data VertexShader = VertexShader
-  { albedoTextureMatrix     :: UniformVar Mat4
+  { vPosition               :: VertexAttribute
+  , vTexture                :: VertexAttribute
+  , vTangentX               :: VertexAttribute
+  , vTangentZ               :: VertexAttribute
+  , albedoTextureMatrix     :: UniformVar Mat4
   , normalTextureMatrix     :: UniformVar Mat4
   , roughnessTextureMatrix  :: UniformVar Mat4
   , metallicTextureMatrix   :: UniformVar Mat4
@@ -126,7 +134,7 @@ data GBuffer = GBuffer
 
 -- * Draw To GBuffer
 
-drawGBuffers :: (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
+drawGBuffers :: forall ent f v env gui. (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v) => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -138,8 +146,11 @@ drawGBuffers = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  -- TODO : setup vertex layout
-  undefined
+  -- setup vertex layout
+  vPosition vert $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
+  vTexture  vert $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
+  vTangentX vert $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
+  vTangentZ vert $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
 
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
@@ -150,7 +161,7 @@ drawGBuffers = do
 
   -- RenderPass
   return $ do
-    (scene, mainViewport) <- ask
+    (_scene, mainViewport) <- ask
     lastViewport <- get lastViewportRef
 
     -- resizing the framebuffer
@@ -195,9 +206,9 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
 
 drawScene :: (HasTransformation ent Double, HasBaseMaterial ent, HasGRenderData ent f v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene VertexShader{..} FragmentShader{..} = do
-  (scene, mainViewport) <- ask
+  (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
-    -- set ent globals
+    -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
     -- setup material
@@ -210,9 +221,15 @@ drawScene VertexShader{..} FragmentShader{..} = do
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_BYTE nullPtr
 
+-- * Shader Interfaces
+
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
 vertexUniforms prog = VertexShader
-  <$> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
+  <$> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vPosition")
+  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTexture")
+  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTangentX")
+  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTangentZ")
+  <*> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
   <*> fmap setter (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
   <*> fmap setter (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
   <*> fmap setter (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
@@ -222,7 +239,7 @@ vertexUniforms prog = VertexShader
   <*> fmap setter (programUniform programUniformMatrix3f prog "NormalMatrix")
  where
   setter :: StateVar a -> SettableStateVar a
-  setter (StateVar g s) = SettableStateVar s
+  setter (StateVar _ s) = SettableStateVar s
 
 fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
 fragmentUniforms prog = FragmentShader
