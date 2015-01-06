@@ -130,9 +130,7 @@ makeLenses ''GBuffer
 
 type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
 
-drawGBuffers
-  :: forall ent i v env gui. GBaseEntity ent i v
-  => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
+drawGBuffers :: GBaseEntity ent i v => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -145,10 +143,10 @@ drawGBuffers = do
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
   -- setup vertex layout
-  vPosition vert $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
-  vTexture  vert $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
-  vTangentX vert $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
-  vTangentZ vert $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
+  -- vPosition vert $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
+  -- vTexture  vert $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
+  -- vTangentX vert $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
+  -- vTangentZ vert $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
 
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
@@ -192,7 +190,7 @@ drawGBuffers = do
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
   viewMatrix $= fmap realToFrac <$> viewM scene
@@ -202,7 +200,9 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.transformationMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent v i) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene
+  :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
+  => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
@@ -217,6 +217,11 @@ drawScene VertexShader{..} FragmentShader{..} = do
     -- bind vbo
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
+    vPosition $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
+    vTexture  $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
+    vTangentX $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
+    vTangentZ $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
+
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_BYTE nullPtr
 
 -- * Default Material

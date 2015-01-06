@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 
 #include <common.h>
+#include <definitions.h>
 #include "pass/gbuffer.h"
 
 uniform sampler2D AlbedoTexture;
