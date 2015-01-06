@@ -43,7 +43,6 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 
 import           Data.Data
-import           Data.Maybe
 import           Foreign.Ptr
 
 import           Quine.GL.Types
@@ -179,10 +178,10 @@ drawGBuffers = do
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
     glDisable GL_BLEND
+
     glFrontFace GL_CW
-    glDisable GL_CULL_FACE
-    -- glEnable GL_CULL_FACE
-    -- glCullFace GL_BACK
+    glEnable GL_CULL_FACE
+    glCullFace GL_BACK
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
@@ -240,7 +239,7 @@ drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
 
 defaultGBaseMaterial :: YageResource GBaseMaterial
 defaultGBaseMaterial = GBaseMaterial
-  <$> materialRes defaultMaterialSRGBA -- <$> materialRes (mkMaterial (opaque white) $ constColorPx (magenta :: Colour Double))
+  <$> materialRes defaultMaterialSRGBA
   <*> materialRes defaultMaterialSRGBA
   <*> materialRes (mkMaterial 1.0 whiteDummy)
   <*> materialRes (mkMaterial 1.0 blackDummy)
@@ -248,19 +247,20 @@ defaultGBaseMaterial = GBaseMaterial
 -- * Shader Interfaces
 
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
-vertexUniforms prog = VertexShader
-  <$> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vPosition")
-  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTexture")
-  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTangentX")
-  <*> (liftM (setVertexAttribute . fromJust) $ attributeLocation prog "vTangentZ")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "ViewMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "VPMatrix")
-  <*> fmap setter (programUniform programUniformMatrix4f prog "ModelMatrix")
-  <*> fmap setter (programUniform programUniformMatrix3f prog "NormalMatrix")
+vertexUniforms prog = do
+  boundAttributeLocation prog "vPosition" $= VPOSITION
+  boundAttributeLocation prog "vTexture"  $= VTEXTURE
+  boundAttributeLocation prog "vTangentX" $= VTANGENTX
+  boundAttributeLocation prog "vTangentZ" $= VTANGENTZ
+  VertexShader (setVertexAttribute VPOSITION) (setVertexAttribute VTEXTURE) (setVertexAttribute VTANGENTX) (setVertexAttribute VTANGENTZ)
+    <$> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "ViewMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "VPMatrix")
+    <*> fmap setter (programUniform programUniformMatrix4f prog "ModelMatrix")
+    <*> fmap setter (programUniform programUniformMatrix3f prog "NormalMatrix")
  where
   setter :: StateVar a -> SettableStateVar a
   setter (StateVar _ s) = SettableStateVar s

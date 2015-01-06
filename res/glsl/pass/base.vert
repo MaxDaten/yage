@@ -2,6 +2,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_include : require
 
+#include <attributes.h>
+
 out gl_PerVertex {
 vec4 gl_Position;
 };
@@ -16,10 +18,10 @@ uniform mat4 ModelMatrix         = mat4(1.0);
 uniform mat3 NormalMatrix        = mat3(1.0);
 
 // naturally in model-space
-in vec3 vPosition;
-in vec2 vTexture;
-in vec3 vTangentX;
-in vec4 vTangentZ;
+layout(location = VPOSITION) in vec3 vPosition;
+layout(location = VTEXTURE)  in vec2 vTexture;
+layout(location = VTANGENTX) in vec3 vTangentX;
+layout(location = VTANGENTZ) in vec4 vTangentZ;
 
 out vec2 AlbedoST;
 out vec2 NormalST;
