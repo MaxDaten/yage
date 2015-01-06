@@ -72,6 +72,8 @@ defaultMaterial = mkMaterial def whiteDummy
 defaultMaterialSRGB :: Material MaterialColorAlpha (Image PixelRGB8)
 defaultMaterialSRGB = defaultMaterial
 
+defaultMaterialSRGBA :: Material MaterialColorAlpha (Image PixelRGBA8)
+defaultMaterialSRGBA = defaultMaterial
 
 instance Default (Material MaterialColorAlpha (Image PixelRGB8)) where
     def = defaultMaterialSRGB

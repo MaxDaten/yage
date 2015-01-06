@@ -38,6 +38,9 @@ instance Storable GUIVertex where
 data GUIElementType = TXT | SDF | IMG
   deriving (Eq,Ord,Show,Enum,Data,Typeable,Generic)
 
+-- REMOVE ME
+type Texture = DynamicImage
+
 data GUIElement =
     GUIFont   TextBuffer ( Transformation Double )
   | GUISDF   ( Mesh GUIVertex, Texture ) ( Transformation Double )

@@ -2,6 +2,8 @@
 {-# LANGUAGE Arrows                #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -16,13 +18,18 @@ import Yage hiding ((</>))
 import Yage.Wire hiding (unless, when)
 import Yage.Lens
 import Yage.Material
+import Yage.Scene
+import Yage.HDR
 import Yage.GL
 import Yage.Rendering.Pipeline.Deferred.ScreenPass
+import Yage.Rendering.Pipeline.Deferred.BaseGPass
+import Yage.Rendering.RenderData
 import System.FilePath
 import Yage.Rendering.Resources.GL
 import Foreign.Ptr
 import Foreign.Storable
 import Data.FileEmbed
+import Data.Data
 import qualified Data.ByteString.Char8 as Char8
 import Quine.Monitor
 import Quine.GL
@@ -68,17 +75,77 @@ makeLenses ''Configuration
 configuration :: Configuration
 configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True False)
 
+data GVertex = GVertex
+  { pos  :: !Vec3
+  , tex  :: !Vec2
+  , tanx :: !Vec3
+  , tanz :: !Vec4
+  } deriving (Show,Ord,Eq,Data,Typeable,Generic)
+
+instance Storable GVertex where
+  peek ptr =
+    GVertex <$> peek (castPtr ptr)
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3)))
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
+  poke ptr GVertex{..} = do
+    poke (castPtr ptr) pos
+    poke (castPtr $ ptr `plusPtr` sizeOf (undefined::Vec3)) tex
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2))) tanx
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3))) tanz
+  sizeOf _ = sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3) + sizeOf (undefined::Vec4)
+  alignment _ = alignment (undefined::Vec3)
+
+
+type GameEntity = Entity (RenderData (SVector Word32) (SVector GVertex)) GBaseMaterial
+
+instance HasGBaseVertexLayout (SVector GVertex) where
+  gBaseVertexLayout _ = GBaseVertexLayout
+    { _vPosition = Layout 3 GL_FLOAT False stride (nullPtr)
+    , _vTexture  = Layout 2 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))
+    , _vTangentX = Layout 3 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
+    , _vTangentZ = Layout 4 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
+    }
+    where
+    stride = sizeOf (undefined::GVertex)
+
+instance HasGBaseMaterial mat => HasGBaseMaterial (Entity d mat) where
+  gBaseMaterial = materials.gBaseMaterial
+
+instance HasRenderData (Entity (RenderData i v) mat) i v where
+  renderData = Yage.Scene.renderData
+
 data Game = Game
   { _mainViewport  :: Viewport Int
+  , _gameScene     :: Scene HDRCamera GameEntity () ()
   , _sceneRenderer :: RenderSystem Game ()
   }
 
 makeLenses ''Game
 
+simScene :: YageWire t () (Scene HDRCamera GameEntity () ())
+simScene = Scene
+  <$> fmap singleton (acquireOnce testEntity)
+  <*> pure ()
+  <*> pure (defaultHDRCamera def)
+  <*> pure ()
+
+testEntity :: YageResource GameEntity
+testEntity = Entity
+  <$> fromMesh mesh
+  <*> defaultGBaseMaterial
+  <*> pure idTransformation
+ where
+  mesh = undefined
+
+
 sceneWire :: YageWire t () Game
 sceneWire = proc () -> do
   pipeline <- acquireOnce simplePipeline -< ()
-  returnA -< Game (defaultViewport 800 600) pipeline
+  scene    <- simScene -< ()
+  returnA -< Game (defaultViewport 800 600) scene pipeline
+
+
 
 simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
@@ -87,14 +154,17 @@ simplePipeline = do
   throwWithStack $
     io (getDir "res/glsl") >>= \ ss -> buildNamedStrings ss ("/res/glsl"</>)
 
-  trianglePass   <- drawTriangle
+  baseSampler <- mkBaseSampler
+  gBasePass   <- drawGBuffers
   screenQuadPass <- drawRectangle
 
-  baseSampler <- mkBaseSampler
 
   return $ do
     game <- ask
-    screenQuadPass . fmap (\t -> ([(1,baseSampler,t)], game^.mainViewport)) trianglePass
+    screenQuadPass .
+      dimap (\game -> (game^.gameScene, game^.mainViewport))
+            (\base -> ([(1,baseSampler,base^.aBuffer)], game^.mainViewport))
+            gBasePass
 
 -- * Draw Triangle
 

@@ -15,16 +15,17 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , GBaseEntity
   -- * Material
   , GBaseMaterial(..)
-  , gBaseMaterialAlbedo
-  , gBaseMaterialNormal
-  , gBaseMaterialRoughness
-  , gBaseMaterialMetallic
-  -- * Render Data
+  , HasGBaseMaterial(..)
+  , defaultGBaseMaterial
+  -- * Vertex Attributes
   , GBaseVertexLayout(..)
   , HasGBaseVertexLayout(..)
-  , GRenderData(..)
   -- * Pass Output
   , GBuffer(..)
+  , aBuffer
+  , bBuffer
+  , depthBuffer
+  -- * Pass
   , drawGBuffers
   ) where
 
@@ -33,12 +34,14 @@ import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
 import           Yage.Camera
+import           Yage.Texture
 import           Yage.Material                           hiding (over)
 import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms
 import           Yage.HDR
 import           Yage.Rendering.Resources.GL             hiding (vertexBuffer)
 import           Yage.Rendering.GL
+import           Yage.Rendering.RenderData
 
 import           Data.Data
 import           Data.Maybe
@@ -46,10 +49,10 @@ import           Foreign.Ptr
 
 import           Quine.GL.Types
 import           Quine.GL.Uniform
-import           Quine.GL.VertexArray
 import           Quine.GL.Attribute
 import           Quine.GL.Program
 import           Quine.GL.Buffer
+import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
 
 #include "definitions.h"
@@ -69,8 +72,9 @@ data GBaseMaterial = GBaseMaterial
 makeClassy ''GBaseMaterial
 makeFields ''GBaseMaterial
 
--- * Render Data
+-- * Shader
 
+-- | Vertex Attributes
 data GBaseVertexLayout = GBaseVertexLayout
   { _vPosition :: !Layout
   , _vTexture  :: !Layout
@@ -80,16 +84,6 @@ data GBaseVertexLayout = GBaseVertexLayout
 
 class HasGBaseVertexLayout t where
   gBaseVertexLayout :: p t -> GBaseVertexLayout
-
-data GRenderData f v = GRenderData
-  { _indexBuffer  :: Buffer (f Word32)
-  , _vertexBuffer :: Buffer (f v)
-  , _elementCount :: Int
-  }
-
-makeClassy ''GRenderData
-
--- * Shader
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
@@ -123,19 +117,21 @@ type GBaseScene ent env gui = Scene HDRCamera ent env gui
 
 -- * Pass Output
 
--- | The output GBuffer of this pass
+-- | The output GBuffer of this pass (for encoding see "res/glsl/pass/gbuffer.h")
 data GBuffer = GBuffer
   { _aBuffer     :: Texture PixelRGBA8
   , _bBuffer     :: Texture PixelRGBA8
   , _depthBuffer :: Texture (DepthComponent24 Float)
   } deriving (Typeable,Show,Generic)
 
+makeLenses ''GBuffer
+
 -- * Draw To GBuffer
 
-type GBaseEntity ent v f = (HasTransformation ent Double, HasGBaseMaterial ent, HasGRenderData ent f v, HasGBaseVertexLayout v)
+type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
 
 drawGBuffers
-  :: forall ent v f env gui. GBaseEntity ent v f
+  :: forall ent i v env gui. GBaseEntity ent i v
   => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
@@ -206,7 +202,7 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.transformationMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: (HasTransformation ent Double, HasGBaseMaterial ent, HasGRenderData ent f v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene :: (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent v i) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
@@ -222,6 +218,15 @@ drawScene VertexShader{..} FragmentShader{..} = do
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_BYTE nullPtr
+
+-- * Default Material
+
+defaultGBaseMaterial :: YageResource GBaseMaterial
+defaultGBaseMaterial = GBaseMaterial
+  <$> materialRes defaultMaterialSRGBA
+  <*> materialRes defaultMaterialSRGBA
+  <*> materialRes (mkMaterial 1.0 whiteDummy)
+  <*> materialRes (mkMaterial 1.0 blackDummy)
 
 -- * Shader Interfaces
 

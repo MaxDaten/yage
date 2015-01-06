@@ -47,7 +47,3 @@ instance (Num a) => Semigroup (AlphaColour a)
 
 instance Default (AlphaColour Double) where
     def = opaque white
-
-
-instance (Floating a, RealFrac a) => ColourPixel a Pixel8 where
-    colourToPixel c = computeLuma (colourToPixel c :: PixelRGB8)

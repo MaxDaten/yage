@@ -2,9 +2,6 @@ module Yage.Wire.Resources
   (
   -- * Resource Allocation Wires
     acquireOnce
-  , constMeshW
-  , constTextureW
-  , constFontW
   , allocationOnEvent
   ) where
 
@@ -28,17 +25,17 @@ acquireOnce res = mkGenN $ \_ -> do
     return $ (Right a, mkConst $ Right a)
 {-# INLINE acquireOnce #-}
 
-constMeshW :: YageResource (Mesh vert) -> YageWire t b (Mesh vert)
-constMeshW = acquireOnce
-{-# INLINE constMeshW #-}
+-- constMeshW :: YageResource (Mesh vert) -> YageWire t b (Mesh vert)
+-- constMeshW = acquireOnce
+-- {-# INLINE constMeshW #-}
 
-constTextureW :: YageResource Texture -> YageWire t b Texture
-constTextureW = acquireOnce
-{-# INLINE constTextureW #-}
+-- constTextureW :: YageResource Texture -> YageWire t b Texture
+-- constTextureW = acquireOnce
+-- {-# INLINE constTextureW #-}
 
-constFontW :: YageResource FontTexture -> YageWire t b FontTexture
-constFontW = acquireOnce
-{-# INLINE constFontW #-}
+-- constFontW :: YageResource FontTexture -> YageWire t b FontTexture
+-- constFontW = acquireOnce
+-- {-# INLINE constFontW #-}
 
 
 -- | loads resources each time the carrying 'Event' occurs. The previous loaded
