@@ -57,6 +57,7 @@ import           Quine.GL.ProgramPipeline
 
 #include "definitions.h"
 #include "textureUnits.h"
+#include "attributes.h"
 includePaths :: [FilePath]
 includePaths = ["/res/glsl"]
 
@@ -178,6 +179,10 @@ drawGBuffers = do
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
     glDisable GL_BLEND
+    glFrontFace GL_CW
+    glDisable GL_CULL_FACE
+    -- glEnable GL_CULL_FACE
+    -- glCullFace GL_BACK
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
@@ -224,7 +229,8 @@ drawScene VertexShader{..} FragmentShader{..} = do
     vTangentX $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
     vTangentZ $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
 
-    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_BYTE nullPtr
+    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_INT nullPtr
+    -- error "xxx"
 
 -- * Default Material
 

@@ -129,7 +129,7 @@ simScene :: YageWire t () (Scene HDRCamera GameEntity () ())
 simScene = Scene
   <$> fmap singleton (acquireOnce testEntity)
   <*> pure ()
-  <*> pure (defaultHDRCamera $ def & position .~ V3 0 0 3)
+  <*> pure (defaultHDRCamera $ def & position .~ V3 0 0 5)
   <*> pure ()
 
 testEntity :: YageResource GameEntity
@@ -137,7 +137,6 @@ testEntity = Entity
   <$> (fromMesh =<< meshRes (loadYGM (\(YGMVertex p t tx tz) -> GVertex p t tx tz) ("res/sphere.ygm", mkSelection [])))
   <*> defaultGBaseMaterial
   <*> pure idTransformation
-
 
 sceneWire :: YageWire t () Game
 sceneWire = proc () -> do
