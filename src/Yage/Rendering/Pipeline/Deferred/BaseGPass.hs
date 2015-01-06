@@ -154,6 +154,7 @@ drawGBuffers = do
   fbo <- glResource
 
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
+  vertexLayoutRef     <- newIORef (Nothing :: Maybe GBaseVertexLayout)
 
   -- RenderPass
   return $ do
@@ -190,7 +191,7 @@ drawGBuffers = do
     checkPipelineError pipeline
 
     setupSceneGlobals vert frag
-    drawScene vert frag
+    drawScene vertexLayoutRef vert frag
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
@@ -206,8 +207,8 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
 
 drawScene
   :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
-  => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
-drawScene VertexShader{..} FragmentShader{..} = do
+  => IORef (Maybe GBaseVertexLayout) -> VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
     -- set entity globals
@@ -222,14 +223,18 @@ drawScene VertexShader{..} FragmentShader{..} = do
     -- bind vbo
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
-    -- TODO just on change
-    vPosition $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
-    vTexture  $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
-    vTangentX $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
-    vTangentZ $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
+
+    -- update layout
+    lastVertexLayout <- get vertexLayoutRef
+    let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
+    when (lastVertexLayout /= Just currentLayout) $ do
+      vPosition $= Just (_vPosition currentLayout)
+      vTexture  $= Just (_vTexture  currentLayout)
+      vTangentX $= Just (_vTangentX currentLayout)
+      vTangentZ $= Just (_vTangentZ currentLayout)
+      vertexLayoutRef $= Just currentLayout
 
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
-    -- error "xxx"
 
 -- * Default Material
 
