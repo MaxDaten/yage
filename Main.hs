@@ -129,7 +129,7 @@ simScene :: YageWire t () (Scene HDRCamera GameEntity () ())
 simScene = Scene
   <$> fmap singleton (acquireOnce testEntity)
   <*> pure ()
-  <*> pure (defaultHDRCamera def)
+  <*> pure (defaultHDRCamera $ def & position .~ V3 0 0 3)
   <*> pure ()
 
 testEntity :: YageResource GameEntity

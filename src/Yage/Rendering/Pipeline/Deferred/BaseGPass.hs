@@ -197,7 +197,7 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   vpMatrix   $= fmap realToFrac <$> viewprojectionM scene mainViewport
   return ()
  where
-  viewM scene = scene^.camera.transformationMatrix
+  viewM scene = scene^.camera.cameraMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
 drawScene
@@ -214,9 +214,11 @@ drawScene VertexShader{..} FragmentShader{..} = do
     normalMaterial    $= ent^.gBaseMaterial.normal
     roughnessMaterial $= ent^.gBaseMaterial.roughness
     metallicMaterial  $= ent^.gBaseMaterial.metallic
+
     -- bind vbo
-    boundBufferAt ArrayBuffer $= ent^.vertexBuffer
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
+    boundBufferAt ArrayBuffer $= ent^.vertexBuffer
+    -- TODO just on change
     vPosition $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
     vTexture  $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
     vTangentX $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
@@ -228,7 +230,7 @@ drawScene VertexShader{..} FragmentShader{..} = do
 
 defaultGBaseMaterial :: YageResource GBaseMaterial
 defaultGBaseMaterial = GBaseMaterial
-  <$> materialRes defaultMaterialSRGBA
+  <$> materialRes defaultMaterialSRGBA -- <$> materialRes (mkMaterial (opaque white) $ constColorPx (magenta :: Colour Double))
   <*> materialRes defaultMaterialSRGBA
   <*> materialRes (mkMaterial 1.0 whiteDummy)
   <*> materialRes (mkMaterial 1.0 blackDummy)

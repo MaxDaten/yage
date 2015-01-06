@@ -5,6 +5,7 @@ module Yage.Camera
   ( Camera(..), HasCamera(..)
   , nearZ, farZ, fovy
   , idCamera
+  , cameraMatrix
   ) where
 
 
@@ -32,6 +33,10 @@ makeFields ''Camera
 -- | Creates a 'Camera' positioned at the origin
 idCamera :: Double -> Double -> Double -> Camera
 idCamera fovy' near far = Camera fovy' 0 1 near far
+
+cameraMatrix :: Getter Camera (M44 Double)
+cameraMatrix = to g where
+  g cam = let con = conjugate (cam^.orientation) in mkTransformation con (rotate con . negate $ cam^.position)
 
 instance Default Camera where
   def = idCamera (3*pi/8) 0.1 1000
