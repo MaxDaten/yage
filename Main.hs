@@ -24,6 +24,8 @@ import Yage.GL
 import Yage.Rendering.Pipeline.Deferred.ScreenPass
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Rendering.RenderData
+import Yage.Formats.Ygm
+import Yage.Resources
 import System.FilePath
 import Yage.Rendering.Resources.GL
 import Foreign.Ptr
@@ -132,11 +134,9 @@ simScene = Scene
 
 testEntity :: YageResource GameEntity
 testEntity = Entity
-  <$> fromMesh mesh
+  <$> (fromMesh =<< meshRes (loadYGM (\(YGMVertex p t tx tz) -> GVertex p t tx tz) ("res/sphere.ygm", mkSelection [])))
   <*> defaultGBaseMaterial
   <*> pure idTransformation
- where
-  mesh = undefined
 
 
 sceneWire :: YageWire t () Game

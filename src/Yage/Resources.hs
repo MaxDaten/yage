@@ -15,7 +15,8 @@ module Yage.Resources
   , seperateCubeMipsRes
   , cubeCrossMipsRes
   , fontRes
-  , loadOBJ
+  -- , loadOBJ
+  , loadYGM
   , mkSelection
   -- * Reexprts
   , module YRes
@@ -64,6 +65,7 @@ type MeshFilePath = (FilePath, SubMeshSelection)
 -- TODO : gl VBO
 meshRes :: Storable v => IO (Mesh v) -> YageResource (Mesh v)
 meshRes loadMesh = mkAcquire loadMesh (const $ return ())
+
 
 
 -- TODO : GL Texture resource
@@ -117,15 +119,14 @@ loadOBJ fromInternal (filepath,subSelection) = do
 
 loadYGM :: Storable v => (YGM.YGMVertex -> v) -> MeshFilePath -> IO (Mesh v)
 loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
-    createMesh YGM.YGM{..}
-        | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
-        | otherwise =
-            let mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
-            in {-# SCC "loadYGM.fold" #-} M.foldlWithKey acc mesh ygmModels
-    acc m k geo
-        | (isSelected subSelection k geo) = m `appendGeometry` (encodeUtf8 k, fmap fromInternal geo)
-        | otherwise = m
-    {-# INLINE acc #-}
+  createMesh YGM.YGM{..}
+    | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
+    | otherwise =
+      let mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
+      in {-# SCC "loadYGM.fold" #-} M.foldlWithKey acc mesh ygmModels
+  acc m k geo
+    | (isSelected subSelection k geo) = m `appendGeometry` (encodeUtf8 k, fmap fromInternal geo)
+    | otherwise = m
 
 
 mkSelection :: [ Text ] -> SubMeshSelection
