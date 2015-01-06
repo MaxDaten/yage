@@ -16,10 +16,15 @@ cabal-version:       >=1.18
 
 
 data-files:
-  res/glsl/**/*.frag
-  res/glsl/**/*.vert
-  res/glsl/**/*.glsl
-  res/glsl/**/*.h
+  res/glsl/*.frag
+  res/glsl/*.vert
+  res/glsl/*.h
+  res/glsl/pass/*.frag
+  res/glsl/pass/*.vert
+  res/glsl/pass/*.glsl
+  res/glsl/pass/*.h
+  res/glsl/sampling/*.frag
+  res/glsl/sampling/*.h
 
 Flag dev
     Description:   Turn on development settings, logging and timing.
@@ -34,15 +39,15 @@ Flag standalone-exe
     manual:        True
 
 Flag cubemap-files
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag shader-tool
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag obj2ygm
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag fontAtlasGen
@@ -62,11 +67,11 @@ Flag test-parsing-obj
     manual:        True
 
 Flag bench-ygm-criterion
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag bench-obj-parser-criterion
-    Default:       True
+    Default:       False
     manual:        True
 
 -------------------------------------------------------------------------------
