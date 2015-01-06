@@ -141,12 +141,6 @@ drawGBuffers = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  -- setup vertex layout
-  -- vPosition vert $= Just (_vPosition $ gBaseVertexLayout (Proxy::Proxy v))
-  -- vTexture  vert $= Just (_vTexture  $ gBaseVertexLayout (Proxy::Proxy v))
-  -- vTangentX vert $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
-  -- vTangentZ vert $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
-
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   depthChannel <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture (DepthComponent24 Float)))
@@ -174,6 +168,7 @@ drawGBuffers = do
 
     boundFramebuffer RWFramebuffer $= fbo
 
+    -- some state setting
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glEnable GL_DEPTH_TEST
@@ -204,9 +199,11 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.cameraMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene
-  :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
-  => IORef (Maybe GBaseVertexLayout) -> VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
+  => IORef (Maybe GBaseVertexLayout)
+  -> VertexShader
+  -> FragmentShader
+  -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
