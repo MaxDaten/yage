@@ -195,9 +195,3 @@ instance LinearInterpolatable Game where
 
 instance HasRenderSystem Game (ResourceT IO) Game () where
   renderSystem = sceneRenderer
-
-instance (Storable a, Storable b) => Storable (a,b) where
-  sizeOf _ = sizeOf (undefined::a) + sizeOf (undefined::b)
-  alignment _ = max (alignment (undefined::a)) (alignment (undefined::b))
-  peek ptr = (,) <$> peek (castPtr ptr) <*> peek (castPtr $ ptr `plusPtr` sizeOf (undefined::a))
-  poke ptr (a,b) = poke (castPtr ptr) a >> poke (ptr `plusPtr` sizeOf (undefined::a)) b
