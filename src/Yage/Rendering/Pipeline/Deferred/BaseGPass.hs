@@ -253,17 +253,15 @@ vertexUniforms prog = do
   boundAttributeLocation prog "vTangentX" $= VTANGENTX
   boundAttributeLocation prog "vTangentZ" $= VTANGENTZ
   VertexShader (setVertexAttribute VPOSITION) (setVertexAttribute VTEXTURE) (setVertexAttribute VTANGENTX) (setVertexAttribute VTANGENTZ)
-    <$> fmap setter (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "ViewMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "VPMatrix")
-    <*> fmap setter (programUniform programUniformMatrix4f prog "ModelMatrix")
-    <*> fmap setter (programUniform programUniformMatrix3f prog "NormalMatrix")
- where
-  setter :: StateVar a -> SettableStateVar a
-  setter (StateVar _ s) = SettableStateVar s
+    -- wrap the StateVar into a simple SettableStateVar
+    <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix3f prog "NormalMatrix")
 
 fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
 fragmentUniforms prog = FragmentShader
