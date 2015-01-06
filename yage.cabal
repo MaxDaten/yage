@@ -125,7 +125,6 @@ library
 
     Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
-    Yage.Rendering.RenderData
     Yage.Rendering.Resources.GL
     Yage.Rendering.Resources.GL.Base
     Yage.Rendering.Resources.GL.Buffer

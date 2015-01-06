@@ -23,7 +23,6 @@ import Yage.HDR
 import Yage.GL
 import Yage.Rendering.Pipeline.Deferred.ScreenPass
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
-import Yage.Rendering.RenderData
 import Yage.Formats.Ygm
 import Yage.Resources
 import System.FilePath

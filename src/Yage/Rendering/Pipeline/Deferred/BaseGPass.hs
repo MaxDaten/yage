@@ -39,9 +39,8 @@ import           Yage.Material                           hiding (over)
 import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms
 import           Yage.HDR
-import           Yage.Rendering.Resources.GL             hiding (vertexBuffer)
+import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
-import           Yage.Rendering.RenderData
 
 import           Data.Data
 import           Data.Maybe
@@ -229,7 +228,7 @@ drawScene VertexShader{..} FragmentShader{..} = do
     vTangentX $= Just (_vTangentX $ gBaseVertexLayout (Proxy::Proxy v))
     vTangentZ $= Just (_vTangentZ $ gBaseVertexLayout (Proxy::Proxy v))
 
-    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements GL_TRIANGLES (fromIntegral $ ent^.elementCount) GL_UNSIGNED_INT nullPtr
+    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
     -- error "xxx"
 
 -- * Default Material
