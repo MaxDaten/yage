@@ -6,6 +6,9 @@ module Yage.Camera
   , nearZ, farZ, fovy
   , idCamera
   , cameraMatrix
+  , pitch
+  , yaw
+  , roll
   ) where
 
 
@@ -37,6 +40,18 @@ idCamera fovy' near far = Camera fovy' 0 1 near far
 cameraMatrix :: Getter Camera (M44 Double)
 cameraMatrix = to g where
   g cam = let con = conjugate (cam^.orientation) in mkTransformation con (rotate con . negate $ cam^.position)
+
+-- | Adjusts the camera view up-and-down by an angle in radians
+pitch :: HasCamera c => c -> Double -> c
+pitch c theta = c & camera.orientation %~ (*) (axisAngle (V3 1 0 0) theta)
+
+-- | Adjusts the camera view side-to-side by an angle in radians
+yaw :: HasCamera c => c -> Double -> c
+yaw c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 1 0) theta)
+
+-- | Rotates the camera view along it's view axis by an angle in radians
+roll :: HasCamera c => c -> Double -> c
+roll c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 0 1) theta)
 
 instance Default Camera where
   def = idCamera (3*pi/8) 0.1 1000

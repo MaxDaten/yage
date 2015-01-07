@@ -21,6 +21,7 @@ import Yage.Material
 import Yage.Scene
 import Yage.HDR
 import Yage.GL
+import Yage.Rendering.Pipeline.Deferred ()
 import Yage.Rendering.Pipeline.Deferred.ScreenPass
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Formats.Ygm
@@ -109,12 +110,6 @@ instance HasGBaseVertexLayout (SVector GVertex) where
     }
     where
     stride = sizeOf (undefined::GVertex)
-
-instance HasGBaseMaterial mat => HasGBaseMaterial (Entity d mat) where
-  gBaseMaterial = materials.gBaseMaterial
-
-instance HasRenderData (Entity (RenderData i v) mat) i v where
-  renderData = Yage.Scene.renderData
 
 data Game = Game
   { _mainViewport  :: Viewport Int

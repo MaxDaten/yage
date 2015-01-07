@@ -4,6 +4,7 @@ module Yage.Wire.Movement where
 
 import Yage.Prelude
 import Yage.Lens
+import Yage.Transformation
 
 import Yage.Math
 import Yage.UI
@@ -92,7 +93,7 @@ fpsCameraMovement startPos movementSource =
     proc cam -> do
         trans       <- movementSource    -< ()
         worldTrans  <- integral startPos -< (cam^.cameraOrientation) `rotate` trans
-        returnA -< cam & cameraLocation .~ worldTrans
+        returnA -< cam & position .~ worldTrans
 
 
 -- | look around like fps
@@ -104,8 +105,7 @@ fpsCameraRotation velocitySource =
         velV <- velocitySource -< () -- counter clock wise
         x    <- integral 0                   -< velV^._x
         y    <- integrateBounded (-90, 90) 0 -< velV^._y
-        returnA -< cam & cameraHandle %~ flip pan x
-                       & cameraHandle %~ flip tilt y
+        returnA -< cam `pitch` x `yaw` y
 
 
 -- | rotation about focus point
@@ -113,13 +113,12 @@ fpsCameraRotation velocitySource =
 arcBallRotation :: ( Real t ) => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
 arcBallRotation velocitySource =
     proc (focusPoint, cam) -> do
-        let focusToCam = cam^.cameraLocation - focusPoint
+        let focusToCam = cam^.position - focusPoint
         velV <- velocitySource -< ()
         x    <- integral 0                      -< velV^._x
         y    <- integrateBounded (-90, 90) 0    -< velV^._y
 
-        let rotCam = cam & cameraHandle   %~ flip pan x
-                         & cameraHandle   %~ flip tilt y
-            pos     = (rotCam^.cameraOrientation) `rotate` (focusToCam + focusPoint)
-        returnA -< rotCam & cameraLocation     .~ pos
+        let rotCam = cam `pitch` x `yaw` y
+            pos    = (rotCam^.orientation) `rotate` (focusToCam + focusPoint)
+        returnA -< rotCam & position     .~ pos
 

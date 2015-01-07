@@ -13,12 +13,15 @@ module Yage.Rendering.Pipeline.Deferred
     , yDeferredLighting
     ) where
 
-import           Yage.Lens
 import           Yage.Prelude hiding ((</>))
+import           Yage.Lens
+import           Yage.Math
+import           Yage.Formats.Ygm
 
 import           Data.FileEmbed
+import           Foreign.Ptr
+import           Foreign.Storable
 import           System.FilePath ((</>))
-
 
 import           Yage.HDR
 import           Yage.Rendering.GL
@@ -38,6 +41,8 @@ import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
+import           Quine.GL.Attribute
+import           Quine.GL.Types
 import           Quine.StateVar
 
 -- type DeferredEnvironment = Environment Light Pass.SkyEntity
@@ -92,3 +97,23 @@ mkBaseSampler = throwWithStack $ do
     -- bring it to the default render target - the screen
     Pass.screenPass viewport [ hdrTex, guiTex ]
 --}
+
+-- TODO move orphans instances
+
+instance HasGBaseMaterial mat => HasGBaseMaterial (Entity d mat) where
+  gBaseMaterial = materials.gBaseMaterial
+
+instance HasRenderData (Entity (RenderData i v) mat) i v where
+  renderData = Yage.Scene.renderData
+
+
+instance HasGBaseVertexLayout (f YGMVertex) where
+  gBaseVertexLayout _ = GBaseVertexLayout
+    { _vPosition = Layout 3 GL_FLOAT False stride (nullPtr)
+    , _vTexture  = Layout 2 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))
+    , _vTangentX = Layout 3 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
+    , _vTangentZ = Layout 4 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
+    }
+    where
+    stride = sizeOf (undefined::YGMVertex)
+

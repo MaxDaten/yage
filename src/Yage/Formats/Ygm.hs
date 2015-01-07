@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -funbox-strict-fields            #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations            #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveDataTypeable   #-}
@@ -31,6 +32,8 @@ import           Data.Binary
 import           Data.Map                    (keys)
 import           Data.Data
 import           Data.Text.Binary            as Bin ()
+import           Foreign.Storable
+import           Foreign.Ptr
 
 import           Codec.Compression.GZip
 import           Control.Parallel.Strategies
@@ -91,3 +94,18 @@ instance Show YGM where
 instance Binary YGM
 
 instance NFData YGM where rnf = genericRnf
+
+instance Storable YGMVertex where
+  peek ptr =
+    YGMVertex <$> peek (castPtr ptr)
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3)))
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
+            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
+  poke ptr YGMVertex{..} = do
+    poke (castPtr ptr) _ygmPosition
+    poke (castPtr $ ptr `plusPtr` sizeOf (undefined::Vec3)) _ygmTexture
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2))) _ygmTangentX
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3))) _ygmTangentZ
+  sizeOf _ = sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3) + sizeOf (undefined::Vec4)
+  alignment _ = alignment (undefined::Vec3)
+

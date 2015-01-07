@@ -78,7 +78,7 @@ Flag bench-obj-parser-criterion
 
 
 library
-  hs-source-dirs:       src/
+  hs-source-dirs: src/
   include-dirs: res/glsl
   exposed-modules:      
     Yage
@@ -116,9 +116,9 @@ library
     Yage.UI.GUI
     
     Yage.Wire
---    Yage.Wire.Movement
---    Yage.Wire.Input
---    Yage.Wire.Analytic
+    Yage.Wire.Movement
+    Yage.Wire.Input
+    Yage.Wire.Analytic
     Yage.Wire.Resources
 --    Yage.Wire.Utils
 --    Yage.Wire.Debug

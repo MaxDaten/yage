@@ -5,9 +5,9 @@ module Yage.Wire
   ) where
 
 import Yage.Prelude
--- import Yage.Wire.Input        as Wire
--- import Yage.Wire.Movement     as Wire
--- import Yage.Wire.Analytic     as Wire
+import Yage.Wire.Input        as Wire
+import Yage.Wire.Movement     as Wire
+import Yage.Wire.Analytic     as Wire
 import Yage.Wire.Types        as Wire
 import Yage.Wire.Resources    as Wire
 -- import Yage.Wire.Debug        as Wire
