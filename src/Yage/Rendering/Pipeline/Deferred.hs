@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -15,7 +16,6 @@ module Yage.Rendering.Pipeline.Deferred
 
 import           Yage.Prelude hiding ((</>))
 import           Yage.Lens
-import           Yage.Math
 import           Yage.Formats.Ygm
 
 import           Data.FileEmbed
@@ -55,7 +55,7 @@ class HasDeferredScene scene ent env gui | scene -> ent env gui where
 yDeferredLighting :: (HasViewport scene Int, HasDeferredScene scene ent env gui, GBaseEntity ent i v) => YageResource (RenderSystem scene ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWithStack $ io (getDir "res/glsl") >>= \ss -> buildNamedStrings ss ("/res/glsl"</>)
+  throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
 
   baseSampler <- mkBaseSampler
   gBasePass   <- drawGBuffers
