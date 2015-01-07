@@ -100,7 +100,7 @@ mkBaseSampler = throwWithStack $ do
 
 -- TODO move orphans instances
 
-instance HasGBaseMaterial mat => HasGBaseMaterial (Entity d mat) where
+instance HasGBaseMaterial mat Texture => HasGBaseMaterial (Entity d mat) Texture where
   gBaseMaterial = materials.gBaseMaterial
 
 instance HasRenderData (Entity (RenderData i v) mat) i v where

@@ -99,7 +99,7 @@ instance Storable GVertex where
   alignment _ = alignment (undefined::Vec3)
 
 
-type GameEntity = Entity (RenderData (SVector Word32) (SVector GVertex)) GBaseMaterial
+type GameEntity = Entity (RenderData (SVector Word32) (SVector GVertex)) (GBaseMaterial Texture)
 
 instance HasGBaseVertexLayout (SVector GVertex) where
   gBaseVertexLayout _ = GBaseVertexLayout
@@ -129,7 +129,7 @@ simScene = Scene
 testEntity :: YageResource GameEntity
 testEntity = Entity
   <$> (fromMesh =<< meshRes (loadYGM (\(YGMVertex p t tx tz) -> GVertex p t tx tz) ("res/sphere.ygm", mkSelection [])))
-  <*> defaultGBaseMaterial
+  <*> gBaseMaterialRes defaultGBaseMaterial
   <*> pure idTransformation
 
 sceneWire :: YageWire t () Game

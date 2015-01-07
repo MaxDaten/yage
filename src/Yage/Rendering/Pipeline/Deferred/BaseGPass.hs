@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans    #-}
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE OverloadedStrings  #-}
@@ -17,6 +18,7 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , GBaseMaterial(..)
   , HasGBaseMaterial(..)
   , defaultGBaseMaterial
+  , gBaseMaterialRes
   -- * Vertex Attributes
   , GBaseVertexLayout(..)
   , HasGBaseVertexLayout(..)
@@ -61,12 +63,12 @@ includePaths = ["/res/glsl"]
 
 -- * Material
 
-data GBaseMaterial = GBaseMaterial
-    { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (Texture PixelRGBA8)
-    , _gBaseMaterialNormal    :: Material MaterialColorAlpha (Texture PixelRGBA8)
-    , _gBaseMaterialRoughness :: Material Double (Texture Pixel8)
-    , _gBaseMaterialMetallic  :: Material Double (Texture Pixel8)
-    }
+data GBaseMaterial t = GBaseMaterial
+  { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (t PixelRGBA8)
+  , _gBaseMaterialNormal    :: Material MaterialColorAlpha (t PixelRGBA8)
+  , _gBaseMaterialRoughness :: Material Double (t Pixel8)
+  , _gBaseMaterialMetallic  :: Material Double (t Pixel8)
+  }
 
 makeClassy ''GBaseMaterial
 makeFields ''GBaseMaterial
@@ -127,7 +129,7 @@ makeLenses ''GBuffer
 
 -- * Draw To GBuffer
 
-type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
+type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v)
 
 drawGBuffers :: GBaseEntity ent i v => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
@@ -189,7 +191,7 @@ drawGBuffers = do
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
   viewMatrix $= fmap realToFrac <$> viewM scene
@@ -199,7 +201,7 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.cameraMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent, HasRenderData ent i v, HasGBaseVertexLayout v)
+drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v)
   => IORef (Maybe GBaseVertexLayout)
   -> VertexShader
   -> FragmentShader
@@ -234,12 +236,23 @@ drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
 
 -- * Default Material
 
-defaultGBaseMaterial :: YageResource GBaseMaterial
+instance Default (GBaseMaterial Image) where
+  def = defaultGBaseMaterial
+
+defaultGBaseMaterial :: GBaseMaterial Image
 defaultGBaseMaterial = GBaseMaterial
-  <$> materialRes defaultMaterialSRGBA
-  <*> materialRes defaultMaterialSRGBA
-  <*> materialRes (mkMaterial 1.0 whiteDummy)
-  <*> materialRes (mkMaterial 1.0 blackDummy)
+  { _gBaseMaterialAlbedo = defaultMaterialSRGBA
+  , _gBaseMaterialNormal = defaultMaterialSRGBA
+  , _gBaseMaterialRoughness = mkMaterial 1.0 whiteDummy
+  , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
+  }
+
+gBaseMaterialRes :: GBaseMaterial Image -> YageResource (GBaseMaterial Texture)
+gBaseMaterialRes GBaseMaterial{..} = GBaseMaterial
+  <$> materialRes _gBaseMaterialAlbedo
+  <*> materialRes _gBaseMaterialNormal
+  <*> materialRes _gBaseMaterialRoughness
+  <*> materialRes _gBaseMaterialMetallic
 
 -- * Shader Interfaces
 
@@ -266,4 +279,3 @@ fragmentUniforms prog = FragmentShader
   <*> materialUniformColor prog NORMAL_UNIT "NormalTexture" "NormalColor"
   <*> materialUniformColor1 prog ROUGHNESS_UNIT "RoughnessTexture" "RoughnessIntensity"
   <*> materialUniformColor1 prog METALLIC_UNIT "MetallicTexture" "MetallicIntensity"
-
