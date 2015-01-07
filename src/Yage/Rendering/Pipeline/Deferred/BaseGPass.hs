@@ -17,6 +17,10 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   -- * Material
   , GBaseMaterial(..)
   , HasGBaseMaterial(..)
+  , albedo
+  , normal
+  , roughness
+  , metallic
   , defaultGBaseMaterial
   , gBaseMaterialRes
   -- * Vertex Attributes
@@ -176,7 +180,7 @@ drawGBuffers = do
     glEnable GL_DEPTH_TEST
     glDisable GL_BLEND
 
-    glFrontFace GL_CW
+    glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_BACK
 
