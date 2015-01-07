@@ -13,12 +13,10 @@ import qualified Yage.Prelude as P
 import Yage.Core.Application
 import Graphics.GL.Core45 as GL
 import Graphics.GL.Types  as GL
-#ifdef GL_ERRCHECK
 import qualified Control.Exception as E (evaluate, catch, throw)
 import qualified Quine.GL.Error as GLErr
 import Data.Data
 import GHC.Stack
-#endif
 
 data GLError = GLError [String] [GLErr.Error] deriving (Eq,Typeable,Data,Generic)
 instance Exception GLError
