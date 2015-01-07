@@ -12,10 +12,6 @@ module Yage.Formats.Ygm
   ( YGM(..)
   -- * Format
   , YGMVertex(..)
-  , ygmPosition
-  , ygmTexture
-  , ygmTangentX
-  , ygmTangentZ
   , ygmFormat
   -- * Im/Export
   , ygmToFile
@@ -26,6 +22,7 @@ module Yage.Formats.Ygm
 
 import           Yage.Lens
 import           Yage.Prelude
+
 
 
 import           Data.Binary
@@ -41,17 +38,19 @@ import qualified Data.ByteString.Lazy        as B
 
 import           Linear
 import           Quine.GL.Types
+import           Quine.GL.Attribute
 import           Yage.Geometry
+import           Yage.Vertex
+import           Yage.Rendering.GL
 
 data YGMVertex = YGMVertex
-  { _ygmPosition :: !Vec3
-  , _ygmTexture  :: !Vec2
-  , _ygmTangentX :: !Vec3
-  , _ygmTangentZ :: !Vec4
+  { ygmPosition :: !Vec3
+  , ygmTexture  :: !Vec2
+  , ygmTangentX :: !Vec3
+  , ygmTangentZ :: !Vec4
   } deriving (Eq,Ord,Show,Data,Typeable,Generic)
 
-makeLenses ''YGMVertex
-
+makeLensesWith abbreviatedFields ''YGMVertex
 
 data YGM = YGM
   { ygmName   :: Text
@@ -71,13 +70,12 @@ ygmFromFile path = do
 
 ygmFormat :: (Real a2, Real a1, Real a, Fractional a2) => Pos a -> Tex a1 -> TBN a2 -> YGMVertex
 ygmFormat pos tex tangentBasis@(V3 t _b n) = YGMVertex
-  { _ygmPosition  = realToFrac <$> pos
-  , _ygmTexture   = realToFrac <$> tex
-  , _ygmTangentX  = realToFrac <$> t
-  , _ygmTangentZ  = realToFrac <$> normal
+  { ygmPosition  = realToFrac <$> pos
+  , ygmTexture   = realToFrac <$> tex
+  , ygmTangentX  = realToFrac <$> t
+  , ygmTangentZ  = realToFrac <$> (vector n & _w .~ basisSign)
   }
-  where
-  normal    = vector n & _w .~ basisSign
+ where
   basisSign = if det33 tangentBasis < 0 then -1.0 else 1.0
 
 
@@ -95,6 +93,19 @@ instance Binary YGM
 
 instance NFData YGM where rnf = genericRnf
 
+-- * GL Layout
+
+instance HasPosition (HasLayout YGMVertex) Layout where
+  position = lens (const $ Layout 3 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr)) (const)
+instance HasTexture (HasLayout YGMVertex) Layout where
+  texture = lens (const $ Layout 2 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))) (const)
+instance HasTangentX (HasLayout YGMVertex) Layout where
+  tangentX = lens (const $ Layout 3 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))) (const)
+instance HasTangentZ (HasLayout YGMVertex) Layout where
+  tangentZ = lens (const $ Layout 4 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))) (const)
+
+-- * Memory Representation
+
 instance Storable YGMVertex where
   peek ptr =
     YGMVertex <$> peek (castPtr ptr)
@@ -102,10 +113,9 @@ instance Storable YGMVertex where
             <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
             <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
   poke ptr YGMVertex{..} = do
-    poke (castPtr ptr) _ygmPosition
-    poke (castPtr $ ptr `plusPtr` sizeOf (undefined::Vec3)) _ygmTexture
-    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2))) _ygmTangentX
-    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3))) _ygmTangentZ
+    poke (castPtr ptr) ygmPosition
+    poke (castPtr $ ptr `plusPtr` sizeOf (undefined::Vec3)) ygmTexture
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2))) ygmTangentX
+    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3))) ygmTangentZ
   sizeOf _ = sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3) + sizeOf (undefined::Vec4)
   alignment _ = alignment (undefined::Vec3)
-

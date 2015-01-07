@@ -46,6 +46,7 @@ import           Quine.GL.Types
 import           Quine.StateVar
 
 -- type DeferredEnvironment = Environment Light Pass.SkyEntity
+-- type DeferredEnvironment = Environment () Pass.SkyEntity
 -- type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
 type DeferredScene ent env gui = Scene HDRCamera ent env gui
 
@@ -105,15 +106,3 @@ instance HasGBaseMaterial mat Texture => HasGBaseMaterial (Entity d mat) Texture
 
 instance HasRenderData (Entity (RenderData i v) mat) i v where
   renderData = Yage.Scene.renderData
-
-
-instance HasGBaseVertexLayout (f YGMVertex) where
-  gBaseVertexLayout _ = GBaseVertexLayout
-    { _vPosition = Layout 3 GL_FLOAT False stride (nullPtr)
-    , _vTexture  = Layout 2 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))
-    , _vTangentX = Layout 3 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
-    , _vTangentZ = Layout 4 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
-    }
-    where
-    stride = sizeOf (undefined::YGMVertex)
-

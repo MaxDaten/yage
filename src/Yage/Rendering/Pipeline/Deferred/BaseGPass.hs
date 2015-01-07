@@ -10,6 +10,7 @@
 {-# LANGUAGE QuasiQuotes        #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE ImpredicativeTypes         #-}
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
   ( GBaseScene
@@ -24,8 +25,8 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , defaultGBaseMaterial
   , gBaseMaterialRes
   -- * Vertex Attributes
-  , GBaseVertexLayout(..)
-  , HasGBaseVertexLayout(..)
+  , GBaseVertex
+  , GBaseVertexLayout
   -- * Pass Output
   , GBuffer(..)
   , aBuffer
@@ -35,20 +36,19 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , drawGBuffers
   ) where
 
-import           Yage                                    hiding (Layout)
+import           Yage                                    hiding (Layout, HasPosition, position)
 import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
+import           Yage.Vertex
 import           Yage.Camera
 import           Yage.Texture
-import           Yage.Material                           hiding (over)
+import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms
 import           Yage.HDR
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
-
-import           Data.Data
 import           Foreign.Ptr
 
 import           Quine.GL.Types
@@ -79,16 +79,9 @@ makeFields ''GBaseMaterial
 
 -- * Shader
 
--- | Vertex Attributes
-data GBaseVertexLayout = GBaseVertexLayout
-  { _vPosition :: !Layout
-  , _vTexture  :: !Layout
-  , _vTangentX :: !Layout
-  , _vTangentZ :: !Layout
-  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
-
-class HasGBaseVertexLayout t where
-  gBaseVertexLayout :: p t -> GBaseVertexLayout
+-- * Vertex Attributes
+type GBaseVertex v = (HasPosition v Vec3, HasTexture v Vec2, HasTangentX v Vec3, HasTangentZ v Vec4)
+type GBaseVertexLayout v = (HasPosition (HasLayout v) Layout, HasTexture (HasLayout v) Layout, HasTangentX (HasLayout v) Layout, HasTangentZ (HasLayout v) Layout)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
@@ -133,7 +126,7 @@ makeLenses ''GBuffer
 
 -- * Draw To GBuffer
 
-type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v)
+type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v), GBaseVertex (Element v))
 
 drawGBuffers :: GBaseEntity ent i v => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
 drawGBuffers = do
@@ -153,7 +146,7 @@ drawGBuffers = do
   fbo <- glResource
 
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
-  vertexLayoutRef     <- newIORef (Nothing :: Maybe GBaseVertexLayout)
+  vertexLayoutRef     <- newIORef (Nothing :: Maybe ())
 
   -- RenderPass
   return $ do
@@ -195,7 +188,11 @@ drawGBuffers = do
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals :: (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v) => VertexShader -> FragmentShader -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals
+  :: (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v)
+  => VertexShader
+  -> FragmentShader
+  -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
   viewMatrix $= fmap realToFrac <$> viewM scene
@@ -205,12 +202,12 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   viewM scene = scene^.camera.cameraMatrix
   viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
 
-drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, HasGBaseVertexLayout v)
-  => IORef (Maybe GBaseVertexLayout)
+drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v))
+  => IORef (Maybe ())
   -> VertexShader
   -> FragmentShader
   -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
-drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
+drawScene _vertexLayoutRef VertexShader{..} FragmentShader{..} = do
   (scene, _mainViewport) <- ask
   forM_ (scene^.sceneEntities) $ \ent -> do
     -- set entity globals
@@ -227,14 +224,14 @@ drawScene vertexLayoutRef VertexShader{..} FragmentShader{..} = do
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
 
     -- update layout
-    lastVertexLayout <- get vertexLayoutRef
-    let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
-    when (lastVertexLayout /= Just currentLayout) $ do
-      vPosition $= Just (_vPosition currentLayout)
-      vTexture  $= Just (_vTexture  currentLayout)
-      vTangentX $= Just (_vTangentX currentLayout)
-      vTangentZ $= Just (_vTangentZ currentLayout)
-      vertexLayoutRef $= Just currentLayout
+    -- lastVertexLayout <- get vertexLayoutRef
+    -- let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
+    -- when (lastVertexLayout /= Just currentLayout) $ do
+    vPosition $= Just ((HasLayout :: HasLayout (Element v))^.position)
+    vTexture  $= Just ((HasLayout :: HasLayout (Element v))^.texture)
+    vTangentX $= Just ((HasLayout :: HasLayout (Element v))^.tangentX)
+    vTangentZ $= Just ((HasLayout :: HasLayout (Element v))^.tangentZ)
+    -- vertexLayoutRef $= Just currentLayout
 
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
 

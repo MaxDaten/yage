@@ -97,6 +97,7 @@ library
     Yage.Viewport
     Yage.Transformation
     Yage.HDR
+    Yage.Vertex
     
     Yage.Uniforms
     Yage.Uniforms.Material

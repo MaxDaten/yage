@@ -77,39 +77,8 @@ makeLenses ''Configuration
 configuration :: Configuration
 configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True False)
 
-data GVertex = GVertex
-  { pos  :: !Vec3
-  , tex  :: !Vec2
-  , tanx :: !Vec3
-  , tanz :: !Vec4
-  } deriving (Show,Ord,Eq,Data,Typeable,Generic)
 
-instance Storable GVertex where
-  peek ptr =
-    GVertex <$> peek (castPtr ptr)
-            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3)))
-            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
-            <*> peek (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
-  poke ptr GVertex{..} = do
-    poke (castPtr ptr) pos
-    poke (castPtr $ ptr `plusPtr` sizeOf (undefined::Vec3)) tex
-    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2))) tanx
-    poke (castPtr $ ptr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3))) tanz
-  sizeOf _ = sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3) + sizeOf (undefined::Vec4)
-  alignment _ = alignment (undefined::Vec3)
-
-
-type GameEntity = Entity (RenderData (SVector Word32) (SVector GVertex)) (GBaseMaterial Texture)
-
-instance HasGBaseVertexLayout (SVector GVertex) where
-  gBaseVertexLayout _ = GBaseVertexLayout
-    { _vPosition = Layout 3 GL_FLOAT False stride (nullPtr)
-    , _vTexture  = Layout 2 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))
-    , _vTangentX = Layout 3 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))
-    , _vTangentZ = Layout 4 GL_FLOAT False stride (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))
-    }
-    where
-    stride = sizeOf (undefined::GVertex)
+type GameEntity = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBaseMaterial Texture)
 
 data Game = Game
   { _mainViewport  :: Viewport Int
@@ -128,7 +97,7 @@ simScene = Scene
 
 testEntity :: YageResource GameEntity
 testEntity = Entity
-  <$> (fromMesh =<< meshRes (loadYGM (\(YGMVertex p t tx tz) -> GVertex p t tx tz) ("res/sphere.ygm", mkSelection [])))
+  <$> (fromMesh =<< meshRes (loadYGM id ("res/sphere.ygm", mkSelection [])))
   <*> gBaseMaterialRes defaultGBaseMaterial
   <*> pure idTransformation
 
@@ -137,8 +106,6 @@ sceneWire = proc () -> do
   pipeline <- acquireOnce simplePipeline -< ()
   scene    <- simScene -< ()
   returnA -< Game (defaultViewport 800 600) scene pipeline
-
-
 
 simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
