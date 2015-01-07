@@ -65,6 +65,8 @@ drawRectangle = do
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
+    glDisable GL_CULL_FACE
+
 
     {-# SCC boundVertexArray #-} throwWithStack $
       boundVertexArray $= emptyvao
