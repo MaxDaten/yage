@@ -45,25 +45,13 @@ import           Quine.GL.Shader
 import           Quine.GL.Types
 import           Quine.StateVar
 
--- type DeferredEnvironment = Environment Light Pass.SkyEntity
--- type DeferredEnvironment sky = Environment () sky
--- type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
--- type DeferredScene ent gui = Scene HDRCamera ent () gui
-
--- type HasDeferredEnvironment env i v = (HasSkyEntity env sky, SkyEntity sky i v)
-
--- type HasDeferredEnvironment env sky = HasSkyEntity
--- class HasDeferredScene scene ent gui | scene -> ent gui where
---   deferredScene :: Getter scene (DeferredScene ent gui)
 type DeferredEntity      = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBaseMaterial Texture)
 type DeferredSky         = Entity (RenderData (SVector Word32) (SVector (Position Vec3))) (SkyMaterial Texture)
 type DeferredEnvironment = Environment () DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
-class SkyEntity sky i v => HasSkyEntity scene sky i v | scene -> sky i v where
-  skyEntity :: Getter scene sky
 
-yDeferredLighting :: (HasViewport scene Int, GBaseScene scene f ent i v, HasSkyEntity scene sky si sv) => YageResource (RenderSystem scene ())
+yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasCamera a) => YageResource (RenderSystem a ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
@@ -74,12 +62,12 @@ yDeferredLighting = do
   skyPass <- drawSky
 
   return $ do
-    scene <- ask
-    gbuffer <- gBasePass . pure (scene, scene^.viewport)
+    val <- ask
+    gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
     -- environment & lighting
-    envBuffer <- skyPass . pure (scene^.skyEntity, gbuffer)
+    envBuffer <- maybe (return gbuffer) (\sky -> skyPass . pure (sky, gbuffer)) (val^.scene.environment.sky)
     -- bring it to screen
-    screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], scene^.viewport)
+    screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], val^.viewport)
 
 
 mkBaseSampler :: YageResource Sampler

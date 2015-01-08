@@ -36,13 +36,12 @@ data LightEntity mesh = LightEntity (Entity mesh ()) !Light
 
 
 data Environment lit sky = Environment
-    { _envLights       :: Seq lit
-    , _envSky          :: ( Maybe sky )
-    , _envAmbient      :: AmbientLight
+    { _environmentLights       :: Seq lit
+    , _environmentSky          :: ( Maybe sky )
+    , _environmentAmbient      :: AmbientLight
     }
 
-makeLenses ''Environment
-
+makeFields ''Environment
 
 
 data Scene ent env = Scene
@@ -51,6 +50,7 @@ data Scene ent env = Scene
     } deriving ( Show )
 
 makeFields ''Scene
+makeClassy ''Scene
 
 -- instance HasCamera cam => HasCamera (Scene cam ent env gui) where
 --   camera = Yage.Scene.camera.camera
@@ -153,11 +153,11 @@ instance LinearInterpolatable (Entity a b) where
 --           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)
 --           & sceneCamera      .~ lerp alpha (u^.sceneCamera) (v^.sceneCamera)
 
-instance (LinearInterpolatable lit, LinearInterpolatable sky) => LinearInterpolatable (Environment lit sky) where
-    lerp alpha u v =
-        u & envLights  .~ zipWith (lerp alpha) (u^.envLights) (v^.envLights)
-          & envSky     .~ (lerp alpha <$> u^.envSky <*> v^.envSky )
-          & envAmbient .~ (lerp alpha (u^.envAmbient) (v^.envAmbient))
+-- instance (LinearInterpolatable lit, LinearInterpolatable sky) => LinearInterpolatable (Environment lit sky) where
+--     lerp alpha u v =
+--         u & ights  .~ zipWith (lerp alpha) (u^.envLights) (v^.envLights)
+--           & envSky     .~ (lerp alpha <$> u^.envSky <*> v^.envSky )
+--           & envAmbient .~ (lerp alpha (u^.envAmbient) (v^.envAmbient))
 
 instance LinearInterpolatable (LightEntity mesh) where
     lerp alpha (LightEntity eu lu) (LightEntity ev lv) = LightEntity (lerp alpha eu ev) (lerp alpha lu lv)

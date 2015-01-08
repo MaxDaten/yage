@@ -127,7 +127,7 @@ simplePipeline = do
   return $ do
     game <- ask
     screenQuadPass .
-      dimap (,game^.mainViewport)
+      dimap (,game^.camera, game^.mainViewport)
             (\base -> ([(1,baseSampler,base^.aBuffer)], game^.mainViewport))
             gBasePass
 
