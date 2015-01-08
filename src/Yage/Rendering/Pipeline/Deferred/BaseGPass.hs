@@ -42,7 +42,6 @@ import           Yage.GL
 import           Yage.Vertex                             hiding (Texture)
 import           Yage.Attribute
 import           Yage.Camera
-import           Yage.Texture
 import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms

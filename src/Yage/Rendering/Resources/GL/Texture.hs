@@ -5,6 +5,7 @@
 module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
+  , BaseTextureTarget (baseTextureTarget)
   , textureTarget
   , textureDimension
   , textureLevel
@@ -27,8 +28,8 @@ import           Yage.Rendering.GL as GL
 
 import           Data.Data
 import           Yage.Rendering.Resources.GL.Base
-import           Yage.Resources
 import           Yage.Geometry.D2.Rectangle
+import           Yage.Resource.YageResource
 
 import           Codec.Picture                   as Img
 import           Codec.Picture.Types             as Img
@@ -58,12 +59,15 @@ data Texture a = Texture
 
 makeLenses ''Texture
 
+class BaseTextureTarget t where
+  baseTextureTarget :: t -> GL.TextureTarget
+
 -- | Creates a 'Texture' initialized with an image
-createTexture2DImage :: (Image2D i, GetRectangle i Int) => GL.TextureTarget -> i -> YageResource (Texture a)
-createTexture2DImage target img = throwWithStack $ do
-  tex <- Texture target (Texture2D w h) 1 <$> glResource
-  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex^.textureObject
-  store img target
+createTexture2DImage :: (Image2D i, GetRectangle i Int, BaseTextureTarget i) => i -> YageResource (Texture a)
+createTexture2DImage img = throwWithStack $ do
+  tex <- Texture (baseTextureTarget img) (Texture2D w h) 1 <$> glResource
+  GL.boundTexture (baseTextureTarget img) GL_TEXTURE_BINDING_2D $= tex^.textureObject
+  store img (baseTextureTarget img)
   return tex
  where
   V2 w h = img^.asRectangle.xy2
@@ -103,3 +107,12 @@ instance FramebufferAttachment (Texture a) where
       Texture1D _ -> glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
       Texture2D _ _ -> glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
       Texture3D _ _ _ -> glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0
+
+instance (Image2D (Image a)) => BaseTextureTarget (Cubemap (Image a)) where
+  baseTextureTarget _ = GL_TEXTURE_CUBE_MAP
+
+instance BaseTextureTarget (Image a) where
+  baseTextureTarget _ = GL_TEXTURE_2D
+
+instance (BaseTextureTarget i) => BaseTextureTarget (MipmapChain i) where
+  baseTextureTarget = baseTextureTarget

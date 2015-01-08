@@ -11,6 +11,8 @@
 module Yage.Resources
   ( meshRes
   , imageRes
+  , textureRes
+  , materialRes
   , imageMipsRes
   , seperateCubeMipsRes
   , cubeCrossMipsRes
@@ -35,9 +37,13 @@ import qualified Data.Set                         as S
 
 import           Quine.Cubemap                    as Cubemap
 import           Quine.MipmapChain                as MipmapChain
-import           Yage.Font                        ( FontTexture )
+import           Yage.Font                        (FontTexture)
 import           Yage.Geometry
+import           Yage.Geometry.D2.Rectangle
 import           Yage.Image
+import           Yage.Material                    hiding (over)
+import           Yage.Rendering.Resources.GL.Texture
+
 import           Yage.Rendering.Mesh
 import           Yage.Resource.MSlot              as Slot
 import           Yage.Resource.Slot               as Slot
@@ -67,13 +73,19 @@ meshRes :: Storable v => IO (Mesh v) -> YageResource (Mesh v)
 meshRes loadMesh = mkAcquire loadMesh (const $ return ())
 
 
-
--- TODO : GL Texture resource
+-- | Load a image into a 'DynamicImage'
 imageRes :: FilePath -> YageResource DynamicImage
 imageRes filePath = mkAcquire loadImage (const $ return ())
   where
   loadImage = join $ either (throwIO.ImageResourceException) return <$> readImage (fpToString filePath)
 
+-- | Allocate a 'Material' with a 'Image2D' instance as texture data source into a 'Material' with a render hardware texture
+materialRes :: (GetRectangle i Int, Image2D i, BaseTextureTarget i) => Material col i -> YageResource (Material col (Texture px))
+materialRes imgMat = (set materialTexture) <$> (createTexture2DImage (imgMat^.materialTexture)) <*> pure imgMat
+
+-- | Allocate a 'Image2D' instance into a render hardware 'Texture'
+textureRes :: (GetRectangle i Int, Image2D i, BaseTextureTarget i) => i -> YageResource (Texture px)
+textureRes = createTexture2DImage
 
 -- | loads a 'MipmapChain' from seperate images-files. The 'FilePath' is globbed
 -- (@see 'System.FilePath.Glob') and sorted.

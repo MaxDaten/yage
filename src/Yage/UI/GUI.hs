@@ -13,8 +13,8 @@ import           Data.Data
 import           Yage.Camera
 import           Yage.Font
 import           Yage.Geometry
+import           Yage.Image
 import           Yage.Rendering.Mesh
-import           Yage.Texture
 import           Yage.Transformation
 import           Quine.GL.Types
 import           Foreign.Storable

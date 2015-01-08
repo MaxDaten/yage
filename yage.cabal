@@ -89,7 +89,7 @@ library
 
     Yage.Resources
     Yage.Material
-    Yage.Texture
+--    Yage.Texture
     Yage.Image
     Yage.Color
     Yage.GL
