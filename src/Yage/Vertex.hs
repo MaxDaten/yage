@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving        #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -7,13 +8,13 @@
 
 module Yage.Vertex
   ( HasLayout(HasLayout)
-  , Position
+  , Position(Position)
   , HasPosition(position)
-  , Texture
+  , Texture(Texture)
   , HasTexture(texture)
-  , Normal
+  , Normal(Normal)
   , HasNormal(normal)
-  , Tangent
+  , Tangent(Tangent)
   , HasTangentX(tangentX)
   , HasTangentY(tangentY)
   , HasTangentZ(tangentZ)
@@ -30,9 +31,9 @@ import Quine.GL.Attribute
 -- field accessors of a concrete defined vertex data type
 data HasLayout a = HasLayout
 
-newtype Position a = Position { _positionPosition :: a }
-newtype Texture a = Texture { _textureTexture :: a }
-newtype Normal a = Normal { _normalNormal :: a }
+newtype Position a  = Position { _positionPosition :: a } deriving (Eq,Ord,Show,Generic,Storable)
+newtype Texture a   = Texture { _textureTexture :: a } deriving (Eq,Ord,Show,Generic,Storable)
+newtype Normal a    = Normal { _normalNormal :: a } deriving (Eq,Ord,Show,Generic,Storable)
 data Tangent a = Tangent
   { _tangentTangentX :: a
   , _tangentTangentY :: a
