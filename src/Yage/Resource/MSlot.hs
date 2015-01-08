@@ -22,20 +22,7 @@ import           Yage.Prelude                     hiding (Index)
 import           Data.Acquire                     as Acquire
 import           Control.Monad.Trans.Resource     as Acquire
 
-import qualified Data.Map.Strict                  as M
-import qualified Data.Set                         as S
-
-import           Yage.Geometry
-import           Yage.Rendering.Mesh
-import qualified Yage.Formats.Obj                 as OBJ
-import qualified Yage.Formats.Ygm                 as YGM
-import qualified Yage.Formats.Font                as Font
-import           Yage.Font                        ( FontTexture )
-import           Yage.Image
 import           Yage.Resource.YageResource
-import           Yage.Texture.CubeImageLayout     as Cubemap
-import           Quine.MipmapChain                as MipmapChain
-import           Quine.Cubemap                    as Cubemap
 import           Quine.StateVar
 
 newtype MSlot a = MSlot (IORef (Maybe (ReleaseKey, a)))
