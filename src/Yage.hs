@@ -26,6 +26,7 @@ module Yage
     , module RenderSystem
     , module Rectangle
     , module Quine
+    , module GLTypes
     ) where
 
 import             Yage.Prelude                    as YagePrelude hiding (bracket, onException, finally, catch)
@@ -47,6 +48,7 @@ import             Yage.Viewport                   as Viewport
 import             Yage.Internal.Debug
 import             Quine.StateVar                  as Quine
 import             Quine.Monitor
+import             Quine.GL.Types                  as GLTypes
 ---------------------------------------------------------------------------------------------------
 
 data YageTiming = YageTiming
