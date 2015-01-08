@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# LANGUAGE Arrows  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -36,8 +37,8 @@ import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
-import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
--- import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
+import           Yage.Rendering.Pipeline.Deferred.ScreenPass        as Pass
+import           Yage.Rendering.Pipeline.Deferred.SkyPass           as Pass
 
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
@@ -46,14 +47,14 @@ import           Quine.GL.Types
 import           Quine.StateVar
 
 -- type DeferredEnvironment = Environment Light Pass.SkyEntity
--- type DeferredEnvironment = Environment () Pass.SkyEntity
+type DeferredEnvironment = Environment () ()
 -- type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
-type DeferredScene ent env gui = Scene HDRCamera ent env gui
+type DeferredScene ent gui = Scene HDRCamera ent DeferredEnvironment gui
 
-class HasDeferredScene scene ent env gui | scene -> ent env gui where
-  deferredScene :: Getter scene (DeferredScene ent env gui)
+class HasDeferredScene scene ent gui | scene -> ent gui where
+  deferredScene :: Getter scene (DeferredScene ent gui)
 
-yDeferredLighting :: (HasViewport scene Int, HasDeferredScene scene ent env gui, GBaseEntity ent i v) => YageResource (RenderSystem scene ())
+yDeferredLighting :: (HasViewport scene Int, HasDeferredScene scene ent gui, GBaseEntity ent i v) => YageResource (RenderSystem scene ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
@@ -62,12 +63,10 @@ yDeferredLighting = do
   gBasePass   <- drawGBuffers
   screenQuadPass <- drawRectangle
 
-  return $ do
-    scene <- ask
-    screenQuadPass .
-      dimap (\s -> (s^.deferredScene, s^.viewport))
-            (\base -> ([(1,baseSampler,base^.aBuffer)], scene^.viewport))
-            gBasePass
+  return $ proc scene -> do
+    gbuffer <- gBasePass -< (scene^.deferredScene, scene^.viewport)
+    screenQuadPass -< ([(1,baseSampler,gbuffer^.aBuffer)], scene^.viewport)
+
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do
