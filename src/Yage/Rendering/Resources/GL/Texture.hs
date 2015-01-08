@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -108,11 +110,20 @@ instance FramebufferAttachment (Texture a) where
       Texture2D _ _ -> glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
       Texture3D _ _ _ -> glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0
 
-instance (Image2D (Image a)) => BaseTextureTarget (Cubemap (Image a)) where
+instance (Image2D i) => BaseTextureTarget (Cubemap i) where
   baseTextureTarget _ = GL_TEXTURE_CUBE_MAP
 
 instance BaseTextureTarget (Image a) where
   baseTextureTarget _ = GL_TEXTURE_2D
 
+instance BaseTextureTarget DynamicImage where
+  baseTextureTarget _ = GL_TEXTURE_2D
+
 instance (BaseTextureTarget i) => BaseTextureTarget (MipmapChain i) where
   baseTextureTarget = baseTextureTarget
+
+instance GetRectangle i Int => GetRectangle (Cubemap i) Int where
+  asRectangle = to (\Cubemap{faceRight} -> faceRight^.asRectangle)
+
+instance GetRectangle i Int => GetRectangle (MipmapChain i) Int where
+  asRectangle = to (\mips -> (mipMapBase mips)^.asRectangle)
