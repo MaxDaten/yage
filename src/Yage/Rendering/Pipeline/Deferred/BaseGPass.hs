@@ -49,7 +49,6 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Foreign.Ptr
 
-import           Quine.GL.Types
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
