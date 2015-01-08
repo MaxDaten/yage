@@ -12,7 +12,8 @@
 {-# LANGUAGE ImpredicativeTypes         #-}
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
-  ( GBaseEntity
+  ( GBaseScene
+  , GBaseEntity
   -- * Material
   , GBaseMaterial(..)
   , HasGBaseMaterial(..)
@@ -124,8 +125,9 @@ makeLenses ''GBuffer
 -- * Draw To GBuffer
 
 type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v), GBaseVertex (Element v))
+type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent), HasCamera scene)
 
-drawGBuffers :: (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent), HasCamera scene) => YageResource (RenderSystem (scene, Viewport Int) GBuffer)
+drawGBuffers :: GBaseScene scene f ent i v => YageResource (RenderSystem (scene, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao

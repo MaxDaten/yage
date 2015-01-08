@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -ddump-splices    #-}
+
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE UndecidableInstances   #-}
@@ -45,22 +47,19 @@ makeLenses ''Environment
 
 
 
-data Scene cam ent env gui = Scene
+data Scene ent env = Scene
     { _sceneEntities    :: Seq ent
     , _sceneEnvironment :: env
-    , _sceneCamera      :: cam
-    , _sceneGui         :: gui
     } deriving ( Show )
 
-makeLenses ''Scene
+makeFields ''Scene
 
-instance HasCamera cam => HasCamera (Scene cam ent env gui) where
-  camera = sceneCamera.camera
+-- instance HasCamera cam => HasCamera (Scene cam ent env gui) where
+--   camera = Yage.Scene.camera.camera
 
 
 {--
 ## Structure access
---}
 
 emptyScene :: cam -> gui -> Scene cam ent (Environment lit skymat) gui
 emptyScene cam = Scene S.empty emptyEnvironment cam
@@ -121,6 +120,7 @@ entityLight = lens getter setter where
 --                  ( shaderData )
 --                  ( ent^.drawSettings )
 
+--}
 
 
 -- | creates an `Entity` with:
@@ -145,15 +145,15 @@ instance LinearInterpolatable (Entity a b) where
     lerp alpha u v = u & entityTransformation .~ lerp alpha (u^.entityTransformation) (v^.entityTransformation)
 
 
-instance ( LinearInterpolatable cam
-         , LinearInterpolatable ent
-         , LinearInterpolatable env
-         , LinearInterpolatable dat
-         ) => LinearInterpolatable (Scene cam ent env dat) where
-    lerp alpha u v =
-        u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
-          & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)
-          & sceneCamera      .~ lerp alpha (u^.sceneCamera) (v^.sceneCamera)
+-- instance ( LinearInterpolatable cam
+--          , LinearInterpolatable ent
+--          , LinearInterpolatable env
+--          , LinearInterpolatable dat
+--          ) => LinearInterpolatable (Scene cam ent env dat) where
+--     lerp alpha u v =
+--         u & sceneEntities    .~ zipWith (lerp alpha) (u^.sceneEntities) (v^.sceneEntities)
+--           & sceneEnvironment .~ lerp alpha (u^.sceneEnvironment) (v^.sceneEnvironment)
+--           & sceneCamera      .~ lerp alpha (u^.sceneCamera) (v^.sceneCamera)
 
 instance (LinearInterpolatable lit, LinearInterpolatable sky) => LinearInterpolatable (Environment lit sky) where
     lerp alpha u v =

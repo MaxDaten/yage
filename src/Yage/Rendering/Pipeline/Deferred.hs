@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE Arrows  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -10,8 +9,6 @@ module Yage.Rendering.Pipeline.Deferred
     ( module Pass
     , module Yage.Viewport
     , module RenderSystem
-    , DeferredScene
-    , HasDeferredScene(..)
     , yDeferredLighting
     ) where
 
@@ -47,14 +44,20 @@ import           Quine.GL.Types
 import           Quine.StateVar
 
 -- type DeferredEnvironment = Environment Light Pass.SkyEntity
-type DeferredEnvironment = Environment () ()
+-- type DeferredEnvironment sky = Environment () sky
 -- type DeferredScene       = Scene HDRCamera GeoEntity DeferredEnvironment GUI
-type DeferredScene ent gui = Scene HDRCamera ent DeferredEnvironment gui
+-- type DeferredScene ent gui = Scene HDRCamera ent () gui
 
-class HasDeferredScene scene ent gui | scene -> ent gui where
-  deferredScene :: Getter scene (DeferredScene ent gui)
+-- type HasDeferredEnvironment env i v = (HasSkyEntity env sky, SkyEntity sky i v)
 
-yDeferredLighting :: (HasViewport scene Int, HasDeferredScene scene ent gui, GBaseEntity ent i v) => YageResource (RenderSystem scene ())
+-- type HasDeferredEnvironment env sky = HasSkyEntity
+-- class HasDeferredScene scene ent gui | scene -> ent gui where
+--   deferredScene :: Getter scene (DeferredScene ent gui)
+
+class SkyEntity sky i v => HasSkyEntity scene sky i v | scene -> sky i v where
+  skyEntity :: Getter scene sky
+
+yDeferredLighting :: (HasViewport scene Int, GBaseScene scene f ent i v, HasSkyEntity scene sky si sv) => YageResource (RenderSystem scene ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
@@ -62,10 +65,15 @@ yDeferredLighting = do
   baseSampler <- mkBaseSampler
   gBasePass   <- drawGBuffers
   screenQuadPass <- drawRectangle
+  skyPass <- drawSky
 
-  return $ proc scene -> do
-    gbuffer <- gBasePass -< (scene^.deferredScene, scene^.viewport)
-    screenQuadPass -< ([(1,baseSampler,gbuffer^.aBuffer)], scene^.viewport)
+  return $ do
+    scene <- ask
+    gbuffer <- gBasePass . pure (scene, scene^.viewport)
+    -- environment & lighting
+    envBuffer <- skyPass . pure (scene^.skyEntity, gbuffer)
+    -- bring it to screen
+    screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], scene^.viewport)
 
 
 mkBaseSampler :: YageResource Sampler

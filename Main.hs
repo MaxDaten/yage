@@ -82,17 +82,21 @@ type GameEntity = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBas
 
 data Game = Game
   { _mainViewport  :: Viewport Int
-  , _gameScene     :: Scene HDRCamera GameEntity () ()
+  , _gameScene     :: Scene GameEntity ()
+  , _gameCamera    :: HDRCamera
   , _sceneRenderer :: RenderSystem Game ()
   }
-
 makeLenses ''Game
 
-simScene :: YageWire t () (Scene HDRCamera GameEntity () ())
+instance HasCamera Game where
+  camera = gameCamera.camera
+
+instance HasEntities Game (Seq GameEntity) where
+  entities = gameScene.entities
+
+simScene :: YageWire t () (Scene GameEntity ())
 simScene = Scene
   <$> fmap singleton (acquireOnce testEntity)
-  <*> pure ()
-  <*> pure (defaultHDRCamera $ def & position .~ V3 0 0 5)
   <*> pure ()
 
 testEntity :: YageResource GameEntity
@@ -105,7 +109,8 @@ sceneWire :: YageWire t () Game
 sceneWire = proc () -> do
   pipeline <- acquireOnce simplePipeline -< ()
   scene    <- simScene -< ()
-  returnA -< Game (defaultViewport 800 600) scene pipeline
+
+  returnA -< Game (defaultViewport 800 600) scene (defaultHDRCamera $ def & position .~ V3 0 0 5) pipeline
 
 simplePipeline :: YageResource (RenderSystem Game ())
 simplePipeline = do
@@ -122,7 +127,7 @@ simplePipeline = do
   return $ do
     game <- ask
     screenQuadPass .
-      dimap (\game -> (game^.gameScene, game^.mainViewport))
+      dimap (,game^.mainViewport)
             (\base -> ([(1,baseSampler,base^.aBuffer)], game^.mainViewport))
             gBasePass
 
