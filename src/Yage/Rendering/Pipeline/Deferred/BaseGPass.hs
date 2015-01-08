@@ -125,9 +125,9 @@ makeLenses ''GBuffer
 -- * Draw To GBuffer
 
 type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v), GBaseVertex (Element v))
-type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent), HasCamera scene)
+type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent))
 
-drawGBuffers :: GBaseScene scene f ent i v => YageResource (RenderSystem (scene, Viewport Int) GBuffer)
+drawGBuffers :: GBaseScene scene f ent i v => YageResource (RenderSystem (scene, Camera, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -149,7 +149,7 @@ drawGBuffers = do
 
   -- RenderPass
   return $ do
-    (scene, mainViewport) <- ask
+    (scene, cam, mainViewport) <- ask
     lastViewport <- get lastViewportRef
 
     -- resizing the framebuffer
@@ -182,20 +182,20 @@ drawGBuffers = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    setupSceneGlobals vert frag
+    setupSceneGlobals vert frag . pure (cam, mainViewport)
     drawEntities vertexLayoutRef vert frag . pure (scene^.entities)
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals :: (HasCamera scene) => VertexShader -> FragmentShader -> RenderSystem (scene, Viewport Int) ()
+setupSceneGlobals :: VertexShader -> FragmentShader -> RenderSystem (Camera, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
-  (scene, mainViewport) <- ask
-  viewMatrix $= fmap realToFrac <$> scene^.camera.to viewM
-  vpMatrix   $= fmap realToFrac <$> viewprojectionM (scene^.camera) mainViewport
+  (cam, mainViewport) <- ask
+  viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
+  vpMatrix   $= fmap realToFrac <$> viewprojectionM cam mainViewport
   return ()
  where
-  viewM cam = cam^.cameraMatrix
-  viewprojectionM cam vp = projectionMatrix3D (cam^.nearZ) (cam^.farZ) (cam^.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM cam
+  viewprojectionM :: Camera -> Viewport Int -> M44 Double
+  viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
 drawEntities :: forall f ent i v. (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
   => IORef (Maybe ())
