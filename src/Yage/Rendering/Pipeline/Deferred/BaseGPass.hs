@@ -1,15 +1,15 @@
-{-# OPTIONS_GHC -fno-warn-orphans    #-}
-{-# LANGUAGE CPP                #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ImpredicativeTypes  #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators      #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE ImpredicativeTypes         #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeOperators       #-}
+
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
   ( GBaseScene
@@ -40,6 +40,7 @@ import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
 import           Yage.Vertex                             hiding (Texture)
+import           Yage.Attribute
 import           Yage.Camera
 import           Yage.Texture
 import           Yage.Material                           hiding (over, HasPosition, position)
@@ -88,7 +89,6 @@ data FragmentShader = FragmentShader
   , metallicMaterial   :: UniformVar (Material Double (Texture Pixel8))
   }
 
-type VertexAttribute = SettableStateVar (Maybe Layout)
 
 -- | Uniform StateVars of the fragment shader
 data VertexShader = VertexShader
@@ -144,7 +144,6 @@ drawGBuffers = do
   fbo <- glResource
 
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
-  vertexLayoutRef     <- newIORef (Nothing :: Maybe ())
 
   -- RenderPass
   return $ do
@@ -182,7 +181,7 @@ drawGBuffers = do
     checkPipelineError pipeline
 
     setupSceneGlobals vert frag . pure (cam, mainViewport)
-    drawEntities vertexLayoutRef vert frag . pure (scene^.entities)
+    drawEntities vert frag . pure (scene^.entities)
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
@@ -191,17 +190,15 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (cam, mainViewport) <- ask
   viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
   vpMatrix   $= fmap realToFrac <$> viewprojectionM cam mainViewport
-  return ()
  where
   viewprojectionM :: Camera -> Viewport Int -> M44 Double
   viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
 drawEntities :: forall f ent i v. (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
-  => IORef (Maybe ())
-  -> VertexShader
+  => VertexShader
   -> FragmentShader
   -> RenderSystem (f ent) ()
-drawEntities _vertexLayoutRef VertexShader{..} FragmentShader{..} = do
+drawEntities VertexShader{..} FragmentShader{..} = do
   ents <- ask
   forM_ ents $ \ent -> do
     -- set entity globals

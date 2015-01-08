@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Viewport
   ( Viewport(..), HasViewport(..)
+  , rectangle
   , defaultViewport
   , glViewport
   , projectionMatrix3D

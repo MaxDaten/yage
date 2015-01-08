@@ -6,4 +6,6 @@
 #define ROUGHNESS_UNIT 2
 #define METALLIC_UNIT  3
 
+#define ENVIRONMENT_UNIT  4
+
 #endif

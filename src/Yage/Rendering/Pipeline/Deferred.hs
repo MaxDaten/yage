@@ -65,7 +65,7 @@ yDeferredLighting = do
     val <- ask
     gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
     -- environment & lighting
-    envBuffer <- maybe (return gbuffer) (\sky -> skyPass . pure (sky, gbuffer)) (val^.scene.environment.sky)
+    envBuffer <- maybe (return gbuffer) (\sky -> skyPass . pure (sky, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
     -- bring it to screen
     screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], val^.viewport)
 
@@ -104,6 +104,9 @@ mkBaseSampler = throwWithStack $ do
 
 instance HasGBaseMaterial mat Texture => HasGBaseMaterial (Entity d mat) Texture where
   gBaseMaterial = materials.gBaseMaterial
+
+instance HasSkyMaterial mat Texture => HasSkyMaterial (Entity d mat) Texture where
+  skyMaterial = materials.skyMaterial
 
 instance HasRenderData (Entity (RenderData i v) mat) i v where
   renderData = Yage.Scene.renderData
