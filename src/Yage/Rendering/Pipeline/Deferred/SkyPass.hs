@@ -9,7 +9,9 @@ module Yage.Rendering.Pipeline.Deferred.SkyPass
   ( SkyEntity
   , SkyVertexLayout
   , SkyVertex
-  , SkyMaterial
+  , SkyMaterial(..)
+  , environmentMap
+  , radianceMap
   , drawSky
   ) where
 
@@ -47,7 +49,8 @@ data SkyMaterial t = SkyMaterial
     { _skyEnvironmentMap :: Material MaterialColorAlpha (t PixelRGB8)
     , _skyRadianceMap    :: Material MaterialColorAlpha (t PixelRGB8)
     }
-makeLenses ''SkyMaterial
+
+makeLensesWith abbreviatedFields ''SkyMaterial
 
 
 drawSky :: SkyEntity sky i v => YageResource (RenderSystem (sky, GBuffer) GBuffer)
