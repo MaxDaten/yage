@@ -61,7 +61,7 @@ zNormalDummy :: MaterialPixel a => Image a
 zNormalDummy = constantNormal (V3 0 0 1)
 
 
-mkMaterial :: col -> Image a -> Material col (Image a)
+mkMaterial :: col -> a -> Material col a
 mkMaterial color texture = Material color texture idTransformation
 
 
