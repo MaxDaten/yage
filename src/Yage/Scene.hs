@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -ddump-splices    #-}
-
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE UndecidableInstances   #-}
@@ -57,6 +55,9 @@ makeFields ''Scene
 -- instance HasCamera cam => HasCamera (Scene cam ent env gui) where
 --   camera = Yage.Scene.camera.camera
 
+emptyEnvironment :: Environment lit mat
+emptyEnvironment = Environment S.empty Nothing (AmbientLight 0)
+{-# INLINE emptyEnvironment #-}
 
 {--
 ## Structure access
@@ -66,9 +67,6 @@ emptyScene cam = Scene S.empty emptyEnvironment cam
 {-# INLINE emptyScene #-}
 
 
-emptyEnvironment :: Environment lit mat
-emptyEnvironment = Environment S.empty Nothing (AmbientLight 0)
-{-# INLINE emptyEnvironment #-}
 
 
 addEntity :: Scene cam ent env dat -> ent -> Scene cam ent env dat

@@ -39,7 +39,7 @@ import           Yage                                    hiding (Layout, HasPosi
 import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
-import           Yage.Vertex
+import           Yage.Vertex                             hiding (Texture)
 import           Yage.Camera
 import           Yage.Texture
 import           Yage.Material                           hiding (over, HasPosition, position)

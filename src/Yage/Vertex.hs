@@ -4,9 +4,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Yage.Vertex
   ( HasLayout(HasLayout)
+  , Position
   , HasPosition(position)
+  , Texture
   , HasTexture(texture)
+  , Normal
   , HasNormal(normal)
+  , Tangent
   , HasTangentX(tangentX)
   , HasTangentY(tangentY)
   , HasTangentZ(tangentZ)

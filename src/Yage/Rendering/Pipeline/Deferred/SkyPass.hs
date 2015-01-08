@@ -9,6 +9,7 @@ module Yage.Rendering.Pipeline.Deferred.SkyPass
   ( SkyEntity
   , SkyVertexLayout
   , SkyVertex
+  , SkyMaterial
   , drawSky
   ) where
 

@@ -21,7 +21,7 @@ import Yage.Material
 import Yage.Scene
 import Yage.HDR
 import Yage.GL
-import Yage.Rendering.Pipeline.Deferred ()
+import Yage.Rendering.Pipeline.Deferred
 import Yage.Rendering.Pipeline.Deferred.ScreenPass
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Formats.Ygm
@@ -77,12 +77,12 @@ makeLenses ''Configuration
 configuration :: Configuration
 configuration = Configuration appConf winSettings (MonitorOptions "localhost" 8080 True False)
 
-
-type GameEntity = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBaseMaterial Texture)
+type GameEntity = DeferredEntity
+type GameScene  = DeferredScene
 
 data Game = Game
   { _mainViewport  :: Viewport Int
-  , _gameScene     :: Scene GameEntity ()
+  , _gameScene     :: GameScene
   , _gameCamera    :: HDRCamera
   , _sceneRenderer :: RenderSystem Game ()
   }
@@ -94,10 +94,10 @@ instance HasCamera Game where
 instance HasEntities Game (Seq GameEntity) where
   entities = gameScene.entities
 
-simScene :: YageWire t () (Scene GameEntity ())
+simScene :: YageWire t () GameScene
 simScene = Scene
   <$> fmap singleton (acquireOnce testEntity)
-  <*> pure ()
+  <*> pure emptyEnvironment
 
 testEntity :: YageResource GameEntity
 testEntity = Entity

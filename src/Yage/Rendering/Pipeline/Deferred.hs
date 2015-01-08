@@ -6,19 +6,22 @@
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage.Rendering.Pipeline.Deferred
-    ( module Pass
-    , module Yage.Viewport
-    , module RenderSystem
-    , yDeferredLighting
-    ) where
+  ( module Pass
+  , module Yage.Viewport
+  , module RenderSystem
+  , DeferredEnvironment
+  , DeferredEntity
+  , DeferredScene
+  , DeferredSky
+  , yDeferredLighting
+  ) where
 
 import           Yage.Prelude hiding ((</>))
 import           Yage.Lens
+import           Yage.Vertex hiding (Texture)
 import           Yage.Formats.Ygm
 
 import           Data.FileEmbed
-import           Foreign.Ptr
-import           Foreign.Storable
 import           System.FilePath ((</>))
 
 import           Yage.HDR
@@ -39,7 +42,6 @@ import           Yage.Rendering.Pipeline.Deferred.SkyPass           as Pass
 
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
-import           Quine.GL.Attribute
 import           Quine.GL.Types
 import           Quine.StateVar
 
@@ -53,6 +55,10 @@ import           Quine.StateVar
 -- type HasDeferredEnvironment env sky = HasSkyEntity
 -- class HasDeferredScene scene ent gui | scene -> ent gui where
 --   deferredScene :: Getter scene (DeferredScene ent gui)
+type DeferredEntity      = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBaseMaterial Texture)
+type DeferredSky         = Entity (RenderData (SVector Word32) (SVector (Position Vec3))) (SkyMaterial Texture)
+type DeferredEnvironment = Environment () DeferredSky
+type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
 class SkyEntity sky i v => HasSkyEntity scene sky i v | scene -> sky i v where
   skyEntity :: Getter scene sky
