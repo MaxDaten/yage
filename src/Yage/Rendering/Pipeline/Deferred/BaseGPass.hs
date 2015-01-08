@@ -7,14 +7,12 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE QuasiQuotes        #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE ImpredicativeTypes         #-}
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
-  ( GBaseScene
-  , GBaseEntity
+  ( GBaseEntity
   -- * Material
   , GBaseMaterial(..)
   , HasGBaseMaterial(..)
@@ -46,7 +44,6 @@ import           Yage.Texture
 import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniforms                           as Uniforms
-import           Yage.HDR
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Foreign.Ptr
@@ -111,7 +108,7 @@ data VertexShader = VertexShader
 
 -- * Scene
 
-type GBaseScene ent env gui = Scene HDRCamera ent env gui
+-- type GBaseScene ent env gui = Scene HDRCamera ent env gui
 
 -- * Pass Output
 
@@ -128,7 +125,7 @@ makeLenses ''GBuffer
 
 type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v), GBaseVertex (Element v))
 
-drawGBuffers :: GBaseEntity ent i v => YageResource (RenderSystem (GBaseScene ent env gui, Viewport Int) GBuffer)
+drawGBuffers :: (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent), HasCamera scene) => YageResource (RenderSystem (scene, Viewport Int) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -150,7 +147,7 @@ drawGBuffers = do
 
   -- RenderPass
   return $ do
-    (_scene, mainViewport) <- ask
+    (scene, mainViewport) <- ask
     lastViewport <- get lastViewportRef
 
     -- resizing the framebuffer
@@ -184,32 +181,28 @@ drawGBuffers = do
     checkPipelineError pipeline
 
     setupSceneGlobals vert frag
-    drawScene vertexLayoutRef vert frag
+    drawEntities vertexLayoutRef vert frag . pure (scene^.entities)
 
     GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
 
-setupSceneGlobals
-  :: (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v)
-  => VertexShader
-  -> FragmentShader
-  -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
+setupSceneGlobals :: (HasCamera scene) => VertexShader -> FragmentShader -> RenderSystem (scene, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do
   (scene, mainViewport) <- ask
-  viewMatrix $= fmap realToFrac <$> viewM scene
-  vpMatrix   $= fmap realToFrac <$> viewprojectionM scene mainViewport
+  viewMatrix $= fmap realToFrac <$> scene^.camera.to viewM
+  vpMatrix   $= fmap realToFrac <$> viewprojectionM (scene^.camera) mainViewport
   return ()
  where
-  viewM scene = scene^.camera.cameraMatrix
-  viewprojectionM scene vp = projectionMatrix3D (scene^.camera.nearZ) (scene^.camera.farZ) (scene^.camera.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM scene
+  viewM cam = cam^.cameraMatrix
+  viewprojectionM cam vp = projectionMatrix3D (cam^.nearZ) (cam^.farZ) (cam^.fovy) (fromIntegral <$> vp^.rectangle) !*! viewM cam
 
-drawScene :: forall ent i v env gui. (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v))
+drawEntities :: forall f ent i v. (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
   => IORef (Maybe ())
   -> VertexShader
   -> FragmentShader
-  -> RenderSystem (GBaseScene ent env gui, Viewport Int) ()
-drawScene _vertexLayoutRef VertexShader{..} FragmentShader{..} = do
-  (scene, _mainViewport) <- ask
-  forM_ (scene^.sceneEntities) $ \ent -> do
+  -> RenderSystem (f ent) ()
+drawEntities _vertexLayoutRef VertexShader{..} FragmentShader{..} = do
+  ents <- ask
+  forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
