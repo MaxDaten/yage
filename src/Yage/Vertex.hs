@@ -1,7 +1,10 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+{-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TemplateHaskell        #-}
+
 module Yage.Vertex
   ( HasLayout(HasLayout)
   , Position
@@ -16,8 +19,11 @@ module Yage.Vertex
   , HasTangentZ(tangentZ)
   ) where
 
+import Yage.Prelude
 import Yage.Lens
--- import Quine.GL.Attribute (Layout)
+import Foreign.Ptr
+import Foreign.Storable
+import Quine.GL.Attribute
 
 -- | 'HasLayout' is just a type level proxy for vertex data objects.
 -- It allows the annotation of a OpenGL compatible 'Layout' to the
@@ -38,6 +44,15 @@ makeFields ''Position
 makeFields ''Texture
 makeFields ''Normal
 makeFields ''Tangent
+
+instance (Storable a, Attribute a) => HasPosition (HasLayout (Position a)) Layout where
+  position = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
+
+instance (Storable a, Attribute a) => HasTexture (HasLayout (Texture a)) Layout where
+  texture = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
+
+instance (Storable a, Attribute a) => HasNormal (HasLayout (Normal a)) Layout where
+  normal = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
 
 -- | current implementation example
 -- FIXME: major problem here is, it violates the first lens law (you get what you set). you cant set currently any layout, this could be missleading
