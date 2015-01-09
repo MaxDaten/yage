@@ -95,28 +95,27 @@ fpsCameraMovement startPos movementSource =
         returnA -< cam & position .~ worldTrans
 
 
--- | look around like fps
-fpsCameraRotation :: (Real t) =>
-               YageWire t () (V2 Double) ->
-               YageWire t Camera Camera
+-- | look around like in fps
+fpsCameraRotation :: Real t => YageWire t () (V2 Double) -> YageWire t Camera Camera
 fpsCameraRotation velocitySource =
-    proc cam -> do
-        velV <- velocitySource -< () -- counter clock wise
-        x    <- integralWith fmod 0           -< (2*pi, velV^._x)
-        y    <- integrateBounded (-90, 90) 0  -< velV^._y
-        returnA -< cam `pitch` y `yaw` x
-
+  proc cam -> do
+    velV <- velocitySource -< ()
+    x    <- integralWith (flip fmod) 0    -< (velV^._x, 2*pi)
+    y    <- integralWith ymod 0           -< (velV^._y, (-pi/2,pi/2))
+    returnA -< cam `pitch` y `yaw` x
+  where ymod (l,u) x = clamp x l u
 
 -- | rotation about focus point
 -- http://gamedev.stackexchange.com/a/20769
-arcBallRotation :: ( Real t ) => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
+arcBallRotation :: Real t => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
 arcBallRotation velocitySource =
-    proc (focusPoint, cam) -> do
-        let focusToCam = cam^.position - focusPoint
-        velV <- velocitySource -< ()
-        x    <- integral 0                      -< velV^._x
-        y    <- integrateBounded (-90, 90) 0    -< velV^._y
+  proc (focusPoint, cam) -> do
+    let focusToCam = cam^.position - focusPoint
+    velV <- velocitySource -< ()
+    x    <- integral 0             -< velV^._x
+    y    <- integralWith ymod 0    -< (velV^._y, (-pi/2,pi/2))
 
-        let rotCam = cam `pitch` y `yaw` x
-            pos    = (rotCam^.orientation) `rotate` (focusToCam + focusPoint)
-        returnA -< rotCam & position     .~ pos
+    let rotCam = cam `pitch` y `yaw` x
+        pos    = (rotCam^.orientation) `rotate` (focusToCam + focusPoint)
+    returnA -< rotCam & position     .~ pos
+  where ymod (l,u) x = clamp x l u
