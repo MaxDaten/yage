@@ -1,7 +1,19 @@
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE TemplateHaskell  #-}
+
 module Yage.Rendering.Pipeline.Deferred.Common
-  (
+  ( embededShaders
   ) where
+
+import System.FilePath
+import Data.ByteString
+import Data.FileEmbed
+
+-- | Stored outside of 'Yage.Rendering.Pipeline.Deferred' in a seperated module
+-- as a try to speed up the recompile times. A seperate module changes less often
+-- than a core module
+embededShaders :: [(FilePath,ByteString)]
+embededShaders = $(embedDir "res/glsl")
 
 -- import Yage.Prelude
 -- import Yage.Lens

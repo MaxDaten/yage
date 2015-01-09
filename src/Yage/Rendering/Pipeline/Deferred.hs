@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -21,8 +20,6 @@ import           Yage.Lens
 import           Yage.Vertex hiding (Texture)
 import           Yage.Formats.Ygm
 
-import           Data.FileEmbed
-import           System.FilePath ((</>))
 
 import           Yage.HDR
 import           Yage.Rendering.GL
@@ -32,7 +29,7 @@ import           Yage.Scene
 import           Yage.Viewport
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
--- import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
+import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
@@ -40,6 +37,7 @@ import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass        as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass           as Pass
 
+import           System.FilePath ((</>))
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
 import           Quine.GL.Types
@@ -54,7 +52,7 @@ type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasCamera a) => YageResource (RenderSystem a ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
+  throwWithStack $ buildNamedStrings embededShaders ("/res/glsl"</>)
 
   baseSampler <- mkBaseSampler
   gBasePass      <- drawGBuffers
