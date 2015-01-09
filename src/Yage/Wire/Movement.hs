@@ -30,7 +30,6 @@ smoothTranslation dir acc att key =
         transV <- trans -< ()
         returnA -< inTransV + transV
 
-
 velocity :: (Floating b, Ord b, Real t)
          => b -> b -> Key -> YageWire t a b
 velocity !acc !att !trigger =
@@ -103,9 +102,9 @@ fpsCameraRotation :: (Real t) =>
 fpsCameraRotation velocitySource =
     proc cam -> do
         velV <- velocitySource -< () -- counter clock wise
-        x    <- integral 0                   -< velV^._x
-        y    <- integrateBounded (-90, 90) 0 -< velV^._y
-        returnA -< cam `pitch` x `yaw` y
+        x    <- integralWith fmod 0           -< (2*pi, velV^._x)
+        y    <- integrateBounded (-90, 90) 0  -< velV^._y
+        returnA -< cam `pitch` y `yaw` x
 
 
 -- | rotation about focus point
@@ -118,7 +117,6 @@ arcBallRotation velocitySource =
         x    <- integral 0                      -< velV^._x
         y    <- integrateBounded (-90, 90) 0    -< velV^._y
 
-        let rotCam = cam `pitch` x `yaw` y
+        let rotCam = cam `pitch` y `yaw` x
             pos    = (rotCam^.orientation) `rotate` (focusToCam + focusPoint)
         returnA -< rotCam & position     .~ pos
-
