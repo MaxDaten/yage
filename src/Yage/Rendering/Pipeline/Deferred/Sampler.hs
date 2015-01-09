@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeOperators    #-}
 {-# LANGUAGE KindSignatures   #-}
 module Yage.Rendering.Pipeline.Deferred.Sampler where

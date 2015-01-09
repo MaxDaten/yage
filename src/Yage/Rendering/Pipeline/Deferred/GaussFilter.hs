@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TypeOperators  #-}
-{-# LANGUAGE QuasiQuotes    #-}
 module Yage.Rendering.Pipeline.Deferred.GaussFilter where
 
 import Yage.Prelude

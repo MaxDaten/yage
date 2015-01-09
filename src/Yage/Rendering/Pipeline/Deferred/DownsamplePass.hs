@@ -1,6 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
 module Yage.Rendering.Pipeline.Deferred.DownsamplePass where
 
 import Yage.Prelude

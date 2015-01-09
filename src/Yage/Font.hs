@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing      #-}
-{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE DeriveDataTypeable   #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
 module Yage.Font

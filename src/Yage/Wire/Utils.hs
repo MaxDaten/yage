@@ -1,5 +1,4 @@
 {-# LANGUAGE Arrows                 #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Wire.Utils where
 

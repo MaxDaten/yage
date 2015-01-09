@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Yage.Rendering.Pipeline.Deferred.HDR where
 
