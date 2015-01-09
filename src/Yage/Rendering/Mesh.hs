@@ -35,10 +35,10 @@ data MeshComponent = MeshComponent
 
 -- TODO: smart vertex book-keeping?
 data Mesh v = Mesh
-    { _meshId             :: MeshId
-    , _meshVertexBuffer   :: [(VS.Vector v)]
-    , _meshComponents     :: (Map MeshId MeshComponent)
-    } deriving ( Typeable, Generic )
+  { _meshId             :: MeshId
+  , _meshVertexBuffer   :: [(VS.Vector v)]
+  , _meshComponents     :: (Map MeshId MeshComponent)
+  } deriving ( Typeable, Generic )
 
 makeLenses ''MeshComponent
 makeLenses ''Mesh

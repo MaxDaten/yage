@@ -57,9 +57,9 @@ yDeferredLighting = do
   throwWithStack $ buildNamedStrings $(embedDir "res/glsl") ("/res/glsl"</>)
 
   baseSampler <- mkBaseSampler
-  gBasePass   <- drawGBuffers
+  gBasePass      <- drawGBuffers
   screenQuadPass <- drawRectangle
-  skyPass <- drawSky
+  skyPass        <- drawSky
 
   return $ do
     val <- ask
@@ -68,7 +68,6 @@ yDeferredLighting = do
     envBuffer <- maybe (return gbuffer) (\sky -> skyPass . pure (sky, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
     -- bring it to screen
     screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], val^.viewport)
-
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do
