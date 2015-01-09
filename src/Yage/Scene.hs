@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE FunctionalDependencies #-}

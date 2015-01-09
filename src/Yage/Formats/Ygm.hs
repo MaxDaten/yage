@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE NamedFieldPuns       #-}
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
 module Yage.Formats.Ygm
   ( YGM(..)
   -- * Format
@@ -26,7 +25,7 @@ import           Yage.Prelude
 
 
 import           Data.Binary
-import           Data.Map                    (keys)
+-- import           Data.Map                    (keys)
 import           Data.Data
 import           Data.Text.Binary            as Bin ()
 import           Foreign.Storable
