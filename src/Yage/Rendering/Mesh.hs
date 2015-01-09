@@ -17,17 +17,12 @@ import qualified Data.Vector.Storable                as VS
 import qualified Data.Vector                         as V
 import           Data.Foldable                       (toList)
 import           Data.List                           (mapAccumL)
-import qualified Data.Digest.XXHash                  as XH
-import qualified Data.Vector.Storable.ByteString     as BS
 
 import           Data.Bits
 import Yage.Geometry
 import Yage.Geometry.Elements as E (Triangle(..))
 ---------------------------------------------------------------------------------------------------
 
-
-
-type MeshHash = XH.XXHash
 type MeshId   = ByteString
 
 
@@ -35,7 +30,6 @@ type MeshId   = ByteString
 data MeshComponent = MeshComponent
   { _componentId             :: MeshId
   , _componentIndexBuffer    :: (VS.Vector Int)
-  , _componentHash           :: MeshHash
   } deriving ( Typeable, Generic )
 
 
@@ -44,7 +38,6 @@ data Mesh v = Mesh
     { _meshId             :: MeshId
     , _meshVertexBuffer   :: [(VS.Vector v)]
     , _meshComponents     :: (Map MeshId MeshComponent)
-    , _meshHash           :: MeshHash
     } deriving ( Typeable, Generic )
 
 makeLenses ''MeshComponent
@@ -63,12 +56,6 @@ componentCount = meshComponents.to (lengthOf traverse)
 indexCount :: Getter MeshComponent Int
 indexCount = componentIndexBuffer.to (VS.length)
 {-# INLINE indexCount #-}
-
-meshComponentsHash :: Getter (Mesh v) MeshHash
-meshComponentsHash = meshComponents.to compHashes where
-    compHashes compMap = XH.xxHash . pack $ concatMap octets $ compMap^..traverse.componentHash
-{-# INLINE meshComponentsHash #-}
-
 
 -- | concat of the indices of all `MeshComponent`s
 concatedMeshIndices :: Getter (Mesh v) (VS.Vector Int)
@@ -107,14 +94,13 @@ mkFromVertices ident verts =
 
 
 makeComponent :: MeshId -> VS.Vector Int -> MeshComponent
-makeComponent ident indices = MeshComponent ident indices (hashVector indices)
+makeComponent ident indices = MeshComponent ident indices
 {-# INLINE makeComponent #-}
 
 
 componentIndices :: Lens' MeshComponent (VS.Vector Int)
 componentIndices = lens _componentIndexBuffer setter where
   setter comp idxs = comp & componentIndexBuffer .~ idxs
-                          & componentHash .~ (hashVector idxs)
 {-# INLINE componentIndices #-}
 
 -- | builds a mesh from geometry
@@ -130,7 +116,7 @@ meshFromTriGeo ident geo@Geometry{..} =
 
 -- | unified empty mesh with "" identifier
 emptyMesh :: Storable v => Mesh v
-emptyMesh = Mesh "" [] mempty 0
+emptyMesh = Mesh "" [] mempty
 {-# INLINE emptyMesh #-}
 
 
@@ -170,10 +156,6 @@ flattenIndices = {-# SCC flattenIndices #-}
 {-# INLINE flattenIndices #-}
 
 
-hashVector :: Storable a => VS.Vector a -> XH.XXHash
-hashVector = {-# SCC hashVector #-} XH.xxHash' . BS.vectorToByteString
-{-# INLINE hashVector #-}
-
 -- stolen from http://www.haskell.org/pipermail/beginners/2010-October/005571.html
 octets :: Word32 -> [Word8]
 octets w =
@@ -186,11 +168,10 @@ octets w =
 
 instance (Storable v) => Show (Mesh v) where
     show m@Mesh{..} = show $
-      format "Mesh { id = {}, #vertexBuffer = {}, meshHash = {}, components = {} }"
+      format "Mesh { id = {}, #vertexBuffer = {}, components = {} }"
                ( Shown _meshId
                , Shown $ m^.vertexCount
                --, Shown $ _meshVertexBuffer
-               , hex _meshHash
                , Shown $ _meshComponents^..traverse
                )
 
@@ -200,7 +181,6 @@ instance Show MeshComponent where
       ( Shown _componentId
       , Shown $ VS.length _componentIndexBuffer
       , Shown $ _componentIndexBuffer
-      , hex _componentHash
       )
 
 instance Eq (Mesh v) where
