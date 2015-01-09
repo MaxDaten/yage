@@ -35,7 +35,7 @@ Flag library
     manual:        True
 
 Flag standalone-exe
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag cubemap-files
@@ -51,19 +51,19 @@ Flag obj2ygm
     manual:        True
 
 Flag fontAtlasGen
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag textureAtlas
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag test-transformation
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag test-parsing-obj
-    Default:       True
+    Default:       False
     manual:        True
 
 Flag bench-ygm-criterion
@@ -173,8 +173,7 @@ library
 
     Yage.UI.Types
 
-  ghc-options: -Wall -O2
---  cpp-options: -strip-eol
+  ghc-options: -Wall -O
   ghc-prof-options: -rtsopts -prof -fprof-auto-calls
 
 
