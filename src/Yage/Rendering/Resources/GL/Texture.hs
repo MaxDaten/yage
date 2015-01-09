@@ -70,6 +70,7 @@ createTexture2DImage img = throwWithStack $ do
   tex <- Texture (baseTextureTarget img) (Texture2D w h) 1 <$> glResource
   GL.boundTexture (baseTextureTarget img) GL_TEXTURE_BINDING_2D $= tex^.textureObject
   store img (baseTextureTarget img)
+  upload img (baseTextureTarget img) 0
   return tex
  where
   V2 w h = img^.asRectangle.xy2
