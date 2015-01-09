@@ -65,7 +65,7 @@ yDeferredLighting = do
     val <- ask
     gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
     -- environment & lighting
-    envBuffer <- maybe (return gbuffer) (\sky -> skyPass . pure (sky, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
+    envBuffer <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
     -- bring it to screen
     screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], val^.viewport)
 
