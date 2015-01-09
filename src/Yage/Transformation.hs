@@ -29,7 +29,7 @@ idTransformation = Transformation 0 1 1
 transformationMatrix :: (Num a, HasTransformation t a) => Getter t (M44 a)
 transformationMatrix = transformation.to matrix where
   matrix trans =
-    let scaleM       = kronecker . point $ trans^.scale
+    let scaleM       = scaled . point $ trans^.scale
         transM       = mkTransformation (trans^.orientation) (trans^.position)
     in transM !*! scaleM
 
