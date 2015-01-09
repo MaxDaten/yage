@@ -52,7 +52,7 @@ type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasCamera a) => YageResource (RenderSystem a ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWithStack $ buildNamedStrings embededShaders ("/res/glsl"</>)
+  throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
 
   baseSampler <- mkBaseSampler
   gBasePass      <- drawGBuffers
