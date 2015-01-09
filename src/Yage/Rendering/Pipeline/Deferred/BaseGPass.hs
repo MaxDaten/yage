@@ -55,6 +55,7 @@ import           Quine.GL.Program
 import           Quine.GL.Buffer
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
+import           Quine.GL.Sampler
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -133,6 +134,7 @@ drawGBuffers = do
   pipeline <- [ $(embedShaderFile "res/glsl/pass/base.vert")
               , $(embedShaderFile "res/glsl/pass/base.frag")]
               `compileShaderPipeline` includePaths
+
 
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
@@ -264,9 +266,57 @@ vertexUniforms prog = do
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix3f prog "NormalMatrix")
 
-fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
-fragmentUniforms prog = FragmentShader
-  <$> materialUniformColor prog ALBEDO_UNIT "AlbedoTexture" "AlbedoColor"
-  <*> materialUniformColor prog NORMAL_UNIT "NormalTexture" "NormalColor"
-  <*> materialUniformColor1 prog ROUGHNESS_UNIT "RoughnessTexture" "RoughnessIntensity"
-  <*> materialUniformColor1 prog METALLIC_UNIT "MetallicTexture" "MetallicIntensity"
+fragmentUniforms :: Program -> YageResource FragmentShader
+fragmentUniforms prog = do
+  albedoSampler    <- mkAlbedoSampler
+  normalSampler    <- mkNormalSampler
+  roughnessSampler <- mkRoughnessSampler
+  metallicSampler  <- mkMetallicSampler
+  FragmentShader
+    <$> materialUniformRGBA prog albedoSampler "AlbedoTexture" "AlbedoColor"
+    <*> materialUniformRGBA prog normalSampler "NormalTexture" "NormalColor"
+    <*> materialUniformIntensity prog roughnessSampler "RoughnessTexture" "RoughnessIntensity"
+    <*> materialUniformIntensity prog metallicSampler "MetallicTexture" "MetallicIntensity"
+
+-- * Sampler
+
+mkAlbedoSampler :: YageResource UniformSampler
+mkAlbedoSampler = throwWithStack $ sampler2D ALBEDO_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
+
+mkNormalSampler :: YageResource UniformSampler
+mkNormalSampler = throwWithStack $ sampler2D NORMAL_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
+
+mkRoughnessSampler :: YageResource UniformSampler
+mkRoughnessSampler = throwWithStack $ sampler2D ROUGHNESS_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
+
+mkMetallicSampler :: YageResource UniformSampler
+mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
+

@@ -1,41 +1,62 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes       #-}
 module Yage.Uniforms.Material
   ( UniformVar
-  , materialUniformColor
+  , UniformSampler
   , materialUniform
-  , materialUniformColor1
-  , materialUniformColor4
+  , materialUniformIntensity
+  , materialUniformRGBA
+  , materialUniformV4
+  -- * Sampler
+  , samplerUniform
+  , sampler2D
+  , samplerCube
   ) where
 
 import           Yage.Prelude
 import           Yage.Lens
+import           Yage.GL
 import           Yage.Material            hiding (over)
 
 
 import           Quine.GL.Program
 import           Quine.GL.Texture         hiding (Texture)
 import           Quine.GL.Uniform
+import           Quine.GL.Sampler
 import           Quine.StateVar
 import           Linear
 
 import           Yage.Rendering.Resources.GL.Texture
 
 type UniformVar = SettableStateVar
+data UniformSampler = UniformSampler TextureUnit (forall px. UniformVar (Maybe (Texture px)))
 
-materialUniformColor :: (Functor m, MonadIO m) => Program -> TextureUnit -> String -> String -> m (UniformVar (Material MaterialColorAlpha (Texture px)))
-materialUniformColor prog texunit texname colorname = contramap (over materialColor linearV4) <$> materialUniformColor4 prog texunit texname colorname
+samplerUniform :: TextureTarget -> TextureUnit -> Sampler -> UniformSampler
+samplerUniform t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
+  activeTexture $= u
+  boundSampler u $= s
+  boundTexture t 0 $= maybe def (view textureObject) mtex
 
-materialUniform :: (Functor m, MonadIO m, HasSetter g a IO) => (Program -> UniformLocation -> g) -> Program -> TextureUnit -> String -> String -> m (UniformVar (Material a (Texture px)))
-materialUniform colorUniform prog texunit texname colorname = do
+sampler2D :: TextureUnit -> Sampler -> UniformSampler
+sampler2D = samplerUniform GL_TEXTURE_2D
+
+samplerCube :: TextureUnit -> Sampler -> UniformSampler
+samplerCube = samplerUniform GL_TEXTURE_CUBE_MAP
+
+materialUniformRGBA :: (Functor m, MonadIO m) => Program -> UniformSampler -> String -> String -> m (UniformVar (Material MaterialColorAlpha (Texture px)))
+materialUniformRGBA prog sampler texname colorname = contramap (over materialColor linearV4) <$> materialUniformV4 prog sampler texname colorname
+
+materialUniform :: (Functor m, MonadIO m, HasSetter g a IO) => (Program -> UniformLocation -> g) -> Program -> UniformSampler -> String -> String -> m (UniformVar (Material a (Texture px)))
+materialUniform colorUniform prog (UniformSampler texunit var) texname colorname = do
   texture <- programUniform programUniform1i prog texname
-  texture $= (fromIntegral texunit)
+  texture $= fromIntegral texunit
   colorloc <- uniformLocation prog colorname
   return $ SettableStateVar $ \mat -> do
-    bindTextures (mat^.materialTexture.textureTarget) [(texunit, Just $ mat^.materialTexture)]
+    var $= (Just $ mat^.materialTexture)
     colorUniform prog colorloc $= mat^.materialColor
 
-materialUniformColor4 :: (Functor m, MonadIO m, Real a) => Program -> TextureUnit -> String -> String -> m (UniformVar (Material (V4 a) (Texture px)))
-materialUniformColor4 prog texunit texname colorname = contramap (over (materialColor.mapped) realToFrac) <$> materialUniform programUniform4f prog texunit texname colorname
+materialUniformV4 :: (Functor m, MonadIO m, Real a) => Program -> UniformSampler -> String -> String -> m (UniformVar (Material (V4 a) (Texture px)))
+materialUniformV4 prog sampler texname colorname = contramap (over (materialColor.mapped) realToFrac) <$> materialUniform programUniform4f prog sampler texname colorname
 
-materialUniformColor1 :: (Functor m, MonadIO m, Real a) => Program -> TextureUnit -> String -> String -> m (UniformVar (Material a (Texture px)))
-materialUniformColor1 prog texunit texname colorname = contramap (over materialColor realToFrac) <$> materialUniform programUniform1f prog texunit texname colorname
+materialUniformIntensity :: (Functor m, MonadIO m, Real a) => Program -> UniformSampler -> String -> String -> m (UniformVar (Material a (Texture px)))
+materialUniformIntensity prog sampler texname colorname = contramap (over materialColor realToFrac) <$> materialUniform programUniform1f prog sampler texname colorname

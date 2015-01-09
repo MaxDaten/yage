@@ -43,6 +43,7 @@ import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
 import           Quine.GL.Buffer
+import           Quine.GL.Sampler
 import           Quine.GL.VertexArray
 import           Quine.StateVar
 import           Quine.GL.ProgramPipeline
@@ -160,11 +161,28 @@ vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexSh
 vertexUniforms prog = do
   boundAttributeLocation prog "vPosition" $= VPOSITION
   VertexShader (setVertexAttribute VPOSITION)
-    -- wrap the StateVar into a simple SettableStateVar
+    -- wraps the StateVar into a simple SettableStateVar
     <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "SkyTextureMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
 
-fragmentUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m FragmentShader
-fragmentUniforms prog = FragmentShader <$> materialUniformColor prog ENVIRONMENT_UNIT "SkyTexture" "SkyColor"
+fragmentUniforms :: Program -> YageResource FragmentShader
+fragmentUniforms prog = do
+  cubeSampler <- mkCubeSampler
+  FragmentShader <$> materialUniformRGBA prog cubeSampler "SkyTexture" "SkyColor"
+
+-- * Sampler
+
+mkCubeSampler :: YageResource UniformSampler
+mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_ARB_seamless_cubemap_per_texture $ do
+    traceM "XXX"
+    samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
+  return sampler
