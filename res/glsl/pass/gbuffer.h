@@ -158,5 +158,5 @@ Surface DecodeGBuffer( vec2 uv )
     return surface;
 }
 
-
-#endif // __GBUFFER_H__
+/* __GBUFFER_H__ */
+#endif

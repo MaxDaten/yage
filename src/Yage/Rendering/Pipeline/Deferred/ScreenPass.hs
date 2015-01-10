@@ -61,26 +61,27 @@ drawRectangle = do
       Yage.glViewport $= mainViewport^.rectangle
       lastViewportRef $= mainViewport
 
-    glClearColor 0 1 0 1
-    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+    glDepthMask GL_TRUE
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
     glDisable GL_CULL_FACE
-
+    glFrontFace GL_CCW
+    -- clear not neccessary (to safe some trees)
+    -- glClearColor 0 1 0 1
+    -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     {-# SCC boundVertexArray #-} throwWithStack $
       boundVertexArray $= emptyvao
 
     -- set shader uniforms
-    currentProgram $= def
+
     boundProgramPipeline $= pipeline^.pipelineProgram
+    checkPipelineError pipeline
 
     throwWithStack $ do
       iColors   $= mkColorVector colors
       iUsedTex  $= fromIntegral (length texs)
       bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
-
-    checkPipelineError pipeline
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3

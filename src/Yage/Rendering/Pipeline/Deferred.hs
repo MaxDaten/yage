@@ -33,9 +33,9 @@ import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
--- import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
-import           Yage.Rendering.Pipeline.Deferred.ScreenPass        as Pass
-import           Yage.Rendering.Pipeline.Deferred.SkyPass           as Pass
+import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
+import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
+import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 import           System.FilePath ((</>))
 import           Quine.GL.Sampler
@@ -58,14 +58,16 @@ yDeferredLighting = do
   gBasePass      <- drawGBuffers
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
+  lightPass      <- drawLights
 
   return $ do
     val <- ask
     gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
     -- environment & lighting
-    envBuffer <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
+    envBuffer   <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
+    lBuffer <- lightPass . pure (val^.scene.environment.lights, val^.camera, val^.viewport, envBuffer)
     -- bring it to screen
-    screenQuadPass . pure ([(1,baseSampler,envBuffer^.aBuffer)], val^.viewport)
+    screenQuadPass . pure ([(1,baseSampler,lBuffer^.lightBuffer)], val^.viewport)
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do

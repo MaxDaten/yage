@@ -3,9 +3,11 @@
 
 module Yage.Rendering.Pipeline.Deferred.Common
   ( embeddedShaders
+  , includePaths
   ) where
 
 import System.FilePath
+import qualified Filesystem.Path.CurrentOS as F
 import Data.ByteString
 import Data.FileEmbed
 
@@ -14,6 +16,9 @@ import Data.FileEmbed
 -- than a core module
 embeddedShaders :: [(FilePath,ByteString)]
 embeddedShaders = $(embedDir "res/glsl")
+
+includePaths :: [F.FilePath]
+includePaths = ["/res/glsl"]
 
 -- import Yage.Prelude
 -- import Yage.Lens

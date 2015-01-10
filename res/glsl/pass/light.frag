@@ -1,21 +1,23 @@
+#version 410 core
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_include : require
 /*
     a lighting model for physically based rendering
     calculation is done in view-space. mainly inspired by unreal engine.
 
     Context:
         - calculations, positions and vectors are in view space
-        - calculations and directions a lit point centric 
+        - calculations and directions a lit point centric
           (e.g. `L` is the direction from lit point (`P`) to the light center)
 
     # irradiance area lights
     - http://www.dgp.toronto.edu/~ghali/publications/thesis/html/node4.html
 
 */
-#version 410 core
 
-#include "Common.glsl"
-#include "GBuffer.glsl"
-#include "BRDF.glsl"
+#include <common.h>
+#include <brdf.h>
+#include "pass/gbuffer.h"
 
 
 uniform samplerCube RadianceEnvironment;
@@ -41,7 +43,7 @@ float DistanceAttenuationInverseSquare( float distance2 )
 float MaskingRadius( float distance2, float radius )
 {
     float L0 = pow( sqrt(distance2) / radius, 4 );
-    return square( saturate( 1 - L0) ); 
+    return square( saturate( 1 - L0) );
 }
 
 
@@ -63,7 +65,7 @@ vec3 ReflectanceTerm ( Surface surface, vec3 L, vec3 V )
     float a2 = square( a );
     // float Energy = 1;
     vec3 N   = surface.Normal;
-    
+
     vec3 H    = normalize( V + L );
     float NoL = saturate( dot(N, L) );
     float NoV = abs(dot(N, V)) + 1e-5f; // avoid artifact [Lagarde & Rousiers 2014, Moving Frostbite to Physically Based Rendering, S.12]
@@ -115,7 +117,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
         // direction to the light
         L = PtoL / sqrt( distance2 );
-        
+
         if ( IsSpotlight( light ) )
         {
             Attenuation *= SpotAttenuation( L, light);
@@ -150,7 +152,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 void main()
 {
     vec2 gBufferUV = 0.5 + 0.5 * ScreenPos.xy / ScreenPos.w;
-    
+
     Surface surface = DecodeGBuffer( gBufferUV );
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 

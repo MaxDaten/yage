@@ -1,7 +1,14 @@
 #version 410 core
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_include : require
 
-#include "Common.glsl"
-#include "BRDF.glsl"
+#include <common.h>
+#include <attributes.h>
+#include <brdf.h>
+
+out gl_PerVertex {
+vec4 gl_Position;
+};
 
 uniform mat4 ViewMatrix;
 uniform mat4 VPMatrix;
@@ -9,9 +16,7 @@ uniform mat4 ModelMatrix;
 uniform mat4 ViewToScreenMatrix;
 uniform LightData Light;
 
-uniform ivec2 ViewportDim;
-
-in vec3 vPosition;
+layout(location = VPOSITION) in vec3 vPosition;
 
 out vec3 VertexPosVS;
 out vec4 ScreenPos;
@@ -26,7 +31,7 @@ void main()
     {
         VertexPosVS     = (ViewMatrix * ModelMatrix * vec4(vPosition, 1.0)).xyz;
         OutPosition     = MVPMatrix * vec4( vPosition, 1.0 );
-    } 
+    }
     // directional light
     else
     {
@@ -38,5 +43,4 @@ void main()
     ScreenPos    = OutPosition;
     gl_Position  = OutPosition;
 
-    UNUSED(ViewportDim);
 }

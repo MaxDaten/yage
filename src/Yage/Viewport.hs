@@ -4,11 +4,11 @@
 {-# LANGUAGE FunctionalDependencies #-}
 module Yage.Viewport
   ( Viewport(..), HasViewport(..)
-  , rectangle
   , defaultViewport
   , glViewport
   , projectionMatrix3D
   , orthographicMatrix
+  , module Rectangle
   ) where
 
 import Yage.Prelude
@@ -18,7 +18,7 @@ import Yage.Lens
 import Data.Data
 import Foreign.Marshal.Array
 import Quine.StateVar
-import Yage.Geometry.D2.Rectangle
+import Yage.Geometry.D2.Rectangle as Rectangle
 
 data Viewport a = Viewport
   { _viewportRectangle   :: !(Rectangle a)

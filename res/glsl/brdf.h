@@ -6,8 +6,8 @@
     - [https://de45xmedrsdbp.cloudfront.net/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf]
     - [Lengyel 2004] : Mathematics for 3d Game Programming & Computer Graphics
 */
-#ifndef __BRDF__
-#define __BRDF__
+#ifndef __BRDF_H__
+#define __BRDF_H__
 
 
 struct LightData
@@ -61,7 +61,7 @@ float D_GGX( float m2, float NoH )
     # Microsurface'ed Normal Distribution Function
 
     Scattering with microsurfaces.
-*/ 
+*/
 float SpecularNDF( float Roughness4, float NoH )
 {
     return D_GGX( Roughness4, NoH );
@@ -78,9 +78,9 @@ vec3 FresnelSchlick( vec3 F0, float F90, float VoH )
 }
 
 
-/* 
+/*
     # The Fresnel Factor
-    
+
     The fraction of transmitted (and probably absorbed) energy to reflected energy
     [Lengyel 2004, 6.9.3]
 */
@@ -126,8 +126,8 @@ float GeometricSmith( float a, float NoV, float NoL )
     # The Geometric Attenuation
 
     Approximation of self shadowing due the microsurfaces
-    
-    Vis = G / ( 4*NoL*NoV ) 
+
+    Vis = G / ( 4*NoL*NoV )
     [Lazarov 2011, "Physically Based Lighting in Black Ops"]
 */
 float Geometric( float a, float NoV, float NoL)
@@ -149,7 +149,7 @@ vec2 EnvironmentBRDFApprox( float Roughness, float NoV )
     vec4 r = Roughness * c0 + c1;
     float a004 = min( r.x * r.x, exp2( -9.28 * NoV ) ) * r.x + r.y;
     vec2 AB = vec2( -1.04, 1.04 ) * a004 + r.zw;
-    return AB; 
+    return AB;
 }
 
 /*
@@ -157,8 +157,8 @@ vec2 EnvironmentBRDFApprox( float Roughness, float NoV )
 */
 vec2 EnvironmentBRDF( float Roughness, float NoV )
 {
-    return EnvironmentBRDFApprox( Roughness, NoV); 
+    return EnvironmentBRDFApprox( Roughness, NoV);
 }
 
-
-#endif // BRDF
+// __BRDF_H__
+#endif

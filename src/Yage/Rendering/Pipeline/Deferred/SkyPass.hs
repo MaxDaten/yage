@@ -35,6 +35,7 @@ import           Yage.Viewport
 
 import           Yage.Rendering.GL
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass (GBuffer,aBuffer,depthBuffer)
+import           Yage.Rendering.Pipeline.Deferred.Common
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.Resources.GL
 
@@ -50,8 +51,6 @@ import           Quine.GL.ProgramPipeline
 #include "definitions.h"
 #include "textureUnits.h"
 #include "attributes.h"
-includePaths :: [FilePath]
-includePaths = ["/res/glsl"]
 
 -- * Material
 data SkyMaterial t = SkyMaterial
@@ -107,6 +106,7 @@ drawSky = do
     -- state setting
     glEnable GL_DEPTH_TEST
     glDepthFunc GL_LESS
+    glDepthMask GL_TRUE
     glDisable GL_BLEND
 
     glFrontFace GL_CW
@@ -115,7 +115,6 @@ drawSky = do
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
-    currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 

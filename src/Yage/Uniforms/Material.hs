@@ -13,22 +13,21 @@ module Yage.Uniforms.Material
   , samplerCube
   ) where
 
-import           Yage.Prelude
-import           Yage.Lens
-import           Yage.GL
-import           Yage.Material            hiding (over)
+import Yage.Prelude
+import Yage.Lens
+import Yage.GL
+import Yage.Material            hiding (over)
+import Yage.Uniforms.UniformVar
 
+import Quine.GL.Program
+import Quine.GL.Texture         hiding (Texture)
+import Quine.GL.Uniform
+import Quine.GL.Sampler
+import Quine.StateVar
+import Linear
 
-import           Quine.GL.Program
-import           Quine.GL.Texture         hiding (Texture)
-import           Quine.GL.Uniform
-import           Quine.GL.Sampler
-import           Quine.StateVar
-import           Linear
+import Yage.Rendering.Resources.GL.Texture
 
-import           Yage.Rendering.Resources.GL.Texture
-
-type UniformVar = SettableStateVar
 data UniformSampler = UniformSampler TextureUnit (forall px. UniformVar (Maybe (Texture px)))
 
 samplerUniform :: TextureTarget -> TextureUnit -> Sampler -> UniformSampler

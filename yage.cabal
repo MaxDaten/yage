@@ -21,7 +21,6 @@ data-files:
   res/glsl/*.h
   res/glsl/pass/*.frag
   res/glsl/pass/*.vert
-  res/glsl/pass/*.glsl
   res/glsl/pass/*.h
   res/glsl/sampling/*.frag
   res/glsl/sampling/*.h
@@ -102,6 +101,8 @@ library
     
     Yage.Uniforms
     Yage.Uniforms.Material
+    Yage.Uniforms.Light
+    Yage.Uniforms.UniformVar
 --    Yage.Uniforms.MVP
 --    Yage.Uniforms.Camera
     

@@ -56,11 +56,11 @@ import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
 import           Quine.GL.Sampler
 
+import Yage.Rendering.Pipeline.Deferred.Common
+
 #include "definitions.h"
 #include "textureUnits.h"
 #include "attributes.h"
-includePaths :: [FilePath]
-includePaths = ["/res/glsl"]
 
 -- * Material
 
@@ -88,7 +88,7 @@ data FragmentShader = FragmentShader
   }
 
 
--- | Uniform StateVars of the fragment shader
+-- | Uniforms
 data VertexShader = VertexShader
   { vPosition               :: VertexAttribute
   , vTexture                :: VertexAttribute
@@ -167,6 +167,8 @@ drawGBuffers = do
     -- some state setting
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+    glDepthMask GL_TRUE
+    glDepthFunc GL_LESS
     glEnable GL_DEPTH_TEST
     glDisable GL_BLEND
 
@@ -176,7 +178,6 @@ drawGBuffers = do
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
-    currentProgram $= def
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
