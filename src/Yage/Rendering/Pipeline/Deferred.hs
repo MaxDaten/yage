@@ -27,6 +27,7 @@ import           Yage.Rendering.RenderSystem                     as RenderSystem
 import           Yage.Rendering.Resources.GL
 import           Yage.Scene
 import           Yage.Viewport
+import           Yage.Material
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
@@ -45,7 +46,8 @@ import           Quine.StateVar
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
 type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial Texture)
-type DeferredEnvironment = Environment () DeferredSky
+type DeferredLight       = LightEntity (RenderData Word32 (Position Vec3))
+type DeferredEnvironment = Environment DeferredLight DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
 
@@ -58,15 +60,21 @@ yDeferredLighting = do
   gBasePass      <- drawGBuffers
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
-  lightPass      <- drawLights
+
+  defaultRadiance <- view materialTexture <$> materialRes defaultMaterialSRGB
+  lightPass       <- drawLights
 
   return $ do
     val <- ask
     gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
+
     -- environment & lighting
     envBuffer   <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
-    lBuffer <- lightPass . pure (val^.scene.environment.lights, val^.camera, val^.viewport, envBuffer)
-    -- bring it to screen
+
+    let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
+    lBuffer <- lightPass . pure (val^.scene.environment.lights, radiance, val^.camera, val^.viewport, envBuffer)
+
+    -- bring it to the screen
     screenQuadPass . pure ([(1,baseSampler,lBuffer^.lightBuffer)], val^.viewport)
 
 mkBaseSampler :: YageResource Sampler

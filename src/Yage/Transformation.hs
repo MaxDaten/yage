@@ -78,3 +78,15 @@ instance LinearInterpolatable Float where
 instance LinearInterpolatable Double where
   lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
   {-# INLINE lerp #-}
+
+-- | Creates a Quaternion from a orthonormalized vector space
+--   and a normalized look-at direction vector
+lookAtQ :: (Epsilon a, RealFloat a, Show a) => M33 a -> V3 a -> Quaternion a
+lookAtQ (V3 _wx wy wz) directionVector =
+    let axis   = normalize $ wy `cross` directionVector
+        theta  = wy `dot` directionVector
+    in if | nearZero (theta - 1) -> 1
+          | nearZero (theta + 1) -> axisAngle wz pi
+          | otherwise            -> axisAngle axis (acos theta)
+{-# SPECIALISE INLINE lookAtQ :: M33 Float -> V3 Float -> Quaternion Float #-}
+{-# SPECIALISE INLINE lookAtQ :: M33 Double -> V3 Double -> Quaternion Double #-}

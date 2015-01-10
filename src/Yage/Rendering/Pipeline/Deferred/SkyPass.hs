@@ -171,7 +171,7 @@ fragmentUniforms prog = do
 
 -- * Sampler
 
-mkCubeSampler :: YageResource UniformSampler
+mkCubeSampler :: YageResource (UniformSampler px)
 mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

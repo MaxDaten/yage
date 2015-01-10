@@ -31,7 +31,7 @@ data Entity mesh mat = Entity
 
 makeLenses ''Entity
 
-data LightEntity mesh = LightEntity (Entity mesh ()) !Light
+data LightEntity mesh = LightEntity mesh !Light
 
 
 data Environment lit sky = Environment
@@ -159,5 +159,5 @@ instance LinearInterpolatable (Entity a b) where
 --           & envAmbient .~ (lerp alpha (u^.envAmbient) (v^.envAmbient))
 
 instance LinearInterpolatable (LightEntity mesh) where
-    lerp alpha (LightEntity eu lu) (LightEntity ev lv) = LightEntity (lerp alpha eu ev) (lerp alpha lu lv)
+    lerp alpha (LightEntity _ lu) (LightEntity mesh lv) = LightEntity mesh (lerp alpha lu lv)
 

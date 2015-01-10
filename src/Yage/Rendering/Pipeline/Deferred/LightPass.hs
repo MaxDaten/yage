@@ -1,20 +1,24 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing -fno-warn-orphans -fno-warn-type-defaults #-}
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeOperators        #-}
 
 module Yage.Rendering.Pipeline.Deferred.LightPass
   ( lightBuffer
   , drawLights
   ) where
 
-import Yage.Prelude
+import Yage.Prelude hiding (forM_)
 import Yage.Lens
-import Yage.Math
+import Yage.Math hiding (lookAt)
 import Yage.GL
 
+import Data.Foldable
+import Foreign.Ptr (nullPtr)
 
 import Yage.Uniforms as U
 import Yage.Camera
@@ -23,6 +27,7 @@ import Yage.Viewport as VP
 import Yage.Scene
 import Yage.Transformation
 import Yage.Material
+import qualified Yage.Vertex as V
 import Yage.Attribute
 
 import Yage.Rendering.GL
@@ -33,7 +38,7 @@ import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Rendering.Pipeline.Deferred.Common
 
 import Quine.GL.Uniform
-import Quine.GL.Attribute
+import Quine.GL.Attribute hiding (normalize)
 import Quine.GL.Program
 import Quine.GL.Buffer
 import Quine.GL.Sampler
@@ -46,9 +51,12 @@ import Quine.GL.ProgramPipeline
 #include "textureUnits.h"
 #include "attributes.h"
 
+-- * Vertex Attributes
+type LightVertex v = (V.HasPosition v Vec3)
+
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { radianceEnvironment  :: UniformSampler
+  { radianceEnvironment  :: UniformSampler PixelRGB8
   , cameraPosition       :: UniformVar Vec3
   , fragLight            :: UniformVar Light
   }
@@ -67,7 +75,7 @@ declareLenses [d|
   newtype LightBuffer = LightBuffer { lightBuffer :: (Texture PixelRGBA8) } deriving (Show,Generic)
   |]
 
-drawLights :: YageResource (RenderSystem (f light, Camera, Viewport Int, GBuffer) LightBuffer)
+drawLights :: (Foldable f, HasRenderData d i v, LightVertex v) => YageResource (RenderSystem (f (LightEntity d), (Texture PixelRGB8), Camera, Viewport Int, GBuffer) LightBuffer)
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -85,7 +93,7 @@ drawLights = do
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
 
   return $ do
-    (lights, cam, mainViewport, gBuffer) <- ask
+    (lights, radianceMap, cam, mainViewport, gBuffer) <- ask
     lastViewport <- get lastViewportRef
 
     -- resizing the framebuffer
@@ -108,6 +116,7 @@ drawLights = do
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_FRONT
+    glClearColor 0 1 1 1
     glClear GL_COLOR_BUFFER_BIT
 
     -- set globals
@@ -115,10 +124,48 @@ drawLights = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    -- setupSceneGlobals vert frag . pure (cam, mainViewport)
-    -- drawSkyEntity vert frag . pure sky
-    return $ LightBuffer (gBuffer^.aBuffer)
+    setupSceneGlobals vert frag cam mainViewport radianceMap
+    drawLightEntities vert frag . pure lights
+    LightBuffer <$> get lBuffer
 
+setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> RenderSystem a ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam viewport radiance = do
+  let Rectangle xy0 xy1 = fromIntegral <$> viewport^.rectangle
+  viewToScreenMatrix  $= ortho (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
+  vpMatrix            $= fmap realToFrac <$> viewprojectionM cam viewport
+  viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
+  radianceEnvironment $= radiance
+ where
+  viewprojectionM :: Camera -> Viewport Int -> M44 Double
+  viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
+
+
+drawLightEntities :: forall f d i v. (Foldable f, HasRenderData d i v, LightVertex v) => VertexShader -> FragmentShader -> RenderSystem (f (LightEntity d)) ()
+drawLightEntities  VertexShader{..} FragmentShader{..} = do
+  lights <- ask
+  forM_ lights $ \(LightEntity rdata light) -> do
+    -- set shader
+    modelMatrix $= (fmap realToFrac <$> mkLightModelMatrix (light^.lightType))
+    fragLight $= light
+    vertLight $= light
+    -- render data
+    boundBufferAt ElementArrayBuffer $= rdata^.indexBuffer
+    boundBufferAt ArrayBuffer $= rdata^.vertexBuffer
+    vPosition $= Just ((Proxy :: Proxy v)^.V.positionlayout)
+
+    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
+
+mkLightModelMatrix :: LightType -> DMat4
+mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius
+mkLightModelMatrix Spotlight{..} =
+  let half = _sLightOuterAngle / 2.0
+      basisRadius = _sLightRadius * sin half / sin (pi / 2.0 - half)
+      worldSpace  = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+  in view transformationMatrix $ idTransformation
+        & position    .~ _sLightPosition
+        & scale       .~ V3 basisRadius _sLightRadius basisRadius
+        & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
+mkLightModelMatrix DirectionalLight{..} = undefined
 
 -- * Shader Interfaces
 
@@ -140,7 +187,7 @@ fragmentUniforms prog = FragmentShader
 
 -- * Sampler
 
-mkCubeSampler :: YageResource UniformSampler
+mkCubeSampler :: YageResource (UniformSampler PixelRGB8)
 mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
