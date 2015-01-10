@@ -18,14 +18,13 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , GBaseMaterial(..)
   , HasGBaseMaterial(..)
   , albedo
-  , normal
+  , normalmap
   , roughness
   , metallic
   , defaultGBaseMaterial
   , gBaseMaterialRes
   -- * Vertex Attributes
   , GBaseVertex
-  , GBaseVertexLayout
   -- * Pass Output
   , GBuffer(..)
   , aBuffer
@@ -67,7 +66,7 @@ includePaths = ["/res/glsl"]
 
 data GBaseMaterial t = GBaseMaterial
   { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (t PixelRGBA8)
-  , _gBaseMaterialNormal    :: Material MaterialColorAlpha (t PixelRGBA8)
+  , _gBaseMaterialNormalmap :: Material MaterialColorAlpha (t PixelRGBA8)
   , _gBaseMaterialRoughness :: Material Double (t Pixel8)
   , _gBaseMaterialMetallic  :: Material Double (t Pixel8)
   }
@@ -79,7 +78,6 @@ makeFields ''GBaseMaterial
 
 -- * Vertex Attributes
 type GBaseVertex v = (HasPosition v Vec3, HasTexture v Vec2, HasTangentX v Vec3, HasTangentZ v Vec4)
-type GBaseVertexLayout v = (HasPosition (HasLayout v) Layout, HasTexture (HasLayout v) Layout, HasTangentX (HasLayout v) Layout, HasTangentZ (HasLayout v) Layout)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
@@ -121,10 +119,11 @@ data GBuffer = GBuffer
 
 makeLenses ''GBuffer
 
--- * Draw To GBuffer
 
-type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertexLayout (Element v), GBaseVertex (Element v))
+type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertex v)
 type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent))
+
+-- * Draw To GBuffer
 
 drawGBuffers :: GBaseScene scene f ent i v => YageResource (RenderSystem (scene, Camera, Viewport Int) GBuffer)
 drawGBuffers = do
@@ -207,7 +206,7 @@ drawEntities VertexShader{..} FragmentShader{..} = do
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
     -- setup material
     albedoMaterial    $= ent^.gBaseMaterial.albedo
-    normalMaterial    $= ent^.gBaseMaterial.normal
+    normalMaterial    $= ent^.gBaseMaterial.normalmap
     roughnessMaterial $= ent^.gBaseMaterial.roughness
     metallicMaterial  $= ent^.gBaseMaterial.metallic
 
@@ -219,10 +218,10 @@ drawEntities VertexShader{..} FragmentShader{..} = do
     -- lastVertexLayout <- get vertexLayoutRef
     -- let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
     -- when (lastVertexLayout /= Just currentLayout) $ do
-    vPosition $= Just ((HasLayout :: HasLayout (Element v))^.position)
-    vTexture  $= Just ((HasLayout :: HasLayout (Element v))^.texture)
-    vTangentX $= Just ((HasLayout :: HasLayout (Element v))^.tangentX)
-    vTangentZ $= Just ((HasLayout :: HasLayout (Element v))^.tangentZ)
+    vPosition $= Just ((Proxy :: Proxy v)^.positionlayout)
+    vTexture  $= Just ((Proxy :: Proxy v)^.texturelayout)
+    vTangentX $= Just ((Proxy :: Proxy v)^.tangentXlayout)
+    vTangentZ $= Just ((Proxy :: Proxy v)^.tangentZlayout)
     -- vertexLayoutRef $= Just currentLayout
 
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
@@ -234,8 +233,8 @@ instance Default (GBaseMaterial Image) where
 
 defaultGBaseMaterial :: GBaseMaterial Image
 defaultGBaseMaterial = GBaseMaterial
-  { _gBaseMaterialAlbedo = defaultMaterialSRGBA
-  , _gBaseMaterialNormal = defaultMaterialSRGBA
+  { _gBaseMaterialAlbedo    = defaultMaterialSRGBA
+  , _gBaseMaterialNormalmap = defaultMaterialSRGBA
   , _gBaseMaterialRoughness = mkMaterial 1.0 whiteDummy
   , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
   }
@@ -243,7 +242,7 @@ defaultGBaseMaterial = GBaseMaterial
 gBaseMaterialRes :: GBaseMaterial Image -> YageResource (GBaseMaterial Texture)
 gBaseMaterialRes GBaseMaterial{..} = GBaseMaterial
   <$> materialRes _gBaseMaterialAlbedo
-  <*> materialRes _gBaseMaterialNormal
+  <*> materialRes _gBaseMaterialNormalmap
   <*> materialRes _gBaseMaterialRoughness
   <*> materialRes _gBaseMaterialMetallic
 

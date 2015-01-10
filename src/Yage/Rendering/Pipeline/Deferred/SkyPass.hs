@@ -11,7 +11,6 @@
 
 module Yage.Rendering.Pipeline.Deferred.SkyPass
   ( SkyEntity
-  , SkyVertexLayout
   , SkyVertex
   , SkyMaterial(..)
   , HasSkyMaterial(skyMaterial)
@@ -66,9 +65,8 @@ makeClassy ''SkyMaterial
 
 -- * Vertex Attributes
 type SkyVertex v = (HasPosition v Vec3)
-type SkyVertexLayout v = (HasPosition (HasLayout v) Layout)
 
-type SkyEntity ent i v = (HasTransformation ent Double, HasRenderData ent i v, HasSkyMaterial ent Texture, SkyVertexLayout (Element v), SkyVertex (Element v))
+type SkyEntity ent i v = (HasTransformation ent Double, HasRenderData ent i v, HasSkyMaterial ent Texture, SkyVertex v)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
@@ -149,7 +147,7 @@ drawSkyEntity VertexShader{..} FragmentShader{..} = do
   -- lastVertexLayout <- get vertexLayoutRef
   -- let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
   -- when (lastVertexLayout /= Just currentLayout) $ do
-  vPosition $= Just ((HasLayout :: HasLayout (Element v))^.position)
+  vPosition $= Just ((Proxy :: Proxy v)^.positionlayout)
   -- vertexLayoutRef $= Just currentLayout
 
   {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr

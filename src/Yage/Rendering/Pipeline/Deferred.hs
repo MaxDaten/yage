@@ -43,8 +43,8 @@ import           Quine.GL.Shader
 import           Quine.GL.Types
 import           Quine.StateVar
 
-type DeferredEntity      = Entity (RenderData (SVector Word32) (SVector YGMVertex)) (GBaseMaterial Texture)
-type DeferredSky         = Entity (RenderData (SVector Word32) (SVector (Position Vec3))) (SkyMaterial Texture)
+type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
+type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial Texture)
 type DeferredEnvironment = Environment () DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 

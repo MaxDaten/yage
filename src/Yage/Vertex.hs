@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations -ddump-splices #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving        #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -7,64 +7,82 @@
 {-# LANGUAGE TemplateHaskell        #-}
 
 module Yage.Vertex
-  ( HasLayout(HasLayout)
-  , Position(Position)
-  , HasPosition(position)
+  ( Position(Position)
   , Texture(Texture)
-  , HasTexture(texture)
   , Normal(Normal)
-  , HasNormal(normal)
-  , Tangent(Tangent)
-  , HasTangentX(tangentX)
-  , HasTangentY(tangentY)
-  , HasTangentZ(tangentZ)
+  , TangentX(TangentX)
+  , TangentY(TangentY)
+  , TangentZ(TangentZ)
+  , HasPosition(..)
+  , HasTexture(..)
+  , HasNormal(..)
+  , HasTangentX(..)
+  , HasTangentY(..)
+  , HasTangentZ(..)
   ) where
 
 import Yage.Prelude
-import Yage.Lens
+import Yage.Lens hiding (coerce)
+import Data.Coerce
 import Foreign.Ptr
 import Foreign.Storable
 import Quine.GL.Attribute
 
--- | 'HasLayout' is just a type level proxy for vertex data objects.
--- It allows the annotation of a OpenGL compatible 'Layout' to the
--- field accessors of a concrete defined vertex data type
-data HasLayout a = HasLayout
-
-newtype Position a  = Position { _positionPosition :: a } deriving (Eq,Ord,Show,Generic,Storable)
-newtype Texture a   = Texture { _textureTexture :: a } deriving (Eq,Ord,Show,Generic,Storable)
-newtype Normal a    = Normal { _normalNormal :: a } deriving (Eq,Ord,Show,Generic,Storable)
-data Tangent a = Tangent
-  { _tangentTangentX :: a
-  , _tangentTangentY :: a
-  , _tangentTangentZ :: a
-  }
+newtype Position a  = Position a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
+newtype Texture a   = Texture a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
+newtype Normal a    = Normal a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
+newtype TangentX a = TangentX a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
+newtype TangentY a = TangentY a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
+newtype TangentZ a = TangentZ a deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,Storable)
 
 
-makeFields ''Position
-makeFields ''Texture
-makeFields ''Normal
-makeFields ''Tangent
+class HasPosition a b | a -> b where
+  position :: Lens' a b
+  positionlayout :: Getter (p a) Layout
 
-instance (Storable a, Attribute a) => HasPosition (HasLayout (Position a)) Layout where
-  position = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
+class HasTexture a b | a -> b where
+  texture :: Lens' a b
+  texturelayout :: Getter (p a) Layout
 
-instance (Storable a, Attribute a) => HasTexture (HasLayout (Texture a)) Layout where
-  texture = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
+class HasNormal a b | a -> b where
+  normal :: Lens' a b
+  normallayout :: Getter (p a) Layout
 
-instance (Storable a, Attribute a) => HasNormal (HasLayout (Normal a)) Layout where
-  normal = lens (const $ Layout (components (Proxy::Proxy a)) (baseType (Proxy::Proxy a)) False (sizeOf (undefined::a)) (nullPtr)) (const)
+class HasTangentX a b | a -> b where
+  tangentX :: Lens' a b
+  tangentXlayout :: Getter (p a) Layout
 
--- | current implementation example
--- FIXME: major problem here is, it violates the first lens law (you get what you set). you cant set currently any layout, this could be missleading
--- subject for a rework
-{--
-instance HasPosition YGMVertexLayout Layout where
-  position = lens (const $ Layout 3 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr)) (const)
-instance HasTexture (HasLayout YGMVertex) Layout where
-  texture = lens (const $ Layout 2 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3)))) (const)
-instance HasTangentX (HasLayout YGMVertex) Layout where
-  tangentX = lens (const $ Layout 3 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2)))) (const)
-instance HasTangentZ (HasLayout YGMVertex) Layout where
-  tangentZ = lens (const $ Layout 4 GL_FLOAT False (sizeOf (undefined::YGMVertex)) (nullPtr `plusPtr` (sizeOf (undefined::Vec3) + sizeOf (undefined::Vec2) + sizeOf (undefined::Vec3)))) (const)
---}
+class HasTangentY a b | a -> b where
+  tangentY :: Lens' a b
+  tangentYlayout :: Getter (p a) Layout
+
+class HasTangentZ a b | a -> b where
+  tangentZ :: Lens' a b
+  tangentZlayout :: Getter (p a) Layout
+
+instance (Storable a, Attribute a) => HasPosition (Position a) a where
+  position = lens coerce (const coerce)
+  positionlayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+instance (Storable a, Attribute a) => HasNormal (Normal a) a where
+  normal = lens coerce (const coerce)
+  normallayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+instance (Storable a, Attribute a) => HasTexture (Texture a) a where
+  texture = lens coerce (const coerce)
+  texturelayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+instance (Storable a, Attribute a) => HasTangentX (TangentX a) a where
+  tangentX = lens coerce (const coerce)
+  tangentXlayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+instance (Storable a, Attribute a) => HasTangentY (TangentY a) a where
+  tangentY = lens coerce (const coerce)
+  tangentYlayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+instance (Storable a, Attribute a) => HasTangentZ (TangentZ a) a where
+  tangentZ = lens coerce (const coerce)
+  tangentZlayout = to $ const $ monoAttribute (Proxy :: Proxy a)
+
+monoAttribute :: forall p a. (Attribute a, Storable a) => p a -> Layout
+monoAttribute p = Layout (components p) (baseType p) False (sizeOf (undefined::a)) nullPtr

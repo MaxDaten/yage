@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 module Yage.Rendering.Resources.GL.Buffer
   ( RenderData(..)
   , HasRenderData(..)
@@ -23,8 +24,8 @@ import           Quine.GL.Buffer            as Img
 import           Quine.StateVar
 
 data RenderData i v = RenderData
-  { _renderDataVertexBuffer :: !(Buffer v)
-  , _renderDataIndexBuffer  :: !(Buffer i)
+  { _renderDataVertexBuffer :: !(Buffer (SVector v))
+  , _renderDataIndexBuffer  :: !(Buffer (SVector i))
   , _renderDataElementCount :: !Int
   , _renderDataElementMode  :: !GLenum
   , _renderDataElementType  :: !GLenum
@@ -38,7 +39,7 @@ makeClassyFor "HasRenderData" "renderData"
   , ("_renderDataElementType", "elementType")
   ] ''RenderData
 
-fromMesh :: Storable v => Mesh v -> YageResource (RenderData (SVector Word32) (SVector v))
+fromMesh :: Storable v => Mesh v -> YageResource (RenderData Word32 v)
 fromMesh mesh = RenderData
   <$> createVertexBuffer StaticDraw (mesh^.meshVertices)
   <*> createElementBuffer StaticDraw (VS.map fromIntegral idxs)
