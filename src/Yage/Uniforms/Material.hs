@@ -8,9 +8,10 @@ module Yage.Uniforms.Material
   , materialUniformRGBA
   , materialUniformV4
   -- * Sampler
-  , samplerUniform
+  , sampler
   , sampler2D
   , samplerCube
+  , samplerUniform
   ) where
 
 import Yage.Prelude
@@ -19,6 +20,7 @@ import Yage.GL
 import Yage.Material            hiding (over)
 import Yage.Uniforms.UniformVar
 
+import Data.Foldable
 import Quine.GL.Program
 import Quine.GL.Texture         hiding (Texture)
 import Quine.GL.Uniform
@@ -33,20 +35,27 @@ data UniformSampler px = UniformSampler TextureUnit (UniformVar (Maybe (Texture 
 instance MonadIO m => HasSetter (UniformSampler px) (Texture px) m where
   (UniformSampler _ s) $= t = s $= Just t
 
-samplerUniform :: TextureTarget -> TextureUnit -> Sampler -> UniformSampler px
-samplerUniform t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
+sampler :: TextureTarget -> TextureUnit -> Sampler -> UniformSampler px
+sampler t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
+  traverse_ (\tex -> when (tex^.textureTarget /= t) $ error "TextureTarget mismatch would result in GL error") mtex
   activeTexture $= u
   boundSampler u $= s
   boundTexture t 0 $= maybe def (view textureObject) mtex
 
 sampler2D :: TextureUnit -> Sampler -> UniformSampler px
-sampler2D = samplerUniform GL_TEXTURE_2D
+sampler2D = sampler GL_TEXTURE_2D
 
 samplerCube :: TextureUnit -> Sampler -> UniformSampler px
-samplerCube = samplerUniform GL_TEXTURE_CUBE_MAP
+samplerCube = sampler GL_TEXTURE_CUBE_MAP
+
+samplerUniform :: MonadIO m => Program -> UniformSampler px -> String -> m (UniformVar (Texture px))
+samplerUniform prog (UniformSampler texunit var) texname = do
+  texture <- programUniform programUniform1i prog texname
+  texture $= fromIntegral texunit
+  return $ SettableStateVar $ \tex -> var $= Just tex
 
 materialUniformRGBA :: (Functor m, MonadIO m) => Program -> UniformSampler px  -> String -> String -> m (UniformVar (Material MaterialColorAlpha (Texture px)))
-materialUniformRGBA prog sampler texname colorname = contramap (over materialColor linearV4) <$> materialUniformV4 prog sampler texname colorname
+materialUniformRGBA prog smpl texname colorname = contramap (over materialColor linearV4) <$> materialUniformV4 prog smpl texname colorname
 
 materialUniform :: (Functor m, MonadIO m, HasSetter g a IO) => (Program -> UniformLocation -> g) -> Program -> UniformSampler px  -> String -> String -> m (UniformVar (Material a (Texture px)))
 materialUniform colorUniform prog (UniformSampler texunit var) texname colorname = do
@@ -58,7 +67,7 @@ materialUniform colorUniform prog (UniformSampler texunit var) texname colorname
     colorUniform prog colorloc $= mat^.materialColor
 
 materialUniformV4 :: (Functor m, MonadIO m, Real a) => Program -> UniformSampler px  -> String -> String -> m (UniformVar (Material (V4 a) (Texture px)))
-materialUniformV4 prog sampler texname colorname = contramap (over (materialColor.mapped) realToFrac) <$> materialUniform programUniform4f prog sampler texname colorname
+materialUniformV4 prog smpl texname colorname = contramap (over (materialColor.mapped) realToFrac) <$> materialUniform programUniform4f prog smpl texname colorname
 
 materialUniformIntensity :: (Functor m, MonadIO m, Real a) => Program -> UniformSampler px  -> String -> String -> m (UniformVar (Material a (Texture px)))
-materialUniformIntensity prog sampler texname colorname = contramap (over materialColor realToFrac) <$> materialUniform programUniform1f prog sampler texname colorname
+materialUniformIntensity prog smpl texname colorname = contramap (over materialColor realToFrac) <$> materialUniform programUniform1f prog smpl texname colorname

@@ -46,8 +46,7 @@ import           Quine.StateVar
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
 type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial Texture)
-type DeferredLight       = LightEntity (RenderData Word32 (Position Vec3))
-type DeferredEnvironment = Environment DeferredLight DeferredSky
+type DeferredEnvironment = Environment Light DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
 
@@ -61,7 +60,7 @@ yDeferredLighting = do
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
 
-  defaultRadiance <- view materialTexture <$> materialRes defaultMaterialSRGB
+  defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
 
   return $ do

@@ -180,6 +180,5 @@ mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   when gl_ARB_seamless_cubemap_per_texture $ do
-    traceM "XXX"
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
   return sampler

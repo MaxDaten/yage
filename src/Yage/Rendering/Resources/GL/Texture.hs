@@ -55,9 +55,16 @@ data Texture a = Texture
   , _textureDimension :: !TextureDimension
   , _textureLevel     :: !GL.MipmapLevel
   , _textureObject    :: !GL.Texture
-  } deriving (Show,Typeable,Generic)
+  } deriving (Typeable,Generic)
 
--- type Texture a = Slot (TextureData a)
+instance Show (Texture px) where
+  show Texture{..} =
+    showString "Texture { " .
+    showString "textureTarget = " . showString (GL.showTextureTarget _textureTarget) .
+    showString ", textureDimension = ". shows _textureDimension .
+    showString ", textureLevel = " . shows _textureLevel .
+    showString ", textureObject = " . shows _textureObject $
+    " }"
 
 makeLenses ''Texture
 

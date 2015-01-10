@@ -29,8 +29,10 @@ import Yage.Transformation
 import Yage.Material
 import qualified Yage.Vertex as V
 import Yage.Attribute
+import Yage.Geometry3D
 
 import Yage.Rendering.GL
+import Yage.Rendering.Mesh
 import Yage.Rendering.Resources.GL
 import Yage.Rendering.RenderSystem
 
@@ -56,7 +58,8 @@ type LightVertex v = (V.HasPosition v Vec3)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { radianceEnvironment  :: UniformSampler PixelRGB8
+  { radianceEnvironment  :: UniformVar (Texture PixelRGB8)
+  , gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
   , fragLight            :: UniformVar Light
   }
@@ -75,7 +78,10 @@ declareLenses [d|
   newtype LightBuffer = LightBuffer { lightBuffer :: (Texture PixelRGBA8) } deriving (Show,Generic)
   |]
 
-drawLights :: (Foldable f, HasRenderData d i v, LightVertex v) => YageResource (RenderSystem (f (LightEntity d), (Texture PixelRGB8), Camera, Viewport Int, GBuffer) LightBuffer)
+-- LightEntity (RenderData Word32 (Position Vec3))
+-- , HasRenderData d i v, LightVertex v
+
+drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) LightBuffer)
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -91,6 +97,8 @@ drawLights = do
   fbo <- glResource
 
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
+  let setupGlobals = setupSceneGlobals vert frag
+  drawEntities <- drawLightEntities vert frag
 
   return $ do
     (lights, radianceMap, cam, mainViewport, gBuffer) <- ask
@@ -110,13 +118,13 @@ drawLights = do
     -- some state setting
     -- we dont want to write to the depth buffer
     glDepthMask GL_FALSE
-    glDepthFunc GL_LESS
+    glDepthFunc GL_ALWAYS
     glEnable GL_DEPTH_TEST
     glDisable GL_BLEND
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_FRONT
-    glClearColor 0 1 1 1
+    glClearColor 0 0 0 1
     glClear GL_COLOR_BUFFER_BIT
 
     -- set globals
@@ -124,36 +132,51 @@ drawLights = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    setupSceneGlobals vert frag cam mainViewport radianceMap
-    drawLightEntities vert frag . pure lights
+    setupGlobals cam mainViewport radianceMap gBuffer
+    drawEntities . pure lights
     LightBuffer <$> get lBuffer
 
-setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> RenderSystem a ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} cam viewport radiance = do
+setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> GBuffer -> RenderSystem a ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam viewport radiance gbuff = do
   let Rectangle xy0 xy1 = fromIntegral <$> viewport^.rectangle
-  viewToScreenMatrix  $= ortho (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
+  viewToScreenMatrix  $= orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
   vpMatrix            $= fmap realToFrac <$> viewprojectionM cam viewport
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
   radianceEnvironment $= radiance
+  gBuffer             $= gbuff
  where
   viewprojectionM :: Camera -> Viewport Int -> M44 Double
   viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
-
-drawLightEntities :: forall f d i v. (Foldable f, HasRenderData d i v, LightVertex v) => VertexShader -> FragmentShader -> RenderSystem (f (LightEntity d)) ()
+-- (LightEntity d)
+-- HasRenderData d i v, LightVertex v
+drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResource (RenderSystem (f Light) ())
 drawLightEntities  VertexShader{..} FragmentShader{..} = do
-  lights <- ask
-  forM_ lights $ \(LightEntity rdata light) -> do
-    -- set shader
-    modelMatrix $= (fmap realToFrac <$> mkLightModelMatrix (light^.lightType))
-    fragLight $= light
-    vertLight $= light
-    -- render data
-    boundBufferAt ElementArrayBuffer $= rdata^.indexBuffer
-    boundBufferAt ArrayBuffer $= rdata^.vertexBuffer
-    vPosition $= Just ((Proxy :: Proxy v)^.V.positionlayout)
+  pointLightData       <- fromMesh pointMesh
+  spotLightData        <- fromMesh spotMesh
+  directionalLightData <- fromMesh emptyMesh
 
-    {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
+  return $ do
+    lights <- ask
+    forM_ lights $ \light -> do
+      -- set shader
+      modelMatrix $= (fmap realToFrac <$> mkLightModelMatrix (light^.lightType))
+      fragLight $= light
+      vertLight $= light
+      -- render data
+      let rdata = case (light^.lightType) of
+                    Pointlight{}       -> pointLightData
+                    Spotlight{}        -> spotLightData
+                    DirectionalLight{} -> directionalLightData
+      boundBufferAt ElementArrayBuffer $= rdata^.indexBuffer
+      boundBufferAt ArrayBuffer $= rdata^.vertexBuffer
+      vPosition $= Just ((Proxy :: Proxy (V.Position Vec3))^.V.positionlayout)
+
+      {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
+ where
+  pointMesh, spotMesh :: Mesh (V.Position Vec3)
+  pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
+  spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
 
 mkLightModelMatrix :: LightType -> DMat4
 mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius
@@ -162,9 +185,9 @@ mkLightModelMatrix Spotlight{..} =
       basisRadius = _sLightRadius * sin half / sin (pi / 2.0 - half)
       worldSpace  = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
   in view transformationMatrix $ idTransformation
-        & position    .~ _sLightPosition
-        & scale       .~ V3 basisRadius _sLightRadius basisRadius
-        & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
+      & position    .~ _sLightPosition
+      & scale       .~ V3 basisRadius _sLightRadius basisRadius
+      & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
 mkLightModelMatrix DirectionalLight{..} = undefined
 
 -- * Shader Interfaces
@@ -180,15 +203,39 @@ vertexUniforms prog = do
     <*> (lightUniform prog "Light")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
-fragmentUniforms prog = FragmentShader
-  <$> mkCubeSampler
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
-  <*> lightUniform prog "Light"
+fragmentUniforms prog = do
+  sampl <- mkCubeSampler
+  FragmentShader
+    <$> samplerUniform prog sampl "RadianceEnvironment"
+    <*> gBufferUniform prog
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
+    <*> lightUniform prog "Light"
+
+gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
+gBufferUniform prog = do
+  gbufferSampler <- mkGBufferSampler
+  aChannel <- samplerUniform prog (sampler2D G_CHANNEL_A gbufferSampler) "inChannelA"
+  bChannel <- samplerUniform prog (sampler2D G_CHANNEL_B gbufferSampler) "inChannelB"
+  depthTexture <- samplerUniform prog (sampler2D G_DEPTH gbufferSampler) "DepthTexture"
+  return $ SettableStateVar $ \gbuff -> do
+    aChannel  $= gbuff^.aBuffer
+    bChannel  $= gbuff^.bBuffer
+    depthTexture $= gbuff^.depthBuffer
 
 -- * Sampler
 
+mkGBufferSampler :: YageResource Sampler
+mkGBufferSampler = throwWithStack $ do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return sampler
+
 mkCubeSampler :: YageResource (UniformSampler PixelRGB8)
-mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
+mkCubeSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
@@ -196,6 +243,5 @@ mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   when gl_ARB_seamless_cubemap_per_texture $ do
-    traceM "XXX"
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
   return sampler
