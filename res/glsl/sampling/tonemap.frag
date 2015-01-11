@@ -15,7 +15,7 @@
 
 uniform float InverseGamma  = 1.0 / 2.2;
 uniform float Exposure      = 1.0;
-uniform float ExposureBias  = 1.0;
+uniform float ExposureBias  = 0.0;
 uniform float WhitePoint    = 11.2;
 
 uniform float weights[ MAX_TEXTURES ];
@@ -28,12 +28,12 @@ vec4 ToneColor()
 {
     vec4 OutColor = vec4(0);
     vec2 uv = gl_FragCoord.xy / textureSize(iTextures[0], 0);
-    OutColor.rgb = texture( iTextures[0], uv ).rgb;
+    OutColor.rgb = texture(iTextures[0], uv).rgb;
 
     for ( int i = 1; i < (iUsedTextures + 1); i++ )
     {
         vec2 uv = gl_FragCoord.xy / textureSize(iTextures[i], 0);
-        vec4 sampleColor = texture( iTextures[i], uv );
+        vec4 sampleColor = texture(iTextures[i], uv);
         OutColor.rgb  += weights[i-1] * sampleColor.rgb;
         OutColor.a    += sampleColor.a / iUsedTextures;
     }
@@ -89,6 +89,6 @@ void main()
 
 
     color *= whiteScale;
-    color = inverseGamma( color );
+    // color = inverseGamma( color );
     pixelColor = clamp( color, 0, 1 );
 }
