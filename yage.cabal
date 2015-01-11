@@ -147,7 +147,7 @@ library
     Yage.Rendering.Pipeline.Deferred.HDR
     Yage.Rendering.Pipeline.Deferred.BaseGPass
     Yage.Rendering.Pipeline.Deferred.LightPass
-    Yage.Rendering.Pipeline.Deferred.ToneMapPass
+    Yage.Rendering.Pipeline.Deferred.Tonemap
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.ScreenPass
     Yage.Rendering.Pipeline.Deferred.DownsamplePass

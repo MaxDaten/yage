@@ -33,7 +33,8 @@ import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
--- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
+-- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass#
+import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
@@ -50,7 +51,7 @@ type DeferredEnvironment = Environment Light DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
 
-yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasCamera a) => YageResource (RenderSystem a ())
+yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a) => YageResource (RenderSystem a ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
@@ -59,22 +60,24 @@ yDeferredLighting = do
   gBasePass      <- drawGBuffers
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
+  tonemapPass    <- toneMapper
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
 
   return $ do
     val <- ask
-    gbuffer <- gBasePass . pure (val^.scene, val^.camera, val^.viewport)
+    gbuffer <- gBasePass . pure (val^.scene, val^.hdrCamera.camera, val^.viewport)
 
     -- environment & lighting
-    envBuffer   <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
+    envBuffer   <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
 
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
-    lBuffer <- lightPass . pure (val^.scene.environment.lights, radiance, val^.camera, val^.viewport, envBuffer)
-
+    lBuffer <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, envBuffer)
+    -- tone map from hdr (floating) to discrete Word8
+    tonemapped <- tonemapPass . pure (val^.hdrCamera, lBuffer^.lightBuffer)
     -- bring it to the screen
-    screenQuadPass . pure ([(1,baseSampler,lBuffer^.lightBuffer)], val^.viewport)
+    screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do

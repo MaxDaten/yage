@@ -25,20 +25,18 @@ import Quine.GL.Sampler
 import Quine.GL.Texture hiding (Texture)
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
+import Yage.Rendering.Pipeline.Deferred.Common
 
 #include "definitions.h"
 
-includePaths :: [FilePath]
-includePaths = ["/res/glsl"]
-
 -- * Draw To Screen
 
-drawRectangle :: YageResource (RenderSystem ([(Vec4,Sampler,Texture PixelRGBA8)], Viewport Int) ())
+drawRectangle :: YageResource (RenderSystem ([(Vec4,Sampler,Texture px)], Viewport Int) ())
 drawRectangle = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
 
-  pipeline <- [ $(embedShaderFile "res/glsl/pass/drawRectangle.vert")
+  pipeline <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
               , $(embedShaderFile "res/glsl/sampling/alphaBlendTextures.frag")]
               `compileShaderPipeline` includePaths
 

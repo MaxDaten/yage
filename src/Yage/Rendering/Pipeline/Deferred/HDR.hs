@@ -4,20 +4,20 @@
 
 module Yage.Rendering.Pipeline.Deferred.HDR where
 
-import Yage.Prelude                                         hiding ( toList, last, head )
-import Yage.Lens                                            hiding ( cons )
+-- import Yage.Prelude                                         hiding ( toList, last, head )
+-- import Yage.Lens                                            hiding ( cons )
 
-import Data.List                                            ( last, tail )
+-- import Data.List                                            ( last, tail )
 
-import Yage.HDR
-import Yage.Scene
-import Yage.Material
+-- import Yage.HDR
+-- import Yage.Scene
+-- import Yage.Material
 
-import qualified Yage.Rendering.Pipeline.Deferred.LightPass             as L
-import qualified Yage.Rendering.Pipeline.Deferred.BaseGPass             as G
-import qualified Yage.Rendering.Pipeline.Deferred.SkyPass               as S
-import qualified Yage.Rendering.Pipeline.Deferred.GlareDetectionPass    as Glare
-import qualified Yage.Rendering.Pipeline.Deferred.ToneMapPass           as T
-import Yage.Rendering.Pipeline.Deferred.GaussFilter
+-- import qualified Yage.Rendering.Pipeline.Deferred.LightPass             as L
+-- import qualified Yage.Rendering.Pipeline.Deferred.BaseGPass             as G
+-- import qualified Yage.Rendering.Pipeline.Deferred.SkyPass               as S
+-- import qualified Yage.Rendering.Pipeline.Deferred.GlareDetectionPass    as Glare
+-- import qualified Yage.Rendering.Pipeline.Deferred.ToneMapPass           as T
+-- import Yage.Rendering.Pipeline.Deferred.GaussFilter
 
 

@@ -8,6 +8,7 @@ module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
   , BaseTextureTarget (baseTextureTarget)
+  , TextureDimension(..)
   , textureTarget
   , textureDimension
   , textureLevel

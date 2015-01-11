@@ -75,11 +75,9 @@ data VertexShader = VertexShader
   }
 
 declareLenses [d|
-  newtype LightBuffer = LightBuffer { lightBuffer :: (Texture PixelRGBA8) } deriving (Show,Generic)
+  newtype LightBuffer = LightBuffer { lightBuffer :: (Texture PixelRGBF) } deriving (Show,Generic)
   |]
 
--- LightEntity (RenderData Word32 (Position Vec3))
--- , HasRenderData d i v, LightVertex v
 
 drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) LightBuffer)
 drawLights = do
@@ -93,7 +91,7 @@ drawLights = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  lBuffer <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
+  lBuffer <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBF))
   fbo <- glResource
 
   lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
@@ -148,8 +146,6 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam viewport radiance gbuf
   viewprojectionM :: Camera -> Viewport Int -> M44 Double
   viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
--- (LightEntity d)
--- HasRenderData d i v, LightVertex v
 drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResource (RenderSystem (f Light) ())
 drawLightEntities  VertexShader{..} FragmentShader{..} = do
   pointLightData       <- fromMesh pointMesh

@@ -29,8 +29,13 @@ data HDRBloomSettings = HDRBloomSettings
     , _bloomWidth           :: Double
     } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
-makeLenses ''HDRBloomSettings
-makeLenses ''HDRCamera
+makeClassy ''HDRBloomSettings
+makeClassyFor "HasHDRCamera" "hdrCamera"
+  [ ("_hdrExposure", "exposure")
+  , ("_hdrExposureBias", "exposureBias")
+  , ("_hdrWhitePoint", "whitePoint")
+  , ("_hdrBloomSettings", "bloomSettings")
+  ] ''HDRCamera
 
 defaultBloomSettings :: HDRBloomSettings
 defaultBloomSettings = HDRBloomSettings
@@ -51,7 +56,7 @@ defaultHDRCamera cam = HDRCamera
     }
 
 instance HasCamera HDRCamera where
-    camera = hdrCameraHandle
+    camera = lens _hdrCameraHandle (\s c -> s{_hdrCameraHandle = c})
 
 instance LinearInterpolatable HDRBloomSettings where
     lerp alpha u v =
@@ -61,11 +66,11 @@ instance LinearInterpolatable HDRBloomSettings where
 
 instance LinearInterpolatable HDRCamera where
     lerp alpha u v =
-        u & hdrCameraHandle  .~ lerp alpha (u^.hdrCameraHandle) (v^.hdrCameraHandle)
-          & hdrExposure      .~ lerp alpha (u^.hdrExposure) (v^.hdrExposure)
-          & hdrExposureBias  .~ lerp alpha (u^.hdrExposureBias) (v^.hdrExposureBias)
-          & hdrWhitePoint    .~ lerp alpha (u^.hdrWhitePoint) (v^.hdrWhitePoint)
-          & hdrBloomSettings .~ lerp alpha (u^.hdrBloomSettings) (v^.hdrBloomSettings)
+        u & camera        .~ lerp alpha (u^.camera) (v^.camera)
+          & exposure      .~ lerp alpha (u^.exposure) (v^.exposure)
+          & exposureBias  .~ lerp alpha (u^.exposureBias) (v^.exposureBias)
+          & whitePoint    .~ lerp alpha (u^.whitePoint) (v^.whitePoint)
+          & bloomSettings .~ lerp alpha (u^.bloomSettings) (v^.bloomSettings)
 
 instance Default HDRBloomSettings where
     def = defaultBloomSettings
