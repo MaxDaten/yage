@@ -59,7 +59,7 @@ yDeferredLighting = do
   baseSampler <- mkBaseSampler
   gBasePass      <- drawGBuffers
   screenQuadPass <- drawRectangle
-  -- skyPass        <- drawSky
+  skyPass        <- drawSky
   tonemapPass    <- toneMapper
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
@@ -72,7 +72,7 @@ yDeferredLighting = do
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
     lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
-    envBuff   <- return lBuffer -- maybe (pure lBuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
+    envBuff   <- maybe (pure lBuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
     -- tone map from hdr (floating) to discrete Word8
     tonemapped <- tonemapPass . pure (val^.hdrCamera, envBuff)
     -- bring it to the screen
