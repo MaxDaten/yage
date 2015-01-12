@@ -210,10 +210,14 @@ drawEntities VertexShader{..} FragmentShader{..} = do
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     normalMatrix      $= fmap realToFrac <$> (ent^.inverseTransformation.transformationMatrix.to m44_to_m33)
     -- setup material
-    albedoMaterial    $= ent^.gBaseMaterial.albedo
-    normalMaterial    $= ent^.gBaseMaterial.normalmap
-    roughnessMaterial $= ent^.gBaseMaterial.roughness
-    metallicMaterial  $= ent^.gBaseMaterial.metallic
+    albedoMaterial          $= ent^.gBaseMaterial.albedo
+    albedoTextureMatrix     $= fmap realToFrac <$> (ent^.gBaseMaterial.albedo.transformation.transformationMatrix)
+    normalMaterial          $= ent^.gBaseMaterial.normalmap
+    normalTextureMatrix     $= fmap realToFrac <$> (ent^.gBaseMaterial.normalmap.transformation.transformationMatrix)
+    roughnessMaterial       $= ent^.gBaseMaterial.roughness
+    roughnessTextureMatrix  $= fmap realToFrac <$> (ent^.gBaseMaterial.roughness.transformation.transformationMatrix)
+    metallicMaterial        $= ent^.gBaseMaterial.metallic
+    metallicTextureMatrix   $= fmap realToFrac <$> (ent^.gBaseMaterial.metallic.transformation.transformationMatrix)
 
     -- bind vbo
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
