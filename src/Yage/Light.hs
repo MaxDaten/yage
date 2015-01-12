@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.Light where
 
@@ -12,41 +13,42 @@ data AmbientLight = AmbientLight (V3 Double)
 
 data LightType =
       Pointlight
-        { _pLightPosition   :: V3 Double
-        -- ^ world position of the light emitter (german: Leuchtmittel)
-        , _pLightRadius     :: Double
-        -- ^ the total influence distance of the emitter (sphere radius)
-        }
-    | Spotlight
-        { _sLightPosition   :: V3 Double
-        -- ^ world position of the spot light emitter
-        , _sLightDirection  :: V3 Double
-        -- ^ the direction vector in world space
-        , _sLightInnerAngle :: Double
-        -- ^ inner angle in radians for the area with full intensity
-        , _sLightOuterAngle :: Double
-        -- ^ outer angle in radians as cut off
-        , _sLightRadius     :: Double
-        -- ^ maximum distance from `sLightPosition` for light influence
-        }
     | DirectionalLight
-      { _dLightDirection    :: V3 Double
-      }
-    deriving ( Show, Ord, Eq )
+    | Spotlight
+        { _innerAngle :: !Double
+        -- ^ inner angle in radians for the area with full intensity
+        , _outerAngle :: !Double
+        -- ^ outer angle in radians as cut off
+        }
+    deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''LightType
 
 
 data Light = Light
-    { _lightType      :: LightType
+    { _lightType            :: !LightType
     -- ^ `Poinlight` | `Spotlight` | `DirectionalLight`
-    , _lightColor     :: V3 Double
+    , _lightTransformation  :: !(Transformation Double)
+    -- ^ position, direction (orientation) and radius (scale)
+    , _lightColor           :: !(V3 Double)
     -- ^ tint of the light emitter in linear color dimension
-    , _lightIntensity :: Double
+    , _lightIntensity       :: !Double
     -- ^ the energy in lumen
-    } deriving ( Show, Ord, Eq )
+    } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''Light
+
+instance HasTransformation Light Double where
+  transformation = lightTransformation
+
+instance HasPosition Light (V3 Double) where
+  position = lightTransformation.position
+
+instance HasOrientation Light (Quaternion Double) where
+  orientation = lightTransformation.orientation
+
+instance HasScale Light (V3 Double) where
+  scale = lightTransformation.scale
 
 
 
@@ -54,8 +56,9 @@ instance LinearInterpolatable AmbientLight where
      lerp alpha (AmbientLight u) (AmbientLight v) = AmbientLight $ Linear.lerp alpha u v
 
 instance LinearInterpolatable Light where
-    lerp alpha (Light tu colorU intensityU) (Light tv colorV intensityV) =
+    lerp alpha (Light tu transU colorU intensityU) (Light tv transV colorV intensityV) =
         Light (lerp alpha tu tv)
+              (lerp alpha transU transV)
               (Linear.lerp alpha colorU colorV)
               ((Linear.lerp alpha (V1 intensityU) (V1 intensityV))^._x)
 
@@ -79,18 +82,26 @@ makeSpotlight :: V3 Double
               -- ^ intensity (lumen)
               -> Light
               -- ^ constructed spotlight
-makeSpotlight position target innerAngle outerAngle color intensity = Light
-    { _lightType  = Spotlight
-        { _sLightPosition   = position
-        , _sLightDirection  = normalize $ target - position
-        , _sLightInnerAngle = deg2rad $ clamp innerAngle 0 89.9
-        , _sLightOuterAngle = deg2rad $ clamp outerAngle (innerAngle+0.0001) 89.9
-        , _sLightRadius     = norm $ target - position
-        }
-    , _lightIntensity = intensity
-    , _lightColor = color
+makeSpotlight pos target innerAngle outerAngle color intensity = Light
+  { _lightType  = Spotlight
+    { _innerAngle = innerRad
+    , _outerAngle = outerRad
     }
-
+  , _lightTransformation = idTransformation
+      & position    .~ pos
+      & orientation .~ lookAtQ worldpace direction
+      & scale       .~ V3 basisRadius radius basisRadius
+  , _lightIntensity = intensity
+  , _lightColor = color
+  }
+ where
+  innerRad = deg2rad $ clamp innerAngle 0 89.9
+  outerRad = deg2rad $ clamp outerAngle (innerAngle+0.0001) 89.9
+  radius = norm $ target - pos
+  direction = normalize $ target - pos
+  half = outerRad / 2.0
+  basisRadius = radius * sin half / sin (pi / 2.0 - half)
+  worldpace = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
 
 -- | Creates a global directional light
 makeDirectionalLight
@@ -104,8 +115,9 @@ makeDirectionalLight
     -- ^ constructed directional light
 makeDirectionalLight direction color intensity = Light
     { _lightType  = DirectionalLight
-        { _dLightDirection = normalize $ direction
-        }
+    , _lightTransformation = idTransformation & orientation .~ lookAtQ worldpace (normalize direction)
     , _lightIntensity = intensity
     , _lightColor = color
     }
+ where
+  worldpace = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)

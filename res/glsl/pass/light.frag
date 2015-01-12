@@ -158,7 +158,7 @@ void main()
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
     // pixelColor.rgb = vec3(surface.Roughness);
-    // pixelColor.rgb  += vec3(0.1, 0, 0);
+    pixelColor.rgb  += vec3(0.1, 0, 0);
     // pixelColor.rgb  = vec3(100, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb = 0.5 * EncodeTextureNormal( surface.Normal );

@@ -158,7 +158,7 @@ drawLightEntities  VertexShader{..} FragmentShader{..} = do
     lights <- ask
     forM_ lights $ \light -> do
       -- set shader
-      modelMatrix $= (fmap realToFrac <$> mkLightModelMatrix (light^.lightType))
+      modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
       fragLight $= light
       vertLight $= light
       -- render data
@@ -176,17 +176,17 @@ drawLightEntities  VertexShader{..} FragmentShader{..} = do
   pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
   spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
 
-mkLightModelMatrix :: LightType -> DMat4
-mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius
-mkLightModelMatrix Spotlight{..} =
-  let half = _sLightOuterAngle / 2.0
-      basisRadius = _sLightRadius * sin half / sin (pi / 2.0 - half)
-      worldSpace  = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
-  in view transformationMatrix $ idTransformation
-      & position    .~ _sLightPosition
-      & scale       .~ V3 basisRadius _sLightRadius basisRadius
-      & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
-mkLightModelMatrix DirectionalLight{..} = undefined
+-- mkLightModelMatrix :: LightType -> DMat4
+-- mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius
+-- mkLightModelMatrix Spotlight{..} =
+--   let half = _sLightOuterAngle / 2.0
+--       basisRadius = _sLightRadius * sin half / sin (pi / 2.0 - half)
+--       worldSpace  = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+--   in view transformationMatrix $ idTransformation
+--       & position    .~ _sLightPosition
+--       & scale       .~ V3 basisRadius _sLightRadius basisRadius
+--       & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
+-- mkLightModelMatrix DirectionalLight{..} = undefined
 
 -- * Shader Interfaces
 
