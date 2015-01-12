@@ -34,6 +34,7 @@ import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State
 import             Control.Monad.Trans.Resource    as Resource
+import             System.Mem                      (performGC, performMajorGC)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ( (<+>), at, force, when )
 import             Yage.Core.Application           as Application
@@ -143,10 +144,16 @@ yageMain title config sim dt =
 
 runCore :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
 runCore win = forever $ do
-  liftApp $ pollEvents
-  liftApp $ windowShouldClose win >>= \close -> when close $ throwM Shutdown
+  liftApp $ do
+    pollEvents
+    windowShouldClose win >>= \close -> when close $ throwM Shutdown
+
   core win
-  liftApp $ swapBuffers win
+
+  liftApp $ do
+    swapBuffers win
+    -- gcTime <- ioe $ ioTime $ performGC
+    -- modify (\st -> st{ appGCTime = snd gcTime } )
 
 core :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
 core win = do
