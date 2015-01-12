@@ -12,9 +12,6 @@ import Data.Colour.CIE                          as Color
 import Data.Colour                              as Color
 import Data.Colour.Names                        as Color
 import JuicySRGB                                as Color
-import Codec.Picture
-import Codec.Picture.Types
-
 import Linear                                   (V3(..), V4(..))
 
 
