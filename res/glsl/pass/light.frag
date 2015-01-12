@@ -141,11 +141,11 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 
     //...
     // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
-    // vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
-    // vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
+    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
+    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
-    // OutColor += DiffuseAmbient;
-    // OutColor += SpecularAmbient;
+    OutColor += DiffuseAmbient;
+    OutColor += SpecularAmbient;
 
     return OutColor;
 }
