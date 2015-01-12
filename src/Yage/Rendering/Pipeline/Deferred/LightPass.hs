@@ -152,7 +152,7 @@ drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResourc
 drawLightEntities  VertexShader{..} FragmentShader{..} = do
   pointLightData       <- fromMesh pointMesh
   spotLightData        <- fromMesh spotMesh
-  directionalLightData <- fromMesh emptyMesh
+  directionalLightData <- fromMesh directionalMesh
 
   return $ do
     lights <- ask
@@ -172,9 +172,10 @@ drawLightEntities  VertexShader{..} FragmentShader{..} = do
 
       {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
  where
-  pointMesh, spotMesh :: Mesh (V.Position Vec3)
+  pointMesh, spotMesh, directionalMesh :: Mesh (V.Position Vec3)
   pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
   spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
+  directionalMesh  = mkFromVerticesF "DirectionalLight" $ V.Position <$> [0, 0, 0]
 
 -- mkLightModelMatrix :: LightType -> DMat4
 -- mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius

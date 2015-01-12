@@ -31,7 +31,7 @@ lightUniform prog name = do
       Spotlight{..}         -> do
         posVar        $= light^.position.to point
         coneAngleVar  $= V3 (cos $ _innerAngle / 2) (cos $ _outerAngle / 2) (light^.scale._y)
-        dirVar        $= -(normalize $ rotate (light^.orientation) (V3 0 1 0))
+        dirVar        $= (normalize $ rotate (light^.orientation) (V3 0 1 0))
       DirectionalLight{..}  -> do
         posVar        $= 0
         coneAngleVar  $= 0

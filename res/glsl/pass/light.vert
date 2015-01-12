@@ -39,7 +39,7 @@ void main()
     {
         // we render a full screen quad for directional lights
         VertexPosVS     = (ViewToScreenMatrix * ModelMatrix * vec4(vPosition.xy, 1.0, 0.0)).xyz;
-        OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
+        OutPosition     = vec4 (float(gl_VertexID / 2) * 4.0 - 1.0, float(gl_VertexID % 2) * 4.0 - 1.0, 0.0, 1.0);
     }
     // in NDC
     // iLight       = LightInViewspace( Light );

@@ -88,7 +88,7 @@ vec3 DiffuseTerm ( Surface surface )
 
 float SpotAttenuation( vec3 L, LightData light )
 {
-    vec3 direction = light.LightDirection;
+    vec3 direction = -light.LightDirection;
     float inner = light.LightConeAnglesAndRadius.x;
     float outer = light.LightConeAnglesAndRadius.y;
     return square(saturate( dot(L, direction) - outer ) / (outer -  inner) );
@@ -98,7 +98,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
 {
     // vector from origin (view space) to lit point
     vec3 P  = surface.Position;
-    vec3 L  = -light.LightDirection;
+    vec3 L  = -light.LightDirection; // direction from P to L
     vec3 N  = surface.Normal;
 
     // direction from lit point to the view
@@ -158,7 +158,7 @@ void main()
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
     // pixelColor.rgb = vec3(surface.Roughness);
-    pixelColor.rgb  += vec3(0.1, 0, 0);
+    // pixelColor.rgb  += vec3(0.1, 0, 0);
     // pixelColor.rgb  = vec3(100, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb = 0.5 * EncodeTextureNormal( surface.Normal );
