@@ -24,6 +24,7 @@ uniform samplerCube RadianceEnvironment;
 uniform vec3 CameraPosition;
 
 in vec4 ScreenPos;
+// in Light iLight;
 
 
 // Light in view space (Position, Direction, etc)

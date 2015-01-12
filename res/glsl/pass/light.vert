@@ -21,8 +21,10 @@ layout(location = VPOSITION) in vec3 vPosition;
 out vec3 VertexPosVS;
 out vec4 ScreenPos;
 out mat4 ViewToWorld;
+// out Light iLight;
 
 mat4 MVPMatrix = VPMatrix * ModelMatrix;
+
 void main()
 {
     vec4 OutPosition;
@@ -40,7 +42,13 @@ void main()
         OutPosition     = ViewToScreenMatrix * ModelMatrix * vec4( vPosition, 1.0 );
     }
     // in NDC
+    // iLight       = LightInViewspace( Light );
     ScreenPos    = OutPosition;
     gl_Position  = OutPosition;
 
 }
+
+// Light LightInViewspace(Light light)
+// {
+//   light
+// }

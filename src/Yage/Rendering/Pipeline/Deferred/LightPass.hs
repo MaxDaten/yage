@@ -32,7 +32,6 @@ import Yage.Attribute
 import Yage.Geometry3D
 
 import Yage.Rendering.GL
-import Yage.Rendering.Mesh
 import Yage.Rendering.Resources.GL
 import Yage.Rendering.RenderSystem
 
@@ -53,14 +52,13 @@ import Quine.GL.ProgramPipeline
 #include "textureUnits.h"
 #include "attributes.h"
 
--- * Vertex Attributes
-type LightVertex v = (V.HasPosition v Vec3)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
   { radianceEnvironment  :: UniformVar (Texture PixelRGB8)
   , gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
+  , zProjectionRatio     :: UniformVar Vec2
   , fragLight            :: UniformVar Light
   }
 
@@ -118,7 +116,7 @@ drawLights = do
     glDepthMask GL_FALSE
     glDepthFunc GL_ALWAYS
     glEnable GL_DEPTH_TEST
-    glDisable GL_BLEND
+    glEnable GL_BLEND
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_FRONT
@@ -135,16 +133,20 @@ drawLights = do
     LightBuffer <$> get lBuffer
 
 setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> GBuffer -> RenderSystem a ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} cam viewport radiance gbuff = do
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} viewport radiance gbuff = do
   let Rectangle xy0 xy1 = fromIntegral <$> viewport^.rectangle
+
   viewToScreenMatrix  $= orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
-  vpMatrix            $= fmap realToFrac <$> viewprojectionM cam viewport
+  vpMatrix            $= fmap realToFrac <$> viewprojectionM
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
+  zProjectionRatio    $= zRatio
   radianceEnvironment $= radiance
   gBuffer             $= gbuff
+  cameraPosition      $= realToFrac <$> cam^.position
  where
-  viewprojectionM :: Camera -> Viewport Int -> M44 Double
-  viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
+  viewprojectionM :: M44 Double
+  viewprojectionM = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> viewport^.rectangle) !*! (cam^.cameraMatrix)
+  zRatio = realToFrac <$> V2 ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ)) (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
 
 drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResource (RenderSystem (f Light) ())
 drawLightEntities  VertexShader{..} FragmentShader{..} = do
@@ -205,6 +207,7 @@ fragmentUniforms prog = do
     <$> samplerUniform prog sampl "RadianceEnvironment"
     <*> gBufferUniform prog
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
     <*> lightUniform prog "Light"
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
