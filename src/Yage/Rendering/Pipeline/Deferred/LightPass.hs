@@ -71,6 +71,10 @@ data VertexShader = VertexShader
   , vertLight            :: UniformVar Light
   }
 
+data LightPassInput = LightPassInput
+  {
+  }
+
 drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) (Texture PixelRGBF))
 drawLights = do
   vao <- glResource
@@ -152,7 +156,7 @@ drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResourc
 drawLightEntities  VertexShader{..} FragmentShader{..} = do
   pointLightData       <- fromMesh pointMesh
   spotLightData        <- fromMesh spotMesh
-  directionalLightData <- fromMesh directionalMesh
+  directionalLightData <- fromMesh dirMesh
 
   return $ do
     lights <- ask
@@ -172,22 +176,10 @@ drawLightEntities  VertexShader{..} FragmentShader{..} = do
 
       {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
  where
-  pointMesh, spotMesh, directionalMesh :: Mesh (V.Position Vec3)
+  pointMesh, spotMesh, dirMesh :: Mesh (V.Position Vec3)
   pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
   spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
-  directionalMesh  = mkFromVerticesF "DirectionalLight" $ V.Position <$> [0, 0, 0]
-
--- mkLightModelMatrix :: LightType -> DMat4
--- mkLightModelMatrix Pointlight{..} = view transformationMatrix $ idTransformation & position .~ _pLightPosition & scale .~ pure _pLightRadius
--- mkLightModelMatrix Spotlight{..} =
---   let half = _sLightOuterAngle / 2.0
---       basisRadius = _sLightRadius * sin half / sin (pi / 2.0 - half)
---       worldSpace  = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
---   in view transformationMatrix $ idTransformation
---       & position    .~ _sLightPosition
---       & scale       .~ V3 basisRadius _sLightRadius basisRadius
---       & orientation .~ lookAtQ worldSpace (normalize _sLightDirection)
--- mkLightModelMatrix DirectionalLight{..} = undefined
+  dirMesh   = mkFromVerticesF "DirectionalLight" $ V.Position <$> [0, 0, 0]
 
 -- * Shader Interfaces
 
