@@ -27,14 +27,11 @@ layout (location = 0) out vec3 pixelColor;
 vec4 ToneColor()
 {
     vec4 OutColor = vec4(0);
-    vec2 uv = gl_FragCoord.xy / textureSize(iTextures[0], 0);
-    OutColor.rgb = texture(iTextures[0], uv).rgb;
-
-    for ( int i = 1; i < (iUsedTextures + 1); i++ )
+    for ( int i = 0; i < iUsedTextures; i++ )
     {
         vec2 uv = gl_FragCoord.xy / textureSize(iTextures[i], 0);
         vec4 sampleColor = texture(iTextures[i], uv);
-        OutColor.rgb  += weights[i-1] * sampleColor.rgb;
+        OutColor.rgb  += weights[i] * sampleColor.rgb;
         OutColor.a    += sampleColor.a / iUsedTextures;
     }
     return OutColor;

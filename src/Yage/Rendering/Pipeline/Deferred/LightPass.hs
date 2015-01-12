@@ -3,13 +3,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE NamedFieldPuns       #-}
 {-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeOperators        #-}
 
 module Yage.Rendering.Pipeline.Deferred.LightPass
-  ( lightBuffer
-  , drawLights
+  ( drawLights
   ) where
 
 import Yage.Prelude hiding (forM_)
@@ -72,12 +71,7 @@ data VertexShader = VertexShader
   , vertLight            :: UniformVar Light
   }
 
-declareLenses [d|
-  newtype LightBuffer = LightBuffer { lightBuffer :: (Texture PixelRGBF) } deriving (Show,Generic)
-  |]
-
-
-drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) LightBuffer)
+drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) (Texture PixelRGBF))
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -113,13 +107,19 @@ drawLights = do
 
     -- some state setting
     -- we dont want to write to the depth buffer
+    glEnable GL_DEPTH_TEST
     glDepthMask GL_FALSE
     glDepthFunc GL_ALWAYS
-    glEnable GL_DEPTH_TEST
-    glEnable GL_BLEND
+
+    glDisable GL_BLEND
+    -- glEnable GL_BLEND
+    -- glBlendEquation GL_FUNC_ADD
+    -- glBlendFunc GL_ONE GL_ONE
+
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_FRONT
+
     glClearColor 0 0 0 1
     glClear GL_COLOR_BUFFER_BIT
 
@@ -130,7 +130,7 @@ drawLights = do
 
     setupGlobals cam mainViewport radianceMap gBuffer
     drawEntities . pure lights
-    LightBuffer <$> get lBuffer
+    get lBuffer
 
 setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> GBuffer -> RenderSystem a ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} viewport radiance gbuff = do

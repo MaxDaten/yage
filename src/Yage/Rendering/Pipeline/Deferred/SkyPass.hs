@@ -81,9 +81,9 @@ data VertexShader = VertexShader
   , modelMatrix             :: UniformVar Mat4
   }
 
+-- data SkyPassInput =
 
-
-drawSky :: SkyEntity sky i v => YageResource (RenderSystem (sky, Camera, Viewport Int, GBuffer) GBuffer)
+drawSky :: SkyEntity sky i v => YageResource (RenderSystem (sky, Camera, Viewport Int, Texture px, Texture (DepthComponent24 Float)) (Texture px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao
@@ -96,17 +96,22 @@ drawSky = do
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
   fbo <- glResource
+  baseTexturesRef <- newIORef Nothing
 
   return $ do
-    (sky, cam, mainViewport, gBuffer) <- ask
+    (sky, cam, mainViewport, albedo, depth) <- ask
 
     boundFramebuffer RWFramebuffer $= fbo
-    void $ attachFramebuffer fbo [mkAttachment $ gBuffer^.aBuffer] (Just $ mkAttachment $ gBuffer^.depthBuffer) Nothing
+    baseTexs <- get baseTexturesRef
+    when (baseTexs /= Just (albedo^.textureObject,depth^.textureObject)) $ do
+      void $ attachFramebuffer fbo [mkAttachment albedo] (Just $ mkAttachment depth) Nothing
+      baseTexturesRef $= Just (albedo^.textureObject,depth^.textureObject)
 
     -- state setting
     glEnable GL_DEPTH_TEST
     glDepthFunc GL_LESS
     glDepthMask GL_TRUE
+
     glDisable GL_BLEND
 
     glFrontFace GL_CW
@@ -120,7 +125,7 @@ drawSky = do
 
     setupSceneGlobals vert frag . pure (cam, mainViewport)
     drawSkyEntity vert frag . pure sky
-    return gBuffer
+    return albedo
 
 
 setupSceneGlobals :: VertexShader -> FragmentShader -> RenderSystem (Camera, Viewport Int) ()

@@ -70,12 +70,11 @@ yDeferredLighting = do
     gbuffer <- gBasePass . pure (val^.scene, val^.hdrCamera.camera, val^.viewport)
 
     -- environment & lighting
-    envBuffer   <- maybe (return gbuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, gbuffer)) (val^.scene.environment.sky)
-
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
-    lBuffer <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, envBuffer)
+    lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
+    envBuff   <- maybe (pure lBuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- tonemapPass . pure (val^.hdrCamera, lBuffer^.lightBuffer)
+    tonemapped <- tonemapPass . pure (val^.hdrCamera, envBuff)
     -- bring it to the screen
     screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
 

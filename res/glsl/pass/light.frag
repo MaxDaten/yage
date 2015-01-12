@@ -135,17 +135,17 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     {
         DiffuseShading  = DiffuseTerm( surface );
         SpecularShading = ReflectanceTerm( surface, L, V );
-        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading); // <<<<
+        OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
     }
     vec3 R   = reflect( -V, N );
 
     //...
     // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
-    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
-    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
+    // vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
+    // vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
-    OutColor += DiffuseAmbient;
-    OutColor += SpecularAmbient;
+    // OutColor += DiffuseAmbient;
+    // OutColor += SpecularAmbient;
 
     return OutColor;
 }
@@ -158,9 +158,10 @@ void main()
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
     // pixelColor.rgb = vec3(surface.Roughness);
-    // pixelColor.rgb  += vec3(0.05, 0, 0);
+    // pixelColor.rgb  += vec3(0.1, 0, 0);
+    // pixelColor.rgb  = vec3(100, 0, 0);
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
-    // pixelColor.rgb += 0.5 * EncodeTextureNormal( surface.Normal );
+    // pixelColor.rgb = 0.5 * EncodeTextureNormal( surface.Normal );
 
 }
 

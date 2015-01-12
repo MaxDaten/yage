@@ -57,8 +57,10 @@ toneMapper = do
 
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
-    glDepthMask GL_FALSE
     glDisable GL_DEPTH_TEST
+    glDepthMask GL_FALSE
+    glDepthFunc GL_ALWAYS
+
     glDisable GL_BLEND
     glDisable GL_CULL_FACE
     glFrontFace GL_CCW

@@ -65,8 +65,8 @@ import Yage.Rendering.Pipeline.Deferred.Common
 -- * Material
 
 data GBaseMaterial t = GBaseMaterial
-  { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (t PixelRGBA8)
-  , _gBaseMaterialNormalmap :: Material MaterialColorAlpha (t PixelRGBA8)
+  { _gBaseMaterialAlbedo    :: Material MaterialColorAlpha (t PixelRGB8)
+  , _gBaseMaterialNormalmap :: Material MaterialColorAlpha (t PixelRGB8)
   , _gBaseMaterialRoughness :: Material Double (t Pixel8)
   , _gBaseMaterialMetallic  :: Material Double (t Pixel8)
   }
@@ -81,8 +81,8 @@ type GBaseVertex v = (HasPosition v Vec3, HasTexture v Vec2, HasTangentX v Vec3,
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { albedoMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGBA8))
-  , normalMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGBA8))
+  { albedoMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGB8))
+  , normalMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGB8))
   , roughnessMaterial  :: UniformVar (Material Double (Texture Pixel8))
   , metallicMaterial   :: UniformVar (Material Double (Texture Pixel8))
   }
@@ -165,16 +165,20 @@ drawGBuffers = do
     boundFramebuffer RWFramebuffer $= fbo
 
     -- some state setting
-    glClearColor 0 0 0 1
-    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+    glEnable GL_DEPTH_TEST
     glDepthMask GL_TRUE
     glDepthFunc GL_LESS
-    glEnable GL_DEPTH_TEST
+
     glDisable GL_BLEND
+    -- glBlendEquation GL_FUNC_ADD
+    -- glBlendFunc GL_ONE GL_ZERO
 
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_BACK
+
+    glClearColor 0 0 0 1
+    glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
@@ -234,8 +238,8 @@ instance Default (GBaseMaterial Image) where
 
 defaultGBaseMaterial :: GBaseMaterial Image
 defaultGBaseMaterial = GBaseMaterial
-  { _gBaseMaterialAlbedo    = defaultMaterialSRGBA
-  , _gBaseMaterialNormalmap = defaultMaterialSRGBA
+  { _gBaseMaterialAlbedo    = defaultMaterialSRGB
+  , _gBaseMaterialNormalmap = defaultMaterialSRGB
   , _gBaseMaterialRoughness = mkMaterial 1.0 whiteDummy
   , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
   }
