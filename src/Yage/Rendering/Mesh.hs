@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell             #-}
 {-# LANGUAGE ExistentialQuantification   #-}
 {-# LANGUAGE NamedFieldPuns              #-}
+{-# LANGUAGE PackageImports              #-}
 {-# LANGUAGE FlexibleContexts            #-}
 
 module Yage.Rendering.Mesh
@@ -19,7 +20,7 @@ import           Data.Foldable                       (toList)
 import           Data.List                           (mapAccumL)
 
 import           Data.Bits
-import Yage.Geometry
+import "yage-geometry"  Yage.Geometry                (TriGeo, Geometry(..), GeoSurface(..), geoVertices)
 import Yage.Geometry.Elements as E (Triangle(..))
 ---------------------------------------------------------------------------------------------------
 
