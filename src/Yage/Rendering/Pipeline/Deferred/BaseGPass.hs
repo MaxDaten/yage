@@ -29,6 +29,7 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , GBuffer(..)
   , aBuffer
   , bBuffer
+  , cBuffer
   , depthBuffer
   -- * Pass
   , drawGBuffers
@@ -114,6 +115,7 @@ data VertexShader = VertexShader
 data GBuffer = GBuffer
   { _aBuffer     :: Texture PixelRGBA8
   , _bBuffer     :: Texture PixelRGBA8
+  , _cBuffer     :: Texture PixelRGBA8
   , _depthBuffer :: Texture (DepthComponent24 Float)
   } deriving (Typeable,Show,Generic)
 
@@ -140,6 +142,7 @@ drawGBuffers = do
 
   aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
+  cChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
   depthChannel <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture (DepthComponent24 Float)))
   fbo <- glResource
 
@@ -155,9 +158,9 @@ drawGBuffers = do
       Yage.glViewport    $= mainViewport^.rectangle
       lastViewportRef    $= mainViewport
       let V2 w h = mainViewport^.rectangle.extend
-      forM_ [aChannel, bChannel] $ \ch -> do
+      colors <- forM [aChannel, bChannel, cChannel] $ \ch -> do
         modifyM ch $ \x -> resizeTexture2D x w h
-      colors <- sequence [get aChannel, get bChannel]
+        get ch
       modifyM depthChannel $ \x -> resizeTexture2D x w h
       depth  <- get depthChannel
       void $ attachFramebuffer fbo (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
@@ -188,7 +191,7 @@ drawGBuffers = do
     setupSceneGlobals vert frag . pure (cam, mainViewport)
     drawEntities vert frag . pure (scene^.entities)
 
-    GBuffer <$> get aChannel <*> get bChannel <*> get depthChannel
+    GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel
 
 setupSceneGlobals :: VertexShader -> FragmentShader -> RenderSystem (Camera, Viewport Int) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} = do

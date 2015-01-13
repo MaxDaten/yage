@@ -208,10 +208,12 @@ gBufferUniform prog = do
   gbufferSampler <- mkGBufferSampler
   aChannel <- samplerUniform prog (sampler2D G_CHANNEL_A gbufferSampler) "inChannelA"
   bChannel <- samplerUniform prog (sampler2D G_CHANNEL_B gbufferSampler) "inChannelB"
+  cChannel <- samplerUniform prog (sampler2D G_CHANNEL_C gbufferSampler) "inChannelC"
   depthTexture <- samplerUniform prog (sampler2D G_DEPTH gbufferSampler) "DepthTexture"
   return $ SettableStateVar $ \gbuff -> do
     aChannel  $= gbuff^.aBuffer
     bChannel  $= gbuff^.bBuffer
+    cChannel  $= gbuff^.cBuffer
     depthTexture $= gbuff^.depthBuffer
 
 -- * Sampler
