@@ -49,8 +49,9 @@ void main()
   RoughnessST          = (RoughnessTextureMatrix * vec4(vTexture, 0.0, 1.0)).st;
   MetallicST           = (MetallicTextureMatrix  * vec4(vTexture, 0.0, 1.0)).st;
 
-  vec3 tangentZ        = NormalMatrix * vTangentZ.xyz;
-  vec3 tangentX        = NormalMatrix * vTangentX.xyz;
+  // normalize is neccessary to unstretch the tangets again
+  vec3 tangentZ        = normalize(NormalMatrix * vTangentZ.xyz);
+  vec3 tangentX        = normalize(NormalMatrix * vTangentX.xyz);
   vec3 tangentY        = normalize(cross( tangentZ, tangentX ) * vTangentZ.w);
   TangentInverse       = mat3( tangentX, tangentY, tangentZ );
 
