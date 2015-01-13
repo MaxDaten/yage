@@ -32,8 +32,9 @@ Surface GetSurface(void)
   surface.Roughness   = texture( RoughnessTexture, RoughnessST ).r * RoughnessIntensity;
   surface.Metallic    = texture( MetallicTexture, MetallicST ).r * MetallicIntensity;
 
-  surface.Normal      = normalize( TangentInverse * DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb ) );
-  UNUSED(NormalColor);
+  vec3 N = NormalColor.rgb * DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb );
+  N.z = NormalColor.a;
+  surface.Normal      = normalize( TangentInverse * N  );
   return surface;
 }
 
