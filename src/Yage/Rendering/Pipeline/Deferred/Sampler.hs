@@ -8,6 +8,6 @@ import Yage.Lens
 
 import Yage.Viewport
 import Yage.Geometry
-import Yage.Uniforms as U hiding (ShaderSource)
+import Yage.Uniform as U hiding (ShaderSource)
 
 import Yage.Rendering.Pipeline.Deferred.Common

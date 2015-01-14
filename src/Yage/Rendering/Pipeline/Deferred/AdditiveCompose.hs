@@ -9,7 +9,7 @@ import Yage.Prelude
 import Yage.Lens
 
 import Yage.Geometry as Geometry
-import Yage.Uniforms as U
+import Yage.Uniform as U
 import Yage.Viewport
 import Yage.Scene
 

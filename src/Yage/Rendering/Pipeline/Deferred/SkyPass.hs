@@ -28,7 +28,7 @@ import           Foreign.Ptr (nullPtr)
 import           Yage.HDR
 import           Yage.Material hiding (HasPosition, over, position)
 import           Yage.Scene    hiding (Layout)
-import           Yage.Uniforms
+import           Yage.Uniform
 import           Yage.Vertex   hiding (Texture)
 import           Yage.Attribute
 import           Yage.Viewport

@@ -25,7 +25,7 @@ includePaths = ["/res/glsl"]
 
 -- import Yage.Viewport
 -- import Yage.Geometry
--- import Yage.Uniforms as U
+-- import Yage.Uniform as U
 -- import Yage.Rendering.RenderSystem
 -- import Yage.Rendering.Textures
 

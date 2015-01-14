@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes       #-}
-module Yage.Uniforms.Material
+module Yage.Uniform.Material
   ( UniformVar
   , UniformSampler
   , materialUniform
@@ -18,7 +18,7 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.GL
 import Yage.Material            hiding (over)
-import Yage.Uniforms.UniformVar
+import Yage.Uniform.UniformVar
 
 import Data.Foldable
 import Quine.GL.Program

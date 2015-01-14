@@ -44,6 +44,7 @@ drawRectangle = do
   iTextures    <- textureUniforms frag "iTextures"
   iWeights     <- colorUniforms frag "iWeights"
   iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
+  iTargetSize  <- fmap (contramap viewportToV4 . SettableStateVar.($=)) $ programUniform programUniform4f frag "iTargetSize"
   iTextures    $= textureUnits
 
   lastViewportRef     <- newIORef (defaultViewport 0 0 :: Viewport Int)
@@ -64,7 +65,7 @@ drawRectangle = do
     glDisable GL_BLEND
     glDisable GL_CULL_FACE
     glFrontFace GL_CCW
-    -- clear not neccessary (to safe some trees)
+    -- clear not neccessary
     -- glClearColor 0 1 0 1
     -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
@@ -77,13 +78,19 @@ drawRectangle = do
     checkPipelineError pipeline
 
     throwWithStack $ do
-      iWeights  $= mkColorVector colors
-      iUsedTex  $= fromIntegral (length texs)
+      iWeights    $= mkColorVector colors
+      iUsedTex    $= fromIntegral (length texs)
+      iTargetSize $= mainViewport
       bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
 
+
+viewportToV4 :: Viewport Int -> Vec4
+viewportToV4 vp =
+  let Rectangle _ wh = vp^.rectangle
+  in V4 (fromIntegral $ wh^._x) (fromIntegral $ wh^._y) (recip $ fromIntegral $ wh^._x) (recip $ fromIntegral $ wh^._y)
 
 textureUnits :: V MAX_TEXTURES TextureUnit
 textureUnits = fromJust $ fromVector $ V.fromList [0 .. MAX_TEXTURES - 1]

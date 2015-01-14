@@ -44,7 +44,7 @@ import           Yage.Attribute
 import           Yage.Camera
 import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout)
-import           Yage.Uniforms                           as Uniforms
+import           Yage.Uniform                            as Uniform
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Foreign.Ptr

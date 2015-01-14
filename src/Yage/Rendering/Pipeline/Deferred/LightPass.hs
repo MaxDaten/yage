@@ -19,7 +19,7 @@ import Yage.GL
 import Data.Foldable
 import Foreign.Ptr (nullPtr)
 
-import Yage.Uniforms as U
+import Yage.Uniform as U
 import Yage.Camera
 import Yage.Light
 import Yage.Viewport as VP

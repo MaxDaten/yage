@@ -13,9 +13,8 @@ import Yage
 import Yage.Lens
 import Yage.GL
 import Yage.HDR
-import Yage.Uniforms
+import Yage.Uniform
 import Yage.Rendering.Resources.GL
-import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program
 import Quine.GL.Sampler
@@ -47,7 +46,7 @@ toneMapper = do
 
   -- RenderPass
   return $ do
-    (cam, source) <- ask
+    (_cam, source) <- ask
     target <- get outTexture
     when (target^.textureDimension /= source^.textureDimension) $ do
       let Texture2D w h = source^.textureDimension
@@ -90,7 +89,7 @@ fragmentUniforms prog = do
 -- * Samplers
 
 mkToneSampler :: YageResource (UniformSampler px)
-mkToneSampler = throwWithStack $ sampler2D 1 <$> do
+mkToneSampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE

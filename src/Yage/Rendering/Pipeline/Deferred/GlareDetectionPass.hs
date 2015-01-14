@@ -7,7 +7,7 @@ import Yage.Lens
 
 import Control.Applicative (liftA)
 import Yage.Scene
-import Yage.Uniforms as U
+import Yage.Uniform as U
 import Yage.Viewport as VP
 
 import Yage.Rendering.Pipeline.Deferred.Common

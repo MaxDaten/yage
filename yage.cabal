@@ -99,12 +99,12 @@ library
     Yage.Vertex
     Yage.Attribute
     
-    Yage.Uniforms
-    Yage.Uniforms.Material
-    Yage.Uniforms.Light
-    Yage.Uniforms.UniformVar
---    Yage.Uniforms.MVP
---    Yage.Uniforms.Camera
+    Yage.Uniform
+    Yage.Uniform.Material
+    Yage.Uniform.Light
+    Yage.Uniform.UniformVar
+--    Yage.Uniform.MVP
+--    Yage.Uniform.Camera
     
     Yage.Image.SDF
     Yage.Image.BilinearInterpolation
@@ -150,7 +150,7 @@ library
     Yage.Rendering.Pipeline.Deferred.Tonemap
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.ScreenPass
-    Yage.Rendering.Pipeline.Deferred.DownsamplePass
+    Yage.Rendering.Pipeline.Deferred.Downsampling
     Yage.Rendering.Pipeline.Deferred.GlareDetectionPass
     Yage.Rendering.Pipeline.Deferred.AdditiveCompose
     Yage.Rendering.Pipeline.Deferred.BrightFilter

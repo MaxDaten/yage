@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module Yage.Uniforms.Light
+module Yage.Uniform.Light
   ( lightUniform
   ) where
 
@@ -8,7 +8,7 @@ import           Yage.Math
 import           Yage.Lens
 import           Yage.Light
 import           Yage.Transformation
-import           Yage.Uniforms.UniformVar
+import           Yage.Uniform.UniformVar
 
 import           Quine.GL.Program
 import           Quine.GL.Uniform

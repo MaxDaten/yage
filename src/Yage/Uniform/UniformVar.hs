@@ -1,4 +1,4 @@
-module Yage.Uniforms.UniformVar where
+module Yage.Uniform.UniformVar where
 
 import Quine.StateVar
 

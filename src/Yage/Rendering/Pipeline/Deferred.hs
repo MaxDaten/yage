@@ -1,8 +1,9 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE TupleSections          #-}
 
 module Yage.Rendering.Pipeline.Deferred
   ( module Pass
@@ -31,9 +32,9 @@ import           Yage.Material
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
--- import           Yage.Rendering.Pipeline.Deferred.DownsamplePass as Pass
+import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
--- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass#
+-- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
 import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
@@ -61,6 +62,7 @@ yDeferredLighting = do
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
   tonemapPass    <- toneMapper
+  downsampling   <- downsampler
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
@@ -74,7 +76,7 @@ yDeferredLighting = do
     lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
     envBuff   <- maybe (pure lBuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- tonemapPass . pure (val^.hdrCamera, envBuff)
+    tonemapped <- downsampling . fmap (4,) (tonemapPass . pure (val^.hdrCamera, envBuff))
     -- bring it to the screen
     screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
 

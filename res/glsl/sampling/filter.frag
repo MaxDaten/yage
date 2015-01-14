@@ -17,7 +17,7 @@ void main()
   vec4 dest = vec4(0);
   for (int i = 0; i < iUsedTextures; i++)
   {
-    vec2 uv = gl_FragCoord.xy / textureSize(iTextures[i], 0);
+    vec2 uv = gl_FragCoord.xy * iTargetSize.zw;
     dest = combine(dest, texture(iTextures[i], uv), iWeights[i]);
   }
 
