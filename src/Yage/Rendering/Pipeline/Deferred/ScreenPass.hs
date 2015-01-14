@@ -37,12 +37,12 @@ drawRectangle = do
   boundVertexArray $= emptyvao
 
   pipeline <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
-              , $(embedShaderFile "res/glsl/sampling/alphaBlendTextures.frag")]
+              , $(embedShaderFile "res/glsl/sampling/filter.frag")]
               `compileShaderPipeline` includePaths
 
   Just frag <- get (fragmentShader $ pipeline^.pipelineProgram)
   iTextures    <- textureUniforms frag "iTextures"
-  iColors      <- colorUniforms frag "iColors"
+  iWeights     <- colorUniforms frag "iWeights"
   iUsedTex     <- programUniform programUniform1i frag "iUsedTextures"
   iTextures    $= textureUnits
 
@@ -77,7 +77,7 @@ drawRectangle = do
     checkPipelineError pipeline
 
     throwWithStack $ do
-      iColors   $= mkColorVector colors
+      iWeights  $= mkColorVector colors
       iUsedTex  $= fromIntegral (length texs)
       bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
 

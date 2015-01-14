@@ -3,8 +3,8 @@
 
 #include <definitions.h>
 
-uniform sampler2D iTextures [ MAX_TEXTURES ];
-uniform vec4        iColors [ MAX_TEXTURES ];
+uniform sampler2D  iTextures [ MAX_TEXTURES ];
+uniform vec4        iWeights [ MAX_TEXTURES ];
 
 uniform int       iUsedTextures = 1;
 

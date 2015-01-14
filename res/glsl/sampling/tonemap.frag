@@ -18,42 +18,28 @@ uniform float Exposure      = 1.0;
 uniform float ExposureBias  = 0.0;
 uniform float WhitePoint    = 11.2;
 
-uniform float weights[ MAX_TEXTURES ];
-
-layout (location = 0) out vec3 pixelColor;
+uniform sampler2D iTexture;
+layout (location = 0) out vec4 pixelColor;
 
 //------------------------------------
 
-vec4 ToneColor()
+vec4 inverseGamma(vec4 x)
 {
-    vec4 OutColor = vec4(0);
-    for ( int i = 0; i < iUsedTextures; i++ )
-    {
-        vec2 uv = gl_FragCoord.xy / textureSize(iTextures[i], 0);
-        vec4 sampleColor = texture(iTextures[i], uv);
-        OutColor.rgb  += weights[i] * sampleColor.rgb;
-        OutColor.a    += sampleColor.a / iUsedTextures;
-    }
-    return OutColor;
+    return pow(x, vec4(InverseGamma));
 }
 
-vec3 inverseGamma(vec3 x)
-{
-    return pow(x, vec3(InverseGamma));
-}
-
-vec3 LinearToneMapping(vec3 color)
+vec4 LinearToneMapping(vec4 color)
 {
     return color;
 }
 
-vec3 ReinhardToneMapping(vec3 color)
+vec4 ReinhardToneMapping(vec4 color)
 {
     color = color / (1+color);
     return color;
 }
 
-vec3 Uncharted2ToneMapping(vec3 color)
+vec4 Uncharted2ToneMapping(vec4 color)
 {
     float A = 0.15;
     float B = 0.50;
@@ -64,7 +50,7 @@ vec3 Uncharted2ToneMapping(vec3 color)
     return ((color*(A*color+C*B)+D*E) / (color*(A*color+B)+D*F))- E / F;
 }
 
-vec3 ToneMapping(vec3 color)
+vec4 ToneMapping(vec4 color)
 {
 #if     TONE_MAPPING_TYPE == 0
     return LinearToneMapping(color);
@@ -77,15 +63,15 @@ vec3 ToneMapping(vec3 color)
 
 void main()
 {
-    vec3 texColor = ToneColor().rgb;
+    vec2 uv = gl_FragCoord.xy / textureSize(iTexture, 0);
+    vec4 texColor = texture(iTexture, uv, 0);
 
     texColor     *= Exposure;
 
-    vec3 color = 2.0 * ToneMapping( ExposureBias + texColor );
-    vec3 whiteScale = 1.0 / ToneMapping(vec3(WhitePoint));
+    vec4 tonemapped = 2.0 * ToneMapping( ExposureBias + texColor );
+    vec4 whiteScale = 1.0 / ToneMapping(vec4(WhitePoint));
 
 
-    color *= whiteScale;
-    // color = inverseGamma( color );
-    pixelColor = clamp( color, 0, 1 );
+    tonemapped *= whiteScale;
+    pixelColor = clamp( tonemapped, 0, 1 );
 }

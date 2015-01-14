@@ -26,7 +26,7 @@ import Yage.Rendering.Pipeline.Deferred.Common
 #include "definitions.h"
 
 data FragmentShader = FragmentShader
-  { iTexture0 :: UniformVar (Texture PixelRGBF)
+  { iTexture :: UniformVar (Texture PixelRGBF)
   }
 
 -- * Draw To Screen
@@ -72,7 +72,7 @@ toneMapper = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    iTexture0 $= source
+    iTexture $= source
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
@@ -84,12 +84,8 @@ toneMapper = do
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
-  iUsedTextures <- programUniform programUniform1i prog "iUsedTextures"
-  weights0      <- programUniform programUniform1f prog "weights[0]"
-  iUsedTextures $= 1
-  weights0      $= 1
   toneSampler <- mkToneSampler
-  FragmentShader <$> samplerUniform prog toneSampler "iTextures[0]"
+  FragmentShader <$> samplerUniform prog toneSampler "iTexture"
 
 -- * Samplers
 
