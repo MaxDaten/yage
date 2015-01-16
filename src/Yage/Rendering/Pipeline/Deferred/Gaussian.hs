@@ -4,25 +4,23 @@
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-module Yage.Rendering.Pipeline.Deferred.Downsampling
-  ( downsampler
+module Yage.Rendering.Pipeline.Deferred.Gaussian
+  ( gaussianSampler
+  , linearGaussianSampler
+  , LinearSamplingDirection(..)
   ) where
 
 import Yage hiding ((</>), toList)
-import Yage.Lens
-import qualified Data.Vector as V
-import Linear.V
+import Yage.Lens hiding (set)
 import Yage.GL
 import Yage.Uniform
-import Data.Foldable (toList)
-import Data.Maybe (fromJust)
+import Data.Foldable (traverse_)
+import Data.Data
 import Yage.Rendering.Resources.GL
-import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program
 import Quine.GL.Sampler
-import Quine.GL.Texture hiding (Texture)
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -31,27 +29,44 @@ import Yage.Rendering.Pipeline.Deferred.Common
 
 
 data FragmentShader px = FragmentShader
-  { iTexture    :: UniformVar (Texture px)
-  , iTargetSize :: UniformVar (V2 Int)
+  { iToFilter     :: UniformVar (Texture px)
+  , iAdditive     :: UniformVar (Texture px)
+  , iTargetSize   :: UniformVar (V2 Int)
+  , iDirection    :: UniformVar (Vec2)
+  , iUsedTextures :: UniformVar Int
   }
+
+data LinearSamplingDirection = XDirection | YDirection
+  deriving (Eq,Ord,Show,Read,Data,Typeable,Generic)
 
 
 -- * Draw To Screen
 
-downsampler :: forall px. ImageFormat px => YageResource (RenderSystem (Int, Texture px) (Texture px))
-downsampler = do
+-- | a gaussian blur filter which operates in two linear filter passes.
+gaussianSampler :: ImageFormat px => YageResource (RenderSystem (Int, Texture px, Maybe (Texture px)) (Texture px))
+gaussianSampler = do
+  gaussianX <- linearGaussianSampler XDirection
+  gaussianY <- linearGaussianSampler YDirection
+  return $ do
+    (scale, inTex, add) <- ask
+    tx <- gaussianX . pure (1,inTex,Nothing)
+    ty <- gaussianY . pure (1,tx,add)
+    return ty
+
+linearGaussianSampler :: forall px. ImageFormat px => LinearSamplingDirection -> YageResource (RenderSystem (Int, Texture px, Maybe (Texture px)) (Texture px))
+linearGaussianSampler direction = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
 
   pipeline <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
-              , $(embedShaderFile "res/glsl/sampling/downsampling.frag")]
+              , $(embedShaderFile "res/glsl/sampling/gaussian.frag")]
               `compileShaderPipeline` includePaths
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
   outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
 
-  lastOutDimensionRef     <- newIORef (V2 1 1)
+  lastDimensionRef     <- newIORef (V2 1 1)
   fbo <- glResource
 
   -- RenderPass
@@ -59,14 +74,14 @@ downsampler = do
     throwWithStack $
       boundFramebuffer RWFramebuffer $= fbo
 
-    (factor, toFilter) <- ask
+    (upFactor, toFilter, mAdd) <- ask
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
-        V2 newWidth newHeight = V2 (inWidth `div` factor) (inHeight `div` factor)
+        V2 newWidth newHeight = V2 (inWidth * upFactor) (inHeight * upFactor)
 
-    lastOutDimension <- get lastOutDimensionRef
+    lastOutDimension <- get lastDimensionRef
     when (lastOutDimension /= V2 newWidth newHeight) $ do
-      lastOutDimensionRef $= V2 newWidth newHeight
+      lastDimensionRef $= V2 newWidth newHeight
       modifyM outputTexture $ \x -> resizeTexture2D x newWidth newHeight
       out <- get outputTexture
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
@@ -89,8 +104,11 @@ downsampler = do
     checkPipelineError pipeline
 
 
-    iTexture $= toFilter
-    iTargetSize $= V2 newWidth newHeight
+    iToFilter $= toFilter
+    traverse_ (set iAdditive) mAdd
+    iUsedTextures $= if isJust mAdd then 2 else 1
+    iTargetSize   $= V2 newWidth newHeight
+    iDirection    $= if direction == XDirection then V2 1 0 else V2 0 1
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
@@ -102,18 +120,21 @@ downsampler = do
 
 fragmentUniforms :: Program -> YageResource (FragmentShader px)
 fragmentUniforms prog = do
-  downsampler <- mkDownsampler
+  smpl <- mkSampler
   FragmentShader
-    <$> samplerUniform prog downsampler "iTextures[0]"
+    <$> samplerUniform prog smpl "iTextures[0]"
+    <*> samplerUniform prog smpl "iTextures[1]"
     <*> fmap (contramap dimensionToTargetSize . SettableStateVar.($=)) (programUniform programUniform4f prog "iTargetSize")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "iDirection")
+    <*> fmap (contramap fromIntegral . SettableStateVar.($=)) (programUniform programUniform1i prog "iUsedTextures")
  where
   dimensionToTargetSize (V2 w h) = V4 (fromIntegral w) (fromIntegral h) (recip $ fromIntegral w) (recip $ fromIntegral h)
 
 
 -- * Samplers
 
-mkDownsampler :: YageResource (UniformSampler px)
-mkDownsampler = throwWithStack $ sampler2D 0 <$> do
+mkSampler :: YageResource (UniformSampler px)
+mkSampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE

@@ -17,7 +17,6 @@ import Yage.GL
 import Data.Foldable (toList)
 import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
-import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program

@@ -16,8 +16,8 @@ module Yage.Rendering.Pipeline.Deferred
   , yDeferredLighting
   ) where
 
-import           Yage.Prelude hiding ((</>))
-import           Yage.Lens
+import           Yage.Prelude hiding ((</>), foldM, cons, (++))
+import           Yage.Lens hiding (cons)
 import           Yage.Vertex hiding (Texture)
 import           Yage.Formats.Ygm
 
@@ -35,12 +35,16 @@ import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
+import           Yage.Rendering.Pipeline.Deferred.Gaussian       as Pass
 import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 import           System.FilePath ((</>))
+import           Control.Monad (foldM)
+import           Data.List ((++))
+import           Data.Maybe (fromJust)
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
 import           Quine.GL.Types
@@ -51,6 +55,8 @@ type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMateri
 type DeferredEnvironment = Environment Light DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
+maxBloomSamples :: Int
+maxBloomSamples = 5
 
 yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a) => YageResource (RenderSystem a ())
 yDeferredLighting = do
@@ -62,10 +68,10 @@ yDeferredLighting = do
   screenQuadPass <- drawRectangle
   skyPass        <- drawSky
   tonemapPass    <- toneMapper
-  downsampling   <- downsampler
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
+  renderBloom     <- bloomPass
 
   return $ do
     val <- ask
@@ -74,11 +80,33 @@ yDeferredLighting = do
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
     lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
-    envBuff   <- maybe (pure lBuffer) (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
+    envBuff   <- maybe (pure lBuffer)
+                       (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
+    -- bloom pass
+    bloomed <- renderBloom . pure envBuff
+
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- downsampling . fmap (4,) (tonemapPass . pure (val^.hdrCamera, envBuff))
+    tonemapped <- tonemapPass . pure (val^.hdrCamera, bloomed)
     -- bring it to the screen
-    screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
+    -- screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
+    -- screenQuadPass . pure ((1.0/3,baseSampler,) <$> toList downsampledTextures, val^.viewport)
+    screenQuadPass . pure ([(1.0,baseSampler,tonemapped)], val^.viewport)
+
+
+bloomPass :: ImageFormat px => YageResource (RenderSystem (Texture px) (Texture px))
+bloomPass = do
+  downsamplers      <- replicateM maxBloomSamples $ lmap (2,) <$> downsampler
+  gaussianSamplers  <- replicateM maxBloomSamples $ gaussianSampler
+  return $ do
+    inTexture <- ask
+    downsampledTextures <- foldM processDownsample [(1,inTexture)] downsamplers
+    fromJust <$> foldM (\a (gaussian,(n,t)) -> fmap Just $ gaussian . pure (n,t,a)) Nothing (zip gaussianSamplers (reverse downsampledTextures))
+ where
+  processDownsample txs sampler =
+    let (lastfactor, base) = unsafeLast txs
+    in fmap ((++) txs . singleton . (2*lastfactor,)) sampler . pure base
+
+
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do

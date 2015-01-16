@@ -219,7 +219,7 @@ setDevStuff simTime renderTime win = liftApp $ do
       , fixed 4 $ 1000 * simTime
       , fixed 4 $ 1000 * renderTime
       , fixed 4 $ 1000 * gcTime
-      , prec 4 $ 1000 * sum [simTime, gcTime] )
+      , prec 4 $ 1000 * sum [simTime, renderTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0
