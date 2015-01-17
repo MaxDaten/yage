@@ -18,27 +18,27 @@ uniform float Exposure      = 1.0;
 uniform float ExposureBias  = 0.0;
 uniform float WhitePoint    = 11.2;
 
-layout (location = 0) out vec4 pixelColor;
+layout (location = 0) out vec3 pixelColor;
 
 //------------------------------------
 
-vec4 inverseGamma(vec4 x)
+vec3 inverseGamma(vec3 x)
 {
-    return pow(x, vec4(InverseGamma));
+    return pow(x, vec3(InverseGamma));
 }
 
-vec4 LinearToneMapping(vec4 color)
+vec3 LinearToneMapping(vec3 color)
 {
     return color;
 }
 
-vec4 ReinhardToneMapping(vec4 color)
+vec3 ReinhardToneMapping(vec3 color)
 {
     color = color / (1+color);
     return color;
 }
 
-vec4 Uncharted2ToneMapping(vec4 color)
+vec3 Uncharted2ToneMapping(vec3 color)
 {
     float A = 0.15;
     float B = 0.50;
@@ -49,7 +49,7 @@ vec4 Uncharted2ToneMapping(vec4 color)
     return ((color*(A*color+C*B)+D*E) / (color*(A*color+B)+D*F))- E / F;
 }
 
-vec4 ToneMapping(vec4 color)
+vec3 ToneMapping(vec3 color)
 {
 #if     TONE_MAPPING_TYPE == 0
     return LinearToneMapping(color);
@@ -62,15 +62,22 @@ vec4 ToneMapping(vec4 color)
 
 void main()
 {
-    vec2 uv = gl_FragCoord.xy / textureSize(iTextures[0], 0);
-    vec4 texColor = texture(iTextures[0], uv);
+  vec2 uv = gl_FragCoord.xy / textureSize(iTextures[0], 0);
+  vec3 sceneColor = texture(iTextures[0], uv).rgb;
 
-    texColor     *= Exposure;
+  sceneColor     *= Exposure;
 
-    vec4 tonemapped = 2.0 * ToneMapping( ExposureBias + texColor );
-    vec4 whiteScale = 1.0 / ToneMapping(vec4(WhitePoint));
+  vec3 linearColor = sceneColor;
+
+  // add bloom
+  linearColor += texture(iTextures[1], uv).rgb;
+
+  vec3 outColor = 2.0 * ToneMapping( ExposureBias + linearColor );
+  vec3 whiteScale = 1.0 / ToneMapping(vec3(WhitePoint));
 
 
-    tonemapped *= whiteScale;
-    pixelColor = clamp( tonemapped, 0, 1 );
+  outColor *= whiteScale;
+  // outColor = inverseGamma(outColor);
+
+  pixelColor = clamp( outColor, 0, 1 );
 }

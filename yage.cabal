@@ -151,9 +151,6 @@ library
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.ScreenPass
     Yage.Rendering.Pipeline.Deferred.Downsampling
-    Yage.Rendering.Pipeline.Deferred.GlareDetectionPass
-    Yage.Rendering.Pipeline.Deferred.AdditiveCompose
-    Yage.Rendering.Pipeline.Deferred.BrightFilter
     Yage.Rendering.Pipeline.Deferred.GaussianBlur
     Yage.Rendering.Pipeline.Deferred.LuminanceFilter
     Yage.Rendering.Pipeline.Deferred.Sampler

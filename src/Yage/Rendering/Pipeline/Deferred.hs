@@ -81,30 +81,28 @@ yDeferredLighting = do
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
     lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
-    envBuff   <- maybe (pure lBuffer)
+    sceneTex  <- maybe (pure lBuffer)
                        (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
     -- bloom pass
-    bloomed <- renderBloom . pure (0.5,envBuff)
+    bloomed <- renderBloom . pure (0.5,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- tonemapPass . pure (val^.hdrCamera, bloomed)
+    tonemapped <- tonemapPass . pure (val^.hdrCamera, sceneTex, Just bloomed)
     -- bring it to the screen
-    -- screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
-    -- screenQuadPass . pure ((1.0/3,baseSampler,) <$> toList downsampledTextures, val^.viewport)
     screenQuadPass . pure ([(1.0,baseSampler,tonemapped)], val^.viewport)
 
 
 addBloom :: ImageFormat px => Int -> YageResource (RenderSystem (Float,Texture px) (Texture px))
 addBloom numSamples = do
   sceneHalf  <- lmap (2,) <$> downsampler
-  downsamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
+  halfSamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
   gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
   filterLuma <- luminanceFilter
   return $ do
     (thrshold, inTex) <- ask
     filtered <- filterLuma . fmap (thrshold,) sceneHalf . pure inTex
-    downsampledTextures <- reverse <$> foldM processDownsample [(2::Int,filtered)] downsamplers
-    fromJust <$> foldM (\a (gaussian,(_,d)) -> Just <$> gaussian . pure (d,a)) Nothing (zip gaussianSamplers (downsampledTextures ++ [(1,inTex)]))
+    downsampledTextures <- reverse <$> foldM processDownsample [(2::Int,filtered)] halfSamplers
+    fromJust <$> foldM (\a (gaussian,(_,d)) -> Just <$> gaussian . pure (d,a)) Nothing (zip gaussianSamplers downsampledTextures)
  where
   processDownsample txs dsampler =
     let (lastfactor, base) = unsafeLast txs

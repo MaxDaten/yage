@@ -25,12 +25,13 @@ import Yage.Rendering.Pipeline.Deferred.Common
 #include "definitions.h"
 
 data FragmentShader = FragmentShader
-  { iTexture :: UniformVar (Texture PixelRGBF)
+  { iScene :: UniformVar (Texture PixelRGBF)
+  , iBloom :: UniformVar (Maybe (Texture PixelRGBF))
   }
 
 -- * Draw To Screen
 
-toneMapper :: YageResource (RenderSystem (HDRCamera, Texture PixelRGBF) (Texture PixelRGB8))
+toneMapper :: YageResource (RenderSystem (HDRCamera, Texture PixelRGBF, Maybe (Texture PixelRGBF)) (Texture PixelRGB8))
 toneMapper = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -46,10 +47,10 @@ toneMapper = do
 
   -- RenderPass
   return $ do
-    (_cam, source) <- ask
+    (_cam, sceneTex, mBloomTex) <- ask
     target <- get outTexture
-    when (target^.textureDimension /= source^.textureDimension) $ do
-      let Texture2D w h = source^.textureDimension
+    when (target^.textureDimension /= sceneTex^.textureDimension) $ do
+      let Texture2D w h = sceneTex^.textureDimension
       modifyM outTexture $ \x -> resizeTexture2D x w h
       newtarget <- get outTexture
       void $ attachFramebuffer fbo [mkAttachment newtarget] Nothing Nothing
@@ -71,7 +72,8 @@ toneMapper = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    iTexture $= source
+    iScene $= sceneTex
+    iBloom $= mBloomTex
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
@@ -84,12 +86,25 @@ toneMapper = do
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
   toneSampler <- mkToneSampler
-  FragmentShader <$> fmap (contramap Just) (samplerUniform prog toneSampler "iTextures[0]")
+  bloomSampler <- mkBloomSampler
+  FragmentShader
+    <$> fmap (contramap Just) (samplerUniform prog toneSampler "iTextures[0]")
+    <*> samplerUniform prog bloomSampler "iTextures[1]"
 
 -- * Samplers
 
 mkToneSampler :: YageResource (UniformSampler px)
 mkToneSampler = throwWithStack $ sampler2D 0 <$> do
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return s
+
+mkBloomSampler :: YageResource (UniformSampler px)
+mkBloomSampler = throwWithStack $ sampler2D 1 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE

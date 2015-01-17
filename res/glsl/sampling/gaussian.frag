@@ -41,4 +41,5 @@ void main()
 
   fragColor.rgb = GaussianBlur(iTextures[0], uv, step);
   fragColor.rgb += texture(iTextures[1], uv).rgb;
+  fragColor.a = 0;
 }
