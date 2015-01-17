@@ -114,9 +114,6 @@ linearGaussianSampler direction = do
     glDisable GL_BLEND
     glDisable GL_CULL_FACE
     glFrontFace GL_CCW
-    -- clear not neccessary
-    -- glClearColor 0 1 0 1
-    -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     {-# SCC boundVertexArray #-} throwWithStack $
       boundVertexArray $= emptyvao
@@ -128,7 +125,6 @@ linearGaussianSampler direction = do
 
 
     iToFilter $= toFilter
-    -- iAdditive $= toFilter
     iAdditive $= mAdd
     iUsedTextures $= if isJust mAdd then 2 else 1
     iTargetSize $= V2 inWidth inHeight

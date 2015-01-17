@@ -5,24 +5,18 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Yage.Rendering.Pipeline.Deferred.LuminanceFilter
-  ( downsampler
+  ( luminanceFilter
   ) where
 
 import Yage hiding ((</>), toList)
 import Yage.Lens
-import qualified Data.Vector as V
-import Linear.V
 import Yage.GL
 import Yage.Uniform
-import Data.Foldable (toList)
-import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
-import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program
 import Quine.GL.Sampler
-import Quine.GL.Texture hiding (Texture)
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -38,8 +32,8 @@ data FragmentShader px = FragmentShader
 
 -- * Draw To Screen
 
-downsampler :: forall px. ImageFormat px => YageResource (RenderSystem (Float,Texture px) (Texture px))
-downsampler = do
+luminanceFilter :: forall px. ImageFormat px => YageResource (RenderSystem (Float,Texture px) (Texture px))
+luminanceFilter = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
 
@@ -102,7 +96,7 @@ fragmentUniforms :: Program -> YageResource (FragmentShader px)
 fragmentUniforms prog = do
   s <- mkFiltersampler
   FragmentShader
-    <$> samplerUniform prog s "iTextures[0]"
+    <$> fmap (contramap Just) (samplerUniform prog s "iTextures[0]")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform1f prog "iLuminanceCutoff")
 
 

@@ -40,22 +40,5 @@ vec3 PositionVSFromDepth ( float zBufferDepth, vec2 zRatio, vec3 ViewPosition )
     return viewRay * LinearDepth( zBufferDepth, zRatio );
 }
 
-float Luminance( vec3 color )
-{
-    return dot( color, vec3( 0.3, 0.59, 0.11 ) );
-}
-
-
-vec4 gamma(vec3 x, float y)
-{
-    return vec4(pow(x.r, y), pow(x.g, y), pow(x.b, y), 1.0);
-}
-
-
-vec4 gamma(vec4 x, float y)
-{
-    return vec4(pow(x.r, y), pow(x.g, y), pow(x.b, y), x.a);
-}
-
 
 #endif /* __COMMON_H__ */
