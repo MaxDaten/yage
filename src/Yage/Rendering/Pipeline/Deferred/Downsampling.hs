@@ -15,12 +15,10 @@ import Yage.Uniform
 import Data.Foldable (toList)
 import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
-import Quine.GL.Types
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.GL.Program
 import Quine.GL.Sampler
-import Quine.GL.Texture hiding (Texture)
 import Quine.GL.ProgramPipeline
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
