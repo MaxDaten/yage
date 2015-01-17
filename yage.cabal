@@ -154,7 +154,7 @@ library
     Yage.Rendering.Pipeline.Deferred.GlareDetectionPass
     Yage.Rendering.Pipeline.Deferred.AdditiveCompose
     Yage.Rendering.Pipeline.Deferred.BrightFilter
-    Yage.Rendering.Pipeline.Deferred.Gaussian
+    Yage.Rendering.Pipeline.Deferred.GaussianBlur
     Yage.Rendering.Pipeline.Deferred.Sampler
     Yage.Rendering.Pipeline.Deferred.GuiPass
     

@@ -35,7 +35,7 @@ import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
-import           Yage.Rendering.Pipeline.Deferred.Gaussian       as Pass
+import           Yage.Rendering.Pipeline.Deferred.GaussianBlur   as Pass
 import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
@@ -71,7 +71,7 @@ yDeferredLighting = do
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
-  renderBloom     <- bloomPass
+  renderBlur      <- blurPass maxBloomSamples
 
   return $ do
     val <- ask
@@ -83,7 +83,7 @@ yDeferredLighting = do
     envBuff   <- maybe (pure lBuffer)
                        (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
     -- bloom pass
-    bloomed <- renderBloom . pure envBuff
+    bloomed <- renderBlur . pure envBuff
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapped <- tonemapPass . pure (val^.hdrCamera, bloomed)
@@ -91,21 +91,6 @@ yDeferredLighting = do
     -- screenQuadPass . pure ([(1,baseSampler,tonemapped)], val^.viewport)
     -- screenQuadPass . pure ((1.0/3,baseSampler,) <$> toList downsampledTextures, val^.viewport)
     screenQuadPass . pure ([(1.0,baseSampler,tonemapped)], val^.viewport)
-
-
-bloomPass :: ImageFormat px => YageResource (RenderSystem (Texture px) (Texture px))
-bloomPass = do
-  downsamplers      <- replicateM maxBloomSamples $ lmap (2,) <$> downsampler
-  gaussianSamplers  <- replicateM (maxBloomSamples + 1) $ gaussianSampler
-  return $ do
-    inTexture <- ask
-    downsampledTextures <- reverse <$> foldM processDownsample [(1,inTexture)] downsamplers
-    fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers downsampledTextures)
- where
-  processDownsample txs dsampler =
-    let (lastfactor, base) = unsafeLast txs
-    in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
-
 
 
 mkBaseSampler :: YageResource Sampler
