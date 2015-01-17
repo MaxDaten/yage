@@ -54,7 +54,7 @@ import Quine.GL.ProgramPipeline
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { radianceEnvironment  :: UniformVar (Texture PixelRGB8)
+  { radianceEnvironment  :: UniformVar (Maybe (Texture PixelRGB8))
   , gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
@@ -144,7 +144,7 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} viewport ra
   vpMatrix            $= fmap realToFrac <$> viewprojectionM
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
   zProjectionRatio    $= zRatio
-  radianceEnvironment $= radiance
+  radianceEnvironment $= Just radiance
   gBuffer             $= gbuff
   cameraPosition      $= realToFrac <$> cam^.position
  where
@@ -211,10 +211,10 @@ gBufferUniform prog = do
   cChannel <- samplerUniform prog (sampler2D G_CHANNEL_C gbufferSampler) "inChannelC"
   depthTexture <- samplerUniform prog (sampler2D G_DEPTH gbufferSampler) "DepthTexture"
   return $ SettableStateVar $ \gbuff -> do
-    aChannel  $= gbuff^.aBuffer
-    bChannel  $= gbuff^.bBuffer
-    cChannel  $= gbuff^.cBuffer
-    depthTexture $= gbuff^.depthBuffer
+    aChannel  $= Just (gbuff^.aBuffer)
+    bChannel  $= Just (gbuff^.bBuffer)
+    cChannel  $= Just (gbuff^.cBuffer)
+    depthTexture $= Just (gbuff^.depthBuffer)
 
 -- * Sampler
 

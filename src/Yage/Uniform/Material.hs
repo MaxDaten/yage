@@ -32,8 +32,8 @@ import Yage.Rendering.Resources.GL.Texture
 
 data UniformSampler px = UniformSampler TextureUnit (UniformVar (Maybe (Texture px)))
 
-instance MonadIO m => HasSetter (UniformSampler px) (Texture px) m where
-  (UniformSampler _ s) $= t = s $= Just t
+instance MonadIO m => HasSetter (UniformSampler px) (Maybe (Texture px)) m where
+  (UniformSampler _ s) $= t = s $= t
 
 sampler :: TextureTarget -> TextureUnit -> Sampler -> UniformSampler px
 sampler t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
@@ -48,11 +48,11 @@ sampler2D = sampler GL_TEXTURE_2D
 samplerCube :: TextureUnit -> Sampler -> UniformSampler px
 samplerCube = sampler GL_TEXTURE_CUBE_MAP
 
-samplerUniform :: MonadIO m => Program -> UniformSampler px -> String -> m (UniformVar (Texture px))
+samplerUniform :: MonadIO m => Program -> UniformSampler px -> String -> m (UniformVar (Maybe (Texture px)))
 samplerUniform prog (UniformSampler texunit var) texname = do
   texture <- programUniform programUniform1i prog texname
   texture $= fromIntegral texunit
-  return $ SettableStateVar $ \tex -> var $= Just tex
+  return $ SettableStateVar $ \tex -> var $= tex
 
 materialUniformRGBA :: (Functor m, MonadIO m) => Program -> UniformSampler px  -> String -> String -> m (UniformVar (Material MaterialColorAlpha (Texture px)))
 materialUniformRGBA prog smpl texname colorname = contramap (over materialColor linearV4) <$> materialUniformV4 prog smpl texname colorname

@@ -293,41 +293,41 @@ fragmentUniforms prog = do
 
 mkAlbedoSampler :: YageResource (UniformSampler px)
 mkAlbedoSampler = throwWithStack $ sampler2D ALBEDO_UNIT <$> do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return s
 
 mkNormalSampler :: YageResource (UniformSampler px)
 mkNormalSampler = throwWithStack $ sampler2D NORMAL_UNIT <$> do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return s
 
 mkRoughnessSampler :: YageResource (UniformSampler px)
 mkRoughnessSampler = throwWithStack $ sampler2D ROUGHNESS_UNIT <$> do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return s
 
 mkMetallicSampler :: YageResource (UniformSampler px)
 mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_REPEAT
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return s
 

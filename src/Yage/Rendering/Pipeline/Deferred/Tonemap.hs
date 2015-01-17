@@ -84,7 +84,7 @@ toneMapper = do
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
   toneSampler <- mkToneSampler
-  FragmentShader <$> samplerUniform prog toneSampler "iTexture"
+  FragmentShader <$> fmap (contramap Just) (samplerUniform prog toneSampler "iTextures[0]")
 
 -- * Samplers
 

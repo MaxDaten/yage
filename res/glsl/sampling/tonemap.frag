@@ -18,7 +18,6 @@ uniform float Exposure      = 1.0;
 uniform float ExposureBias  = 0.0;
 uniform float WhitePoint    = 11.2;
 
-uniform sampler2D iTexture;
 layout (location = 0) out vec4 pixelColor;
 
 //------------------------------------
@@ -63,8 +62,8 @@ vec4 ToneMapping(vec4 color)
 
 void main()
 {
-    vec2 uv = gl_FragCoord.xy / textureSize(iTexture, 0);
-    vec4 texColor = texture(iTexture, uv, 0);
+    vec2 uv = gl_FragCoord.xy / textureSize(iTextures[0], 0);
+    vec4 texColor = texture(iTextures[0], uv);
 
     texColor     *= Exposure;
 

@@ -96,15 +96,15 @@ yDeferredLighting = do
 bloomPass :: ImageFormat px => YageResource (RenderSystem (Texture px) (Texture px))
 bloomPass = do
   downsamplers      <- replicateM maxBloomSamples $ lmap (2,) <$> downsampler
-  gaussianSamplers  <- replicateM maxBloomSamples $ gaussianSampler
+  gaussianSamplers  <- replicateM (maxBloomSamples + 1) $ gaussianSampler
   return $ do
     inTexture <- ask
-    downsampledTextures <- foldM processDownsample [(1,inTexture)] downsamplers
-    fromJust <$> foldM (\a (gaussian,(n,t)) -> fmap Just $ gaussian . pure (n,t,a)) Nothing (zip gaussianSamplers (reverse downsampledTextures))
+    downsampledTextures <- reverse <$> foldM processDownsample [(1,inTexture)] downsamplers
+    fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers downsampledTextures)
  where
-  processDownsample txs sampler =
+  processDownsample txs dsampler =
     let (lastfactor, base) = unsafeLast txs
-    in fmap ((++) txs . singleton . (2*lastfactor,)) sampler . pure base
+    in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
 
 
 
