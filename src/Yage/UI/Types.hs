@@ -16,6 +16,7 @@ import           Yage.Core.Application as Core (Key(..), KeyState(..), MouseButt
 
 import           Linear
 import           Linear.Instances ()
+import           Linear.DeepSeq ()
 ---------------------------------------------------------------------------------------------------
 
 data MouseEvent =

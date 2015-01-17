@@ -1,3 +1,4 @@
+
 {-# LANGUAGE TemplateHaskell #-}
 module Yage.HDR
     ( module Yage.HDR
@@ -8,6 +9,7 @@ import Yage.Prelude
 import Yage.Lens
 import Yage.Camera as Camera
 import Yage.Transformation
+import Data.Data
 
 
 data HDRCamera = HDRCamera
@@ -16,7 +18,7 @@ data HDRCamera = HDRCamera
     , _hdrExposureBias  :: Double
     , _hdrWhitePoint    :: Double
     , _hdrBloomSettings :: HDRBloomSettings
-    } deriving ( Show, Eq, Ord, Generic )
+    } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
 data HDRBloomSettings = HDRBloomSettings
     { _bloomPreDownsampling :: Int
@@ -25,10 +27,15 @@ data HDRBloomSettings = HDRBloomSettings
     , _bloomThreshold       :: Double
     -- ^ ~ 0.5 - 0.8 [Kawase04, Page 29]
     , _bloomWidth           :: Double
-    } deriving ( Show, Eq, Ord, Generic )
+    } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
-makeLenses ''HDRBloomSettings
-makeLenses ''HDRCamera
+makeClassy ''HDRBloomSettings
+makeClassyFor "HasHDRCamera" "hdrCamera"
+  [ ("_hdrExposure", "exposure")
+  , ("_hdrExposureBias", "exposureBias")
+  , ("_hdrWhitePoint", "whitePoint")
+  , ("_hdrBloomSettings", "bloomSettings")
+  ] ''HDRCamera
 
 defaultBloomSettings :: HDRBloomSettings
 defaultBloomSettings = HDRBloomSettings
@@ -40,13 +47,16 @@ defaultBloomSettings = HDRBloomSettings
     }
 
 defaultHDRCamera :: Camera -> HDRCamera
-defaultHDRCamera camera = HDRCamera
-    { _hdrCameraHandle        = camera
+defaultHDRCamera cam = HDRCamera
+    { _hdrCameraHandle  = cam
     , _hdrExposure      = 0.5
     , _hdrExposureBias  = 1.0
     , _hdrWhitePoint    = 0.5
     , _hdrBloomSettings = defaultBloomSettings
     }
+
+instance HasCamera HDRCamera where
+    camera = lens _hdrCameraHandle (\s c -> s{_hdrCameraHandle = c})
 
 instance LinearInterpolatable HDRBloomSettings where
     lerp alpha u v =
@@ -56,11 +66,11 @@ instance LinearInterpolatable HDRBloomSettings where
 
 instance LinearInterpolatable HDRCamera where
     lerp alpha u v =
-        u & hdrCameraHandle  .~ lerp alpha (u^.hdrCameraHandle) (v^.hdrCameraHandle)
-          & hdrExposure      .~ lerp alpha (u^.hdrExposure) (v^.hdrExposure)
-          & hdrExposureBias  .~ lerp alpha (u^.hdrExposureBias) (v^.hdrExposureBias)
-          & hdrWhitePoint    .~ lerp alpha (u^.hdrWhitePoint) (v^.hdrWhitePoint)
-          & hdrBloomSettings .~ lerp alpha (u^.hdrBloomSettings) (v^.hdrBloomSettings)
+        u & camera        .~ lerp alpha (u^.camera) (v^.camera)
+          & exposure      .~ lerp alpha (u^.exposure) (v^.exposure)
+          & exposureBias  .~ lerp alpha (u^.exposureBias) (v^.exposureBias)
+          & whitePoint    .~ lerp alpha (u^.whitePoint) (v^.whitePoint)
+          & bloomSettings .~ lerp alpha (u^.bloomSettings) (v^.bloomSettings)
 
 instance Default HDRBloomSettings where
     def = defaultBloomSettings

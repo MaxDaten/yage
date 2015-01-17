@@ -12,7 +12,7 @@ import           Yage.Prelude
 import           Yage.Lens hiding ((<.>), (.=))
 import           Yage.Math
 
-import           Yage.Images
+import           Yage.Image
 
 import           Data.Aeson              ( ToJSON, FromJSON, (.=), (.:) )
 import qualified Data.Aeson    as JSON

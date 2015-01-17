@@ -4,6 +4,7 @@ module Yage.Wire.Movement where
 
 import Yage.Prelude
 import Yage.Lens
+import Yage.Transformation
 
 import Yage.Math
 import Yage.UI
@@ -28,7 +29,6 @@ smoothTranslation dir acc att key =
     in proc inTransV -> do
         transV <- trans -< ()
         returnA -< inTransV + transV
-
 
 velocity :: (Floating b, Ord b, Real t)
          => b -> b -> Key -> YageWire t a b
@@ -92,34 +92,30 @@ fpsCameraMovement startPos movementSource =
     proc cam -> do
         trans       <- movementSource    -< ()
         worldTrans  <- integral startPos -< (cam^.cameraOrientation) `rotate` trans
-        returnA -< cam & cameraLocation .~ worldTrans
+        returnA -< cam & position .~ worldTrans
 
 
--- | look around like fps
-fpsCameraRotation :: (Real t) =>
-               YageWire t () (V2 Double) ->
-               YageWire t Camera Camera
+-- | look around like in fps
+fpsCameraRotation :: Real t => YageWire t () (V2 Double) -> YageWire t Camera Camera
 fpsCameraRotation velocitySource =
-    proc cam -> do
-        velV <- velocitySource -< () -- counter clock wise
-        x    <- integral 0                   -< velV^._x
-        y    <- integrateBounded (-90, 90) 0 -< velV^._y
-        returnA -< cam & cameraHandle %~ flip pan x
-                       & cameraHandle %~ flip tilt y
-
+  proc cam -> do
+    velV <- velocitySource -< ()
+    x    <- integralWith (flip fmod) 0    -< (velV^._x, 2*pi)
+    y    <- integralWith ymod 0           -< (velV^._y, (-pi/2,pi/2))
+    returnA -< cam `pitch` y `yaw` x
+  where ymod (l,u) x = clamp x l u
 
 -- | rotation about focus point
 -- http://gamedev.stackexchange.com/a/20769
-arcBallRotation :: ( Real t ) => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
+arcBallRotation :: Real t => YageWire t () (V2 Double) -> YageWire t (V3 Double, Camera) Camera
 arcBallRotation velocitySource =
-    proc (focusPoint, cam) -> do
-        let focusToCam = cam^.cameraLocation - focusPoint
-        velV <- velocitySource -< ()
-        x    <- integral 0                      -< velV^._x
-        y    <- integrateBounded (-90, 90) 0    -< velV^._y
+  proc (focusPoint, cam) -> do
+    let focusToCam = cam^.position - focusPoint
+    velV <- velocitySource -< ()
+    x    <- integral 0             -< velV^._x
+    y    <- integralWith ymod 0    -< (velV^._y, (-pi/2,pi/2))
 
-        let rotCam = cam & cameraHandle   %~ flip pan x
-                         & cameraHandle   %~ flip tilt y
-            pos     = (rotCam^.cameraOrientation) `rotate` (focusToCam + focusPoint)
-        returnA -< rotCam & cameraLocation     .~ pos
-
+    let rotCam = cam `pitch` y `yaw` x
+        pos    = (rotCam^.orientation) `rotate` (focusToCam + focusPoint)
+    returnA -< rotCam & position     .~ pos
+  where ymod (l,u) x = clamp x l u

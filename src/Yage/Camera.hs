@@ -2,142 +2,77 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NamedFieldPuns #-}
 module Yage.Camera
-    ( module Yage.Camera
-    ) where
+  ( Camera(..), HasCamera(..)
+  , nearZ, farZ, fovy
+  , idCamera
+  , cameraMatrix
+  , pitch
+  , yaw
+  , roll
+  ) where
 
 
 import Yage.Prelude
 import Yage.Lens
-
 import Yage.Transformation
 
-import qualified Graphics.GLUtil.Camera3D            as Cam
-
-import           Linear                              hiding (lerp, slerp)
-import qualified Linear                              (lerp)
-
-
-type CameraHandle = Cam.Camera Double
-deriving instance Show CameraHandle
-deriving instance Eq CameraHandle
-deriving instance Ord CameraHandle
-
-data CameraPlanes = CameraPlanes
-    { _camZNear  :: !Double
-    , _camZFar   :: !Double
-    } deriving ( Show, Eq, Ord, Generic )
-
-makeLenses ''CameraPlanes
+import           Data.Data
+import           Linear    hiding (lerp, slerp)
+import qualified Linear    (lerp, slerp)
 
 data Camera = Camera
-    { _cameraHandle :: !CameraHandle
-    , _cameraPlanes :: !CameraPlanes
-    , _cameraFov    :: !Double
-    } deriving ( Show, Eq, Ord, Generic )
-
-makeLenses ''Camera
-
-
-mkCameraFps :: Double -> (Double, Double) -> Camera
-mkCameraFps fov (near,far) =
-    Camera Cam.fpsCamera (CameraPlanes near far) fov
+  { _cameraFovy        :: !Double
+  -- ^ vertical field of view angle in radians
+  , _cameraPosition    :: !(V3 Double)
+  , _cameraOrientation :: !(Quaternion Double)
+  , _cameraNearZ       :: !Double
+  , _cameraFarZ        :: !Double
+  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
 
-cameraTransformation :: Lens' Camera (Transformation Double)
-cameraTransformation = cameraHandle.handleTransformation
+makeClassy ''Camera
+makeFields ''Camera
 
-cameraLocation :: Lens' Camera (V3 Double)
-cameraLocation = cameraTransformation.transPosition
-
-cameraOrientation :: Lens' Camera (Quaternion Double)
-cameraOrientation = cameraTransformation.transOrientation
-
-cameraForward :: Lens' Camera (V3 Double)
-cameraForward = lens getter setter where
-    getter cam = Cam.forward $ cam^.cameraHandle
-    setter cam fwd = cam & cameraHandle %~ \hnd -> hnd{ Cam.forward = fwd }
-
-cameraUpward :: Lens' Camera (V3 Double)
-cameraUpward = lens getter setter where
-    getter cam = Cam.upward $ cam^.cameraHandle
-    setter cam up = cam & cameraHandle %~ \hnd -> hnd{ Cam.upward = up }
-
-cameraRightward :: Lens' Camera (V3 Double)
-cameraRightward = lens getter setter where
-    getter cam = Cam.rightward $ cam^.cameraHandle
-    setter cam r = cam & cameraHandle %~ \hnd -> hnd{ Cam.rightward = r }
-
-handleTransformation :: Lens' CameraHandle (Transformation Double)
-handleTransformation = lens getter setter where
-    getter Cam.Camera{Cam.orientation, Cam.location}
-        = Transformation location orientation 1
-
-    setter hnd Transformation{ _transPosition, _transOrientation }
-        = hnd { Cam.orientation = _transOrientation
-              , Cam.location    = _transPosition
-              }
-
-
-cameraZNear :: Lens' Camera Double
-cameraZNear = cameraPlanes.camZNear
-
-cameraZFar :: Lens' Camera Double
-cameraZFar = cameraPlanes.camZFar
-
+-- | Creates a 'Camera' positioned at the origin
+idCamera :: Double -> Double -> Double -> Camera
+idCamera fovy' near far = Camera fovy' 0 1 near far
 
 cameraMatrix :: Getter Camera (M44 Double)
-cameraMatrix = cameraHandle.to Cam.camMatrix
+cameraMatrix = to g where
+  g cam = let con = conjugate (cam^.orientation) in mkTransformation con (rotate con . negate $ cam^.position)
 
--- | for chaining like:
--- >>> cam `dolly` movement
--- >>>     `pan`   turn
--- >>>     `tilt`  tilting
---
-dolly :: CameraHandle -> V3 Double -> CameraHandle
-dolly = flip Cam.dolly
+-- | Adjusts the camera view up-and-down by an angle in radians
+pitch :: HasCamera c => c -> Double -> c
+pitch c theta = c & camera.orientation %~ (*) (axisAngle (V3 1 0 0) theta)
 
-panRad :: CameraHandle -> Double -> CameraHandle
-panRad = flip Cam.panRad
+-- | Adjusts the camera view side-to-side by an angle in radians
+yaw :: HasCamera c => c -> Double -> c
+yaw c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 1 0) theta)
 
-pan :: CameraHandle -> Double -> CameraHandle
-pan = flip Cam.pan
+-- | Rotates the camera view along it's view axis by an angle in radians
+roll :: HasCamera c => c -> Double -> c
+roll c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 0 1) theta)
 
-tiltRad :: CameraHandle -> Double -> CameraHandle
-tiltRad = flip Cam.tiltRad
+instance Default Camera where
+  def = idCamera (3*pi/8) 0.1 1000
 
-tilt :: CameraHandle -> Double -> CameraHandle
-tilt = flip Cam.tilt
+instance HasTransformation Camera Double where
+  transformation = lens getter setter where
+    getter cam = Transformation (cam^.position) (cam^.orientation) (cam^.scale)
+    setter cam trans = cam & position    .~ trans^.position
+                           & orientation .~ trans^.orientation
+                           & scale       .~ trans^.scale
 
-rollRad :: CameraHandle -> Double -> CameraHandle
-rollRad = flip Cam.rollRad
-
-roll :: CameraHandle -> Double -> CameraHandle
-roll = flip Cam.roll
-
-
-
-
-instance LinearInterpolatable CameraHandle where
-    lerp alpha u v = let linLerp = Linear.lerp (realToFrac alpha) in
-        Cam.Camera
-            { Cam.forward       = linLerp      (Cam.forward u)      (Cam.forward v)
-            , Cam.upward        = linLerp      (Cam.upward u)       (Cam.upward v)
-            , Cam.rightward     = linLerp      (Cam.rightward u)    (Cam.rightward v)
-            -- FIXME : lerping here leads to massive jittering, don't no why
-            , Cam.orientation   = (Cam.orientation v) -- Linear.slerp (Cam.orientation u)  (Cam.orientation v) (realToFrac alpha)
-            , Cam.location      = (Cam.location v) -- linLerp      (Cam.location u)     (Cam.location v)
-            }
-
-instance LinearInterpolatable CameraPlanes where
-    lerp alpha u v = let linLerp = Linear.lerp (realToFrac alpha) in
-        CameraPlanes
-            { _camZFar  = (linLerp (V1 $ u^.camZFar) (V1 $ v^.camZFar))^._x
-            , _camZNear = (linLerp (V1 $ u^.camZNear) (V1 $ v^.camZNear))^._x
-            }
+instance HasScale Camera (V3 Double) where
+  scale = lens g s where
+    g _cam = V3 1 1 1
+    s cam = const cam
 
 instance LinearInterpolatable Camera where
-    lerp alpha u v = u & cameraHandle .~ lerp alpha (u^.cameraHandle) (v^.cameraHandle)
-                       & cameraPlanes .~ lerp alpha (u^.cameraPlanes) (v^.cameraPlanes)
-                       & cameraFov    .~ (Linear.lerp alpha (V1 $ u^.cameraFov) (V1 $ v^.cameraFov))^._x
-
-
+  lerp alpha u v =
+    u & cameraFovy .~ (Linear.lerp alpha (V1 $ u^.cameraFovy) (V1 $ v^.cameraFovy))^._x
+      & cameraPosition .~ Linear.lerp alpha (u^.cameraPosition) (v^.cameraPosition)
+      & cameraOrientation .~ Linear.slerp (u^.cameraOrientation) (v^.cameraOrientation) (realToFrac alpha)
+      & cameraNearZ  .~ (Linear.lerp alpha (V1 $ u^.cameraNearZ) (V1 $ v^.cameraNearZ))^._x
+      & cameraFarZ   .~ (Linear.lerp alpha (V1 $ u^.cameraFarZ) (V1 $ v^.cameraFarZ))^._x
+      & cameraFovy   .~ (Linear.lerp alpha (V1 $ u^.cameraFovy) (V1 $ v^.cameraFovy))^._x

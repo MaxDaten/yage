@@ -12,9 +12,6 @@ import Data.Colour.CIE                          as Color
 import Data.Colour                              as Color
 import Data.Colour.Names                        as Color
 import JuicySRGB                                as Color
-import Codec.Picture
-import Codec.Picture.Types
-
 import Linear                                   (V3(..), V4(..))
 
 
@@ -47,7 +44,3 @@ instance (Num a) => Semigroup (AlphaColour a)
 
 instance Default (AlphaColour Double) where
     def = opaque white
-
-
-instance (Floating a, RealFrac a) => ColourPixel a Pixel8 where
-    colourToPixel c = computeLuma (colourToPixel c :: PixelRGB8)

@@ -25,7 +25,7 @@ import Graphics.Font as FTExport ( FontLoadMode(..)
                                  , loadFont
                                  )
 
-import Yage.Images
+import Yage.Image
 import Yage.Image.SDF
 
 import Yage.Texture.TextureAtlas

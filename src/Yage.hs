@@ -1,39 +1,55 @@
-{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-orphans -fno-warn-name-shadowing #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE OverloadedStrings  #-}
 
 module Yage
-    ( yageMain, YageSimulation(..)
+    ( yageMain
+    , YageSim, YageConf
+    -- * Configuration
+    , HasApplicationConfig(..)
+    , HasWindowConfig(..)
+    -- ** Reexports
+    , MonitorOptions(..)
+    , HasMonitorOptions(..)
+    -- * Reexports
+    , module Resources
     , module Application
     , module Resource
     , module YagePrelude
     , module Logging
+    , module Viewport
+    , module Linear
+    , module Transformation
+    , module RenderSystem
+    , module Rectangle
+    , module Quine
+    , module GLTypes
     ) where
 
-import             Yage.Prelude                    as YagePrelude
+import             Yage.Prelude                    as YagePrelude hiding (bracket, onException, finally, catch)
 import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
-import             Data.Foldable                   (traverse_)
----------------------------------------------------------------------------------------------------
-import             Control.Monad.State             (gets)
+import             Control.Monad.State
 import             Control.Monad.Trans.Resource    as Resource
+import             System.Mem                      (performGC, performMajorGC)
 ---------------------------------------------------------------------------------------------------
-import             Yage.Wire                       as Wire hiding ( (<+>), at, force )
+import             Yage.Wire                       as Wire hiding ( (<+>), at, force, when )
 import             Yage.Core.Application           as Application
-import             Yage.Core.Application.Loops
 import             Yage.Core.Application.Logging   as Logging
-import             Yage.Core.Application.Exception hiding (bracket)
-
-import             Yage.Rendering.RenderSystem
-import             Yage.Pipeline.Types
-
+import             Linear                          as Linear hiding (lerp, trace)
+import             Yage.Geometry.D2.Rectangle      as Rectangle
+import             Yage.Rendering.RenderSystem     as RenderSystem
+import             Yage.Transformation             as Transformation
+import             Yage.Resources                  as Resources
 import             Yage.UI
-import             Yage.Viewport                   (Viewport(..), Rectangle(..))
-import             Yage.Transformation
-
-
+import             Yage.Viewport                   as Viewport
+import             Yage.Internal.Debug
+import             Quine.StateVar                  as Quine
+import             Quine.Monitor
+import             Quine.GL.Types                  as GLTypes
 ---------------------------------------------------------------------------------------------------
 
 data YageTiming = YageTiming
@@ -50,18 +66,27 @@ data YageSimulation time scene = YageSimulation
     }
 
 data YageLoopState time scene = YageLoopState
-    { _loadedGLResources  :: !GLResources
-    , _simulation         :: !(YageSimulation time scene)
-    , _pipeline           :: YageRenderSystem scene ()
+    { _simulation         :: !(YageSimulation time scene)
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
-    , _renderStats        :: RStatistics
+    , _metrics            :: Metrics
     }
+
+data Metrics = Metrics
+  { _monitor          :: !Monitor
+  , _simulationFrames :: !Counter
+  , _renderFrames     :: !Counter
+  }
 
 ---------------------------------------------------------------------------------------------------
 makeLenses ''YageTiming
 makeLenses ''YageSimulation
-makeLenses ''YageLoopState
+makeClassy ''YageLoopState
+makeLenses ''Metrics
+
+makeClassy ''ApplicationConfig
+makeClassy ''ApplicationState
+makeClassy ''WindowConfig
 
 ---------------------------------------------------------------------------------------------------
 --data InternalEventController ectr = InternalEventController
@@ -88,111 +113,113 @@ instance EventCtr (YageLoopState t s) where
         atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
+type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, HasRenderSystem sim (ResourceT IO) sim (), Real time)
+type YageConf conf = (HasApplicationConfig conf, HasWindowConfig conf, HasMonitorOptions conf )
 
-yageMain :: ( LinearInterpolatable scene, Real time ) =>
-         String ->
-         ApplicationConfig ->
-         WindowConfig ->
-         YageWire time () scene ->
-         YageRenderSystem scene () ->
-         time -> IO ()
-yageMain title appConf winConf sim thePipeline dt =
-    -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-    let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
-    in do
-        tInputState <- newTVarIO mempty
-        let initState = YageLoopState
-                        { _loadedGLResources  = initialGLRenderResources -- TODO deferred resource loaded to pipeline
-                        , _simulation         = initSim
-                        , _pipeline           = thePipeline
-                        , _timing             = loopTimingInit
-                        , _inputState         = tInputState
-                        , _renderStats        = mempty
-                        }
+yageMain :: (YageSim time sim, YageConf conf) => String -> conf -> YageWire time () sim -> time -> IO ()
+yageMain title config sim dt =
+  -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
+  let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
+      appConf           = config^.applicationConfig
+      winConf           = config^.windowConfig
+  in do
+    tInputState <- newTVarIO mempty
 
-        _ <- execApplication title appConf $ basicWindowLoop winConf initState $ yageLoop
-        return ()
+    ekg <- forkMonitor (config^.monitorOptions)
+    simCounter    <- counter "yage.simulation_frames" ekg
+    renderCounter <- counter "yage.render_frames" ekg
+    let metric = Metrics ekg simCounter renderCounter
+        initState = YageLoopState
+                    { _simulation         = initSim
+                    , _timing             = loopTimingInit
+                    , _inputState         = tInputState
+                    , _metrics            = metric
+                    }
+    execApplication title appConf $ do
+      win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+      registerWindowCallbacks win initState
+      makeContextCurrent $ Just win
+      installGLDebugHook =<< io (getLogger "opengl.debughook")
+      evalStateT (runCore win) initState
 
+runCore :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
+runCore win = forever $ do
+  liftApp $ do
+    pollEvents
+    windowShouldClose win >>= \close -> when close $ throwM Shutdown
 
--- http://gafferongames.com/game-physics/fix-your-timestep/
-yageLoop :: (Real time, LinearInterpolatable scene) =>
-         Window ->
-         YageLoopState time scene ->
-         Application AnyException (YageLoopState time scene)
-yageLoop win oldState = do
-    inputSt                 <- io $ atomically $ readModifyTVar (oldState^.inputState) clearEvents
-    debugM $ format "{}" (Only $ Shown inputSt)
+  core win
 
-    (frameDT, newSession)   <- io $ stepSession $ oldState^.timing.loopSession
-    let currentRemainder    = (realToFrac $ dtime (frameDT inputSt)) + oldState^.timing.remainderAccum
+  liftApp $ do
+    swapBuffers win
+    -- gcTime <- ioe $ ioTime $ performGC
+    -- modify (\st -> st{ appGCTime = snd gcTime } )
 
-    -- step our global timing to integrate our simulation
-    ( ( renderSim, newSim, newRemainder ), simTime ) <- ioTime $ liftResourceT $ simulate currentRemainder ( oldState^.simulation ) inputSt
+core :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
+core win = do
+  input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
+  remAccum <- use (timing.remainderAccum)
+  liftApp $ debugLog $ format "{}" (Only $ Shown input)
+  -- step out core session to get elasped time
+  (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
+  let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
+  -- process multiple simulation steps to catch up
+  sim <- use simulation
+  cnt <- use (metrics.simulationFrames)
+  ((renderSim, newSim, newRemainder), simTime) <- ioTime $ liftResourceT $ simulate currentRemainder sim input cnt
 
-    (rRes, rStats) <- case renderSim^.simScene of
-        Left err    -> ( criticalM $ "err:" ++ show err ) >> return (oldState^.loadedGLResources, oldState^.renderStats)
-        Right scene -> renderTheScene scene ( oldState^.loadedGLResources )
-
-    setDevStuff rStats simTime
-
-
-    -- log loaded resources and render trace
-    traverse_ ( debugM . format "[ResourceLog]: {}" . Only . Shown ) (rStats^.resourceLog)
-    traverse_ ( debugM . format "[RenderTrace]: {}" . Only . Shown ) (rStats^.renderLog.rlTrace)
-
-    return $! oldState
-        & renderStats             .~ rStats
-        & loadedGLResources       .~ rRes
-        & simulation              .~ newSim
-        & timing.loopSession      .~ newSession
-        & timing.remainderAccum   .~ newRemainder
-
-    where
-
-    -- | logic simulation
-    -- selects small time increments and perform simulation steps to catch up with the frame time
-    simulate remainder sim input = {-# SCC simulate #-} do
-        -- initial step with 0.0 deltaT and input (inject input into system)
-        ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
-        simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim
-
-    simulate' remainder currentSim prevSim
-        | remainder < ( currentSim^.simDeltaT ) = do
-            return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
-        | otherwise = do
-            nextSim <- stepSimulation currentSim
-            simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim
-
-    -- perform one step in simulation
-    stepSimulation sim = do
-        ( ds      , s )     <- io $ stepSession $ sim^.simSession
-        ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
-        return $! newScene `seq` ( sim & simScene     .~ newScene
-                                       & simSession   .~ s
-                                       & simWire      .~ w )
-
-
-    renderTheScene scene glResources = do
-        let thePipeline = oldState^.pipeline
-        winSt           <- io $ readTVarIO ( winState win )
+  -- render simulation representation
+  (_,renderTime) <-  ioTime $ case renderSim^.simScene of
+      Left err    -> liftApp $ criticalLog $ "err:" ++ show err
+      Right scene -> do
+        inc =<< use (metrics.renderFrames)
+        winSt  <- io $ readTVarIO ( winState win )
         let fbRect      = Rectangle 0 $ winSt^.fbSize
             ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-        {-# SCC rendering #-} runRenderSystem ( thePipeline ( Viewport fbRect ratio 2.2 ) scene ) ( glResources )
+            sc          = scene & viewport .~ Viewport fbRect ratio 2.2
+        liftResourceT $ runPipeline sc (sc^.renderSystem)
 
+  liftApp $ setDevStuff simTime renderTime win
+  simulation            .= newSim
+  timing.loopSession    .= newSession
+  timing.remainderAccum .= newRemainder
 
-    -- debug & stats
-    setDevStuff stats simTime = do
-        title   <- gets appTitle
-        gcTime  <- gets appGCTime
-        setWindowTitle win $ unpack $
-            format "{} [Wire: {}ms | RES: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
-            ( title
-            , fixed 4 $ 1000 * simTime
-            , fixed 4 $ 1000 * stats^.resourcingTime
-            , fixed 4 $ 1000 * stats^.renderingTime
-            , fixed 4 $ 1000 * gcTime
-            , prec 4 $ 1000 * sum [simTime, stats^.resourcingTime, stats^.renderingTime, gcTime]
-            )
+ where
+  -- | logic simulation
+  -- selects small time increments and perform simulation steps to catch up with the frame time
+  simulate remainder sim input cnt = {-# SCC simulate #-} do
+    -- initial step with 0.0 deltaT and input (inject input into system)
+    ( newScene, w )     <- stepWire (sim^.simWire) (Timed 0 input) (Right ())
+    simulate' remainder (sim & simScene .~ newScene & simWire .~ w) sim cnt
+
+  simulate' remainder currentSim prevSim cnt
+    | remainder < ( currentSim^.simDeltaT ) = do
+        return ( lerp (remainder / currentSim^.simDeltaT) prevSim currentSim, currentSim, remainder )
+    | otherwise = do
+        nextSim <- stepSimulation currentSim cnt
+        simulate' ( remainder - currentSim^.simDeltaT ) nextSim currentSim cnt
+
+  -- perform one step in simulation
+  stepSimulation sim cnt = do
+    inc cnt
+    ( ds      , s )     <- io $ stepSession $ sim^.simSession
+    ( newScene, w )     <- stepWire (sim^.simWire) (ds mempty) (Right ())
+    return $! newScene `seq` ( sim & simScene     .~ newScene
+                                   & simSession   .~ s
+                                   & simWire      .~ w )
+
+-- debug & stats
+setDevStuff :: MonadApplication m => Double -> Double -> Window -> m ()
+setDevStuff simTime renderTime win = liftApp $ do
+  title   <- gets appTitle
+  gcTime  <- gets appGCTime
+  setWindowTitle win $ unpack $
+    format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
+      ( title
+      , fixed 4 $ 1000 * simTime
+      , fixed 4 $ 1000 * renderTime
+      , fixed 4 $ 1000 * gcTime
+      , prec 4 $ 1000 * sum [simTime, renderTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0

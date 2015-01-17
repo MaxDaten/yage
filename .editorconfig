@@ -3,7 +3,15 @@ root = true
 [**.hs]
 indent_style = space
 end_of_line = lf
-indent_size = 4
+indent_size = 2
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[**.{h,glsl,vert,frag,tessc,tesse,geo,frag,comp}]
+indent_style = space
+end_of_line = lf
+indent_size = 2
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
