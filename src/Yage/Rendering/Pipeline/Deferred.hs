@@ -16,7 +16,7 @@ module Yage.Rendering.Pipeline.Deferred
   , yDeferredLighting
   ) where
 
-import           Yage.Prelude hiding ((</>), foldM, cons, (++))
+import           Yage.Prelude hiding ((</>), cons)
 import           Yage.Lens hiding (cons)
 import           Yage.Vertex hiding (Texture)
 import           Yage.Formats.Ygm
@@ -35,17 +35,13 @@ import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
 import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
-import           Yage.Rendering.Pipeline.Deferred.GaussianBlur   as Pass
-import           Yage.Rendering.Pipeline.Deferred.LuminanceFilter   as Pass
+import           Yage.Rendering.Pipeline.Deferred.Bloom          as Pass
 import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 import           System.FilePath ((</>))
-import           Control.Monad (foldM)
-import           Data.List ((++))
-import           Data.Maybe (fromJust)
 import           Quine.GL.Sampler
 import           Quine.GL.Shader
 import           Quine.GL.Types
@@ -90,23 +86,6 @@ yDeferredLighting = do
     tonemapped <- tonemapPass . pure (val^.hdrCamera, sceneTex, Just bloomed)
     -- bring it to the screen
     screenQuadPass . pure ([(1.0,baseSampler,tonemapped)], val^.viewport)
-
-
-addBloom :: ImageFormat px => Int -> YageResource (RenderSystem (Float,Texture px) (Texture px))
-addBloom numSamples = do
-  sceneHalf  <- lmap (2,) <$> downsampler
-  halfSamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
-  gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
-  filterLuma <- luminanceFilter
-  return $ do
-    (thrshold, inTex) <- ask
-    filtered <- filterLuma . fmap (thrshold,) sceneHalf . pure inTex
-    downsampledTextures <- reverse <$> foldM processDownsample [(2::Int,filtered)] halfSamplers
-    fromJust <$> foldM (\a (gaussian,(_,d)) -> Just <$> gaussian . pure (d,a)) Nothing (zip gaussianSamplers downsampledTextures)
- where
-  processDownsample txs dsampler =
-    let (lastfactor, base) = unsafeLast txs
-    in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
 
 
 mkBaseSampler :: YageResource Sampler

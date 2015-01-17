@@ -144,6 +144,7 @@ library
 
     Yage.Rendering.Pipeline.Deferred    
     Yage.Rendering.Pipeline.Deferred.Common
+    Yage.Rendering.Pipeline.Deferred.Bloom
     Yage.Rendering.Pipeline.Deferred.HDR
     Yage.Rendering.Pipeline.Deferred.BaseGPass
     Yage.Rendering.Pipeline.Deferred.LightPass
