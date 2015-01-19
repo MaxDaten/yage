@@ -117,7 +117,7 @@ loadOBJ fromInternal (filepath,subSelection) = do
   createMesh $ M.mapKeys decodeUtf8 geoGroup
   where
   createMesh geoGroup
-    | not $ isValidSelection subSelection geoGroup = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet geoGroup)
+    | not $ isValidSelection subSelection geoGroup = error $ printf "invalid group selection: %s" (show $ subSelection S.\\ M.keysSet geoGroup)
     | otherwise = do
         let geos            = M.toList $ M.filterWithKey (isSelected subSelection) geoGroup
             tbnGeos         = over (traverse._2) (uncurry calcTangentSpaces) geos
@@ -132,7 +132,7 @@ loadOBJ fromInternal (filepath,subSelection) = do
 loadYGM :: Storable v => (YGM.YGMVertex -> v) -> MeshFilePath -> IO (Mesh v)
 loadYGM fromInternal (filepath,subSelection) = createMesh <$> YGM.ygmFromFile filepath where
   createMesh YGM.YGM{..}
-    | not $ isValidSelection subSelection ygmModels = error $ unpack $ format "invalid group selection: {}" (Only $ Shown $ subSelection S.\\ M.keysSet ygmModels)
+    | not $ isValidSelection subSelection ygmModels = error $ printf "invalid group selection: %s" (show $ subSelection S.\\ M.keysSet ygmModels)
     | otherwise =
       let mesh   = emptyMesh & meshId .~ encodeUtf8 ygmName
       in {-# SCC "loadYGM.fold" #-} M.foldlWithKey acc mesh ygmModels

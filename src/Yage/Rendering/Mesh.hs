@@ -168,21 +168,10 @@ octets w =
 {-# INLINE octets #-}
 
 instance (Storable v) => Show (Mesh v) where
-    show m@Mesh{..} = show $
-      format "Mesh { id = {}, #vertexBuffer = {}, components = {} }"
-               ( Shown _meshId
-               , Shown $ m^.vertexCount
-               --, Shown $ _meshVertexBuffer
-               , Shown $ _meshComponents^..traverse
-               )
+    show m@Mesh{..} = printf "Mesh { id = %s, #vertexBuffer = %d, components = %s }" (show _meshId) (m^.vertexCount) (show $ _meshComponents^..traverse)
 
 instance Show MeshComponent where
-  show MeshComponent{..} = show $
-    format "MeshComponent { id = {}, #indexBuffer = {}-{}, hash = {} }"
-      ( Shown _componentId
-      , Shown $ VS.length _componentIndexBuffer
-      , Shown $ _componentIndexBuffer
-      )
+  show MeshComponent{..} = printf "MeshComponent { id = %s, #indexBuffer = %d }" (show _componentId) (VS.length _componentIndexBuffer)
 
 instance Eq (Mesh v) where
     a == b = _meshId a == _meshId b

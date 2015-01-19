@@ -127,12 +127,9 @@ downscaleFontTexture scalefactor fontTex =
 
 
 instance Show FontTexture where
-    show FontTexture{..} =
-        unpack $ format (
-            "FontTexture { fontName: {}, loadedChars: {}, padding: {}, image: {}, " ++
-            "descriptor: {}, markup: {}, face: {}}"
-            ) ( Shown _fontMetric
-              , Shown $ size _charRegionMap
-              , Shown _charPadding
-              , Shown ( imageWidth _fontMap, imageHeight _fontMap )
-              )
+  show FontTexture{..} =
+    printf "FontTexture { fontName: %s, loadedChars: %d, padding: %d, image: %s}"
+      (show _fontMetric)
+      (size _charRegionMap)
+      _charPadding
+      (show ( imageWidth _fontMap, imageHeight _fontMap ))

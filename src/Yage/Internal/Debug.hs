@@ -7,8 +7,6 @@ module Yage.Internal.Debug
   ) where
 
 import Yage.Prelude hiding (catch)
-import Yage.Lens
-import Data.Text.Lazy.Lens
 import Data.Data
 import Foreign.C.String
 import Foreign.Ptr
@@ -41,8 +39,9 @@ installGLDebugHook logger = go `catch` \(e::DebugHookException) -> logging logge
 glCallback :: Logger -> GLenum -> GLenum -> GLuint -> GLenum -> GLsizei -> Ptr GLchar -> Ptr () -> IO ()
 glCallback logger source t ident severity _ message _ = do
   message' <- peekCString message
-  logL logger priority $ (format "[{}] {} ({}): {}" (Shown t', Shown source', Shown ident, Shown message'))^.unpacked
+  logL logger priority $ (printf "[%s] %s (%d): {%s}" t' source' ident message')
  where
+  source', t' :: String
   source' = case source of
     GL_DEBUG_SOURCE_API               -> "API"
     GL_DEBUG_SOURCE_WINDOW_SYSTEM     -> "Window System"

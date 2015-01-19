@@ -83,7 +83,7 @@ instance NFData YGMVertex
 instance Binary YGMVertex
 
 instance Show YGM where
-  show YGM{ygmName, ygmModels} = unpack $ format "YGM {name = {}, groups={}}" (Shown ygmName, Shown $ keys ygmModels)
+  show YGM{ygmName, ygmModels} = printf "YGM {name = %s, groups=%s}" (unpack ygmName) (show $ unpack <$> keys ygmModels)
 
 instance Binary YGM
 

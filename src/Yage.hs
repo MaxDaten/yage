@@ -159,7 +159,7 @@ core :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim
 core win = do
   input <- use inputState >>= (\var -> io $ atomically $ var `readModifyTVar` clearEvents)
   remAccum <- use (timing.remainderAccum)
-  liftApp $ debugLog $ format "{}" (Only $ Shown input)
+  liftApp $ debugLog $ (printf "%s" (show input) :: String)
   -- step out core session to get elasped time
   (frameDT, newSession)   <- io.stepSession =<< use (timing.loopSession)
   let currentRemainder    = realToFrac (dtime (frameDT input)) + remAccum
@@ -213,13 +213,11 @@ setDevStuff :: MonadApplication m => Double -> Double -> Window -> m ()
 setDevStuff simTime renderTime win = liftApp $ do
   title   <- gets appTitle
   gcTime  <- gets appGCTime
-  setWindowTitle win $ unpack $
-    format "{} [Sim: {}ms | R: {}ms | GC: {}ms | ∑: {}ms]"
-      ( title
-      , fixed 4 $ 1000 * simTime
-      , fixed 4 $ 1000 * renderTime
-      , fixed 4 $ 1000 * gcTime
-      , prec 4 $ 1000 * sum [simTime, renderTime, gcTime] )
+  setWindowTitle win $ printf "%s [Sim: %.4fms | R: %.4fms | GC: %.4fms | ∑: %.4fms]" title
+    (1000 * simTime)
+    (1000 * renderTime)
+    (1000 * gcTime)
+    (1000 * sum [simTime, renderTime, gcTime] )
 
 loopTimingInit :: YageTiming
 loopTimingInit = YageTiming 0 clockSession 0

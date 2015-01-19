@@ -151,7 +151,4 @@ makeGlypMesh caret color (gly, region) dim' (normX, normY) =
 instance Block GlyphVertex
 
 instance Show TextBuffer where
-  show tb = unpack $ format "TextBuffer: font = {}, \"{}\""
-    ( Shown $ tb^.tbufTexture.fontMetric.fontName
-    , Shown $ tb^.tbufText
-    )
+  show tb = printf "TextBuffer: font = %s, \"%s\"" (tb^.tbufTexture.fontMetric.fontName) (unpack $ tb^.tbufText)
