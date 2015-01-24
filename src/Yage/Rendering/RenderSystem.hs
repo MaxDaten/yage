@@ -13,6 +13,9 @@
 
 module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
+  , mkDynamicRenderPass
+  , mkStaticRenderPass
+  , mkStatefulRenderPass
   , HasRenderSystem(..)
   ) where
 
@@ -26,6 +29,22 @@ import           Control.Category
 newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, RenderSystem m i o) }
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
+
+
+mkDynamicRenderPass :: (i -> m (o, RenderSystem m i o)) -> RenderSystem m i o
+mkDynamicRenderPass = RenderSystem
+{-# INLINE mkDynamicRenderPass #-}
+
+mkStaticRenderPass :: Functor m => (i -> m o) -> RenderSystem m i o
+mkStaticRenderPass f = r where r = RenderSystem $ fmap (,r) . f
+{-# INLINE mkStaticRenderPass #-}
+
+mkStatefulRenderPass :: Monad m => (s -> i -> m (o,s)) -> s -> RenderSystem m i o
+mkStatefulRenderPass f = go where
+  go s = RenderSystem $ \i -> do
+    (o, t) <- f s i
+    return (o, go t)
+{-# INLINE mkStatefulRenderPass #-}
 
 instance Monad m => Functor (RenderSystem m i) where
   fmap f (RenderSystem sys) = RenderSystem $ sys >=> \(o,sys') -> return (f o, fmap f sys')

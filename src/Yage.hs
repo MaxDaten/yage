@@ -51,6 +51,7 @@ import             Quine.StateVar                  as Quine
 import             Quine.Monitor
 import             Quine.GL.Types                  as GLTypes
 import             Yage.Rendering.Resources.GL
+import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 ---------------------------------------------------------------------------------------------------
 
 data YageTiming = YageTiming
@@ -126,34 +127,36 @@ yageMain
   => String
   -> conf
   -> YageWire time () sim
-  -> RenderSystem (ResourceT IO) sim (Texture PixelRGB8)
+  -> YageResource (RenderSystem (ResourceT IO) sim (Texture PixelRGB8))
   -> time
   -> IO ()
-yageMain title config sim pipeln dt =
+yageMain title config sim piperesource dt = do
   -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
-  let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
-      appConf           = config^.applicationConfig
-      winConf           = config^.windowConfig
-  in do
-    tInputState <- newTVarIO mempty
+  tInputState <- newTVarIO mempty
 
-    ekg <- forkMonitor (config^.monitorOptions)
-    simCounter    <- counter "yage.simulation_frames" ekg
-    renderCounter <- counter "yage.render_frames" ekg
-    let metric = Metrics ekg simCounter renderCounter
-        initState = YageLoopState
-          { _simulation         = initSim
-          , _pipeline           = toScreen . pipeln
-          , _timing             = loopTimingInit
-          , _inputState         = tInputState
-          , _metrics            = metric
-          }
-    execApplication title appConf $ do
-      win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+  ekg <- forkMonitor (config^.monitorOptions)
+  simCounter    <- counter "yage.simulation_frames" ekg
+  renderCounter <- counter "yage.render_frames" ekg
+
+  execApplication title appConf $ do
+    win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+    makeContextCurrent $ Just win
+    installGLDebugHook =<< io (getLogger "opengl.debughook")
+    with ((.) <$> textureToScreen <*> piperesource) $ \pipe -> do
+      let metric    = Metrics ekg simCounter renderCounter
+          initState = YageLoopState
+            { _simulation         = initSim
+            , _pipeline           = pipe
+            , _timing             = loopTimingInit
+            , _inputState         = tInputState
+            , _metrics            = metric
+            }
       registerWindowCallbacks win initState
-      makeContextCurrent $ Just win
-      installGLDebugHook =<< io (getLogger "opengl.debughook")
       evalStateT (runCore win) initState
+ where
+  initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
+  appConf           = config^.applicationConfig
+  winConf           = config^.windowConfig
 
 runCore :: (MonadApplication m, MonadResource m, MonadState (YageLoopState time sim) m, YageSim time sim) => Window -> m ()
 runCore win = forever $ do

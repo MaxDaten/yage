@@ -29,10 +29,7 @@ data Viewport a = Viewport
   -- ^ usually 2.2
   } deriving (Show,Eq,Functor,Data,Typeable,Generic)
 
--- makeLenses ''Viewport
 makeClassy ''Viewport
-
-
 
 instance HasRectangle (Viewport Int) Int where
     rectangle = viewportRectangle
