@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveFunctor       #-}
@@ -9,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
@@ -35,10 +37,12 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , drawGBuffers
   ) where
 
-import           Yage                                    hiding (Layout, HasPosition, position)
+import           Yage.Prelude
+
 import           Yage.Math (m44_to_m33)
 import           Yage.Lens
 import           Yage.GL
+import           Yage.Viewport                           as GL
 import           Yage.Vertex                             hiding (Texture)
 import           Yage.Attribute
 import           Yage.Camera
@@ -47,7 +51,9 @@ import           Yage.Scene                              hiding (Layout)
 import           Yage.Uniform                            as Uniform
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
+import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
+import           Linear
 
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
@@ -56,6 +62,7 @@ import           Quine.GL.Buffer
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
 import           Quine.GL.Sampler
+import           Quine.StateVar
 
 import Yage.Rendering.Pipeline.Deferred.Common
 
@@ -127,7 +134,7 @@ type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f
 
 -- * Draw To GBuffer
 
-drawGBuffers :: GBaseScene scene f ent i v => YageResource (RenderSystem (scene, Camera, Viewport Int) GBuffer)
+drawGBuffers :: (MonadReader v m, HasViewport v Int, MonadResource m, GBaseScene scene f ent i w) => YageResource (RenderSystem m (scene, Camera) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
@@ -146,17 +153,13 @@ drawGBuffers = do
   depthChannel <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture (DepthComponent24 Float)))
   fbo <- glResource
 
-  lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
-
   -- RenderPass
-  return $ do
-    (scene, cam, mainViewport) <- ask
-    lastViewport <- get lastViewportRef
+  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (scene, cam) -> do
+    mainViewport <- view viewport
 
     -- resizing the framebuffer
     when (mainViewport /= lastViewport) $ do
-      Yage.glViewport    $= mainViewport^.rectangle
-      lastViewportRef    $= mainViewport
+      GL.glViewport    $= mainViewport^.rectangle
       let V2 w h = mainViewport^.rectangle.extend
       colors <- forM [aChannel, bChannel, cChannel] $ \ch -> do
         modifyM ch $ \x -> resizeTexture2D x w h
@@ -188,26 +191,29 @@ drawGBuffers = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    setupSceneGlobals vert frag . pure (cam, mainViewport)
-    drawEntities vert frag . pure (scene^.entities)
+    setupSceneGlobals vert frag cam
+    drawEntities vert frag (scene^.entities)
 
-    GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel
+    gbuff <- (GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel)
+    return (gbuff,mainViewport)
 
-setupSceneGlobals :: VertexShader -> FragmentShader -> RenderSystem (Camera, Viewport Int) ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} = do
-  (cam, mainViewport) <- ask
+
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} = do
+  mainViewport <- view viewport
   viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
-  vpMatrix   $= fmap realToFrac <$> viewprojectionM cam mainViewport
+  vpMatrix   $= fmap realToFrac <$> viewprojectionM mainViewport
  where
-  viewprojectionM :: Camera -> Viewport Int -> M44 Double
-  viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
+  viewprojectionM :: Viewport Int -> M44 Double
+  viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
-drawEntities :: forall f ent i v. (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
+drawEntities :: forall f ent i v m .
+  (MonadIO m, MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
   => VertexShader
   -> FragmentShader
-  -> RenderSystem (f ent) ()
-drawEntities VertexShader{..} FragmentShader{..} = do
-  ents <- ask
+  -> (f ent)
+  -> m ()
+drawEntities VertexShader{..} FragmentShader{..} ents = do
   forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
