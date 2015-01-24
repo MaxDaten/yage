@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE TupleSections        #-}
 
 module Yage.Rendering.Pipeline.Deferred.LightPass
   ( drawLights
@@ -71,11 +72,10 @@ data VertexShader = VertexShader
   , vertLight            :: UniformVar Light
   }
 
-data LightPassInput = LightPassInput
-  {
-  }
 
-drawLights :: Foldable f => YageResource (RenderSystem (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) (Texture PixelRGBF))
+type LightData = RenderData Word32 (V.Position Vec3)
+
+drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) (Texture PixelRGBF))
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -90,18 +90,14 @@ drawLights = do
   lBuffer <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBF))
   fbo <- glResource
 
-  lastViewportRef     <- newIORef (defaultViewport 1 1 :: Viewport Int)
-  let setupGlobals = setupSceneGlobals vert frag
-  drawEntities <- drawLightEntities vert frag
+  [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
+  let drawLights = drawLightEntities vert frag pointData spotData dirData
 
-  return $ do
-    (lights, radianceMap, cam, mainViewport, gBuffer) <- ask
-    lastViewport <- get lastViewportRef
-
+  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (lights, radianceMap, cam, mainViewport, gBuffer) -> do
+    mainViewport <- view viewport
     -- resizing the framebuffer
     when (mainViewport /= lastViewport) $ do
       VP.glViewport $= mainViewport^.rectangle
-      lastViewportRef    $= mainViewport
       let V2 w h = mainViewport^.rectangle.extend
       modifyM lBuffer $ \t -> resizeTexture2D t w h
       buff <- get lBuffer
@@ -132,16 +128,18 @@ drawLights = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    setupGlobals cam mainViewport radianceMap gBuffer
-    drawEntities . pure lights
-    get lBuffer
+    setupSceneGlobals vert frag cam radianceMap gBuffer
+    drawLights lights
+    (,mainViewport) <$> get lBuffer
 
-setupSceneGlobals :: VertexShader -> FragmentShader -> Camera -> Viewport Int -> Texture PixelRGB8 -> GBuffer -> RenderSystem a ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} viewport radiance gbuff = do
-  let Rectangle xy0 xy1 = fromIntegral <$> viewport^.rectangle
+
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int) => VertexShader -> FragmentShader -> Camera -> Texture PixelRGB8 -> GBuffer -> m ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gbuff = do
+  vp <- view viewport
+  let Rectangle xy0 xy1 = fromIntegral <$> vp^.rectangle
 
   viewToScreenMatrix  $= orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
-  vpMatrix            $= fmap realToFrac <$> viewprojectionM
+  vpMatrix            $= fmap realToFrac <$> viewprojectionM vp
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
   zProjectionRatio    $= zRatio
   radianceEnvironment $= Just radiance
@@ -149,37 +147,35 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} viewport ra
   cameraPosition      $= realToFrac <$> cam^.position
  where
   viewprojectionM :: M44 Double
-  viewprojectionM = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> viewport^.rectangle) !*! (cam^.cameraMatrix)
+  viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
   zRatio = realToFrac <$> V2 ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ)) (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
 
-drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> YageResource (RenderSystem (f Light) ())
-drawLightEntities  VertexShader{..} FragmentShader{..} = do
-  pointLightData       <- fromMesh pointMesh
-  spotLightData        <- fromMesh spotMesh
-  directionalLightData <- fromMesh dirMesh
 
-  return $ do
-    lights <- ask
-    forM_ lights $ \light -> do
-      -- set shader
-      modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
-      fragLight $= light
-      vertLight $= light
-      -- render data
-      let rdata = case (light^.lightType) of
-                    Pointlight{}       -> pointLightData
-                    Spotlight{}        -> spotLightData
-                    DirectionalLight{} -> directionalLightData
-      boundBufferAt ElementArrayBuffer $= rdata^.indexBuffer
-      boundBufferAt ArrayBuffer $= rdata^.vertexBuffer
-      vPosition $= Just ((Proxy :: Proxy (V.Position Vec3))^.V.positionlayout)
+-- | subject for instanced rendering
+drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> LightData -> LightData -> LightData -> (f Light) -> m ()
+drawLightEntities  VertexShader{..} FragmentShader{..} pointData spotData dirData lights = forM_ lights $ \light -> do
+  let ldata = light^.lightType.to lightData
 
-      {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (rdata^.elementMode) (fromIntegral $ rdata^.elementCount) (rdata^.elementType) nullPtr
+  -- set shader
+  modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
+  fragLight $= light
+  vertLight $= light
+  -- render data
+  boundBufferAt ElementArrayBuffer $= ldata^.indexBuffer
+  boundBufferAt ArrayBuffer $= ldata^.vertexBuffer
+  vPosition $= Just ((Proxy :: Proxy (V.Position Vec3))^.V.positionlayout)
+
+  {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ldata^.elementMode) (fromIntegral $ ldata^.elementCount) (ldata^.elementType) nullPtr
  where
-  pointMesh, spotMesh, dirMesh :: Mesh (V.Position Vec3)
-  pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
-  spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
-  dirMesh   = mkFromVerticesF "DirectionalLight" $ V.Position <$> [0, 0, 0]
+  lightData :: LightType -> LightData
+  lightData Pointlight{}       = pointData
+  lightData Spotlight{}        = spotData
+  lightData DirectionalLight{} = dirData
+
+pointMesh, spotMesh, dirMesh :: Mesh (V.Position Vec3)
+pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
+spotMesh  = mkFromVerticesF "Spotlight" $ map V.Position . vertices . triangles $ cone 1 1 24
+dirMesh   = mkFromVerticesF "DirectionalLight" $ V.Position <$> [0, 0, 0]
 
 -- * Shader Interfaces
 
