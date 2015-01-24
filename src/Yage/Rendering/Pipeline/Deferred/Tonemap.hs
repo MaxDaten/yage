@@ -31,7 +31,7 @@ data FragmentShader = FragmentShader
 
 -- * Draw To Screen
 
-toneMapper :: YageResource (RenderSystem (HDRCamera, Texture PixelRGBF, Maybe (Texture PixelRGBF)) (Texture PixelRGB8))
+toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture PixelRGBF, Maybe (Texture PixelRGBF)) (Texture PixelRGB8))
 toneMapper = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -46,8 +46,7 @@ toneMapper = do
   fbo <- glResource
 
   -- RenderPass
-  return $ do
-    (_cam, sceneTex, mBloomTex) <- ask
+  return $ mkStaticRenderPass $ \(_cam, sceneTex, mBloomTex) -> do
     target <- get outTexture
     when (target^.textureDimension /= sceneTex^.textureDimension) $ do
       let Texture2D w h = sceneTex^.textureDimension

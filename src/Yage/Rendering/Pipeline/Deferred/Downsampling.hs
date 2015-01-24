@@ -1,27 +1,33 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeOperators       #-}
+
 module Yage.Rendering.Pipeline.Deferred.Downsampling
   ( downsampler
   ) where
 
-import Yage hiding ((</>), toList)
-import Yage.Lens
-import Yage.GL
-import Yage.Uniform
-import Data.Foldable (toList)
-import Data.Maybe (fromJust)
-import Yage.Rendering.Resources.GL
+import Yage.Prelude
+
+import Quine.GL.Program
+import Quine.GL.ProgramPipeline
+import Quine.GL.Sampler
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
-import Quine.GL.Program
-import Quine.GL.Sampler
-import Quine.GL.ProgramPipeline
+import Quine.StateVar
+import Yage.GL
+import Yage.Lens
+import Yage.Math
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
+import Yage.Rendering.RenderSystem
+import Yage.Rendering.Resources.GL
+import Yage.Resources
+import Yage.Uniform
+
 
 #include "definitions.h"
 
@@ -31,10 +37,9 @@ data FragmentShader px = FragmentShader
   , iTargetSize :: UniformVar (V2 Int)
   }
 
-
 -- * Draw To Screen
 
-downsampler :: forall px. ImageFormat px => YageResource (RenderSystem (Int, Texture px) (Texture px))
+downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (RenderSystem m (Int, Texture px) (Texture px))
 downsampler = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -47,22 +52,16 @@ downsampler = do
 
   outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
 
-  lastOutDimensionRef     <- newIORef (V2 1 1)
   fbo <- glResource
 
   -- RenderPass
-  return $ do
-    throwWithStack $
-      boundFramebuffer RWFramebuffer $= fbo
-
-    (factor, toFilter) <- ask
+  return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDim (factor, toFilter) -> do
+    throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
         V2 newWidth newHeight = V2 (inWidth `div` factor) (inHeight `div` factor)
 
-    lastOutDimension <- get lastOutDimensionRef
-    when (lastOutDimension /= V2 newWidth newHeight) $ do
-      lastOutDimensionRef $= V2 newWidth newHeight
+    when (lastDim /= V2 newWidth newHeight) $ do
       modifyM outputTexture $ \x -> resizeTexture2D x newWidth newHeight
       out <- get outputTexture
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
@@ -88,19 +87,17 @@ downsampler = do
     iTexture $= toFilter
     iTargetSize $= V2 newWidth newHeight
 
-    throwWithStack $
-      glDrawArrays GL_TRIANGLES 0 3
-
-    get outputTexture
+    throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
+    (,V2 newWidth newHeight) <$> get outputTexture
 
 
 -- * Shader Interface
 
 fragmentUniforms :: Program -> YageResource (FragmentShader px)
 fragmentUniforms prog = do
-  downsampler <- mkDownsampler
+  smpl <- mkDownsampler
   FragmentShader
-    <$> fmap (contramap Just) (samplerUniform prog downsampler "iTextures[0]")
+    <$> fmap (contramap Just) (samplerUniform prog smpl "iTextures[0]")
     <*> fmap (contramap dimensionToTargetSize . SettableStateVar.($=)) (programUniform programUniform4f prog "iTargetSize")
  where
   dimensionToTargetSize (V2 w h) = V4 (fromIntegral w) (fromIntegral h) (recip $ fromIntegral w) (recip $ fromIntegral h)

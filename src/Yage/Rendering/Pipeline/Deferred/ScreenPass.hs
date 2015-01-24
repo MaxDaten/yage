@@ -47,72 +47,54 @@ data FragmentShader = FragmentShader
   , iTargetSize :: UniformVar (Viewport Int)
   }
 
-data ScreenPassState = ScreenPassState
-  { fragment      :: FragmentShader
-  , lastViewport  :: Viewport Int
-  , vao           :: VertexArray
-  , pipeline      :: Pipeline
-  }
-
 textureToScreen :: YageResource (RenderSystem m (Texture px) ())
 textureToScreen = undefined
 
-drawRectangle :: (MonadReader v m, HasViewport v Int, MonadResourceBase m) => YageResource (RenderSystem m [(Vec4,Sampler,Texture px)] ())
+drawRectangle :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m [(Vec4,Sampler,Texture px)] ())
 drawRectangle = do
-  emptyvao <- glResource
-  boundVertexArray $= emptyvao
+  vao <- glResource
+  boundVertexArray $= vao
 
-  p <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
-       , $(embedShaderFile "res/glsl/sampling/filter.frag")]
-        `compileShaderPipeline` includePaths
+  pipeline <- [$(embedShaderFile "res/glsl/sampling/drawRectangle.vert"), $(embedShaderFile "res/glsl/sampling/filter.frag")]
+              `compileShaderPipeline` includePaths
 
-  Just frag <- traverse fragemenUniforms =<< get (fragmentShader $ p^.pipelineProgram)
-  iTextures frag $= textureUnits
+  Just (FragmentShader{..}) <- traverse fragemenUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
+  iTextures $= textureUnits
 
-  let initState = ScreenPassState
-        { fragment      = frag
-        , lastViewport  = defaultViewport 0 0 :: Viewport Int
-        , vao           = emptyvao
-        , pipeline      = p
-        }
-  return $ flip mkStatefulRenderPass initState $ \s -> screenPass s . unzip3
+  let initViewport = defaultViewport 0 0 :: Viewport Int
+  return $ flip mkStatefulRenderPass initViewport $ \lastViewport ts -> do
+    let (colors, sampler, texs) = unzip3 ts
+    throwWithStack $ boundFramebuffer RWFramebuffer $= def
 
-screenPass :: (MonadReader v m, HasViewport v Int, MonadResourceBase m) => ScreenPassState -> ([Vec4],[Sampler],[Texture px]) -> m ((), ScreenPassState)
-screenPass st@ScreenPassState{..} (colors, sampler, texs) = do
-  let FragmentShader{..} = fragment
-  throwWithStack $
-    boundFramebuffer RWFramebuffer $= def
+    mainViewport <- view viewport
+    when (lastViewport /= mainViewport) $ do
+      GL.glViewport $= mainViewport^.rectangle
 
-  mainViewport <- view viewport
-  when (lastViewport /= mainViewport) $ do
-    GL.glViewport $= mainViewport^.rectangle
+    glDepthMask GL_TRUE
+    glDisable GL_DEPTH_TEST
+    glDisable GL_BLEND
+    glDisable GL_CULL_FACE
+    glFrontFace GL_CCW
+    -- clear not neccessary
+    -- glClearColor 0 1 0 1
+    -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
-  glDepthMask GL_TRUE
-  glDisable GL_DEPTH_TEST
-  glDisable GL_BLEND
-  glDisable GL_CULL_FACE
-  glFrontFace GL_CCW
-  -- clear not neccessary
-  -- glClearColor 0 1 0 1
-  -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
+    {-# SCC boundVertexArray #-} throwWithStack $
+      boundVertexArray $= vao
 
-  {-# SCC boundVertexArray #-} throwWithStack $
-    boundVertexArray $= vao
+    -- set shader uniforms
 
-  -- set shader uniforms
+    boundProgramPipeline $= pipeline^.pipelineProgram
+    checkPipelineError pipeline
 
-  boundProgramPipeline $= pipeline^.pipelineProgram
-  checkPipelineError pipeline
+    throwWithStack $ do
+      iWeights    $= mkColorVector colors
+      iUsedTex    $= fromIntegral (length texs)
+      iTargetSize $= mainViewport
+      bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
 
-  throwWithStack $ do
-    iWeights    $= mkColorVector colors
-    iUsedTex    $= fromIntegral (length texs)
-    iTargetSize $= mainViewport
-    bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
-
-  throwWithStack $
-    glDrawArrays GL_TRIANGLES 0 3
-  return ((), st{lastViewport = mainViewport})
+    throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
+    return ((), mainViewport)
 
 
 fragemenUniforms :: Program -> YageResource FragmentShader
