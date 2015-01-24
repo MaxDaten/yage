@@ -34,7 +34,6 @@ import           Yage.Attribute
 import           Yage.Viewport
 
 import           Yage.Rendering.GL
-import           Yage.Rendering.Pipeline.Deferred.BaseGPass (GBuffer,aBuffer,depthBuffer)
 import           Yage.Rendering.Pipeline.Deferred.Common
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.Resources.GL
@@ -83,7 +82,7 @@ data VertexShader = VertexShader
 
 -- data SkyPassInput =
 
-drawSky :: SkyEntity sky i v => YageResource (RenderSystem (sky, Camera, Viewport Int, Texture px, Texture (DepthComponent24 Float)) (Texture px))
+drawSky :: (MonadReader v m, HasViewport v Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture px, Texture (DepthComponent24 Float)) (Texture px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao
@@ -98,9 +97,7 @@ drawSky = do
   fbo <- glResource
   baseTexturesRef <- newIORef Nothing
 
-  return $ do
-    (sky, cam, mainViewport, albedo, depth) <- ask
-
+  return $ mkStaticRenderPass $ \(sky, cam, albedo, depth) -> do
     boundFramebuffer RWFramebuffer $= fbo
     baseTexs <- get baseTexturesRef
     when (baseTexs /= Just (albedo^.textureObject,depth^.textureObject)) $ do
@@ -123,23 +120,22 @@ drawSky = do
     boundProgramPipeline $= pipeline^.pipelineProgram
     checkPipelineError pipeline
 
-    setupSceneGlobals vert frag . pure (cam, mainViewport)
-    drawSkyEntity vert frag . pure sky
+    setupSceneGlobals vert frag cam
+    drawSkyEntity vert frag sky
     return albedo
 
 
-setupSceneGlobals :: VertexShader -> FragmentShader -> RenderSystem (Camera, Viewport Int) ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} = do
-  (cam, mainViewport) <- ask
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} = do
+  mainViewport <- view viewport
   viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
-  vpMatrix   $= fmap realToFrac <$> viewprojectionM cam mainViewport
+  vpMatrix   $= fmap realToFrac <$> viewprojectionM mainViewport
  where
-  viewprojectionM :: Camera -> Viewport Int -> M44 Double
-  viewprojectionM cam@Camera{..} vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
+  viewprojectionM :: Viewport Int -> M44 Double
+  viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
-drawSkyEntity :: forall sky i v. SkyEntity sky i v => VertexShader -> FragmentShader -> RenderSystem sky ()
-drawSkyEntity VertexShader{..} FragmentShader{..} = do
-  ent <- ask
+drawSkyEntity :: forall sky i v m. (MonadIO m, SkyEntity sky i v) => VertexShader -> FragmentShader -> sky -> m ()
+drawSkyEntity VertexShader{..} FragmentShader{..} ent = do
   modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
   -- setup material
   skyTexture    $= ent^.skyMaterial.environmentMap
