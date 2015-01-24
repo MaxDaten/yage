@@ -9,63 +9,50 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
+{-# LANGUAGE TupleSections              #-}
 
 module Yage.Rendering.RenderSystem
-  ( RenderSystemT
-  , RenderSystem
+  ( RenderSystem(runRenderSystem)
   , HasRenderSystem(..)
-  , runPipeline
   ) where
 
 import           Yage.Lens                          hiding (elements)
-import           Yage.Prelude                       hiding (Element, pass)
+import           Yage.Prelude                       hiding (Element, pass, first)
 
 import           Control.Arrow
 import           Control.Category
-import           Control.Monad.RWS                  (RWST(..), runRWST)
-import           Control.Monad.Base
-import           Control.Monad.Trans.Resource
 
--- |
-newtype RenderSystemT m a b = RenderPass { runSys :: RWST a () () m b }
-  deriving (Functor, Applicative, Monad, MonadReader a)
+-- | a monadic Mealy
+newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, RenderSystem m i o) }
 
-type RenderSystem a b = (RenderSystemT (ResourceT IO) a b)
+makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
 
-makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystemT
+instance Monad m => Functor (RenderSystem m i) where
+  fmap f (RenderSystem sys) = RenderSystem $ sys >=> \(o,sys') -> return (f o, fmap f sys')
 
-instance Monad m => Arrow (RenderSystemT m) where
-  arr f = RenderPass $ do
-    a <- ask
-    return $ f a
-  first s = RenderPass $ RWST $ \(b,d) st -> do
-    (c, st', w) <- runRWST (runSys s) b st
-    return ((c, d), st', w)
+instance Monad m => Applicative (RenderSystem m i) where
+  pure b = r where r = RenderSystem $ return . const (b,r)
+  RenderSystem sysf <*> RenderSystem sysa = RenderSystem $ \i -> do
+    (f, mf) <- sysf i
+    (a, ma) <- sysa i
+    return (f a, mf <*> ma)
 
-instance Monad m => Category (RenderSystemT m) where
-  id = RenderPass $ RWST $ \a st -> return (a, st, mempty)
-  f . g = RenderPass $ RWST $ \a st -> do
-    (b, st', w) <- runRWST (runSys g) a st
-    (c, st'', w') <- runRWST (runSys f) b st'
-    return (c, st'', w `mappend` w')
+instance Monad m => Arrow (RenderSystem m) where
+  arr f = RenderSystem $ \i -> return (f i, arr f)
+  first sys = RenderSystem $ \(b,d) -> do
+    (c, sys') <- runRenderSystem sys b
+    return ((c,d), first sys')
 
-instance Monad m => Profunctor (RenderSystemT m) where
+instance Monad m => Category (RenderSystem m) where
+  id = RenderSystem $ return . (,id)
+  RenderSystem mbc . RenderSystem mab = RenderSystem $ \a -> do
+    (b, mab') <- mab a
+    (c, mbc') <- mbc b
+    return (c, mbc' . mab')
+
+instance Monad m => Profunctor (RenderSystem m) where
+  rmap = fmap
   -- lmap f p = RenderPass $ RWST $ \a st -> runRWST (runSys p) (f a) st
-  dimap f g p = RenderPass $ RWST $ \a st -> do
-    (b, st', w) <- runRWST (runSys p) (f a) st
-    return (g b, st', w)
-
-
-runPipeline :: MonadIO m => scene -> RenderSystemT m scene t -> m t
-runPipeline scene sys = do
-  (t,_,_) <- runRWST (runSys sys) scene ()
-  return t
-
-instance MonadIO m => MonadIO (RenderSystemT m r) where
-  liftIO = RenderPass . liftIO
-instance MonadBase IO m => MonadBase IO (RenderSystemT m r) where
-  liftBase = RenderPass . liftBase
-instance MonadThrow m => MonadThrow (RenderSystemT m r) where
-  throwM = RenderPass . throwM
-instance MonadResource m => MonadResource (RenderSystemT m r) where
-  liftResourceT = RenderPass . liftResourceT
+  dimap f g (RenderSystem sys) = RenderSystem $ \i -> do
+    (o,sys') <- sys (f i)
+    return (g o, dimap f g sys')

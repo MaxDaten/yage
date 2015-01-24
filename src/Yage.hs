@@ -34,7 +34,7 @@ import             Yage.Lens                       as Lens hiding ( Index )
 ---------------------------------------------------------------------------------------------------
 import             Control.Monad.State
 import             Control.Monad.Trans.Resource    as Resource
-import             System.Mem                      (performGC, performMajorGC)
+-- import             System.Mem                      (performGC, performMajorGC)
 ---------------------------------------------------------------------------------------------------
 import             Yage.Wire                       as Wire hiding ( (<+>), at, force, when )
 import             Yage.Core.Application           as Application
@@ -50,6 +50,7 @@ import             Yage.Internal.Debug
 import             Quine.StateVar                  as Quine
 import             Quine.Monitor
 import             Quine.GL.Types                  as GLTypes
+import             Yage.Rendering.Resources.GL
 ---------------------------------------------------------------------------------------------------
 
 data YageTiming = YageTiming
@@ -67,6 +68,7 @@ data YageSimulation time scene = YageSimulation
 
 data YageLoopState time scene = YageLoopState
     { _simulation         :: !(YageSimulation time scene)
+    , _pipeline           :: RenderSystem (ResourceT IO) scene ()
     , _timing             :: !YageTiming
     , _inputState         :: TVar InputState
     , _metrics            :: Metrics
@@ -113,11 +115,21 @@ instance EventCtr (YageLoopState t s) where
         atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
-type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, HasRenderSystem sim (ResourceT IO) sim (), Real time)
+type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, Real time)
 type YageConf conf = (HasApplicationConfig conf, HasWindowConfig conf, HasMonitorOptions conf )
 
-yageMain :: (YageSim time sim, YageConf conf) => String -> conf -> YageWire time () sim -> time -> IO ()
-yageMain title config sim dt =
+toScreen :: RenderSystem (ResourceT IO) (Texture PixelRGB8) ()
+toScreen = undefined
+
+yageMain
+  :: (YageSim time sim, YageConf conf)
+  => String
+  -> conf
+  -> YageWire time () sim
+  -> RenderSystem (ResourceT IO) sim (Texture PixelRGB8)
+  -> time
+  -> IO ()
+yageMain title config sim pipeln dt =
   -- http://www.glfw.org/docs/latest/news.html#news_30_hidpi
   let initSim           = YageSimulation sim (countSession dt) (Left ()) $ realToFrac dt
       appConf           = config^.applicationConfig
@@ -130,11 +142,12 @@ yageMain title config sim dt =
     renderCounter <- counter "yage.render_frames" ekg
     let metric = Metrics ekg simCounter renderCounter
         initState = YageLoopState
-                    { _simulation         = initSim
-                    , _timing             = loopTimingInit
-                    , _inputState         = tInputState
-                    , _metrics            = metric
-                    }
+          { _simulation         = initSim
+          , _pipeline           = toScreen . pipeln
+          , _timing             = loopTimingInit
+          , _inputState         = tInputState
+          , _metrics            = metric
+          }
     execApplication title appConf $ do
       win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
       registerWindowCallbacks win initState
@@ -170,14 +183,14 @@ core win = do
 
   -- render simulation representation
   (_,renderTime) <-  ioTime $ case renderSim^.simScene of
-      Left err    -> liftApp $ criticalLog $ "err:" ++ show err
-      Right scene -> do
-        inc =<< use (metrics.renderFrames)
-        winSt  <- io $ readTVarIO ( winState win )
-        let fbRect      = Rectangle 0 $ winSt^.fbSize
-            ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-            sc          = scene & viewport .~ Viewport fbRect ratio 2.2
-        liftResourceT $ runPipeline sc (sc^.renderSystem)
+    Left err    -> liftApp $ criticalLog $ "err:" ++ show err
+    Right scene -> do
+      inc =<< use (metrics.renderFrames)
+      winSt  <- io $ readTVarIO ( winState win )
+      let fbRect      = Rectangle 0 $ winSt^.fbSize
+          -- ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
+          -- sc          = scene & viewport .~ Viewport fbRect ratio 2.2
+      pipeline <~ (fmap snd . liftResourceT . flip runRenderSystem scene =<< use pipeline)
 
   liftApp $ setDevStuff simTime renderTime win
   simulation            .= newSim
