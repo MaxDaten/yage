@@ -26,6 +26,7 @@ import           Control.Arrow
 import           Control.Category
 
 -- | a monadic Mealy
+-- transducer pattern : http://tonyday567.github.io/blog/pipes-v-machines/
 newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, RenderSystem m i o) }
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
@@ -35,8 +36,8 @@ mkDynamicRenderPass :: (i -> m (o, RenderSystem m i o)) -> RenderSystem m i o
 mkDynamicRenderPass = RenderSystem
 {-# INLINE mkDynamicRenderPass #-}
 
-mkStaticRenderPass :: Functor m => (i -> m o) -> RenderSystem m i o
-mkStaticRenderPass f = r where r = RenderSystem $ fmap (,r) . f
+mkStaticRenderPass :: Monad m => (i -> m o) -> RenderSystem m i o
+mkStaticRenderPass f = r where r = RenderSystem $ liftM (,r) . f
 {-# INLINE mkStaticRenderPass #-}
 
 mkStatefulRenderPass :: Monad m => (s -> i -> m (o,s)) -> s -> RenderSystem m i o
