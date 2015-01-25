@@ -64,7 +64,7 @@ drawRectangle = do
 
   let initViewport = defaultViewport 0 0 :: Viewport Int
   return $ flip mkStatefulRenderPass initViewport $ \lastViewport ts -> do
-    let (colors, sampler, texs) = unzip3 ts
+    let (colors, smpl, texs) = unzip3 ts
     throwWithStack $ boundFramebuffer RWFramebuffer $= def
 
     mainViewport <- view viewport
@@ -92,7 +92,7 @@ drawRectangle = do
       iWeights    $= mkColorVector colors
       iUsedTex    $= fromIntegral (length texs)
       iTargetSize $= mainViewport
-      bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip sampler texs)
+      bindTextureSamplers GL_TEXTURE_2D $ zip (toList textureUnits) (Just <$> zip smpl texs)
 
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
     return ((), mainViewport)

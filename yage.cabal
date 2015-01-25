@@ -133,6 +133,7 @@ library
 
     Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
+    Yage.Rendering.RenderContext
     Yage.Rendering.Resources.GL
     Yage.Rendering.Resources.GL.Base
     Yage.Rendering.Resources.GL.Buffer

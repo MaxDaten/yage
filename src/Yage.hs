@@ -52,10 +52,11 @@ import             Quine.StateVar                  as Quine
 import             Quine.Monitor
 import             Quine.GL.Types                  as GLTypes
 import             Yage.Rendering.Resources.GL
+import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 ---------------------------------------------------------------------------------------------------
 
-type RenderContext = ResourceT (ReaderT (Viewport Int) IO)
+type RendererM = ResourceT (ReaderT RenderContext IO)
 
 data YageTiming = YageTiming
   { _totalTime        :: !Double
@@ -72,7 +73,7 @@ data YageSimulation time scene = YageSimulation
 
 data YageLoopState time scene = YageLoopState
   { _simulation         :: !(YageSimulation time scene)
-  , _pipeline           :: RenderSystem RenderContext scene ()
+  , _pipeline           :: RenderSystem RendererM scene ()
   , _timing             :: !YageTiming
   , _inputState         :: TVar InputState
   , _metrics            :: Metrics
@@ -127,7 +128,7 @@ yageMain
   => String
   -> conf
   -> YageWire time () sim
-  -> YageResource (RenderSystem RenderContext sim (Texture PixelRGB8))
+  -> YageResource (RenderSystem RendererM sim (Texture PixelRGB8))
   -> time
   -> IO ()
 yageMain title config sim piperesource dt = do
@@ -193,7 +194,7 @@ core win = do
       let fbRect      = Rectangle 0 $ winSt^.fbSize
           ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
           vp          = Viewport fbRect ratio 2.2
-      pipeline <~ (fmap snd . liftResourceT . transResourceT (flip runReaderT vp) . flip runRenderSystem scene =<< use pipeline)
+      pipeline <~ (runPipeline scene (RenderContext vp) =<< use pipeline)
 
   liftApp $ setDevStuff simTime renderTime win
   simulation            .= newSim
@@ -223,6 +224,10 @@ core win = do
     return $! newScene `seq` ( sim & simScene     .~ newScene
                                    & simSession   .~ s
                                    & simWire      .~ w )
+
+-- | run the complete RenderSystem stack
+runPipeline :: MonadResource m => scene -> RenderContext -> RenderSystem RendererM scene () -> m (RenderSystem RendererM scene ())
+runPipeline scene ctx = fmap snd . liftResourceT . transResourceT (flip runReaderT ctx) . flip runRenderSystem scene
 
 -- debug & stats
 setDevStuff :: MonadApplication m => Double -> Double -> Window -> m ()
