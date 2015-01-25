@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE Arrows              #-}
 
 module Yage.Rendering.Pipeline.Deferred.GaussianBlur
   ( blurPass
@@ -13,12 +14,13 @@ module Yage.Rendering.Pipeline.Deferred.GaussianBlur
   , LinearSamplingDirection(..)
   ) where
 
-import Yage hiding ((</>), toList, foldM)
+import Yage hiding ((</>), toList, replicateM)
 import Yage.Lens hiding (set)
 import Yage.GL
 import Yage.Uniform
 import Data.Data
-import Control.Monad (foldM)
+import Control.Monad (replicateM)
+import Control.Arrow
 import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
 import Quine.GL.Uniform
@@ -46,35 +48,45 @@ data LinearSamplingDirection = XDirection | YDirection
 
 -- Blurring
 
-blurPass :: ImageFormat px => Int -> YageResource (RenderSystem (Texture px) (Texture px))
+blurPass :: (ImageFormat px, MonadResource m) => Int -> YageResource (Pass m (Texture px) (Texture px))
 blurPass numSamples = do
   downsamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
   gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
-  return $ do
-    inTexture <- ask
-    downsampledTextures <- reverse <$> foldM processDownsample [(1::Int,inTexture)] downsamplers
-    fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers downsampledTextures)
+  return $ proc inTexture -> do
+    downsampledTextures <- processDownsamples downsamplers -< [(1::Int,inTexture)]
+    processGauss gaussianSamplers -< (map snd downsampledTextures, Nothing)
+    -- fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers (reverse downsampledTextures))
+    -- returnA -< undefined
  where
-  processDownsample txs dsampler =
-    let (lastfactor, base) = unsafeLast txs
-    in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
+  processGauss :: Monad m => [Pass m (Texture px, Maybe (Texture px)) (Texture px)] -> Pass m ([Texture px], Maybe (Texture px)) (Texture px)
+  processGauss [] = rmap (fromJust.snd) id
+  processGauss (s:ss) = proc ((t:texs), madd) -> do
+    out <- s -< (t, madd)
+    processGauss ss -< (texs, Just out)
+
+  processDownsamples :: Monad m => [Pass m (Texture px) (Texture px)] -> Pass m [(Int,Texture px)] [(Int,Texture px)]
+  processDownsamples [] = id
+  processDownsamples (s:ss) = proc (t:texs) -> do
+    tex <- s -< snd t
+    processDownsamples ss -< (2 * fst t,tex):t:texs
+    -- let (lastfactor, base) = unsafeLast txs
+    -- in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
 
 -- * Gaussian Sampler
 
 -- | a gaussian blur filter which operates in two linear filter passes.
-gaussianSampler :: ImageFormat px => YageResource (RenderSystem (Texture px, Maybe (Texture px)) (Texture px))
+gaussianSampler :: (ImageFormat px, MonadResource m) => YageResource (Pass m (Texture px, Maybe (Texture px)) (Texture px))
 gaussianSampler = do
   gaussianX <- linearGaussianSampler XDirection
   gaussianY <- linearGaussianSampler YDirection
-  return $ do
-    (inTex, add) <- ask
-    tx <- gaussianX . pure (inTex,Nothing)
-    ty <- gaussianY . pure (tx,add)
-    return ty
+  return $ proc (inTex,add) -> do
+    tx <- gaussianX -< (inTex,Nothing)
+    ty <- gaussianY -< (tx,add)
+    returnA -< ty
 
 -- ** Linear Sampler Pass
 
-linearGaussianSampler :: forall px. ImageFormat px => LinearSamplingDirection -> YageResource (RenderSystem (Texture px, Maybe (Texture px)) (Texture px))
+linearGaussianSampler :: forall px m. (ImageFormat px, MonadResource m) => LinearSamplingDirection -> YageResource (RenderSystem m (Texture px, Maybe (Texture px)) (Texture px))
 linearGaussianSampler direction = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -89,22 +101,16 @@ linearGaussianSampler direction = do
 
   iDirection    $= direction
 
-  lastDimensionRef     <- newIORef (V2 1 1)
   fbo <- glResource
 
   -- RenderPass
-  return $ do
-    throwWithStack $
-      boundFramebuffer RWFramebuffer $= fbo
-
-    (toFilter, mAdd) <- ask
+  return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDimension (toFilter, mAdd) -> do
+    throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
         -- V2 newWidth newHeight = V2 (inWidth * upFactor) (inHeight * upFactor)
 
-    lastDimension <- get lastDimensionRef
     when (lastDimension /= V2 inWidth inHeight) $ do
-      lastDimensionRef $= V2 inWidth inHeight
       modifyM outputTexture $ \x -> resizeTexture2D x inWidth inHeight
       out <- get outputTexture
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
@@ -132,7 +138,7 @@ linearGaussianSampler direction = do
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
 
-    get outputTexture
+    (,V2 inWidth inHeight) <$> get outputTexture
 
 
 -- * Shader Interface
