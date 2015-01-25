@@ -3,6 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE FlexibleContexts    #-}
 
 module Yage.Rendering.Pipeline.Deferred.LuminanceFilter
   ( luminanceFilter
@@ -32,7 +34,7 @@ data FragmentShader px = FragmentShader
 
 -- * Draw To Screen
 
-luminanceFilter :: forall px. ImageFormat px => YageResource (RenderSystem (Float,Texture px) (Texture px))
+luminanceFilter :: forall px m. (MonadResource m, ImageFormat px) => YageResource (RenderSystem m (Float,Texture px) (Texture px))
 luminanceFilter = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -45,20 +47,14 @@ luminanceFilter = do
 
   outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
 
-  lastDimensionRef     <- newIORef (V2 1 1)
   fbo <- glResource
 
   -- RenderPass
-  return $ do
-    throwWithStack $
-      boundFramebuffer RWFramebuffer $= fbo
-
-    (cutoff, toFilter) <- ask
+  return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDim (cutoff, toFilter) -> do
+    throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
-    lastDimension <- get lastDimensionRef
-    when (lastDimension /= V2 inWidth inHeight) $ do
-      lastDimensionRef $= V2 inWidth inHeight
+    when (lastDim /= V2 inWidth inHeight) $ do
       modifyM outputTexture $ \x -> resizeTexture2D x inWidth inHeight
       out <- get outputTexture
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
@@ -87,7 +83,7 @@ luminanceFilter = do
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
 
-    get outputTexture
+    (,V2 inWidth inHeight) <$> get outputTexture
 
 
 -- * Shader Interface

@@ -28,8 +28,8 @@ addBloom numSamples = do
   filterLuma <- luminanceFilter
   return $ proc (thrshold, inTex) -> do
     half     <- sceneHalf -< inTex
-    filtered <- filterLuma -< (thrshold,half)
-    downsampledTextures <- processDownsamples halfSamplers -< [(2::Int,filtered)]
+    filteredTex <- filterLuma -< (thrshold,half)
+    downsampledTextures <- processDownsamples halfSamplers -< [(2::Int,filteredTex)]
     processGauss gaussianSamplers -< (map snd downsampledTextures, Nothing)
  where
   processGauss :: Monad m => [Pass m (Texture px, Maybe (Texture px)) (Texture px)] -> Pass m ([Texture px], Maybe (Texture px)) (Texture px)

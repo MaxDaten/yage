@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE Arrows                 #-}
 
 module Yage.Rendering.Pipeline.Deferred
   ( module Pass
@@ -46,6 +47,7 @@ import           Quine.GL.Sampler
 import           Quine.GL.Shader
 import           Quine.GL.Types
 import           Quine.StateVar
+import           Data.Maybe (fromJust)
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
 type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial Texture)
@@ -55,7 +57,9 @@ type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 maxBloomSamples :: Int
 maxBloomSamples = 5
 
-yDeferredLighting :: (HasViewport a Int, HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a) => YageResource (RenderSystem a ())
+yDeferredLighting
+  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, MonadResource m, MonadReader v m, HasViewport v Int)
+  => YageResource (RenderSystem m a ())
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
@@ -70,22 +74,20 @@ yDeferredLighting = do
   lightPass       <- drawLights
   renderBloom     <- addBloom maxBloomSamples
 
-  return $ do
-    val <- ask
-    gbuffer <- gBasePass . pure (val^.scene, val^.hdrCamera.camera, val^.viewport)
+  return $ proc input -> do
+    gbuffer <- gBasePass -< (input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
-    let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (val^.scene.environment.sky)
-    lBuffer   <- lightPass . pure (val^.scene.environment.lights, radiance, val^.hdrCamera.camera, val^.viewport, gbuffer)
-    sceneTex  <- maybe (pure lBuffer)
-                       (\skye -> skyPass . pure (skye, val^.hdrCamera.camera, val^.viewport, lBuffer, gbuffer^.depthBuffer)) (val^.scene.environment.sky)
+    let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
+    lBuffer   <- lightPass -< (input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
+    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
-    bloomed <- renderBloom . pure (0.5,sceneTex)
+    bloomed <- renderBloom -< (0.5,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- tonemapPass . pure (val^.hdrCamera, sceneTex, Just bloomed)
+    tonemapped <- tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
     -- bring it to the screen
-    screenQuadPass . pure ([(1.0,baseSampler,tonemapped)], val^.viewport)
+    screenQuadPass -< [(1.0,baseSampler,tonemapped)]
 
 
 mkBaseSampler :: YageResource Sampler

@@ -82,7 +82,7 @@ data VertexShader = VertexShader
 
 -- data SkyPassInput =
 
-drawSky :: (MonadReader v m, HasViewport v Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture px, Texture (DepthComponent24 Float)) (Texture px))
+drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture px, Texture (DepthComponent24 Float)) (Texture px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao

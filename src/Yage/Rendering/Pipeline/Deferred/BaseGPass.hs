@@ -134,7 +134,7 @@ type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f
 
 -- * Draw To GBuffer
 
-drawGBuffers :: (MonadReader v m, HasViewport v Int, MonadResource m, GBaseScene scene f ent i w) => YageResource (RenderSystem m (scene, Camera) GBuffer)
+drawGBuffers :: (MonadReader w m, HasViewport w Int, MonadResource m, GBaseScene scene f ent i v) => YageResource (RenderSystem m (scene, Camera) GBuffer)
 drawGBuffers = do
   vao <- glResource
   boundVertexArray $= vao
