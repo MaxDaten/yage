@@ -75,7 +75,7 @@ data VertexShader = VertexShader
 
 type LightData = RenderData Word32 (V.Position Vec3)
 
-drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, Viewport Int, GBuffer) (Texture PixelRGBF))
+drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, GBuffer) (Texture PixelRGBF))
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -93,7 +93,7 @@ drawLights = do
   [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
   let drawLights = drawLightEntities vert frag pointData spotData dirData
 
-  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (lights, radianceMap, cam, mainViewport, gBuffer) -> do
+  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (lights, radianceMap, cam, gBuffer) -> do
     mainViewport <- view viewport
     -- resizing the framebuffer
     when (mainViewport /= lastViewport) $ do
@@ -133,7 +133,7 @@ drawLights = do
     (,mainViewport) <$> get lBuffer
 
 
-setupSceneGlobals :: (MonadReader v m, HasViewport v Int) => VertexShader -> FragmentShader -> Camera -> Texture PixelRGB8 -> GBuffer -> m ()
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> Texture PixelRGB8 -> GBuffer -> m ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gbuff = do
   vp <- view viewport
   let Rectangle xy0 xy1 = fromIntegral <$> vp^.rectangle
@@ -146,13 +146,13 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gb
   gBuffer             $= gbuff
   cameraPosition      $= realToFrac <$> cam^.position
  where
-  viewprojectionM :: M44 Double
+  viewprojectionM :: Viewport Int -> M44 Double
   viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
   zRatio = realToFrac <$> V2 ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ)) (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
 
 
 -- | subject for instanced rendering
-drawLightEntities :: Foldable f => VertexShader -> FragmentShader -> LightData -> LightData -> LightData -> (f Light) -> m ()
+drawLightEntities :: (Foldable f, MonadIO m) => VertexShader -> FragmentShader -> LightData -> LightData -> LightData -> (f Light) -> m ()
 drawLightEntities  VertexShader{..} FragmentShader{..} pointData spotData dirData lights = forM_ lights $ \light -> do
   let ldata = light^.lightType.to lightData
 
