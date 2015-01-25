@@ -92,13 +92,13 @@ yDeferredLighting = do
 
 mkBaseSampler :: YageResource Sampler
 mkBaseSampler = throwWithStack $ do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  smpl <- glResource
+  samplerParameteri smpl GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri smpl GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri smpl GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri smpl GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
+  return smpl
 
 {--
     let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)

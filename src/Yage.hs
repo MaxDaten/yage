@@ -119,9 +119,6 @@ instance EventCtr (YageLoopState t s) where
 type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, Real time)
 type YageConf conf = (HasApplicationConfig conf, HasWindowConfig conf, HasMonitorOptions conf )
 
-toScreen :: RenderSystem (ResourceT IO) (Texture PixelRGB8) ()
-toScreen = undefined
-
 yageMain
   :: (YageSim time sim, YageConf conf)
   => String
