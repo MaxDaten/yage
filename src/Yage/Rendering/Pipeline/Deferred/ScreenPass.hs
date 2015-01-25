@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TupleSections       #-}
 
 module Yage.Rendering.Pipeline.Deferred.ScreenPass
   ( textureToScreen
@@ -47,8 +48,8 @@ data FragmentShader = FragmentShader
   , iTargetSize :: UniformVar (Viewport Int)
   }
 
-textureToScreen :: YageResource (RenderSystem m (Texture px) ())
-textureToScreen = undefined
+textureToScreen :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m (Texture px) ())
+textureToScreen = mkBaseSampler >>= (\s -> lmap (singleton . (1.0,s,)) <$> drawRectangle)
 
 drawRectangle :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m [(Vec4,Sampler,Texture px)] ())
 drawRectangle = do
@@ -122,9 +123,13 @@ textureUniforms p str = mapStateVar (fmap fromIntegral) (fmap fromIntegral) `lif
 colorUniforms :: MonadIO m => Program -> String -> m (StateVar (V MAX_TEXTURES Vec4))
 colorUniforms = programUniform programUniform4fv
 
- -- where
- --  screenSize = to $ \vp -> V4
- --    (fromIntegral $ vp^.xy1._x)
- --    (fromIntegral $ vp^.xy1._y)
- --    (recip . fromIntegral $ vp^.xy2._x)
- --    (recip . fromIntegral $ vp^.xy2._y)
+
+mkBaseSampler :: YageResource Sampler
+mkBaseSampler = throwWithStack $ do
+  smpl <- glResource
+  samplerParameteri smpl GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri smpl GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri smpl GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri smpl GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  return smpl

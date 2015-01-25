@@ -43,10 +43,8 @@ import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 import           System.FilePath ((</>))
-import           Quine.GL.Sampler
 import           Quine.GL.Shader
 import           Quine.GL.Types
-import           Quine.StateVar
 import           Data.Maybe (fromJust)
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
@@ -59,14 +57,12 @@ maxBloomSamples = 5
 
 yDeferredLighting
   :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, MonadResource m, MonadReader v m, HasViewport v Int)
-  => YageResource (RenderSystem m a ())
+  => YageResource (RenderSystem m a (Texture PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
 
-  baseSampler <- mkBaseSampler
   gBasePass      <- drawGBuffers
-  screenQuadPass <- drawRectangle
   skyPass        <- drawSky
   tonemapPass    <- toneMapper
 
@@ -85,40 +81,7 @@ yDeferredLighting = do
     bloomed <- renderBloom -< (0.5,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapped <- tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
-    -- bring it to the screen
-    screenQuadPass -< [(1.0,baseSampler,tonemapped)]
-
-
-mkBaseSampler :: YageResource Sampler
-mkBaseSampler = throwWithStack $ do
-  smpl <- glResource
-  samplerParameteri smpl GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  samplerParameteri smpl GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  samplerParameteri smpl GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-  samplerParameteri smpl GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return smpl
-
-{--
-    let -- renderRes                     = viewport & rectangle %~ fmap (/2.0)
-        cam                     = scene^.sceneCamera.hdrCameraHandle
-        baseDescr               = Pass.geoPass viewport
-        runBasePass             = runRenderPass baseDescr
-        baseData                = geoFrameData viewport cam
-    in do
-    -- render out our geometric attributes (color, normal, ...)
-    baseData `runBasePass` ( toGeoEntity cam <$> scene^.sceneEntities )
-
-    -- calculate lighting based on attributes + bloom & apply tone mapping
-    hdrTex <- Pass.hdrLightingPass baseDescr viewport scene
-
-    -- rendered gui elements (TODO: should be gamma correct)
-    guiTex <- Pass.runGuiPass hdrTex viewport ( scene^.sceneGui )
-
-    -- bring it to the default render target - the screen
-    Pass.screenPass viewport [ hdrTex, guiTex ]
---}
+    tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
 
 -- TODO move orphans instances
 

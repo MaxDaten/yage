@@ -4,6 +4,7 @@
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE ExistentialQuantification  #-}
 
 module Yage
     ( yageMain
@@ -54,26 +55,28 @@ import             Yage.Rendering.Resources.GL
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 ---------------------------------------------------------------------------------------------------
 
+type RenderContext = ResourceT (ReaderT (Viewport Int) IO)
+
 data YageTiming = YageTiming
-    { _totalTime        :: !Double
-    , _loopSession      :: !(YageSession NominalDiffTime)
-    , _remainderAccum   :: !Double
-    }
+  { _totalTime        :: !Double
+  , _loopSession      :: !(YageSession NominalDiffTime)
+  , _remainderAccum   :: !Double
+  }
 
 data YageSimulation time scene = YageSimulation
-    { _simWire          :: !(YageWire time () scene)
-    , _simSession       :: !(YageSession time)
-    , _simScene         :: !(Either () scene)
-    , _simDeltaT        :: !Double
-    }
+  { _simWire          :: !(YageWire time () scene)
+  , _simSession       :: !(YageSession time)
+  , _simScene         :: !(Either () scene)
+  , _simDeltaT        :: !Double
+  }
 
 data YageLoopState time scene = YageLoopState
-    { _simulation         :: !(YageSimulation time scene)
-    , _pipeline           :: RenderSystem (ResourceT IO) scene ()
-    , _timing             :: !YageTiming
-    , _inputState         :: TVar InputState
-    , _metrics            :: Metrics
-    }
+  { _simulation         :: !(YageSimulation time scene)
+  , _pipeline           :: RenderSystem RenderContext scene ()
+  , _timing             :: !YageTiming
+  , _inputState         :: TVar InputState
+  , _metrics            :: Metrics
+  }
 
 data Metrics = Metrics
   { _monitor          :: !Monitor
@@ -124,7 +127,7 @@ yageMain
   => String
   -> conf
   -> YageWire time () sim
-  -> YageResource (RenderSystem (ResourceT IO) sim (Texture PixelRGB8))
+  -> YageResource (RenderSystem RenderContext sim (Texture PixelRGB8))
   -> time
   -> IO ()
 yageMain title config sim piperesource dt = do
@@ -188,9 +191,9 @@ core win = do
       inc =<< use (metrics.renderFrames)
       winSt  <- io $ readTVarIO ( winState win )
       let fbRect      = Rectangle 0 $ winSt^.fbSize
-          -- ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
-          -- sc          = scene & viewport .~ Viewport fbRect ratio 2.2
-      pipeline <~ (fmap snd . liftResourceT . flip runRenderSystem scene =<< use pipeline)
+          ratio       = (fromIntegral <$> winSt^.fbSize) / (fromIntegral <$> winSt^.winSize)
+          vp          = Viewport fbRect ratio 2.2
+      pipeline <~ (fmap snd . liftResourceT . transResourceT (flip runReaderT vp) . flip runRenderSystem scene =<< use pipeline)
 
   liftApp $ setDevStuff simTime renderTime win
   simulation            .= newSim
