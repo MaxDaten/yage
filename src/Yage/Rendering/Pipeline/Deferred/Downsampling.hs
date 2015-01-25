@@ -7,7 +7,8 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Yage.Rendering.Pipeline.Deferred.Downsampling
-  ( downsampler
+  ( Downsampler
+  , downsampler
   ) where
 
 import Yage.Prelude
@@ -38,8 +39,9 @@ data FragmentShader px = FragmentShader
   }
 
 -- * Draw To Screen
+type Downsampler m px = RenderSystem m (Int, Texture px) (Texture px)
 
-downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (RenderSystem m (Int, Texture px) (Texture px))
+downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (Downsampler m px)
 downsampler = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao

@@ -13,6 +13,7 @@
 
 module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
+  , Pass
   , mkDynamicRenderPass
   , mkStaticRenderPass
   , mkStatefulRenderPass
@@ -31,6 +32,8 @@ newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, Render
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
 
+-- | Just a semantic alias for RenderSystem
+type Pass = RenderSystem
 
 mkDynamicRenderPass :: (i -> m (o, RenderSystem m i o)) -> RenderSystem m i o
 mkDynamicRenderPass = RenderSystem
