@@ -8,6 +8,7 @@ module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
   , BaseTextureTarget (baseTextureTarget)
+  , Resizeable2D(resize2D)
   , TextureDimension(..)
   , textureTarget
   , textureDimension
@@ -71,6 +72,12 @@ makeLenses ''Texture
 
 class BaseTextureTarget t where
   baseTextureTarget :: t -> GL.TextureTarget
+
+class Resizeable2D t where
+  resize2D :: MonadIO m => t -> Int -> Int -> m t
+
+instance ImageFormat px => Resizeable2D (Texture px) where
+  resize2D = resizeTexture2D
 
 -- | Creates a 'Texture' initialized with an image
 createTexture2DImage :: (Image2D i, GetRectangle i Int, BaseTextureTarget i) => i -> YageResource (Texture a)
