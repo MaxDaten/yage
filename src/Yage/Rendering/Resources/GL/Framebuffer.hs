@@ -12,7 +12,7 @@ module Yage.Rendering.Resources.GL.Framebuffer
   , acquireFramebuffer
   ) where
 
-import           Yage.Prelude
+import           Yage.Prelude hiding (mapM_)
 import           Yage.Rendering.GL
 import           Yage.Resources
 
@@ -26,6 +26,7 @@ import           Quine.StateVar
 import           Yage.Rendering.Resources.GL.Base
 
 data Attachment = forall a. (FramebufferAttachment a, Show a) => Attachment a
+  deriving (Typeable)
 
 deriving instance Show Attachment
 
@@ -39,19 +40,19 @@ createFramebuffer colors mDepth mStencil = throwWithStack $ do
   fb <- glResource :: Acquire Framebuffer
   attachFramebuffer fb colors mDepth mStencil
 
-attachFramebuffer :: (MonadIO m, Applicative m) => Framebuffer -> [Attachment] -> Maybe Attachment -> Maybe Attachment -> m Framebuffer
+attachFramebuffer :: MonadIO m => Framebuffer -> [Attachment] -> Maybe Attachment -> Maybe Attachment -> m Framebuffer
 attachFramebuffer fb colors mDepth mStencil = throwWithStack $ do
   throwWithStack $ boundFramebuffer RWFramebuffer $= fb
   throwWithStack $ zipWithM_ (\i (Attachment a) -> attach RWFramebuffer (GL_COLOR_ATTACHMENT0 + i) a) [0..] $ colors
-  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) $ mDepth
-  throwWithStack $ traverse_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) $ mStencil
+  throwWithStack $ mapM_ (\(Attachment a)   -> attach RWFramebuffer GL_DEPTH_ATTACHMENT a) $ mDepth
+  throwWithStack $ mapM_ (\(Attachment a)   -> attach RWFramebuffer GL_STENCIL_ATTACHMENT a) $ mStencil
   let cs =  (+) GL_COLOR_ATTACHMENT0 . fromIntegral <$> [0.. (length colors)-1]
 
   glDrawBuffer GL_NONE
   glReadBuffer GL_NONE
   io $ withArray cs $ \ptr -> do
     glDrawBuffers (fromIntegral $ length colors) ptr
-  traverse_ glReadBuffer $ listToMaybe cs
+  mapM_ glReadBuffer $ listToMaybe cs
   mErr <- checkFramebufferStatus RWFramebuffer
   case mErr of
     Just err  -> throw err
