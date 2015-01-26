@@ -54,6 +54,7 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
 import           Linear
+import           Control.Arrow
 
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
@@ -134,29 +135,54 @@ type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f
 
 -- * Draw To GBuffer
 
-drawGBuffers :: (MonadReader w m, HasViewport w Int, MonadResource m, GBaseScene scene f ent i v) => YageResource (RenderSystem m (scene, Camera) GBuffer)
-drawGBuffers = do
-  vao <- glResource
-  boundVertexArray $= vao
+data PassRes = PassRes
+  { vao          :: (ReleaseKey,VertexArray)
+  , pipe         :: (ReleaseKey,Pipeline)
+  , frag         :: (FragmentShader)
+  , vert         :: (VertexShader)
+  , fbo          :: (ReleaseKey,Framebuffer)
+  , aChannel     :: Slot (Texture PixelRGBA8)
+  , bChannel     :: Slot (Texture PixelRGBA8)
+  , cChannel     :: Slot (Texture PixelRGBA8)
+  , depthChannel :: Slot (Texture (DepthComponent24 Float))
+  , lastViewport :: Viewport Int
+  }
 
-  pipeline <- [ $(embedShaderFile "res/glsl/pass/base.vert")
-              , $(embedShaderFile "res/glsl/pass/base.frag")]
-              `compileShaderPipeline` includePaths
-
-
-  Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
-  Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
-
-  aChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
-  bChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
-  cChannel     <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBA8))
-  depthChannel <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture (DepthComponent24 Float)))
-  fbo <- glResource
-
-  -- RenderPass
-  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (scene, cam) -> do
+drawGBuffers :: (MonadReader w m, HasViewport w Int, MonadResource m, GBaseScene scene f ent i v) => RenderSystem m (scene, Camera) GBuffer
+drawGBuffers = processResources >>> runPass  where
+  processResources :: (MonadReader w m, HasViewport w Int, MonadResource m) => RenderSystem m s (PassRes,s)
+  processResources = mkDynamicRenderPass $ \i -> do
     mainViewport <- view viewport
+    let V2 w h = mainViewport^.rectangle.extend
 
+    vao <- allocateAcquire glResource
+    boundVertexArray $= snd vao
+
+    pipeline <- allocateAcquire (
+                [ $(embedShaderFile "res/glsl/pass/base.vert")
+                , $(embedShaderFile "res/glsl/pass/base.frag")]
+                `compileShaderPipeline` includePaths)
+
+
+    Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^._2.pipelineProgram)
+    Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^._2.pipelineProgram)
+
+    aChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
+    bChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
+    cChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
+    depthChannel <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
+
+    fbo <- allocateAcquire glResource
+    colors <- mapM get [aChannel, bChannel, cChannel]
+    depth <- get depthChannel
+    void $ attachFramebuffer (snd fbo) (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
+
+    let res = PassRes vao pipeline frag vert fbo aChannel bChannel cChannel depthChannel mainViewport
+    return ((res,i), maintainResources res)
+
+  maintainResources :: (MonadReader w m, HasViewport w Int, MonadResource m) => PassRes -> RenderSystem m s (PassRes,s)
+  maintainResources initRes = flip mkStatefulRenderPass initRes $ \res@PassRes{..} i -> do
+    mainViewport <- view viewport
     -- resizing the framebuffer
     when (mainViewport /= lastViewport) $ do
       GL.glViewport    $= mainViewport^.rectangle
@@ -166,9 +192,13 @@ drawGBuffers = do
         get ch
       modifyM depthChannel $ \x -> resizeTexture2D x w h
       depth  <- get depthChannel
-      void $ attachFramebuffer fbo (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
+      void $ attachFramebuffer (snd fbo) (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
 
-    boundFramebuffer RWFramebuffer $= fbo
+    let newRes = res{lastViewport = mainViewport}
+    return ((newRes,i),newRes)
+
+  runPass = mkStaticRenderPass $ \(PassRes{..},(scene, cam)) -> do
+    boundFramebuffer RWFramebuffer $= snd fbo
 
     -- some state setting
     glEnable GL_DEPTH_TEST
@@ -187,15 +217,14 @@ drawGBuffers = do
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     -- set globals
-    {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
-    boundProgramPipeline $= pipeline^.pipelineProgram
-    checkPipelineError pipeline
+    {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= snd vao
+    boundProgramPipeline $= pipe^._2.pipelineProgram
+    checkPipelineError (snd pipe)
 
     setupSceneGlobals vert frag cam
     drawEntities vert frag (scene^.entities)
 
-    gbuff <- (GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel)
-    return (gbuff,mainViewport)
+    GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel
 
 
 setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
@@ -283,12 +312,12 @@ vertexUniforms prog = do
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix3f prog "NormalMatrix")
 
-fragmentUniforms :: Program -> YageResource FragmentShader
+fragmentUniforms :: MonadResource m => Program -> m FragmentShader
 fragmentUniforms prog = do
-  albedoSampler    <- mkAlbedoSampler
-  normalSampler    <- mkNormalSampler
-  roughnessSampler <- mkRoughnessSampler
-  metallicSampler  <- mkMetallicSampler
+  albedoSampler    <- snd <$> allocateAcquire mkAlbedoSampler
+  normalSampler    <- snd <$> allocateAcquire mkNormalSampler
+  roughnessSampler <- snd <$> allocateAcquire mkRoughnessSampler
+  metallicSampler  <- snd <$> allocateAcquire mkMetallicSampler
   FragmentShader
     <$> materialUniformRGBA prog albedoSampler "AlbedoTexture" "AlbedoColor"
     <*> materialUniformRGBA prog normalSampler "NormalTexture" "NormalColor"

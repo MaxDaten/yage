@@ -62,7 +62,6 @@ yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
 
-  gBasePass      <- drawGBuffers
   skyPass        <- drawSky
   tonemapPass    <- toneMapper
 
@@ -71,7 +70,7 @@ yDeferredLighting = do
   renderBloom     <- addBloom maxBloomSamples
 
   return $ proc input -> do
-    gbuffer <- gBasePass -< (input^.scene, input^.hdrCamera.camera)
+    gbuffer <- drawGBuffers -< (input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
