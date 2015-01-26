@@ -120,7 +120,7 @@ instance EventCtr (YageLoopState t s) where
         atomically $! modifyTVar' _inputState $!! mouseEvents <>~ [MouseButtonEvent button state modifier]
     --scrollCallback         = scrollCallback . _eventCtr
 
-type YageSim time sim = (LinearInterpolatable sim, HasViewport sim Int, Real time)
+type YageSim time sim = (LinearInterpolatable sim, Real time)
 type YageConf conf = (HasApplicationConfig conf, HasWindowConfig conf, HasMonitorOptions conf )
 
 yageMain
