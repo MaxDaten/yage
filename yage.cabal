@@ -133,6 +133,7 @@ library
 
     Yage.Rendering.Mesh
     Yage.Rendering.RenderSystem
+    Yage.Rendering.RenderTarget
     Yage.Rendering.RenderContext
     Yage.Rendering.Resources.GL
     Yage.Rendering.Resources.GL.Base
@@ -246,7 +247,7 @@ library
     , resourcet             >= 1.1
     , bytestring            >= 0.10
     , data-default
-
+    , singletons            >= 1.0
     , parallel              >= 3.2
     , vector-strategies     >= 0.4
     , spool                 >= 0.1
@@ -265,6 +266,7 @@ library
     , colour                >= 2.3.3
     , linear                >= 1.10
     , netwire               >= 5
+    , vinyl                 >= 0.5.1
 
     , JuicyPixels           >= 3.2
     , zlib                  >= 0.5
