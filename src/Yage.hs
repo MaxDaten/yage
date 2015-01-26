@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-orphans -fno-warn-name-shadowing #-}
+{-# LANGUAGE CPP  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE NamedFieldPuns     #-}
@@ -54,6 +55,8 @@ import             Quine.GL.Types                  as GLTypes
 import             Yage.Rendering.Resources.GL
 import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
+import             Paths_yage                      (version)
+import             Data.Version                    (showVersion)
 ---------------------------------------------------------------------------------------------------
 
 type RendererM = ResourceT (ReaderT RenderContext IO)
@@ -140,10 +143,16 @@ yageMain title config sim piperesource dt = do
   renderCounter <- counter "yage.render_frames" ekg
 
   execApplication title appConf $ do
+    liftApp $ infoLog $ asString $ printf "yage:    %s" (showVersion version)
+    liftApp $ infoLog $ asString $ printf "gl:      %s" (asString VERSION_gl)
+    liftApp $ infoLog $ asString $ printf "netwire: %s" (asString VERSION_netwire)
     win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+    ogl   <- liftApp $ getWindowContextGLVersion win
+    liftApp $ infoLog $ asString $ printf "opengl:  %s" (showVersion ogl)
     makeContextCurrent $ Just win
     installGLDebugHook =<< io (getLogger "opengl.debughook")
-    with ((.) <$> textureToScreen <*> piperesource) $ \pipe -> do
+
+    with ((>>>) <$> piperesource <*> textureToScreen) $ \pipe -> do
       let metric    = Metrics ekg simCounter renderCounter
           initState = YageLoopState
             { _simulation         = initSim
