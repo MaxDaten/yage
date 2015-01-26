@@ -55,7 +55,7 @@ data Texture a = Texture
   { _textureTarget    :: !GL.TextureTarget
   , _textureDimension :: !TextureDimension
   , _textureLevel     :: !GL.MipmapLevel
-  , _textureObject    :: !GL.Texture
+  , _textureObject    :: !(GL.Texture)
   } deriving (Typeable,Generic)
 
 instance Show (Texture px) where
@@ -74,27 +74,27 @@ class BaseTextureTarget t where
 
 -- | Creates a 'Texture' initialized with an image
 createTexture2DImage :: (Image2D i, GetRectangle i Int, BaseTextureTarget i) => i -> YageResource (Texture a)
-createTexture2DImage img = throwWithStack $ do
-  tex <- Texture (baseTextureTarget img) (Texture2D w h) 1 <$> glResource
-  GL.boundTexture (baseTextureTarget img) GL_TEXTURE_BINDING_2D $= tex^.textureObject
-  store img (baseTextureTarget img)
-  upload img (baseTextureTarget img) 0
-  return tex
- where
+createTexture2DImage img = mkAcquire acq free where
+  acq = throwWithStack $ do
+    tex <- Texture (baseTextureTarget img) (Texture2D w h) 1 <$> gen
+    GL.boundTexture (baseTextureTarget img) GL_TEXTURE_BINDING_2D $= tex^.textureObject
+    store img (baseTextureTarget img)
+    upload img (baseTextureTarget img) 0
+    return tex
+  free tex = delete (tex^.textureObject)
   V2 w h = img^.asRectangle.xy2
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
-createTexture2D :: forall px. ImageFormat px => GL.TextureTarget -> Int -> Int -> YageResource (Texture px)
-createTexture2D target w h = throwWithStack $! do
-  tex  <- Texture target (Texture2D w h) 1 <$> glResource
-  GL.boundTexture target GL_TEXTURE_BINDING_2D $= tex^.textureObject
-  glTexStorage2D target 1 (internalFormat (Proxy::Proxy px)) (fromIntegral w) (fromIntegral h)
-  return $ tex
+createTexture2D :: forall px. (ImageFormat px) => GL.TextureTarget -> Int -> Int -> YageResource (Texture px)
+createTexture2D target w h = mkAcquire acq free where
+  acq = Texture target (Texture2D w h) 1 <$> newTextureStorageObj target w h (Proxy :: Proxy px)
+  free tex = delete (tex^.textureObject)
 
-resizeTexture2D :: forall px. (ImageFormat px) => Texture px -> Int -> Int -> YageResource (Texture px)
+resizeTexture2D :: forall px m. (ImageFormat px, MonadIO m) => Texture px -> Int -> Int -> m (Texture px)
 resizeTexture2D tex w h = throwWithStack $! do
-  t <- createTexture2D (tex^.textureTarget) w h :: YageResource (Texture px)
-  return $ t & textureLevel .~ tex^.textureLevel
+  delete (tex^.textureObject)
+  new <- newTextureStorageObj (tex^.textureTarget) w h (Proxy :: Proxy px)
+  return $ tex & textureObject .~ new
 
 bindTexture:: (MonadIO m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
 bindTexture target st mtex = throwWithStack $! do
@@ -104,7 +104,7 @@ bindTexture target st mtex = throwWithStack $! do
 bindTextures:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Texture px))] -> m ()
 bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= unit
-  GL.boundTexture target 0 $= maybe def (view textureObject) mtex
+  GL.boundTexture target 0 $= maybe def (view (textureObject)) mtex
 
 bindTextureSamplers:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Sampler, Texture px))] -> m ()
 bindTextureSamplers target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
@@ -118,6 +118,14 @@ instance FramebufferAttachment (Texture a) where
       Texture1D _ -> glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
       Texture2D _ _ -> glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
       Texture3D _ _ _ -> glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0
+
+
+newTextureStorageObj :: MonadIO m => ImageFormat px => GL.TextureTarget -> Int -> Int -> Proxy px -> m GL.Texture
+newTextureStorageObj t w h p = throwWithStack $! do
+  tex  <- gen
+  GL.boundTexture t GL_TEXTURE_BINDING_2D $= tex
+  glTexStorage2D t 1 (internalFormat p) (fromIntegral w) (fromIntegral h)
+  return $ tex
 
 instance (Image2D i) => BaseTextureTarget (Cubemap i) where
   baseTextureTarget _ = GL_TEXTURE_CUBE_MAP
