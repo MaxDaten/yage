@@ -11,6 +11,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE LambdaCase          #-}
 
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
@@ -52,6 +53,8 @@ import           Yage.Uniform                            as Uniform
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
+import           Yage.Rendering.RenderTarget
+import           Control.Monad.State.Strict (execStateT)
 import           Foreign.Ptr
 import           Linear
 import           Control.Arrow
@@ -140,11 +143,7 @@ data PassRes = PassRes
   , pipe         :: (ReleaseKey,Pipeline)
   , frag         :: (FragmentShader)
   , vert         :: (VertexShader)
-  , fbo          :: (ReleaseKey,Framebuffer)
-  , aChannel     :: Slot (Texture PixelRGBA8)
-  , bChannel     :: Slot (Texture PixelRGBA8)
-  , cChannel     :: Slot (Texture PixelRGBA8)
-  , depthChannel :: Slot (Texture (DepthComponent24 Float))
+  , target       :: (ReleaseKey,RenderTarget GBuffer)
   , lastViewport :: Viewport Int
   }
 
@@ -167,38 +166,31 @@ drawGBuffers = processResources >>> runPass  where
     Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^._2.pipelineProgram)
     Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^._2.pipelineProgram)
 
-    aChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
-    bChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
-    cChannel     <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
-    depthChannel <- snd <$> (allocateAcquire $ mkSlot $ createTexture2D GL_TEXTURE_2D w h)
+    target <- allocateAcquire $ mkRenderTarget =<<
+            GBuffer <$> createTexture2D GL_TEXTURE_2D w h
+                    <*> createTexture2D GL_TEXTURE_2D w h
+                    <*> createTexture2D GL_TEXTURE_2D w h
+                    <*> createTexture2D GL_TEXTURE_2D w h
 
-    fbo <- allocateAcquire glResource
-    colors <- mapM get [aChannel, bChannel, cChannel]
-    depth <- get depthChannel
-    void $ attachFramebuffer (snd fbo) (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
-
-    let res = PassRes vao pipeline frag vert fbo aChannel bChannel cChannel depthChannel mainViewport
+    let res = PassRes vao pipeline frag vert target mainViewport
     return ((res,i), maintainResources res)
 
   maintainResources :: (MonadReader w m, HasViewport w Int, MonadResource m) => PassRes -> RenderSystem m s (PassRes,s)
   maintainResources initRes = flip mkStatefulRenderPass initRes $ \res@PassRes{..} i -> do
     mainViewport <- view viewport
-    -- resizing the framebuffer
-    when (mainViewport /= lastViewport) $ do
-      GL.glViewport    $= mainViewport^.rectangle
-      let V2 w h = mainViewport^.rectangle.extend
-      colors <- forM [aChannel, bChannel, cChannel] $ \ch -> do
-        modifyM ch $ \x -> resizeTexture2D x w h
-        get ch
-      modifyM depthChannel $ \x -> resizeTexture2D x w h
-      depth  <- get depthChannel
-      void $ attachFramebuffer (snd fbo) (mkAttachment <$> colors) (Just $ mkAttachment depth) Nothing
-
-    let newRes = res{lastViewport = mainViewport}
+    newTarget <- resizeTarget mainViewport lastViewport (target^._2)
+    let newRes = res{lastViewport = mainViewport, target = (target^._1,newTarget)}
     return ((newRes,i),newRes)
 
+  resizeTarget newVP oldVP target
+    | newVP == oldVP = return target
+    | otherwise = do
+        GL.glViewport $= newVP^.rectangle
+        let V2 w h = newVP^.rectangle.extend
+        resize2D target w h
+
   runPass = mkStaticRenderPass $ \(PassRes{..},(scene, cam)) -> do
-    boundFramebuffer RWFramebuffer $= snd fbo
+    boundFramebuffer RWFramebuffer $= (target^._2.framebufferObj)
 
     -- some state setting
     glEnable GL_DEPTH_TEST
@@ -224,7 +216,7 @@ drawGBuffers = processResources >>> runPass  where
     setupSceneGlobals vert frag cam
     drawEntities vert frag (scene^.entities)
 
-    GBuffer <$> get aChannel <*> get bChannel <*> get cChannel <*> get depthChannel
+    return $ target^._2.renderTarget
 
 
 setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
@@ -366,3 +358,17 @@ mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
   when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s
 
+instance IsRenderTarget GBuffer where
+  getAttachments GBuffer{..} = (mkAttachment <$> [_aBuffer, _bBuffer, _cBuffer], Just $ mkAttachment _depthBuffer, Nothing)
+
+instance GetRectangle GBuffer Int where
+  asRectangle = aBuffer.textureDimension.to (\case
+    Texture2D w h -> Rectangle 0 (V2 w h)
+    _ -> error "BaseGPass GetRectangle GBuffer Int")
+
+instance Resizeable2D GBuffer where
+  resize2D gbuff w h = flip execStateT gbuff $ do
+    aBuffer <~ resize2D (gbuff^.aBuffer) w h
+    bBuffer <~ resize2D (gbuff^.bBuffer) w h
+    cBuffer <~ resize2D (gbuff^.cBuffer) w h
+    depthBuffer <~ resize2D (gbuff^.depthBuffer) w h
