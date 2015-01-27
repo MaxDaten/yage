@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE TupleSections       #-}
 module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
@@ -99,10 +100,9 @@ createTexture2D target w h = mkAcquire acq free where
 
 resizeTexture2D :: forall px m. (ImageFormat px, MonadIO m) => Texture px -> Int -> Int -> m (Texture px)
 resizeTexture2D tex w h = throwWithStack $! do
-  delete =<< (get $ tex^.textureObject)
   new <- newTextureStorageObj (tex^.textureTarget) (tex^.textureLevel) w h (Proxy :: Proxy px)
-  tex^.textureObject $= new
-  return $ tex
+  delete =<< (liftIO $ atomicModifyIORef' (tex^.textureObject) (new,))
+  return $ tex & textureDimension .~ Texture2D w h
 
 bindTexture:: (MonadIO m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture px) -> m ()
 bindTexture target st mtex = throwWithStack $! do
