@@ -111,7 +111,7 @@ linearGaussianSampler direction = do
         -- V2 newWidth newHeight = V2 (inWidth * upFactor) (inHeight * upFactor)
 
     when (lastDimension /= V2 inWidth inHeight) $ do
-      out <- (\t -> resizeTexture2D t inWidth inWidth) =<< get outputTexture
+      out <- (\t -> resizeTexture2D t inWidth inHeight) =<< get outputTexture
       outputTexture $= out
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
 
