@@ -30,6 +30,7 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Scene
 import           Yage.Viewport
 import           Yage.Material
+import           Foreign.Ptr
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
@@ -45,6 +46,7 @@ import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 import           System.FilePath ((</>))
 import           Quine.GL.Shader
 import           Quine.GL.Types
+import           Quine.StateVar
 import           Data.Maybe (fromJust)
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
@@ -61,13 +63,14 @@ yDeferredLighting
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
+  -- throwWithStack $ setupDefaultTexture
 
   skyPass        <- drawSky
-  tonemapPass    <- toneMapper
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   lightPass       <- drawLights
   renderBloom     <- addBloom maxBloomSamples
+  tonemapPass     <- toneMapper
 
   return $ proc input -> do
     gbuffer <- drawGBuffers -< (input^.scene, input^.hdrCamera.camera)
@@ -92,3 +95,13 @@ instance HasSkyMaterial mat Texture => HasSkyMaterial (Entity d mat) Texture whe
 
 instance HasRenderData (Entity (RenderData i v) mat) i v where
   renderData = Yage.Scene.renderData
+
+-- setupDefaultTexture :: MonadIO m => m ()
+-- setupDefaultTexture = do
+--   throwWithStack $ bindTextures GL_TEXTURE_2D [(0, Just def :: Maybe (Texture PixelRGBA8))]
+--   -- throwWithStack $ store black  GL_TEXTURE_2D
+--   -- throwWithStack $ upload black GL_TEXTURE_2D 0
+--   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_BASE_LEVEL 0
+--   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAX_LEVEL 0
+--   glTexImage2D GL_TEXTURE_2D 0 GL_RGBA8 1 1 0 GL_RGBA GL_UNSIGNED_BYTE nullPtr
+
