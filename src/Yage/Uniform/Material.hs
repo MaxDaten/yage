@@ -40,7 +40,8 @@ sampler t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
   traverse_ (\tex -> when (tex^.textureTarget /= t) $ error "TextureTarget mismatch would result in GL error") mtex
   activeTexture $= u
   boundSampler u $= s
-  boundTexture t 0 $= maybe def (view textureObject) mtex
+  obj <- maybe (return def) (get . view textureObject) mtex
+  boundTexture t 0 $= obj
 
 sampler2D :: TextureUnit -> Sampler -> UniformSampler px
 sampler2D = sampler GL_TEXTURE_2D
