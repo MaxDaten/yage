@@ -97,7 +97,7 @@ linearGaussianSampler direction = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
 
   iDirection    $= direction
 
@@ -111,8 +111,8 @@ linearGaussianSampler direction = do
         -- V2 newWidth newHeight = V2 (inWidth * upFactor) (inHeight * upFactor)
 
     when (lastDimension /= V2 inWidth inHeight) $ do
-      modifyM outputTexture $ \x -> resizeTexture2D x inWidth inHeight
-      out <- get outputTexture
+      out <- (\t -> resizeTexture2D t inWidth inWidth) =<< get outputTexture
+      outputTexture $= out
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
 
     glDepthMask GL_TRUE

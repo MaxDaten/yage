@@ -45,7 +45,7 @@ luminanceFilter = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
 
   fbo <- glResource
 
@@ -55,8 +55,8 @@ luminanceFilter = do
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
     when (lastDim /= V2 inWidth inHeight) $ do
-      modifyM outputTexture $ \x -> resizeTexture2D x inWidth inHeight
-      out <- get outputTexture
+      out <- (\t -> resizeTexture2D t inWidth inHeight) =<< get outputTexture
+      outputTexture $= out
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
 
     glDepthMask GL_TRUE

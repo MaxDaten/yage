@@ -179,7 +179,7 @@ drawGBuffers = processResources >>> runPass  where
   maintainResources initRes = flip mkStatefulRenderPass initRes $ \res@PassRes{..} i -> do
     mainViewport <- view viewport
     newTarget <- resizeTarget mainViewport lastViewport (target^._2)
-    let newRes = res{lastViewport = mainViewport, target = (target^._1,newTarget)}
+    let newRes = res{lastViewport = mainViewport, target = (target^._1, newTarget)}
     return ((newRes,i),newRes)
 
   resizeTarget newVP oldVP target
@@ -191,7 +191,6 @@ drawGBuffers = processResources >>> runPass  where
 
   runPass = mkStaticRenderPass $ \(PassRes{..},(scene, cam)) -> do
     boundFramebuffer RWFramebuffer $= (target^._2.framebufferObj)
-
     -- some state setting
     glEnable GL_DEPTH_TEST
     glDepthMask GL_TRUE

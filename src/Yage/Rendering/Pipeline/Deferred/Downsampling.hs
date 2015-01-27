@@ -52,7 +52,7 @@ downsampler = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
 
   fbo <- glResource
 
@@ -64,8 +64,8 @@ downsampler = do
         V2 newWidth newHeight = V2 (inWidth `div` factor) (inHeight `div` factor)
 
     when (lastDim /= V2 newWidth newHeight) $ do
-      modifyM outputTexture $ \x -> resizeTexture2D x newWidth newHeight
-      out <- get outputTexture
+      out <- (\t -> resizeTexture2D t newWidth newHeight) =<< get outputTexture
+      outputTexture $= out
       void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
 
     glDepthMask GL_TRUE

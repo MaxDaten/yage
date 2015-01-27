@@ -42,7 +42,7 @@ toneMapper = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outTexture <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGB8))
+  outTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture PixelRGB8))
   fbo <- glResource
 
   -- RenderPass
@@ -50,8 +50,8 @@ toneMapper = do
     target <- get outTexture
     when (target^.textureDimension /= sceneTex^.textureDimension) $ do
       let Texture2D w h = sceneTex^.textureDimension
-      modifyM outTexture $ \x -> resizeTexture2D x w h
-      newtarget <- get outTexture
+      newtarget <- (\t -> resizeTexture2D t w h) =<< get outTexture
+      outTexture $= newtarget
       void $ attachFramebuffer fbo [mkAttachment newtarget] Nothing Nothing
 
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
@@ -74,8 +74,7 @@ toneMapper = do
     iScene $= sceneTex
     iBloom $= mBloomTex
 
-    throwWithStack $
-      glDrawArrays GL_TRIANGLES 0 3
+    throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
 
     get outTexture
 

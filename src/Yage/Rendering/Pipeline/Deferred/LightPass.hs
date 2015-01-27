@@ -87,7 +87,7 @@ drawLights = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  lBuffer <- mkSlot $ createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (Slot (Texture PixelRGBF))
+  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture PixelRGBF))
   fbo <- glResource
 
   [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
@@ -99,8 +99,8 @@ drawLights = do
     when (mainViewport /= lastViewport) $ do
       VP.glViewport $= mainViewport^.rectangle
       let V2 w h = mainViewport^.rectangle.extend
-      modifyM lBuffer $ \t -> resizeTexture2D t w h
-      buff <- get lBuffer
+      buff <- (\t -> resizeTexture2D t w h) =<< get lBuffer
+      lBuffer $= buff
       void $ attachFramebuffer fbo [mkAttachment buff] (Just $ mkAttachment $ gBuffer^.depthBuffer) Nothing
 
     boundFramebuffer RWFramebuffer $= fbo
