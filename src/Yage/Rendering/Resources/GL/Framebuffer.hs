@@ -24,6 +24,7 @@ import           Foreign.Marshal.Array
 import           Quine.GL.Framebuffer
 import           Quine.StateVar
 import           Yage.Rendering.Resources.GL.Base
+import GHC.Stack
 
 data Attachment = forall a. (FramebufferAttachment a, Show a) => Attachment a
   deriving (Typeable)
@@ -55,7 +56,7 @@ attachFramebuffer fb colors mDepth mStencil = throwWithStack $ do
   mapM_ glReadBuffer $ listToMaybe cs
   mErr <- checkFramebufferStatus RWFramebuffer
   case mErr of
-    Just err  -> throw err
+    Just err  -> errorWithStackTrace (show err)
     _         -> return fb
 
 acquireFramebuffer :: [Acquire Attachment] -> Maybe (Acquire Attachment) -> Maybe (Acquire Attachment) -> Acquire Framebuffer
