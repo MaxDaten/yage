@@ -38,7 +38,7 @@ data FragmentShader px = FragmentShader
   , iTargetSize :: UniformVar (V2 Int)
   }
 
--- * Draw To Screen
+-- * Draw To Target
 type Downsampler m px = RenderSystem m (Int, Texture px) (Texture px)
 
 downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (Downsampler m px)
@@ -61,7 +61,7 @@ downsampler = do
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
     let Texture2D inWidth inHeight = toFilter^.textureDimension
-        V2 newWidth newHeight = V2 (inWidth `div` factor) (inHeight `div` factor)
+        V2 newWidth newHeight = max 1 (V2 (inWidth `div` factor) (inHeight `div` factor))
 
     when (lastDim /= V2 newWidth newHeight) $ do
       out <- (\t -> resizeTexture2D t newWidth newHeight) =<< get outputTexture
