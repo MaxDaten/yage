@@ -131,7 +131,7 @@ yageMain
   => String
   -> conf
   -> YageWire time () sim
-  -> YageResource (RenderSystem RendererM sim (Texture PixelRGB8))
+  -> YageResource (RenderSystem RendererM sim (Texture2D PixelRGB8))
   -> time
   -> IO ()
 yageMain title config sim piperesource dt = do

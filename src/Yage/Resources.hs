@@ -80,11 +80,11 @@ imageRes filePath = mkAcquire loadImage (const $ return ())
   loadImage = join $ either (throwIO.ImageResourceException) return <$> readImage (fpToString filePath)
 
 -- | Allocate a 'Material' with a 'Image2D' instance as texture data source into a 'Material' with a render hardware texture
-materialRes :: (GetRectangle i Int, Image2D i, BaseTextureTarget i) => Material col i -> YageResource (Material col (Texture px))
+materialRes :: (GetRectangle i Int, Image2D i, BaseTextureDimension i d) => Material col i -> YageResource (Material col (Texture d px))
 materialRes imgMat = (set materialTexture) <$> (createTexture2DImage (imgMat^.materialTexture)) <*> pure imgMat
 
 -- | Allocate a 'Image2D' instance into a render hardware 'Texture'
-textureRes :: (GetRectangle i Int, Image2D i, BaseTextureTarget i) => i -> YageResource (Texture px)
+textureRes :: (GetRectangle i Int, Image2D i, BaseTextureDimension i d) => i -> YageResource (Texture d px)
 textureRes = createTexture2DImage
 
 -- | loads a 'MipmapChain' from seperate images-files. The 'FilePath' is globbed

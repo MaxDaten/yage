@@ -36,8 +36,8 @@ import Yage.Rendering.Pipeline.Deferred.Downsampling
 
 
 data FragmentShader px = FragmentShader
-  { iToFilter     :: UniformVar (Texture px)
-  , iAdditive     :: UniformVar (Maybe (Texture px))
+  { iToFilter     :: UniformVar (Texture2D px)
+  , iAdditive     :: UniformVar (Maybe (Texture2D px))
   , iTargetSize   :: UniformVar (V2 Int)
   , iDirection    :: UniformVar LinearSamplingDirection
   , iUsedTextures :: UniformVar Int
@@ -48,7 +48,7 @@ data LinearSamplingDirection = XDirection | YDirection
 
 -- Blurring
 
-blurPass :: (ImageFormat px, MonadResource m) => Int -> YageResource (Pass m (Texture px) (Texture px))
+blurPass :: (ImageFormat px, MonadResource m) => Int -> YageResource (Pass m (Texture2D px) (Texture2D px))
 blurPass numSamples = do
   downsamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
   gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
@@ -58,13 +58,13 @@ blurPass numSamples = do
     -- fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers (reverse downsampledTextures))
     -- returnA -< undefined
  where
-  processGauss :: Monad m => [Pass m (Texture px, Maybe (Texture px)) (Texture px)] -> Pass m ([Texture px], Maybe (Texture px)) (Texture px)
+  processGauss :: Monad m => [Pass m (Texture2D px, Maybe (Texture2D px)) (Texture2D px)] -> Pass m ([Texture2D px], Maybe (Texture2D px)) (Texture2D px)
   processGauss [] = rmap (fromJust.snd) id
   processGauss (s:ss) = proc ((t:texs), madd) -> do
     out <- s -< (t, madd)
     processGauss ss -< (texs, Just out)
 
-  processDownsamples :: Monad m => [Pass m (Texture px) (Texture px)] -> Pass m [(Int,Texture px)] [(Int,Texture px)]
+  processDownsamples :: Monad m => [Pass m (Texture2D px) (Texture2D px)] -> Pass m [(Int,Texture2D px)] [(Int,Texture2D px)]
   processDownsamples [] = id
   processDownsamples (s:ss) = proc (t:texs) -> do
     tex <- s -< snd t
@@ -75,7 +75,7 @@ blurPass numSamples = do
 -- * Gaussian Sampler
 
 -- | a gaussian blur filter which operates in two linear filter passes.
-gaussianSampler :: (ImageFormat px, MonadResource m) => YageResource (Pass m (Texture px, Maybe (Texture px)) (Texture px))
+gaussianSampler :: (ImageFormat px, MonadResource m) => YageResource (Pass m (Texture2D px, Maybe (Texture2D px)) (Texture2D px))
 gaussianSampler = do
   gaussianX <- linearGaussianSampler XDirection
   gaussianY <- linearGaussianSampler YDirection
@@ -86,7 +86,7 @@ gaussianSampler = do
 
 -- ** Linear Sampler Pass
 
-linearGaussianSampler :: forall px m. (ImageFormat px, MonadResource m) => LinearSamplingDirection -> YageResource (RenderSystem m (Texture px, Maybe (Texture px)) (Texture px))
+linearGaussianSampler :: forall px m. (ImageFormat px, MonadResource m) => LinearSamplingDirection -> YageResource (RenderSystem m (Texture2D px, Maybe (Texture2D px)) (Texture2D px))
 linearGaussianSampler direction = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -97,7 +97,7 @@ linearGaussianSampler direction = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D px))
 
   iDirection    $= direction
 
@@ -107,7 +107,7 @@ linearGaussianSampler direction = do
   return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDimension (toFilter, mAdd) -> do
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
-    let Texture2D inWidth inHeight = toFilter^.textureDimension
+    let V2 inWidth inHeight = toFilter^.asRectangle.extend
         -- V2 newWidth newHeight = V2 (inWidth * upFactor) (inHeight * upFactor)
 
     when (lastDimension /= V2 inWidth inHeight) $ do
@@ -161,7 +161,7 @@ fragmentUniforms prog = do
 
 -- * Samplers
 
-mkFilterSampler :: YageResource (UniformSampler px)
+mkFilterSampler :: YageResource (UniformSampler2D px)
 mkFilterSampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
@@ -171,7 +171,7 @@ mkFilterSampler = throwWithStack $ sampler2D 0 <$> do
   -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s
 
-mkAdditiveSampler :: YageResource (UniformSampler px)
+mkAdditiveSampler :: YageResource (UniformSampler2D px)
 mkAdditiveSampler = throwWithStack $ sampler2D 1 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

@@ -93,10 +93,10 @@ type GBaseVertex v = (HasPosition v Vec3, HasTexture v Vec2, HasTangentX v Vec3,
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { albedoMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGB8))
-  , normalMaterial     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGB8))
-  , roughnessMaterial  :: UniformVar (Material Double (Texture Pixel8))
-  , metallicMaterial   :: UniformVar (Material Double (Texture Pixel8))
+  { albedoMaterial     :: UniformVar (Material MaterialColorAlpha (Texture2D PixelRGB8))
+  , normalMaterial     :: UniformVar (Material MaterialColorAlpha (Texture2D PixelRGB8))
+  , roughnessMaterial  :: UniformVar (Material Double (Texture2D Pixel8))
+  , metallicMaterial   :: UniformVar (Material Double (Texture2D Pixel8))
   }
 
 
@@ -124,16 +124,16 @@ data VertexShader = VertexShader
 
 -- | The output GBuffer of this pass (for encoding see "res/glsl/pass/gbuffer.h")
 data GBuffer = GBuffer
-  { _aBuffer     :: Texture PixelRGBA8
-  , _bBuffer     :: Texture PixelRGBA8
-  , _cBuffer     :: Texture PixelRGBA8
-  , _depthBuffer :: Texture (DepthComponent24 Float)
+  { _aBuffer     :: Texture2D PixelRGBA8
+  , _bBuffer     :: Texture2D PixelRGBA8
+  , _cBuffer     :: Texture2D PixelRGBA8
+  , _depthBuffer :: Texture2D (DepthComponent24 Float)
   } deriving (Typeable,Show,Generic)
 
 makeLenses ''GBuffer
 
 
-type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture, HasRenderData ent i v, GBaseVertex v)
+type GBaseEntity ent i v = (HasTransformation ent Double, HasGBaseMaterial ent Texture2D, HasRenderData ent i v, GBaseVertex v)
 type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v, HasEntities scene (f ent))
 
 -- * Draw To GBuffer
@@ -277,7 +277,7 @@ defaultGBaseMaterial = GBaseMaterial
   , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
   }
 
-gBaseMaterialRes :: GBaseMaterial Image -> YageResource (GBaseMaterial Texture)
+gBaseMaterialRes :: GBaseMaterial Image -> YageResource (GBaseMaterial Texture2D)
 gBaseMaterialRes GBaseMaterial{..} = GBaseMaterial
   <$> materialRes _gBaseMaterialAlbedo
   <*> materialRes _gBaseMaterialNormalmap
@@ -317,7 +317,7 @@ fragmentUniforms prog = do
 
 -- * Sampler
 
-mkAlbedoSampler :: YageResource (UniformSampler px)
+mkAlbedoSampler :: YageResource (UniformSampler2D px)
 mkAlbedoSampler = throwWithStack $ sampler2D ALBEDO_UNIT <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
@@ -327,7 +327,7 @@ mkAlbedoSampler = throwWithStack $ sampler2D ALBEDO_UNIT <$> do
   when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s
 
-mkNormalSampler :: YageResource (UniformSampler px)
+mkNormalSampler :: YageResource (UniformSampler2D px)
 mkNormalSampler = throwWithStack $ sampler2D NORMAL_UNIT <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
@@ -337,7 +337,7 @@ mkNormalSampler = throwWithStack $ sampler2D NORMAL_UNIT <$> do
   when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s
 
-mkRoughnessSampler :: YageResource (UniformSampler px)
+mkRoughnessSampler :: YageResource (UniformSampler2D px)
 mkRoughnessSampler = throwWithStack $ sampler2D ROUGHNESS_UNIT <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
@@ -347,7 +347,7 @@ mkRoughnessSampler = throwWithStack $ sampler2D ROUGHNESS_UNIT <$> do
   when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s
 
-mkMetallicSampler :: YageResource (UniformSampler px)
+mkMetallicSampler :: YageResource (UniformSampler2D px)
 mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
@@ -361,9 +361,7 @@ instance IsRenderTarget GBuffer where
   getAttachments GBuffer{..} = (mkAttachment <$> [_aBuffer, _bBuffer, _cBuffer], Just $ mkAttachment _depthBuffer, Nothing)
 
 instance GetRectangle GBuffer Int where
-  asRectangle = aBuffer.textureDimension.to (\case
-    Texture2D w h -> Rectangle 0 (V2 w h)
-    _ -> error "BaseGPass GetRectangle GBuffer Int")
+  asRectangle = aBuffer.asRectangle
 
 instance Resizeable2D GBuffer where
   resize2D gbuff w h = flip execStateT gbuff $ do

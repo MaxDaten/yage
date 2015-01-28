@@ -64,11 +64,11 @@ makeClassy ''SkyMaterial
 -- * Vertex Attributes
 type SkyVertex v = (HasPosition v Vec3)
 
-type SkyEntity ent i v = (HasTransformation ent Double, HasRenderData ent i v, HasSkyMaterial ent Texture, SkyVertex v)
+type SkyEntity ent i v = (HasTransformation ent Double, HasRenderData ent i v, HasSkyMaterial ent TextureCube, SkyVertex v)
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { skyTexture     :: UniformVar (Material MaterialColorAlpha (Texture PixelRGB8))
+  { skyTexture     :: UniformVar (Material MaterialColorAlpha (TextureCube PixelRGB8))
   }
 
 -- | Uniform StateVars of the fragment shader
@@ -82,7 +82,7 @@ data VertexShader = VertexShader
 
 -- data SkyPassInput =
 
-drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture px, Texture (DepthComponent24 Float)) (Texture px))
+drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture2D px, Texture2D (DepthComponent24 Float)) (Texture2D px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao
@@ -172,7 +172,7 @@ fragmentUniforms prog = do
 
 -- * Sampler
 
-mkCubeSampler :: YageResource (UniformSampler px)
+mkCubeSampler :: YageResource (UniformSamplerCube px)
 mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

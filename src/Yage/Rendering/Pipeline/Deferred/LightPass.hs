@@ -55,7 +55,7 @@ import Quine.GL.ProgramPipeline
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { radianceEnvironment  :: UniformVar (Maybe (Texture PixelRGB8))
+  { radianceEnvironment  :: UniformVar (Maybe (TextureCube PixelRGB8))
   , gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
@@ -75,7 +75,7 @@ data VertexShader = VertexShader
 
 type LightData = RenderData Word32 (V.Position Vec3)
 
-drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, GBuffer) (Texture PixelRGBF11_11_10))
+drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (TextureCube PixelRGB8), Camera, GBuffer) (Texture2D PixelRGBF11_11_10))
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -87,7 +87,7 @@ drawLights = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture PixelRGBF11_11_10))
+  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D PixelRGBF11_11_10))
   fbo <- glResource
 
   [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
@@ -133,7 +133,7 @@ drawLights = do
     (,mainViewport) <$> get lBuffer
 
 
-setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> Texture PixelRGB8 -> GBuffer -> m ()
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> TextureCube PixelRGB8 -> GBuffer -> m ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gbuff = do
   vp <- view viewport
   let Rectangle xy0 xy1 = fromIntegral <$> vp^.rectangle
@@ -224,7 +224,7 @@ mkGBufferSampler = throwWithStack $ do
   -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return sampler
 
-mkCubeSampler :: YageResource (UniformSampler PixelRGB8)
+mkCubeSampler :: YageResource (UniformSamplerCube PixelRGB8)
 mkCubeSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

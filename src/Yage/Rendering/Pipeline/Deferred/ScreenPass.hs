@@ -48,10 +48,10 @@ data FragmentShader = FragmentShader
   , iTargetSize :: UniformVar (Viewport Int)
   }
 
-textureToScreen :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m (Texture px) ())
+textureToScreen :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m (Texture2D px) ())
 textureToScreen = mkBaseSampler >>= (\s -> lmap (singleton . (1.0,s,)) <$> drawRectangle)
 
-drawRectangle :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m [(Vec4,Sampler,Texture px)] ())
+drawRectangle :: (MonadReader v m, HasViewport v Int, MonadResource m) => YageResource (RenderSystem m [(Vec4,Sampler,Texture2D px)] ())
 drawRectangle = do
   vao <- glResource
   boundVertexArray $= vao

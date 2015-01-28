@@ -27,14 +27,14 @@ import Yage.Rendering.Pipeline.Deferred.Common
 
 
 data FragmentShader px = FragmentShader
-  { iTexture          :: UniformVar (Texture px)
+  { iTexture          :: UniformVar (Texture2D px)
   , iLuminanceCutoff  :: UniformVar Float
   }
 
 
 -- * Draw To Screen
 
-luminanceFilter :: forall px m. (MonadResource m, ImageFormat px) => YageResource (RenderSystem m (Float,Texture px) (Texture px))
+luminanceFilter :: forall px m. (MonadResource m, ImageFormat px) => YageResource (RenderSystem m (Float,Texture2D px) (Texture2D px))
 luminanceFilter = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -45,7 +45,7 @@ luminanceFilter = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D px))
 
   fbo <- glResource
 
@@ -53,7 +53,7 @@ luminanceFilter = do
   return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDim (cutoff, toFilter) -> do
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
-    let Texture2D inWidth inHeight = toFilter^.textureDimension
+    let V2 inWidth inHeight = toFilter^.asRectangle.extend
     when (lastDim /= V2 inWidth inHeight) $ do
       out <- (\t -> resizeTexture2D t inWidth inHeight) =<< get outputTexture
       outputTexture $= out
@@ -98,7 +98,7 @@ fragmentUniforms prog = do
 
 -- * Samplers
 
-mkFiltersampler :: YageResource (UniformSampler px)
+mkFiltersampler :: YageResource (UniformSampler2D px)
 mkFiltersampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

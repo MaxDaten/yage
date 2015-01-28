@@ -22,6 +22,7 @@ import Quine.StateVar
 import Yage.GL
 import Yage.Lens
 import Yage.Math
+import Yage.Geometry.D2.Rectangle
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
 import Yage.Rendering.RenderSystem
@@ -34,12 +35,12 @@ import Yage.Uniform
 
 
 data FragmentShader px = FragmentShader
-  { iTexture    :: UniformVar (Texture px)
+  { iTexture    :: UniformVar (Texture2D px)
   , iTargetSize :: UniformVar (V2 Int)
   }
 
 -- * Draw To Target
-type Downsampler m px = RenderSystem m (Int, Texture px) (Texture px)
+type Downsampler m px = RenderSystem m (Int, Texture2D px) (Texture2D px)
 
 downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (Downsampler m px)
 downsampler = do
@@ -52,7 +53,7 @@ downsampler = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D px))
 
   fbo <- glResource
 
@@ -60,7 +61,7 @@ downsampler = do
   return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDim (factor, toFilter) -> do
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 
-    let Texture2D inWidth inHeight = toFilter^.textureDimension
+    let V2 inWidth inHeight = toFilter^.asRectangle.extend
         V2 newWidth newHeight = max 1 (V2 (inWidth `div` factor) (inHeight `div` factor))
 
     when (lastDim /= V2 newWidth newHeight) $ do
@@ -107,7 +108,7 @@ fragmentUniforms prog = do
 
 -- * Samplers
 
-mkDownsampler :: YageResource (UniformSampler px)
+mkDownsampler :: YageResource (UniformSampler2D px)
 mkDownsampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE

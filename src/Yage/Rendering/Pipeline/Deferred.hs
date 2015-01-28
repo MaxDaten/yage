@@ -49,8 +49,8 @@ import           Quine.GL.Types
 import           Quine.StateVar
 import           Data.Maybe (fromJust)
 
-type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture)
-type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial Texture)
+type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture2D)
+type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial TextureCube)
 type DeferredEnvironment = Environment Light DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
@@ -59,7 +59,7 @@ maxBloomSamples = 5
 
 yDeferredLighting
   :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, MonadResource m, MonadReader v m, HasViewport v Int)
-  => YageResource (RenderSystem m a (Texture PixelRGB8))
+  => YageResource (RenderSystem m a (Texture2D PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
@@ -87,10 +87,10 @@ yDeferredLighting = do
 
 -- TODO move orphans instances
 
-instance HasGBaseMaterial mat Texture => HasGBaseMaterial (Entity d mat) Texture where
+instance HasGBaseMaterial mat Texture2D => HasGBaseMaterial (Entity d mat) Texture2D where
   gBaseMaterial = materials.gBaseMaterial
 
-instance HasSkyMaterial mat Texture => HasSkyMaterial (Entity d mat) Texture where
+instance HasSkyMaterial mat TextureCube => HasSkyMaterial (Entity d mat) TextureCube where
   skyMaterial = materials.skyMaterial
 
 instance HasRenderData (Entity (RenderData i v) mat) i v where
