@@ -25,13 +25,13 @@ import Yage.Rendering.Pipeline.Deferred.Common
 #include "definitions.h"
 
 data FragmentShader = FragmentShader
-  { iScene :: UniformVar (Texture PixelRGBF)
-  , iBloom :: UniformVar (Maybe (Texture PixelRGBF))
+  { iScene :: UniformVar (Texture PixelRGBF11_11_10)
+  , iBloom :: UniformVar (Maybe (Texture PixelRGBF11_11_10))
   }
 
 -- * Draw To Screen
 
-toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture PixelRGBF, Maybe (Texture PixelRGBF)) (Texture PixelRGB8))
+toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture PixelRGBF11_11_10, Maybe (Texture PixelRGBF11_11_10)) (Texture PixelRGB8))
 toneMapper = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao

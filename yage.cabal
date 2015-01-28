@@ -265,6 +265,7 @@ library
     , lens                  >= 4.3
     , colour                >= 2.3.3
     , linear                >= 1.10
+    , half                  >= 0.2
     , netwire               >= 5
     , vinyl                 >= 0.5.1
 

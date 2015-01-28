@@ -75,7 +75,7 @@ data VertexShader = VertexShader
 
 type LightData = RenderData Word32 (V.Position Vec3)
 
-drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, GBuffer) (Texture PixelRGBF))
+drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (Texture PixelRGB8), Camera, GBuffer) (Texture PixelRGBF11_11_10))
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -87,7 +87,7 @@ drawLights = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture PixelRGBF))
+  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture PixelRGBF11_11_10))
   fbo <- glResource
 
   [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]

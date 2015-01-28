@@ -3,12 +3,18 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 module Yage.Rendering.Resources.GL.TextureFormat
-  ( DepthComponent16
+  (
+  -- * Color Formats
+    PixelRGBF16
+  , PixelRGBF11_11_10
+  -- * Depth Formats
+  , DepthComponent16
   , DepthComponent24
   , DepthComponent32
   , DepthComponent32F
   , Depth24Stencil8
   , Depth32FStencil8
+  -- * Stencil Formats
   , StencilIndex1
   , StencilIndex4
   , StencilIndex8
@@ -21,7 +27,33 @@ import           Yage.Rendering.GL
 import           Codec.Picture
 import           Data.Data
 import           Data.Word
+import           Numeric.Half
 import           Quine.Image
+
+-- | Further Pixeltypes beside JuicyPixel's
+data PixelRGBF16
+data PixelRGBF11_11_10
+
+-- | dangling instances for Pixel instance
+deriving instance Eq PixelRGBF16
+deriving instance Eq PixelRGBF11_11_10
+
+instance Pixel PixelRGBF16 where
+  type PixelBaseComponent PixelRGBF16 = Half
+
+instance ImageFormat PixelRGBF16 where
+  internalFormat _ = GL_RGB16F
+  pixelFormat    _ = GL_RGB
+  pixelType      _ = GL_FLOAT
+
+instance Pixel PixelRGBF11_11_10 where
+  -- TODO better base component
+  type PixelBaseComponent PixelRGBF11_11_10 = Float
+
+instance ImageFormat PixelRGBF11_11_10 where
+  internalFormat _ = GL_R11F_G11F_B10F
+  pixelFormat    _ = GL_RGB
+  pixelType      _ = GL_FLOAT
 
 -- | Plain sized internal formats for the phantom types
 -- <https://www.opengl.org/registry/doc/glspec45.core.pdf> Table 8.13

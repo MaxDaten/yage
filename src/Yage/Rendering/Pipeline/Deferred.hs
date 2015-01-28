@@ -80,7 +80,7 @@ yDeferredLighting = do
     lBuffer   <- lightPass -< (input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
-    bloomed <- renderBloom -< (0.5,sceneTex)
+    bloomed <- renderBloom -< (0.3,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
