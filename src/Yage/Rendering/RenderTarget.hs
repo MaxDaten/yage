@@ -50,6 +50,10 @@ instance (IsRenderTarget t, Resizeable2D t) => Resizeable2D (RenderTarget t) whe
     fbo <- attachFramebuffer (t^.framebufferObj) cs d s
     return $ t & framebufferObj .~ fbo & targetRectangle.extend .~ V2 w h & renderTarget .~ new
 
+-- | Shortcut for 'Texture's to make a single texture to a single color 'RenderTarget'
+instance IsRenderTarget (Texture2D px) where
+  getAttachments tx = ([mkAttachment tx], Nothing, Nothing)
+
 -- * Controlled Targets
 
 -- | Creates and returns constantly a 'RenderTarget' (never freed till termination of the application)
