@@ -78,6 +78,7 @@ yDeferredLighting = do
   return $ proc input -> do
     mainViewport  <- currentViewport -< ()
 
+    -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
     gbuffer       <- drawGBuffers -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
