@@ -47,7 +47,7 @@ mkStatefulRenderPass :: Monad m => (s -> i -> m (o,s)) -> s -> RenderSystem m i 
 mkStatefulRenderPass f = go where
   go s = RenderSystem $ \i -> do
     (o, t) <- f s i
-    return (o, go t)
+    return $ o `seq` (o, go t)
 {-# INLINE mkStatefulRenderPass #-}
 
 instance Monad m => Functor (RenderSystem m i) where
