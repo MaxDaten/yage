@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE PatternGuards          #-}
 {-# LANGUAGE Arrows                 #-}
 
 module Yage.Rendering.Pipeline.Deferred
@@ -19,6 +20,7 @@ module Yage.Rendering.Pipeline.Deferred
 
 import           Yage.Prelude hiding ((</>), cons)
 import           Yage.Lens hiding (cons)
+import           Yage.Math
 import           Yage.Vertex hiding (Texture)
 import           Yage.Formats.Ygm
 
@@ -26,6 +28,7 @@ import           Yage.Formats.Ygm
 import           Yage.HDR
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem                     as RenderSystem
+import           Yage.Rendering.RenderTarget
 import           Yage.Rendering.Resources.GL
 import           Yage.Scene
 import           Yage.Viewport
@@ -73,7 +76,10 @@ yDeferredLighting = do
   tonemapPass     <- toneMapper
 
   return $ proc input -> do
-    gbuffer <- drawGBuffers -< (input^.scene, input^.hdrCamera.camera)
+    mainViewport  <- currentViewport -< ()
+
+    gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
+    gbuffer       <- drawGBuffers -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
@@ -84,7 +90,16 @@ yDeferredLighting = do
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
+ where
+  mkGbufferTarget vp | V2 w h <- vp^.rectangle.extend = GBuffer
+    <$> createTexture2D GL_TEXTURE_2D w h
+    <*> createTexture2D GL_TEXTURE_2D w h
+    <*> createTexture2D GL_TEXTURE_2D w h
+    <*> createTexture2D GL_TEXTURE_2D w h
 
+
+currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)
+currentViewport = mkStaticRenderPass $ const (view viewport)
 -- TODO move orphans instances
 
 instance HasGBaseMaterial mat Texture2D => HasGBaseMaterial (Entity d mat) Texture2D where

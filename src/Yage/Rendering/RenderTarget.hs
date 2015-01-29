@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 module Yage.Rendering.RenderTarget
   ( RenderTarget
@@ -7,7 +8,10 @@ module Yage.Rendering.RenderTarget
   , renderTarget
   , framebufferObj
   , targetRectangle
+  -- * Constructor
   , mkRenderTarget
+  -- * Controlled Targets
+  , autoResized
   ) where
 
 import Yage.Prelude
@@ -18,6 +22,8 @@ import Yage.Geometry.D2.Rectangle
 import Yage.Rendering.Resources.GL.Framebuffer
 import Yage.Resources
 import Yage.Rendering.Resources.GL.Texture
+import Yage.Rendering.RenderSystem
+import Yage.Viewport
 
 data RenderTarget cs = RenderTarget
   { _renderTarget       :: cs
@@ -27,9 +33,6 @@ data RenderTarget cs = RenderTarget
 
 makeLenses ''RenderTarget
 
-instance GetRectangle (RenderTarget t) Int where
-  asRectangle = targetRectangle
-
 class IsRenderTarget cs where
   getAttachments :: cs -> ([Attachment], Maybe Attachment, Maybe Attachment)
 
@@ -37,9 +40,33 @@ mkRenderTarget :: (IsRenderTarget cs, GetRectangle cs Int) => cs -> YageResource
 mkRenderTarget b =  RenderTarget b <$> createFramebuffer cs d s <*> pure (b^.asRectangle)
   where (cs,d,s) = getAttachments b
 
+instance GetRectangle (RenderTarget t) Int where
+  asRectangle = targetRectangle
+
 instance (IsRenderTarget t, Resizeable2D t) => Resizeable2D (RenderTarget t) where
   resize2D t w h = do
     new <- resize2D (t^.renderTarget) w h
     let (cs,d,s) = getAttachments (t^.renderTarget)
     fbo <- attachFramebuffer (t^.framebufferObj) cs d s
     return $ t & framebufferObj .~ fbo & targetRectangle.extend .~ V2 w h & renderTarget .~ new
+
+-- * Controlled Targets
+
+-- | Creates and returns constantly a 'RenderTarget' (never freed till termination of the application)
+--  that is always resized when the incomming Viewport size changes
+autoResized
+  :: (MonadResource m, IsRenderTarget t, Resizeable2D t, GetRectangle t Int)
+  => (Viewport Int -> YageResource t)
+  -- ^ inital constructor
+  -> RenderSystem m (Viewport Int) (RenderTarget t)
+autoResized initRes = initTarget where
+  initTarget = mkDynamicRenderPass $ \viewport ->
+    (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes viewport))
+  doResize s = flip mkStatefulRenderPass s $ \target viewport -> do
+    let new@(V2 w h) = viewport^.rectangle.extend
+        old          = target^.targetRectangle.extend
+    newTarget <- if new /= old
+      then resize2D target w h
+      else return target
+    return (newTarget, newTarget)
+

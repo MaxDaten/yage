@@ -12,6 +12,7 @@
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE Arrows              #-}
 
 -- | Renders all object parameters of a scene into the GBuffer.
 module Yage.Rendering.Pipeline.Deferred.BaseGPass
@@ -57,7 +58,6 @@ import           Yage.Rendering.RenderTarget
 import           Control.Monad.State.Strict (execStateT)
 import           Foreign.Ptr
 import           Linear
-import           Control.Arrow
 
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
@@ -143,17 +143,15 @@ data PassRes = PassRes
   , pipe         :: (ReleaseKey,Pipeline)
   , frag         :: (FragmentShader)
   , vert         :: (VertexShader)
-  , target       :: (ReleaseKey,RenderTarget GBuffer)
-  , lastViewport :: Viewport Int
   }
 
-drawGBuffers :: (MonadReader w m, HasViewport w Int, MonadResource m, GBaseScene scene f ent i v) => RenderSystem m (scene, Camera) GBuffer
-drawGBuffers = processResources >>> runPass  where
-  processResources :: (MonadReader w m, HasViewport w Int, MonadResource m) => RenderSystem m s (PassRes,s)
-  processResources = mkDynamicRenderPass $ \i -> do
-    mainViewport <- view viewport
-    let V2 w h = mainViewport^.rectangle.extend
-
+drawGBuffers :: (MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => RenderSystem m (RenderTarget GBuffer, scene, Camera) GBuffer
+drawGBuffers = proc i -> do
+    res <- processResources -< i
+    runPass -< (res,i)
+ where
+  processResources :: MonadResource m => RenderSystem m s PassRes
+  processResources = mkDynamicRenderPass $ \_ -> do
     vao <- allocateAcquire glResource
     boundVertexArray $= snd vao
 
@@ -166,31 +164,11 @@ drawGBuffers = processResources >>> runPass  where
     Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^._2.pipelineProgram)
     Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^._2.pipelineProgram)
 
-    target <- allocateAcquire $ mkRenderTarget =<<
-            GBuffer <$> createTexture2D GL_TEXTURE_2D w h
-                    <*> createTexture2D GL_TEXTURE_2D w h
-                    <*> createTexture2D GL_TEXTURE_2D w h
-                    <*> createTexture2D GL_TEXTURE_2D w h
+    let res = PassRes vao pipeline frag vert
+    return (res, mkStaticRenderPass (return . const res))
 
-    let res = PassRes vao pipeline frag vert target mainViewport
-    return ((res,i), maintainResources res)
-
-  maintainResources :: (MonadReader w m, HasViewport w Int, MonadResource m) => PassRes -> RenderSystem m s (PassRes,s)
-  maintainResources initRes = flip mkStatefulRenderPass initRes $ \res@PassRes{..} i -> do
-    mainViewport <- view viewport
-    newTarget <- resizeTarget mainViewport lastViewport (target^._2)
-    let newRes = res{lastViewport = mainViewport, target = (target^._1, newTarget)}
-    return ((newRes,i),newRes)
-
-  resizeTarget newVP oldVP target
-    | newVP == oldVP = return target
-    | otherwise = do
-        GL.glViewport $= newVP^.rectangle
-        let V2 w h = newVP^.rectangle.extend
-        resize2D target w h
-
-  runPass = mkStaticRenderPass $ \(PassRes{..},(scene, cam)) -> do
-    boundFramebuffer RWFramebuffer $= (target^._2.framebufferObj)
+  runPass = mkStaticRenderPass $ \(PassRes{..},(target, scene, cam)) -> do
+    boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
     glEnable GL_DEPTH_TEST
     glDepthMask GL_TRUE
@@ -215,7 +193,7 @@ drawGBuffers = processResources >>> runPass  where
     setupSceneGlobals vert frag cam
     drawEntities vert frag (scene^.entities)
 
-    return $ target^._2.renderTarget
+    return $ target^.renderTarget
 
 
 setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
