@@ -9,7 +9,8 @@
 {-# LANGUAGE TupleSections        #-}
 
 module Yage.Rendering.Pipeline.Deferred.LightPass
-  ( drawLights
+  ( LightBuffer
+  , drawLights
   ) where
 
 import Yage.Prelude hiding (forM_)
@@ -34,6 +35,7 @@ import Yage.Geometry3D
 import Yage.Rendering.GL
 import Yage.Rendering.Resources.GL
 import Yage.Rendering.RenderSystem
+import Yage.Rendering.RenderTarget
 
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -74,8 +76,9 @@ data VertexShader = VertexShader
 
 
 type LightData = RenderData Word32 (V.Position Vec3)
+type LightBuffer = Texture2D PixelRGBF11_11_10
 
-drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (f Light, (TextureCube PixelRGB8), Camera, GBuffer) (Texture2D PixelRGBF11_11_10))
+drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (RenderTarget LightBuffer, f Light, (TextureCube PixelRGB8), Camera, GBuffer) LightBuffer)
 drawLights = do
   vao <- glResource
   boundVertexArray $= vao
@@ -87,23 +90,11 @@ drawLights = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  lBuffer <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D PixelRGBF11_11_10))
-  fbo <- glResource
-
   [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
   let drawLights = drawLightEntities vert frag pointData spotData dirData
 
-  return $ flip mkStatefulRenderPass (defaultViewport 1 1) $ \lastViewport (lights, radianceMap, cam, gBuffer) -> do
-    mainViewport <- view viewport
-    -- resizing the framebuffer
-    when (mainViewport /= lastViewport) $ do
-      VP.glViewport $= mainViewport^.rectangle
-      let V2 w h = mainViewport^.rectangle.extend
-      buff <- (\t -> resizeTexture2D t w h) =<< get lBuffer
-      lBuffer $= buff
-      void $ attachFramebuffer fbo [mkAttachment buff] (Just $ mkAttachment $ gBuffer^.depthBuffer) Nothing
-
-    boundFramebuffer RWFramebuffer $= fbo
+  return $ mkStaticRenderPass $ \(target, lights, radianceMap, cam, gBuffer) -> do
+    boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
 
     -- some state setting
     -- we dont want to write to the depth buffer
@@ -130,7 +121,7 @@ drawLights = do
 
     setupSceneGlobals vert frag cam radianceMap gBuffer
     drawLights lights
-    (,mainViewport) <$> get lBuffer
+    return $ target^.renderTarget
 
 
 setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> TextureCube PixelRGB8 -> GBuffer -> m ()

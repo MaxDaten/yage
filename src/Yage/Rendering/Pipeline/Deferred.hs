@@ -84,7 +84,8 @@ yDeferredLighting = do
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
-    lBuffer   <- lightPass -< (input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
+    lbufferTarget <- autoResized mkLightBuffer -< mainViewport
+    lBuffer   <- lightPass -< (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
     bloomed <- renderBloom -< (0.3,sceneTex)
@@ -92,11 +93,15 @@ yDeferredLighting = do
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
  where
+  mkGbufferTarget :: Viewport Int -> YageResource GBuffer
   mkGbufferTarget vp | V2 w h <- vp^.rectangle.extend = GBuffer
     <$> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
+
+  mkLightBuffer :: Viewport Int -> YageResource LightBuffer
+  mkLightBuffer vp | V2 w h <- vp^.rectangle.extend = createTexture2D GL_TEXTURE_2D w h
 
 
 currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)
