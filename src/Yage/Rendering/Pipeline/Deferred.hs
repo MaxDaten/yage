@@ -68,6 +68,7 @@ yDeferredLighting = do
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
   -- throwWithStack $ setupDefaultTexture
 
+  gPass          <- drawGBuffers
   skyPass        <- drawSky
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
@@ -80,7 +81,7 @@ yDeferredLighting = do
 
     -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
-    gbuffer       <- drawGBuffers -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
+    gbuffer       <- processPass gPass  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)

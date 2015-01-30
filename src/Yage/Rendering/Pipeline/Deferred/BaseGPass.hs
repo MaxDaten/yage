@@ -56,6 +56,8 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
 import           Control.Monad.State.Strict (execStateT)
+import           Control.Monad.Trans.Class
+import           Control.Arrow
 import           Foreign.Ptr
 import           Linear
 
@@ -139,35 +141,33 @@ type GBaseScene scene f ent i v = (MonoFoldable (f ent), GBaseEntity (Element (f
 -- * Draw To GBuffer
 
 data PassRes = PassRes
-  { vao          :: (ReleaseKey,VertexArray)
-  , pipe         :: (ReleaseKey,Pipeline)
-  , frag         :: (FragmentShader)
-  , vert         :: (VertexShader)
+  { vao          :: VertexArray
+  , pipe         :: Pipeline
+  , frag         :: FragmentShader
+  , vert         :: VertexShader
   }
 
-drawGBuffers :: (MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => RenderSystem m (RenderTarget GBuffer, scene, Camera) GBuffer
-drawGBuffers = proc i -> do
-    res <- processResources -< i
-    runPass -< (res,i)
- where
-  processResources :: MonadResource m => RenderSystem m s PassRes
-  processResources = mkDynamicRenderPass $ \_ -> do
-    vao <- allocateAcquire glResource
-    boundVertexArray $= snd vao
+type BaseGPass m s = Pass PassRes m (RenderTarget GBuffer, s, Camera) GBuffer
 
-    pipeline <- allocateAcquire (
-                [ $(embedShaderFile "res/glsl/pass/base.vert")
+drawGBuffers :: (MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => YageResource (BaseGPass m scene)
+drawGBuffers = Pass <$> passRes <*> pure runPass where
+  passRes :: YageResource PassRes
+  passRes = do
+    vao <- glResource
+    boundVertexArray $= vao
+
+    pipeline <- [ $(embedShaderFile "res/glsl/pass/base.vert")
                 , $(embedShaderFile "res/glsl/pass/base.frag")]
-                `compileShaderPipeline` includePaths)
+                `compileShaderPipeline` includePaths
 
+    Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
+    Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-    Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^._2.pipelineProgram)
-    Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^._2.pipelineProgram)
+    return $ PassRes vao pipeline frag vert
 
-    let res = PassRes vao pipeline frag vert
-    return (res, mkStaticRenderPass (return . const res))
-
-  runPass = mkStaticRenderPass $ \(PassRes{..},(target, scene, cam)) -> do
+  runPass ::(MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => RenderSystem (ReaderT PassRes m) (RenderTarget GBuffer, scene, Camera) GBuffer
+  runPass = mkStaticRenderPass $ \(target, scene, cam) -> do
+    PassRes{..} <- ask
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
     glEnable GL_DEPTH_TEST
@@ -186,9 +186,9 @@ drawGBuffers = proc i -> do
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     -- set globals
-    {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= snd vao
-    boundProgramPipeline $= pipe^._2.pipelineProgram
-    checkPipelineError (snd pipe)
+    {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
+    boundProgramPipeline $= pipe^.pipelineProgram
+    checkPipelineError pipe
 
     setupSceneGlobals vert frag cam
     drawEntities vert frag (scene^.entities)
@@ -196,9 +196,9 @@ drawGBuffers = proc i -> do
     return $ target^.renderTarget
 
 
-setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
+setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> (ReaderT PassRes m) ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} = do
-  mainViewport <- view viewport
+  mainViewport <- lift $ view $ viewport
   viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
   vpMatrix   $= fmap realToFrac <$> viewprojectionM mainViewport
  where
@@ -281,12 +281,12 @@ vertexUniforms prog = do
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix3f prog "NormalMatrix")
 
-fragmentUniforms :: MonadResource m => Program -> m FragmentShader
+fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
-  albedoSampler    <- snd <$> allocateAcquire mkAlbedoSampler
-  normalSampler    <- snd <$> allocateAcquire mkNormalSampler
-  roughnessSampler <- snd <$> allocateAcquire mkRoughnessSampler
-  metallicSampler  <- snd <$> allocateAcquire mkMetallicSampler
+  albedoSampler    <- mkAlbedoSampler
+  normalSampler    <- mkNormalSampler
+  roughnessSampler <- mkRoughnessSampler
+  metallicSampler  <- mkMetallicSampler
   FragmentShader
     <$> materialUniformRGBA prog albedoSampler "AlbedoTexture" "AlbedoColor"
     <*> materialUniformRGBA prog normalSampler "NormalTexture" "NormalColor"

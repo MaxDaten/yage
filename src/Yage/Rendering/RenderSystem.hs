@@ -3,24 +3,27 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE KindSignatures             #-}
 
 module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
   , Pass(Pass)
+  , PassEnv(..)
+  , globalEnv, localEnv
   , processPass
   , passEnvironment
   , mkDynamicRenderPass
   , mkStaticRenderPass
   , mkStatefulRenderPass
+  , staticResource
   , HasRenderSystem(..)
   ) where
 
@@ -29,12 +32,22 @@ import           Yage.Prelude                       hiding (Element, pass, first
 
 import           Control.Arrow
 import           Control.Category
+import           Yage.Resources
+import           Data.Data
 
 -- | a monadic Mealy
 -- transducer pattern : http://tonyday567.github.io/blog/pipes-v-machines/
 newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, RenderSystem m i o) }
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
+
+-- | wrapps global and local environment for a pass
+data PassEnv g l = PassEnv
+  { _globalEnv :: g
+  , _localEnv  :: l
+  } deriving (Show,Read,Ord,Eq,Data,Typeable,Generic)
+
+makeLenses ''PassEnv
 
 -- | A wrapper for a 'RenderSystem' command with a local environment
 data Pass :: * -> (* -> *) -> * -> * -> * where
@@ -65,6 +78,13 @@ mkStatefulRenderPass f = go where
     (o, t) <- f s i
     return $ o `seq` (o, go t)
 {-# INLINE mkStatefulRenderPass #-}
+
+-- | Allocates once and returns the resource till termination
+staticResource :: MonadResource m => YageResource a -> RenderSystem m () a
+staticResource res = initRes where
+  initRes = mkDynamicRenderPass $ \() -> do
+    (_key, a) <- allocateAcquire res
+    return (a, pure $ a)
 
 instance Monad m => Functor (RenderSystem m i) where
   fmap f (RenderSystem sys) = RenderSystem $ sys >=> \(o,sys') -> return (f o, fmap f sys')
