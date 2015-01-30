@@ -64,13 +64,12 @@ autoResized
   -- ^ inital constructor
   -> RenderSystem m (Viewport Int) (RenderTarget t)
 autoResized initRes = initTarget where
-  initTarget = mkDynamicRenderPass $ \viewport ->
-    (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes viewport))
-  doResize s = flip mkStatefulRenderPass s $ \target viewport -> do
-    let new@(V2 w h) = viewport^.rectangle.extend
+  initTarget = mkDynamicRenderPass $ \inViewport ->
+    (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes inViewport))
+  doResize s = flip mkStatefulRenderPass s $ \target newViewport -> do
+    let new@(V2 w h) = newViewport^.rectangle.extend
         old          = target^.targetRectangle.extend
     newTarget <- if new /= old
       then resize2D target w h
       else return target
     return (newTarget, newTarget)
-

@@ -8,7 +8,7 @@
 {-# LANGUAGE Arrows              #-}
 
 module Yage.Rendering.Pipeline.Deferred.GaussianBlur
-  ( blurPass
+  ( blurRenderSystem
   , gaussianSampler
   , linearGaussianSampler
   , LinearSamplingDirection(..)
@@ -48,8 +48,8 @@ data LinearSamplingDirection = XDirection | YDirection
 
 -- Blurring
 
-blurPass :: (ImageFormat px, MonadResource m) => Int -> YageResource (Pass m (Texture2D px) (Texture2D px))
-blurPass numSamples = do
+blurRenderSystem :: (ImageFormat px, MonadResource m) => Int -> YageResource (RenderSystem m (Texture2D px) (Texture2D px))
+blurRenderSystem numSamples = do
   downsamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
   gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
   return $ proc inTexture -> do
@@ -58,13 +58,13 @@ blurPass numSamples = do
     -- fromJust <$> foldM (\a (gaussian,(_,t)) -> Just <$> gaussian . pure (t,a)) Nothing (zip gaussianSamplers (reverse downsampledTextures))
     -- returnA -< undefined
  where
-  processGauss :: Monad m => [Pass m (Texture2D px, Maybe (Texture2D px)) (Texture2D px)] -> Pass m ([Texture2D px], Maybe (Texture2D px)) (Texture2D px)
+  processGauss :: Monad m => [RenderSystem m (Texture2D px, Maybe (Texture2D px)) (Texture2D px)] -> RenderSystem m ([Texture2D px], Maybe (Texture2D px)) (Texture2D px)
   processGauss [] = rmap (fromJust.snd) id
   processGauss (s:ss) = proc ((t:texs), madd) -> do
     out <- s -< (t, madd)
     processGauss ss -< (texs, Just out)
 
-  processDownsamples :: Monad m => [Pass m (Texture2D px) (Texture2D px)] -> Pass m [(Int,Texture2D px)] [(Int,Texture2D px)]
+  processDownsamples :: Monad m => [RenderSystem m (Texture2D px) (Texture2D px)] -> RenderSystem m [(Int,Texture2D px)] [(Int,Texture2D px)]
   processDownsamples [] = id
   processDownsamples (s:ss) = proc (t:texs) -> do
     tex <- s -< snd t
@@ -74,8 +74,8 @@ blurPass numSamples = do
 
 -- * Gaussian Sampler
 
--- | a gaussian blur filter which operates in two linear filter passes.
-gaussianSampler :: (ImageFormat px, MonadResource m) => YageResource (Pass m (Texture2D px, Maybe (Texture2D px)) (Texture2D px))
+-- | a gaussian blur filter which operates in two linear filter RenderSystemes.
+gaussianSampler :: (ImageFormat px, MonadResource m) => YageResource (RenderSystem m (Texture2D px, Maybe (Texture2D px)) (Texture2D px))
 gaussianSampler = do
   gaussianX <- linearGaussianSampler XDirection
   gaussianY <- linearGaussianSampler YDirection
@@ -84,7 +84,7 @@ gaussianSampler = do
     ty <- gaussianY -< (tx,add)
     returnA -< ty
 
--- ** Linear Sampler Pass
+-- ** Linear Sampler RenderSystem
 
 linearGaussianSampler :: forall px m. (ImageFormat px, MonadResource m) => LinearSamplingDirection -> YageResource (RenderSystem m (Texture2D px, Maybe (Texture2D px)) (Texture2D px))
 linearGaussianSampler direction = do
@@ -103,7 +103,7 @@ linearGaussianSampler direction = do
 
   fbo <- glResource
 
-  -- RenderPass
+  -- RenderRenderSystem
   return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDimension (toFilter, mAdd) -> do
     throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
 

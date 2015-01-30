@@ -10,10 +10,13 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE KindSignatures             #-}
 
 module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
-  , Pass
+  , Pass(Pass)
+  , processPass
   , mkDynamicRenderPass
   , mkStaticRenderPass
   , mkStatefulRenderPass
@@ -32,8 +35,15 @@ newtype RenderSystem m i o = RenderSystem { runRenderSystem :: i -> m (o, Render
 
 makeClassyFor "HasRenderSystem" "renderSystem" [] ''RenderSystem
 
--- | Just a semantic alias for RenderSystem
-type Pass = RenderSystem
+-- | A wrapper for a 'RenderSystem' command with a local environment
+data Pass :: * -> (* -> *) -> * -> * -> * where
+  Pass :: e -> RenderSystem (ReaderT e m) i o -> Pass e m i o
+
+-- | unwrapps the 'Pass', run the 'RenderSystem' with the local environemnt
+processPass :: Monad m => Pass e m i o -> RenderSystem m i o
+processPass (Pass env pass) = mkDynamicRenderPass $ \i -> do
+    (o, sys) <- flip runReaderT env (runRenderSystem pass i)
+    return $ o `seq` (o, processPass (Pass env sys))
 
 mkDynamicRenderPass :: (i -> m (o, RenderSystem m i o)) -> RenderSystem m i o
 mkDynamicRenderPass = RenderSystem
