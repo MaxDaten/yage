@@ -17,6 +17,7 @@ module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
   , Pass(Pass)
   , processPass
+  , passEnvironment
   , mkDynamicRenderPass
   , mkStaticRenderPass
   , mkStatefulRenderPass
@@ -44,6 +45,11 @@ processPass :: Monad m => Pass e m i o -> RenderSystem m i o
 processPass (Pass env pass) = mkDynamicRenderPass $ \i -> do
     (o, sys) <- flip runReaderT env (runRenderSystem pass i)
     return $ o `seq` (o, processPass (Pass env sys))
+
+passEnvironment :: Lens' (Pass e m i o) e
+passEnvironment = lens getter setter where
+  getter (Pass env _) = env
+  setter (Pass _ pass) env = Pass env pass
 
 mkDynamicRenderPass :: (i -> m (o, RenderSystem m i o)) -> RenderSystem m i o
 mkDynamicRenderPass = RenderSystem
