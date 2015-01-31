@@ -115,6 +115,18 @@ instance Monad m => Arrow (RenderSystem m) where
     (c, sys') <- runRenderSystem sys b
     return ((c,d), first sys')
 
+instance Monad m => ArrowChoice (RenderSystem m) where
+  left sys = RenderSystem $ \case
+    Left i  -> do
+      (b, sys') <- runRenderSystem sys i
+      return (Left b, left sys')
+    Right i -> return (Right i, left sys)
+  right sys = RenderSystem $ \case
+    Left i  -> return (Left i, right sys)
+    Right i -> do
+      (b, sys') <- runRenderSystem sys i
+      return (Right b, right sys')
+
 instance Monad m => Category (RenderSystem m) where
   id = RenderSystem $ return . (,id)
   RenderSystem mbc . RenderSystem mab = RenderSystem $ \a -> do
