@@ -16,9 +16,11 @@
 module Yage.Rendering.RenderSystem
   ( RenderSystem(runRenderSystem)
   , Pass(Pass)
+  , PassGEnv(PassGEnv)
   , PassEnv(..)
   , globalEnv, localEnv
   , processPass
+  , processPassWithGlobalEnv
   , passEnvironment
   , mkDynamicRenderPass
   , mkStaticRenderPass
@@ -51,13 +53,24 @@ makeLenses ''PassEnv
 
 -- | A wrapper for a 'RenderSystem' command with a local environment
 data Pass :: * -> (* -> *) -> * -> * -> * where
-  Pass :: e -> RenderSystem (ReaderT e m) i o -> Pass e m i o
+  Pass     :: e -> RenderSystem (ReaderT e m) i o -> Pass e m i o
+
+-- | A wrapper for a 'RenderSystem' command with a local and global environment
+data PassGEnv :: * -> * -> (* -> *) -> * -> * -> * where
+  PassGEnv :: l -> RenderSystem (ReaderT (PassEnv g l) m) i o -> PassGEnv g l m i o
 
 -- | unwrapps the 'Pass', run the 'RenderSystem' with the local environemnt
 processPass :: Monad m => Pass e m i o -> RenderSystem m i o
 processPass (Pass env pass) = mkDynamicRenderPass $ \i -> do
     (o, sys) <- flip runReaderT env (runRenderSystem pass i)
     return $ o `seq` (o, processPass (Pass env sys))
+
+-- | Captures a global environment and unwrapps the 'Pass' to be runned by the 'RenderSystem'
+processPassWithGlobalEnv :: MonadReader g m => PassGEnv g l m i o -> RenderSystem m i o
+processPassWithGlobalEnv (PassGEnv local pass) = mkDynamicRenderPass $ \i -> do
+    global <- ask
+    (o, sys) <- flip runReaderT (PassEnv global local) (runRenderSystem pass i)
+    return $ o `seq` (o, processPassWithGlobalEnv (PassGEnv local sys))
 
 passEnvironment :: Lens' (Pass e m i o) e
 passEnvironment = lens getter setter where

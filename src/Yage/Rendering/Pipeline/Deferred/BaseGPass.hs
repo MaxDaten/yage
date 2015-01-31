@@ -56,8 +56,6 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
 import           Control.Monad.State.Strict (execStateT)
-import           Control.Monad.Trans.Class
-import           Control.Arrow
 import           Foreign.Ptr
 import           Linear
 
@@ -147,10 +145,10 @@ data PassRes = PassRes
   , vert         :: VertexShader
   }
 
-type BaseGPass m s = Pass PassRes m (RenderTarget GBuffer, s, Camera) GBuffer
+type BaseGPass m globalEnv scene = PassGEnv globalEnv PassRes m (RenderTarget GBuffer, scene, Camera) GBuffer
 
-drawGBuffers :: (MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => YageResource (BaseGPass m scene)
-drawGBuffers = Pass <$> passRes <*> pure runPass where
+drawGBuffers :: (MonadResource m, HasViewport g Int, GBaseScene scene f ent i v) => YageResource (BaseGPass m g scene)
+drawGBuffers = PassGEnv <$> passRes <*> pure runPass where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
@@ -165,9 +163,9 @@ drawGBuffers = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline frag vert
 
-  runPass ::(MonadResource m, MonadReader w m, HasViewport w Int, GBaseScene scene f ent i v) => RenderSystem (ReaderT PassRes m) (RenderTarget GBuffer, scene, Camera) GBuffer
+  runPass ::(MonadResource m, MonadReader (PassEnv g PassRes) m, HasViewport g Int, GBaseScene scene f ent i v) => RenderSystem m (RenderTarget GBuffer, scene, Camera) GBuffer
   runPass = mkStaticRenderPass $ \(target, scene, cam) -> do
-    PassRes{..} <- ask
+    PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
     glEnable GL_DEPTH_TEST
@@ -196,9 +194,9 @@ drawGBuffers = Pass <$> passRes <*> pure runPass where
     return $ target^.renderTarget
 
 
-setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> (ReaderT PassRes m) ()
+setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} = do
-  mainViewport <- lift $ view $ viewport
+  mainViewport <- view $ globalEnv.viewport
   viewMatrix $= fmap realToFrac <$> (cam^.cameraMatrix)
   vpMatrix   $= fmap realToFrac <$> viewprojectionM mainViewport
  where

@@ -81,7 +81,7 @@ yDeferredLighting = do
 
     -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
-    gbuffer       <- processPass gPass  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
+    gbuffer       <- processPassWithGlobalEnv gPass  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
