@@ -15,7 +15,7 @@ data Transformation a = Transformation
   { _transformationPosition    :: !(V3 a)
   , _transformationOrientation :: !(Quaternion a)
   , _transformationScale       :: !(V3 a)
-  } deriving (Show,Eq,Ord,Functor,Traversable,Foldable,Data,Typeable,Generic)
+  } deriving (Show,Read,Eq,Ord,Functor,Traversable,Foldable,Data,Typeable,Generic)
 
 
 -- makeLenses ''Transformation

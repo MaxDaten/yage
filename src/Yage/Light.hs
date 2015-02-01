@@ -7,20 +7,22 @@ import           Yage.Prelude
 import           Yage.Math           hiding (lerp)
 
 import qualified Linear              (lerp)
+import           Data.Data
 import           Yage.Transformation
 
 data AmbientLight = AmbientLight (V3 Double)
+  deriving (Show,Read,Ord,Eq,Typeable,Data,Generic)
 
 data LightType =
-      Pointlight
-    | DirectionalLight
-    | Spotlight
-        { _innerAngle :: !Double
-        -- ^ inner angle in radians for the area with full intensity
-        , _outerAngle :: !Double
-        -- ^ outer angle in radians as cut off
-        }
-    deriving (Show,Ord,Eq,Generic)
+    Pointlight
+  | DirectionalLight
+  | Spotlight
+      { _innerAngle :: !Double
+      -- ^ inner angle in radians for the area with full intensity
+      , _outerAngle :: !Double
+      -- ^ outer angle in radians as cut off
+      }
+  deriving (Show,Read,Ord,Eq,Typeable,Data,Generic)
 
 makeLenses ''LightType
 
@@ -34,7 +36,7 @@ data Light = Light
     -- ^ tint of the light emitter in linear color dimension
     , _lightIntensity       :: !Double
     -- ^ the energy in lumen
-    } deriving (Show,Ord,Eq,Generic)
+    } deriving (Show,Read,Ord,Eq,Typeable,Data,Generic)
 
 makeLenses ''Light
 

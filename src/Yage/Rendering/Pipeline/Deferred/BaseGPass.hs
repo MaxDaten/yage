@@ -36,7 +36,7 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , cBuffer
   , depthBuffer
   -- * Pass
-  , drawGBuffers
+  , gPass
   ) where
 
 import           Yage.Prelude
@@ -147,8 +147,8 @@ data PassRes = PassRes
 
 type BaseGPass m globalEnv scene = PassGEnv globalEnv PassRes m (RenderTarget GBuffer, scene, Camera) GBuffer
 
-drawGBuffers :: (MonadResource m, HasViewport g Int, GBaseScene scene f ent i v) => YageResource (BaseGPass m g scene)
-drawGBuffers = PassGEnv <$> passRes <*> pure runPass where
+gPass :: (MonadIO m, MonadThrow m, HasViewport g Int, GBaseScene scene f ent i v) => YageResource (BaseGPass m g scene)
+gPass = PassGEnv <$> passRes <*> pure runPass where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
@@ -163,7 +163,7 @@ drawGBuffers = PassGEnv <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline frag vert
 
-  runPass ::(MonadResource m, MonadReader (PassEnv g PassRes) m, HasViewport g Int, GBaseScene scene f ent i v) => RenderSystem m (RenderTarget GBuffer, scene, Camera) GBuffer
+  runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int, GBaseScene scene f ent i v) => RenderSystem m (RenderTarget GBuffer, scene, Camera) GBuffer
   runPass = mkStaticRenderPass $ \(target, scene, cam) -> do
     PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)

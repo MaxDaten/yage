@@ -19,34 +19,42 @@ import           Yage.Light
 import           Yage.Resources                 as Res
 
 import qualified Data.Sequence                  as S
+import           Data.Data
 
 import           Yage.Transformation
 
 data Entity mesh mat = Entity
-    { _renderData            :: !mesh
-    , _materials             :: !mat
-    , _entityTransformation  :: !( Transformation Double )
-    -- , _drawSettings          :: !GLDrawSettings
-    }
+  { _renderData            :: !mesh
+  , _materials             :: !mat
+  , _entityTransformation  :: !( Transformation Double )
+  -- , _drawSettings          :: !GLDrawSettings
+  }
 
 makeLenses ''Entity
 
 data LightEntity mesh = LightEntity mesh !Light
 
+data Lights l = Lights
+  { _lightsPoint :: l
+  , _lightsSpot  :: l
+  , _lightsDir   :: l
+  } deriving (Show,Ord,Eq,Functor,Traversable,Foldable,Typeable,Data,Generic)
+
+makeFields ''Lights
 
 data Environment lit sky = Environment
-    { _environmentLights       :: Seq lit
-    , _environmentSky          :: ( Maybe sky )
-    , _environmentAmbient      :: AmbientLight
-    }
+  { _environmentLights       :: Lights (Seq lit)
+  , _environmentSky          :: ( Maybe sky )
+  , _environmentAmbient      :: AmbientLight
+  } deriving (Show,Ord,Eq,Typeable,Data,Generic)
 
 makeFields ''Environment
 
 
 data Scene ent env = Scene
-    { _sceneEntities    :: Seq ent
-    , _sceneEnvironment :: env
-    } deriving ( Show )
+  { _sceneEntities    :: Seq ent
+  , _sceneEnvironment :: env
+  } deriving ( Show )
 
 makeFields ''Scene
 makeClassy ''Scene
@@ -55,7 +63,7 @@ makeClassy ''Scene
 --   camera = Yage.Scene.camera.camera
 
 emptyEnvironment :: Environment lit mat
-emptyEnvironment = Environment S.empty Nothing (AmbientLight 0)
+emptyEnvironment = Environment (Lights S.empty S.empty S.empty) Nothing (AmbientLight 0)
 {-# INLINE emptyEnvironment #-}
 
 {--

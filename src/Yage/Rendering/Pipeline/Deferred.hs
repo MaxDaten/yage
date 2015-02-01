@@ -68,11 +68,11 @@ yDeferredLighting = do
   throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
   -- throwWithStack $ setupDefaultTexture
 
-  gPass          <- drawGBuffers
+  drawGBuffer    <- gPass
   skyPass        <- drawSky
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
-  lightPass       <- drawLights
+  drawLights      <- lightPass
   renderBloom     <- addBloom maxBloomSamples
   tonemapPass     <- toneMapper
 
@@ -81,12 +81,13 @@ yDeferredLighting = do
 
     -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
-    gbuffer       <- processPassWithGlobalEnv gPass  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
+    gbuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
     lbufferTarget <- autoResized mkLightBuffer -< mainViewport
-    lBuffer   <- lightPass -< (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
+    let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
+    lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
     bloomed <- renderBloom -< (0.3,sceneTex)

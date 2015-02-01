@@ -10,7 +10,8 @@
 
 module Yage.Rendering.Pipeline.Deferred.LightPass
   ( LightBuffer
-  , drawLights
+  , Lights(..)
+  , lightPass
   ) where
 
 import Yage.Prelude hiding (forM_)
@@ -18,7 +19,7 @@ import Yage.Lens
 import Yage.Math hiding (lookAt)
 import Yage.GL
 
-import Data.Foldable
+import Data.Foldable (forM_)
 import Foreign.Ptr (nullPtr)
 
 import Yage.Uniform as U
@@ -74,26 +75,39 @@ data VertexShader = VertexShader
   , vertLight            :: UniformVar Light
   }
 
+data PassRes = PassRes
+  { vao         :: !VertexArray
+  , pipe        :: !Pipeline
+  , frag        :: !FragmentShader
+  , vert        :: !VertexShader
+  , lightsData  :: !(Lights LightData)
+  }
 
-type LightData = RenderData Word32 (V.Position Vec3)
-type LightBuffer = Texture2D PixelRGBF11_11_10
+type LightData      = RenderData Word32 (V.Position Vec3)
+type LightBuffer    = Texture2D PixelRGBF11_11_10
+type LightPassInput = (RenderTarget LightBuffer, Lights (Seq Light), (TextureCube PixelRGB8), Camera, GBuffer)
+type LightPass m g  = PassGEnv g PassRes m LightPassInput LightBuffer
 
-drawLights :: (Foldable f, MonadResource m, MonadReader v m, HasViewport v Int) => YageResource (RenderSystem m (RenderTarget LightBuffer, f Light, (TextureCube PixelRGB8), Camera, GBuffer) LightBuffer)
-drawLights = do
-  vao <- glResource
-  boundVertexArray $= vao
+lightPass :: (MonadIO m, MonadThrow m, HasViewport g Int) => YageResource (LightPass m g)
+lightPass = PassGEnv <$> passRes <*> pure runPass where
+  passRes :: YageResource PassRes
+  passRes = do
+    vao <- glResource
+    boundVertexArray $= vao
 
-  pipeline <- [ $(embedShaderFile "res/glsl/pass/light.vert")
-              , $(embedShaderFile "res/glsl/pass/light.frag")]
-              `compileShaderPipeline` includePaths
+    pipeline <- [ $(embedShaderFile "res/glsl/pass/light.vert")
+                , $(embedShaderFile "res/glsl/pass/light.frag")]
+                `compileShaderPipeline` includePaths
 
-  Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
-  Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
+    Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
+    Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
-  let drawLights = drawLightEntities vert frag pointData spotData dirData
+    [pointData, spotData, dirData] <- mapM fromMesh [pointMesh, spotMesh, dirMesh]
+    return $ PassRes vao pipeline frag vert (Lights pointData spotData dirData)
 
-  return $ mkStaticRenderPass $ \(target, lights, radianceMap, cam, gBuffer) -> do
+  runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m LightPassInput LightBuffer
+  runPass = mkStaticRenderPass $ \(target, lights, radianceMap, cam, gBuffer) -> do
+    PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
 
     -- some state setting
@@ -116,17 +130,17 @@ drawLights = do
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
-    boundProgramPipeline $= pipeline^.pipelineProgram
-    checkPipelineError pipeline
+    boundProgramPipeline $= pipe^.pipelineProgram
+    checkPipelineError pipe
 
     setupSceneGlobals vert frag cam radianceMap gBuffer
-    drawLights lights
+    drawLightEntities vert frag lightsData lights
     return $ target^.renderTarget
 
 
-setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> TextureCube PixelRGB8 -> GBuffer -> m ()
+setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> TextureCube PixelRGB8 -> GBuffer -> m ()
 setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gbuff = do
-  vp <- view viewport
+  vp <- view $ globalEnv.viewport
   let Rectangle xy0 xy1 = fromIntegral <$> vp^.rectangle
 
   viewToScreenMatrix  $= orthographicMatrix (xy0^._x) (xy1^._x) (xy1^._y) (xy0^._y) 0.0 1.0
@@ -143,25 +157,25 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gb
 
 
 -- | subject for instanced rendering
-drawLightEntities :: (Foldable f, MonadIO m) => VertexShader -> FragmentShader -> LightData -> LightData -> LightData -> (f Light) -> m ()
-drawLightEntities  VertexShader{..} FragmentShader{..} pointData spotData dirData lights = forM_ lights $ \light -> do
-  let ldata = light^.lightType.to lightData
+drawLightEntities :: MonadIO m => VertexShader -> FragmentShader -> Lights LightData -> Lights (Seq Light)-> m ()
+drawLightEntities
+ VertexShader{..}
+ FragmentShader{..}
+ Lights{_lightsPoint=pointData,_lightsSpot=spotData,_lightsDir=dirData}
+ Lights{_lightsPoint=points,_lightsSpot=spots,_lightsDir=directionals} =
+  forM_ [(points,pointData), (spots,spotData), (directionals,dirData)] $ \(lights,dats) -> do
+    boundBufferAt ElementArrayBuffer $= dats^.indexBuffer
+    boundBufferAt ArrayBuffer $= dats^.vertexBuffer
+    vPosition $= Just ((Proxy :: Proxy (V.Position Vec3))^.V.positionlayout)
 
-  -- set shader
-  modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
-  fragLight $= light
-  vertLight $= light
-  -- render data
-  boundBufferAt ElementArrayBuffer $= ldata^.indexBuffer
-  boundBufferAt ArrayBuffer $= ldata^.vertexBuffer
-  vPosition $= Just ((Proxy :: Proxy (V.Position Vec3))^.V.positionlayout)
+    forM_ lights $ \light -> do
+      -- set shader
+      modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
+      fragLight $= light
+      vertLight $= light
+      -- render data (subject for instanced rendering)
+      {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (dats^.elementMode) (fromIntegral $ dats^.elementCount) (dats^.elementType) nullPtr
 
-  {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ldata^.elementMode) (fromIntegral $ ldata^.elementCount) (ldata^.elementType) nullPtr
- where
-  lightData :: LightType -> LightData
-  lightData Pointlight{}       = pointData
-  lightData Spotlight{}        = spotData
-  lightData DirectionalLight{} = dirData
 
 pointMesh, spotMesh, dirMesh :: Mesh (V.Position Vec3)
 pointMesh = mkFromVerticesF "Pointligt" $ map V.Position . vertices . triangles $ geoSphere 2 1
