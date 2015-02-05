@@ -45,11 +45,13 @@ instance GetRectangle (RenderTarget t) Int where
   asRectangle = targetRectangle
 
 instance (IsRenderTarget t, Resizeable2D t) => Resizeable2D (RenderTarget t) where
-  resize2D t w h = do
-    new <- resize2D (t^.renderTarget) w h
-    let (cs,d,s) = getAttachments (t^.renderTarget)
-    fbo <- attachFramebuffer (t^.framebufferObj) cs d s
-    return $ t & framebufferObj .~ fbo & targetRectangle.extend .~ V2 w h & renderTarget .~ new
+  resize2D t w h
+    | t^.targetRectangle.extend == V2 w h = return t
+    | otherwise = do
+      new <- resize2D (t^.renderTarget) w h
+      let (cs,d,s) = getAttachments (t^.renderTarget)
+      fbo <- attachFramebuffer (t^.framebufferObj) cs d s
+      return $ t & framebufferObj .~ fbo & targetRectangle.extend .~ V2 w h & renderTarget .~ new
 
 -- | Shortcut for 'Texture's to make a single texture to a single color 'RenderTarget'
 instance IsRenderTarget (Texture2D px) where
@@ -68,9 +70,6 @@ autoResized initRes = initTarget where
   initTarget = mkDynamicRenderPass $ \inRect ->
     (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes inRect))
   doResize s = flip mkStatefulRenderPass s $ \target newRect -> do
-    let new@(V2 w h) = newRect^.extend
-        old          = target^.targetRectangle.extend
-    newTarget <- if new /= old
-      then resize2D target w h
-      else return target
-    return (newTarget, newTarget)
+    let V2 w h = newRect^.extend
+    resizedTarget <- resize2D target w h
+    return (resizedTarget, resizedTarget)
