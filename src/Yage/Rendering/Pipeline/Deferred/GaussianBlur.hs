@@ -65,7 +65,7 @@ blurRenderSystem numSamples = do
  where
   mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
   targetRects :: Rectangle Int -> [Rectangle Int]
-  targetRects src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..numSamples-1]
+  targetRects src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..numSamples]
 
 
 -- * Gaussian Sampler

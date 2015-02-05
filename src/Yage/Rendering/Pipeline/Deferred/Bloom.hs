@@ -36,7 +36,7 @@ addBloom numSamples = do
     half       <- processPass dsampler -< (halfTarget,inTexture)
     filteredTex <- filterLuma -< (thrshold,half)
 
-    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples-1) (inTexture^.asRectangle)
+    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples) (inTexture^.asRectangle)
     downsampledTextures <- halfSamplers                 -< (downTargets,[filteredTex])
 
     targets             <- mapA (autoResized mkTarget)     -< downsampledTextures & mapped %~ view asRectangle
@@ -45,5 +45,5 @@ addBloom numSamples = do
  where
   mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
   targetRects :: Int -> Rectangle Int -> [Rectangle Int]
-  targetRects n src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..n-1]
+  targetRects n src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..n]
 
