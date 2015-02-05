@@ -107,14 +107,14 @@ staticResource res = initRes where
 --
 -- Warning: list like Traversable's with varying number of elements can result in a data lost
 mapA :: (Monad m, Applicative t, Traversable t) => RenderSystem m i o -> RenderSystem m (t i) (t o)
-mapA sys = mkDynamicRenderPass $ \is -> do
-  tr <- sequence $ runRenderSystem sys <$> is
+mapA sys = mkDynamicRenderPass $ \xs -> do
+  tr <- sequence $ runRenderSystem sys <$> xs
   return (fst <$> tr, traverseA (snd <$> tr))
 
 -- | Warning: list like Traversable's with varying number of elements can result in a data lost
 traverseA :: (Monad m, Traversable t, Applicative t) => t (RenderSystem m i o) -> RenderSystem m (t i) (t o)
 traverseA tsys = mkDynamicRenderPass $ \xs -> do
-  tr <- sequence $ runRenderSystem <$> tsys <*> xs
+  tr <- sequence $ zipWithTF runRenderSystem tsys xs
   return (fst <$> tr, traverseA (snd <$> tr))
 
 -- | Lifts a 'RenderSysten' into a semi static folding 'RenderSystem'.
