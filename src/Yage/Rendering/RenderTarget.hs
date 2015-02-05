@@ -12,18 +12,19 @@ module Yage.Rendering.RenderTarget
   , mkRenderTarget
   -- * Controlled Targets
   , autoResized
+  -- * Target Size Definition
+  , module Rectangle
   ) where
 
 import Yage.Prelude
 import Yage.Lens
 import Yage.Math
 import Data.Data
-import Yage.Geometry.D2.Rectangle
+import Yage.Geometry.D2.Rectangle as Rectangle
 import Yage.Rendering.Resources.GL.Framebuffer
 import Yage.Resources
 import Yage.Rendering.Resources.GL.Texture
 import Yage.Rendering.RenderSystem
-import Yage.Viewport
 
 data RenderTarget cs = RenderTarget
   { _renderTarget       :: cs
@@ -60,14 +61,14 @@ instance IsRenderTarget (Texture2D px) where
 --  that is always resized when the incomming Viewport size changes
 autoResized
   :: (MonadResource m, IsRenderTarget t, Resizeable2D t, GetRectangle t Int)
-  => (Viewport Int -> YageResource t)
+  => (Rectangle Int -> YageResource t)
   -- ^ inital constructor
-  -> RenderSystem m (Viewport Int) (RenderTarget t)
+  -> RenderSystem m (Rectangle Int) (RenderTarget t)
 autoResized initRes = initTarget where
-  initTarget = mkDynamicRenderPass $ \inViewport ->
-    (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes inViewport))
-  doResize s = flip mkStatefulRenderPass s $ \target newViewport -> do
-    let new@(V2 w h) = newViewport^.rectangle.extend
+  initTarget = mkDynamicRenderPass $ \inRect ->
+    (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes inRect))
+  doResize s = flip mkStatefulRenderPass s $ \target newRect -> do
+    let new@(V2 w h) = newRect^.extend
         old          = target^.targetRectangle.extend
     newTarget <- if new /= old
       then resize2D target w h

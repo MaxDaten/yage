@@ -80,12 +80,12 @@ yDeferredLighting = do
     mainViewport  <- currentViewport -< ()
 
     -- render surface attributes for lighting out
-    gbufferTarget <- autoResized mkGbufferTarget -< mainViewport
+    gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
     gbuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
-    lbufferTarget <- autoResized mkLightBuffer -< mainViewport
+    lbufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
     let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
     lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
@@ -93,17 +93,17 @@ yDeferredLighting = do
     bloomed <- renderBloom -< (0.3,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
+    tonemapPass -< (input^.hdrCamera, sceneTex, Nothing)
  where
-  mkGbufferTarget :: Viewport Int -> YageResource GBuffer
-  mkGbufferTarget vp | V2 w h <- vp^.rectangle.extend = GBuffer
+  mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
+  mkGbufferTarget rect | V2 w h <- rect^.extend = GBuffer
     <$> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
     <*> createTexture2D GL_TEXTURE_2D w h
 
-  mkLightBuffer :: Viewport Int -> YageResource LightBuffer
-  mkLightBuffer vp | V2 w h <- vp^.rectangle.extend = createTexture2D GL_TEXTURE_2D w h
+  mkLightBuffer :: Rectangle Int -> YageResource LightBuffer
+  mkLightBuffer rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
 
 
 currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)

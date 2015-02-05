@@ -7,9 +7,12 @@ module Yage.Rendering.Pipeline.Deferred.Bloom
 
 import           Yage.Prelude hiding ((</>), foldM, cons, (++))
 import           Yage.Lens
+import           Yage.Math (V2(V2))
 
 import           Yage.Rendering.RenderSystem                     as RenderSystem
+import           Yage.Rendering.RenderTarget
 import           Yage.Rendering.Resources.GL
+import           Yage.Rendering.GL
 import           Yage.Scene
 
 import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
@@ -24,19 +27,17 @@ addBloom :: (ImageFormat px, MonadResource m) => Int -> YageResource (RenderSyst
 addBloom numSamples = do
   sceneHalf         <- lmap (2,) <$> downsampler
   halfSamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
-  gaussianSamplers  <- replicateM (numSamples + 1) $ gaussianSampler
+  gaussPass         <- dimap (\((a,b),c)->(a,b,c)) Just <$> gaussianSampler
   filterLuma <- luminanceFilter
   return $ proc (thrshold, inTex) -> do
     half     <- sceneHalf -< inTex
     filteredTex <- filterLuma -< (thrshold,half)
     downsampledTextures <- processDownsamples halfSamplers -< [(2::Int,filteredTex)]
-    processGauss gaussianSamplers -< (map snd downsampledTextures, Nothing)
+    targets             <- mapA (autoResized mkTarget)     -< mapped %~ (view $ _2.asRectangle) $ downsampledTextures
+    let gaussFoldingInput = (zipWith (\t (_,d) -> (t,d)) targets downsampledTextures, Nothing)
+    fromJust <$> foldA gaussPass -< gaussFoldingInput
  where
-  processGauss :: Monad m => [RenderSystem m (Texture2D px, Maybe (Texture2D px)) (Texture2D px)] -> RenderSystem m ([Texture2D px], Maybe (Texture2D px)) (Texture2D px)
-  processGauss [] = rmap (fromJust.snd) id
-  processGauss (s:ss) = proc ((t:texs), madd) -> do
-    out <- s -< (t, madd)
-    processGauss ss -< (texs, Just out)
+  mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
 
   processDownsamples :: Monad m => [RenderSystem m (Texture2D px) (Texture2D px)] -> RenderSystem m [(Int,Texture2D px)] [(Int,Texture2D px)]
   processDownsamples [] = id

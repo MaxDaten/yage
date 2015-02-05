@@ -26,6 +26,9 @@ module Yage.Rendering.RenderSystem
   , mkStaticRenderPass
   , mkStatefulRenderPass
   , staticResource
+  , mapA
+  , foldA
+  , traverseA
   , HasRenderSystem(..)
   ) where
 
@@ -98,6 +101,30 @@ staticResource res = initRes where
   initRes = mkDynamicRenderPass $ \() -> do
     (_key, a) <- allocateAcquire res
     return (a, pure $ a)
+
+-- | Maps dynamically a 'RenderSystem' over a Traversable input, captures the
+-- result and the 'RenderSystem' for the next execution
+--
+-- Warning: list like Traversable's with varying number of elements can result in a data lost
+mapA :: (Monad m, Applicative t, Traversable t) => RenderSystem m i o -> RenderSystem m (t i) (t o)
+mapA sys = mkDynamicRenderPass $ \is -> do
+  tr <- sequence $ runRenderSystem sys <$> is
+  return (fst <$> tr, traverseA (snd <$> tr))
+
+-- | Warning: list like Traversable's with varying number of elements can result in a data lost
+traverseA :: (Monad m, Traversable t, Applicative t) => t (RenderSystem m i o) -> RenderSystem m (t i) (t o)
+traverseA tsys = mkDynamicRenderPass $ \xs -> do
+  tr <- sequence $ runRenderSystem <$> tsys <*> xs
+  return (fst <$> tr, traverseA (snd <$> tr))
+
+-- | Lifts a 'RenderSysten' into a semi static folding 'RenderSystem'.
+-- Semi static means in this context: during the fold with the 'RenderSystem',
+-- the system is driven forward, but every new call of 'foldA' restarts again with the argument 'RenderSystem'.
+foldA :: Monad m => RenderSystem m (i, o) o -> RenderSystem m ([i], o) o
+foldA s = mkStaticRenderPass go where
+ go (xs,z) = liftM fst $ foldM run (z,s) xs
+ run (z,sys) i = runRenderSystem sys (i,z)
+
 
 instance Monad m => Functor (RenderSystem m i) where
   fmap f (RenderSystem sys) = RenderSystem $ sys >=> \(o,sys') -> return (f o, fmap f sys')
