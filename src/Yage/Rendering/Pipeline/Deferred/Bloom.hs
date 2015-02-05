@@ -25,22 +25,25 @@ import           Data.Maybe (fromJust)
 -- redundancy Yage.Rendering.Pipeline.Deferred.GaussianBlur.blurRenderSystem will be fixed with 'YageResource' factored out
 addBloom :: (ImageFormat px, MonadResource m) => Int -> YageResource (RenderSystem m (Float,Texture2D px) (Texture2D px))
 addBloom numSamples = do
-  sceneHalf         <- lmap (2,) <$> downsampler
-  halfSamplers      <- replicateM numSamples $ lmap (2,) <$> downsampler
+  dsampler          <- downsampler
+  let halfSamplers  = batchedDownsampler dsampler
   gaussPass         <- dimap (\((a,b),c)->(a,b,c)) Just <$> gaussianSampler
   filterLuma <- luminanceFilter
-  return $ proc (thrshold, inTex) -> do
-    half     <- sceneHalf -< inTex
+  return $ proc (thrshold, inTexture) -> do
+
+    -- filter luma on half texture
+    halfTarget <- autoResized mkTarget -< inTexture^.asRectangle & extend.mapped %~ (`div` 2)
+    half       <- processPass dsampler -< (halfTarget,inTexture)
     filteredTex <- filterLuma -< (thrshold,half)
-    downsampledTextures <- processDownsamples halfSamplers -< [(2::Int,filteredTex)]
-    targets             <- mapA (autoResized mkTarget)     -< mapped %~ (view $ _2.asRectangle) $ downsampledTextures
-    let gaussFoldingInput = (zipWith (\t (_,d) -> (t,d)) targets downsampledTextures, Nothing)
+
+    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples-1) (inTexture^.asRectangle)
+    downsampledTextures <- halfSamplers                 -< (downTargets,[filteredTex])
+
+    targets             <- mapA (autoResized mkTarget)     -< downsampledTextures & mapped %~ view asRectangle
+    let gaussFoldingInput = (zip targets downsampledTextures, Nothing)
     fromJust <$> foldA gaussPass -< gaussFoldingInput
  where
   mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  targetRects :: Int -> Rectangle Int -> [Rectangle Int]
+  targetRects n src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..n-1]
 
-  processDownsamples :: Monad m => [RenderSystem m (Texture2D px) (Texture2D px)] -> RenderSystem m [(Int,Texture2D px)] [(Int,Texture2D px)]
-  processDownsamples [] = id
-  processDownsamples (s:ss) = proc (t:texs) -> do
-    tex <- s -< snd t
-    processDownsamples ss -< (2 * fst t,tex):t:texs

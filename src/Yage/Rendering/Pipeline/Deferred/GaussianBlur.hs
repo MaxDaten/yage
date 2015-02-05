@@ -20,7 +20,6 @@ import Yage.Lens hiding (set)
 import Yage.GL
 import Yage.Uniform
 import Data.Data
-import Control.Monad (replicateM)
 import Control.Arrow
 import Data.Maybe (fromJust)
 import Yage.Rendering.Resources.GL
@@ -52,23 +51,22 @@ data LinearSamplingDirection = XDirection | YDirection
 
 blurRenderSystem :: (ImageFormat px, MonadResource m) => Int -> YageResource (RenderSystem m (Texture2D px) (Texture2D px))
 blurRenderSystem numSamples = do
-  downsamplers   <- replicateM numSamples $ lmap (2,) <$> downsampler
-  gaussPass      <- dimap (\((a,b),c)->(a,b,c)) Just <$> gaussianSampler
+  dsampler  <- batchedDownsampler <$> downsampler
+  gaussPass <- dimap (\((a,b),c)->(a,b,c)) Just <$> gaussianSampler
   return $ proc inTexture -> do
-    downsampledTextures <- processDownsamples downsamplers -< [(1::Int,inTexture)]
-    targets             <- mapA (autoResized mkTarget)     -< mapped %~ (view $ _2.asRectangle) $ downsampledTextures
-    let gaussFoldingInput = (zipWith (\t (_,d) -> (t,d)) targets downsampledTextures, Nothing)
+    -- downsampling
+    downTargets         <- mapA (autoResized mkTarget)   -< targetRects (inTexture^.asRectangle)
+    (downsampledTextures::[Texture2D px]) <- dsampler -< (downTargets,[inTexture])
+
+    -- gaussian filter with accumulation
+    gaussTargets <- mapA (autoResized mkTarget)   -< downsampledTextures & mapped %~ view asRectangle
+    let gaussFoldingInput = (zip gaussTargets downsampledTextures, Nothing)
     fromJust <$> foldA gaussPass -< gaussFoldingInput
  where
   mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  targetRects :: Rectangle Int -> [Rectangle Int]
+  targetRects src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..numSamples-1]
 
-  processDownsamples :: Monad m => [RenderSystem m (Texture2D px) (Texture2D px)] -> RenderSystem m [(Int,Texture2D px)] [(Int,Texture2D px)]
-  processDownsamples [] = id
-  processDownsamples (s:ss) = proc (t:texs) -> do
-    tex <- s -< snd t
-    processDownsamples ss -< (2 * fst t,tex):t:texs
-    -- let (lastfactor, base) = unsafeLast txs
-    -- in fmap ((++) txs . singleton . (2*lastfactor,)) dsampler . pure base
 
 -- * Gaussian Sampler
 
@@ -96,7 +94,7 @@ data PassRes px = PassRes
 type LinearGaussianIn px = (RenderTarget (Texture2D px), Texture2D px, Maybe (Texture2D px))
 type LinearGaussianPass m px = Pass (PassRes px) m (LinearGaussianIn px) (Texture2D px)
 
-linearGaussianSampler :: forall px m. (ImageFormat px, Functor m, MonadIO m, MonadThrow m) => LinearSamplingDirection -> YageResource (LinearGaussianPass m px)
+linearGaussianSampler :: (ImageFormat px, Functor m, MonadIO m, MonadThrow m) => LinearSamplingDirection -> YageResource (LinearGaussianPass m px)
 linearGaussianSampler direction = Pass <$> passRes <*> pure runPass where
   passRes :: YageResource (PassRes px)
   passRes = do

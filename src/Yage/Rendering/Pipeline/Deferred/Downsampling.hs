@@ -5,10 +5,12 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE Arrows              #-}
 
 module Yage.Rendering.Pipeline.Deferred.Downsampling
   ( Downsampler
   , downsampler
+  , batchedDownsampler
   ) where
 
 import Yage.Prelude
@@ -19,6 +21,7 @@ import Quine.GL.Sampler
 import Quine.GL.Uniform
 import Quine.GL.VertexArray
 import Quine.StateVar
+import Control.Arrow
 import Yage.GL
 import Yage.Lens
 import Yage.Math
@@ -26,6 +29,7 @@ import Yage.Geometry.D2.Rectangle
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
 import Yage.Rendering.RenderSystem
+import Yage.Rendering.RenderTarget
 import Yage.Rendering.Resources.GL
 import Yage.Resources
 import Yage.Uniform
@@ -33,42 +37,51 @@ import Yage.Uniform
 
 #include "definitions.h"
 
+type DownsamplerIn px = (RenderTarget (Texture2D px), Texture2D px)
+type Downsampler m px = Pass (PassRes px) m (DownsamplerIn px) (Texture2D px)
 
 data FragmentShader px = FragmentShader
   { iTexture    :: UniformVar (Texture2D px)
   , iTargetSize :: UniformVar (V2 Int)
   }
 
+data PassRes px = PassRes
+  { vao          :: VertexArray
+  , pipe         :: Pipeline
+  , frag         :: FragmentShader px
+  }
+
 -- * Draw To Target
-type Downsampler m px = RenderSystem m (Int, Texture2D px) (Texture2D px)
 
-downsampler :: forall px m. (ImageFormat px, MonadResource m) => YageResource (Downsampler m px)
-downsampler = do
-  emptyvao <- glResource
-  boundVertexArray $= emptyvao
+  -- processDownsamples :: Monad m => Downsampler m px -> RenderSystem m ([RenderTarget (Texture2D px)], Texture2D px) [Texture2D px]
+batchedDownsampler :: (Functor m, MonadIO m, MonadThrow m, ImageFormat px) => Downsampler m px -> RenderSystem m ([RenderTarget (Texture2D px)],[Texture2D px]) [Texture2D px]
+batchedDownsampler p = proc (ta:targets,tex:texs) -> do
+  down <- processPass p -< (ta,tex)
+  if null targets
+    then returnA -< down:tex:texs
+    else batchedDownsampler p -< (targets,down:tex:texs)
 
-  pipeline <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
-              , $(embedShaderFile "res/glsl/sampling/downsampling.frag")]
-              `compileShaderPipeline` includePaths
 
-  Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
+downsampler :: (ImageFormat px, Functor m, MonadIO m, MonadThrow m) => YageResource (Downsampler m px)
+downsampler = Pass <$> passRes <*> pure runRes where
+  passRes :: YageResource (PassRes px)
+  passRes = do
+    emptyvao <- glResource
+    boundVertexArray $= emptyvao
 
-  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D px))
+    pipeline <- [ $(embedShaderFile "res/glsl/sampling/drawRectangle.vert")
+                , $(embedShaderFile "res/glsl/sampling/downsampling.frag")]
+                `compileShaderPipeline` includePaths
 
-  fbo <- glResource
+    Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
+
+    return $ PassRes emptyvao pipeline frag
 
   -- RenderPass
-  return $ flip mkStatefulRenderPass (V2 1 1) $ \lastDim (factor, toFilter) -> do
-    throwWithStack $ boundFramebuffer RWFramebuffer $= fbo
-
-    let V2 inWidth inHeight = toFilter^.asRectangle.extend
-        V2 newWidth newHeight = max 1 (V2 (inWidth `div` factor) (inHeight `div` factor))
-
-    when (lastDim /= V2 newWidth newHeight) $ do
-      out <- (\t -> resizeTexture2D t newWidth newHeight) =<< get outputTexture
-      outputTexture $= out
-      void $ attachFramebuffer fbo [mkAttachment out] Nothing Nothing
-
+  runRes :: (Functor m, MonadIO m, MonadThrow m, ImageFormat px) => RenderSystem (ReaderT (PassRes px) m) (DownsamplerIn px) (Texture2D px)
+  runRes = mkStaticRenderPass $ \(outTarget, toFilter) -> do
+    PassRes{..} <- ask
+    throwWithStack $ boundFramebuffer RWFramebuffer $= (outTarget^.framebufferObj)
     glDepthMask GL_TRUE
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
@@ -79,19 +92,19 @@ downsampler = do
     -- glClear $ GL_DEPTH_BUFFER_BIT .|. GL_STENCIL_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
     {-# SCC boundVertexArray #-} throwWithStack $
-      boundVertexArray $= emptyvao
+      boundVertexArray $= vao
 
     -- set shader uniforms
 
-    boundProgramPipeline $= pipeline^.pipelineProgram
-    checkPipelineError pipeline
+    boundProgramPipeline $= pipe^.pipelineProgram
+    checkPipelineError pipe
 
-
+    let FragmentShader{..} = frag
     iTexture $= toFilter
-    iTargetSize $= V2 newWidth newHeight
+    iTargetSize $= outTarget^.targetRectangle.extend
 
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
-    (,V2 newWidth newHeight) <$> get outputTexture
+    return $ outTarget^.renderTarget
 
 
 -- * Shader Interface
