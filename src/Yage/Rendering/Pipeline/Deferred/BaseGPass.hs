@@ -248,7 +248,9 @@ instance Default (GBaseMaterial Image) where
 defaultGBaseMaterial :: GBaseMaterial Image
 defaultGBaseMaterial = GBaseMaterial
   { _gBaseMaterialAlbedo    = defaultMaterialSRGB
-  , _gBaseMaterialNormalmap = defaultMaterialSRGB & materialColor .~ rgb 4 4 4 `withOpacity` 0.75
+  , _gBaseMaterialNormalmap = defaultMaterialSRGB
+      & materialColor   .~ rgb 2 2 2 `withOpacity` 0.75
+      & materialTexture .~ zNormalDummy
   , _gBaseMaterialRoughness = mkMaterial 1.0 whiteDummy
   , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
   }
