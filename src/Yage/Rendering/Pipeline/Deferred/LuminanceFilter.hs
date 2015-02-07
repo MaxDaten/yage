@@ -45,7 +45,7 @@ luminanceFilter = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D px))
+  outputTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D (Tex2D 1 1) 1 :: YageResource (IORef (Texture2D px))
 
   fbo <- glResource
 

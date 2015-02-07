@@ -90,20 +90,20 @@ yDeferredLighting = do
     lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
-    bloomed <- renderBloom -< (0.2,sceneTex)
+    bloomed <- renderBloom -< (10,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
   mkGbufferTarget rect | V2 w h <- rect^.extend = GBuffer
-    <$> createTexture2D GL_TEXTURE_2D w h
-    <*> createTexture2D GL_TEXTURE_2D w h
-    <*> createTexture2D GL_TEXTURE_2D w h
-    <*> createTexture2D GL_TEXTURE_2D w h
+    <$> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
 
   mkLightBuffer :: Rectangle Int -> YageResource LightBuffer
-  mkLightBuffer rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  mkLightBuffer rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
 
 
 currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)

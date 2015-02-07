@@ -43,7 +43,7 @@ addBloom numSamples = do
     let gaussFoldingInput = (zip targets downsampledTextures, Nothing)
     fromJust <$> foldA gaussPass -< gaussFoldingInput
  where
-  mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
   targetRects :: Int -> Rectangle Int -> [Rectangle Int]
   targetRects n src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..n]
 

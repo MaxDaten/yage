@@ -63,7 +63,7 @@ blurRenderSystem numSamples = do
     let gaussFoldingInput = (zip gaussTargets downsampledTextures, Nothing)
     fromJust <$> foldA gaussPass -< gaussFoldingInput
  where
-  mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
   targetRects :: Rectangle Int -> [Rectangle Int]
   targetRects src = map ( \i -> src & extend.mapped %~ (\x -> max 1 (x `div` (2^i))) ) $ [1..numSamples]
 
@@ -81,7 +81,7 @@ gaussianSampler = do
     ty <- processPass gaussianY -< (outTarget,tx,add)
     returnA -< ty
  where
-  mkXTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D w h
+  mkXTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
 
 -- ** Linear Sampler RenderSystem
 

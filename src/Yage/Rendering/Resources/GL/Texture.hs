@@ -9,15 +9,16 @@ module Yage.Rendering.Resources.GL.Texture (
     module Img
   , Texture(..)
   -- * Texture Dimensionality
-  , Tex1D
-  , Tex2D
-  , Tex3D
-  , TexCube
+  , Tex1D(..)
+  , Tex2D(..)
+  , Tex3D(..)
+  , TexCube(..)
   , Texture1D
   , Texture2D
   , Texture3D
   , TextureCube
-  , BaseTextureDimension(baseTarget, baseDimension)
+  , BaseTexture(..)
+  , Dimension2D(..)
   , Resizeable2D(resize2D)
   , textureTarget
   , textureDimension
@@ -25,7 +26,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , textureObject
   -- * Creation
   , createTexture2D
-  , createTexture2DImage
+  , createTextureFromImage
   -- * Resize
   , resizeTexture2D
   -- * Binding
@@ -34,7 +35,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , bindTextureSamplers
   ) where
 
-import           Yage.Lens
+import           Yage.Lens         hiding (levels)
 import           Yage.Math         hiding (unit)
 import           Yage.Prelude
 import           Yage.Rendering.GL as GL
@@ -85,9 +86,10 @@ instance Show d => Show (Texture d px) where
 
 makeLenses ''Texture
 
-class BaseTextureDimension t d | t -> d where
+class BaseTexture t d | t -> d where
   baseTarget :: t -> GL.TextureTarget
   baseDimension :: t -> d
+  levels :: t -> GL.MipmapLevel
 
 class Resizeable2D t where
   resize2D :: MonadIO m => t -> Int -> Int -> m t
@@ -95,32 +97,44 @@ class Resizeable2D t where
 instance ImageFormat px => Resizeable2D (Texture Tex2D px) where
   resize2D = resizeTexture2D
 
+class Dimension2D d where
+  wh :: Lens' d (V2 Int)
+
+instance Dimension2D Tex2D where
+  wh = lens getter setter where
+    getter (Tex2D w h) = V2 w h
+    setter _ (V2 w h) = Tex2D w h
+
+instance Dimension2D TexCube where
+  wh = lens getter setter where
+    getter (TexCube w h) = V2 w h
+    setter _ (V2 w h) = TexCube w h
+
 -- | Creates a 'Texture' initialized with an image
-createTexture2DImage :: (Image2D i, GetRectangle i Int, BaseTextureDimension i d) => i -> YageResource (Texture d a)
-createTexture2DImage img = mkAcquire acq free
- where
+createTextureFromImage :: (Image2D i, GetRectangle i Int, BaseTexture i d) => i -> YageResource (Texture d a)
+createTextureFromImage img = mkAcquire acq free where
   acq = throwWithStack $ do
     obj <- gen
-    tex <- Texture target dimension 1 <$> newIORef obj
+    tex <- Texture target dimension (levels img) <$> newIORef obj
     GL.boundTexture target 0 $= obj
     store img target
     upload img target 0
     return tex
-  free tex = delete =<< (get $ tex^.textureObject)
-  target = baseTarget img
+  free tex  = delete =<< (get $ tex^.textureObject)
+  target    = baseTarget img
   dimension = baseDimension img
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
-createTexture2D :: forall px. (ImageFormat px) => GL.TextureTarget -> Int -> Int -> YageResource (Texture2D px)
-createTexture2D target w h = mkAcquire acq free where
-  acq = Texture target (Tex2D w h) 1 <$> (newIORef =<< newTextureStorageObj target 1 w h (Proxy :: Proxy px))
+createTexture2D :: forall px d. (ImageFormat px, Dimension2D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
+createTexture2D target d l = mkAcquire acq free where
+  acq = Texture target d (fromIntegral l) <$> (newIORef =<< newTextureStorageObj target (fromIntegral l) (d^.wh._x) (d^.wh._y) (Proxy :: Proxy px))
   free tex = delete =<< (get $ tex^.textureObject)
 
-resizeTexture2D :: forall px m. (ImageFormat px, MonadIO m) => Texture2D px -> Int -> Int -> m (Texture2D px)
+resizeTexture2D :: forall px d m. (ImageFormat px, Dimension2D d, MonadIO m) => Texture d px -> Int -> Int -> m (Texture d px)
 resizeTexture2D tex w h = throwWithStack $! do
   new <- newTextureStorageObj (tex^.textureTarget) (tex^.textureLevel) w h (Proxy :: Proxy px)
   delete =<< (liftIO $ atomicModifyIORef' (tex^.textureObject) (new,))
-  return $ tex & textureDimension .~ Tex2D w h
+  return $ tex & textureDimension.wh .~ V2 w h
 
 bindTexture:: (MonadIO m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture2D px) -> m ()
 bindTexture target st mtex = throwWithStack $! do
@@ -163,29 +177,35 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
   return $ tex
 
-instance (BaseTextureDimension i Tex2D) => BaseTextureDimension (Cubemap i) TexCube where
+instance (BaseTexture i Tex2D) => BaseTexture (Cubemap i) TexCube where
   baseTarget _ = GL_TEXTURE_CUBE_MAP
   baseDimension = liftToCube2D . baseDimension . faceRight
+  levels _ = 1
 
-instance BaseTextureDimension (Image a) Tex2D where
+instance BaseTexture (Image a) Tex2D where
   baseTarget _ = GL_TEXTURE_2D
   baseDimension (Image w h _) = Tex2D w h
+  levels _ = 1
 
-instance BaseTextureDimension DynamicImage Tex2D where
+instance BaseTexture DynamicImage Tex2D where
   baseTarget _ = GL_TEXTURE_2D
   baseDimension img = Tex2D (dynamicMap imageWidth img) (dynamicMap imageHeight img)
+  levels _ = 1
 
-instance BaseTextureDimension (MipmapChain DynamicImage) Tex2D where
+instance BaseTexture (MipmapChain DynamicImage) Tex2D where
   baseTarget = baseTarget . mipMapBase
   baseDimension = baseDimension . mipMapBase
+  levels = fromIntegral . maxMipMapLevel
 
-instance BaseTextureDimension (MipmapChain (Image a)) Tex2D where
+instance BaseTexture (MipmapChain (Image a)) Tex2D where
   baseTarget = baseTarget . mipMapBase
   baseDimension = baseDimension . mipMapBase
+  levels = fromIntegral . maxMipMapLevel
 
-instance BaseTextureDimension i Tex2D => BaseTextureDimension (MipmapChain (Cubemap i)) TexCube where
+instance BaseTexture i Tex2D => BaseTexture (MipmapChain (Cubemap i)) TexCube where
   baseTarget = baseTarget . mipMapBase
   baseDimension = baseDimension . mipMapBase
+  levels = fromIntegral . maxMipMapLevel
 
 instance GetRectangle (Texture2D px) Int where
   asRectangle = textureDimension.to (\(Tex2D w h) -> Rectangle 0 (V2 w h))

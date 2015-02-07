@@ -42,7 +42,7 @@ toneMapper = do
 
   Just (FragmentShader{..}) <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-  outTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D 1 1 :: YageResource (IORef (Texture2D PixelRGB8))
+  outTexture <- liftIO . newIORef =<< createTexture2D GL_TEXTURE_2D (Tex2D 1 1) 1 :: YageResource (IORef (Texture2D PixelRGB8))
   fbo <- glResource
 
   -- RenderPass
