@@ -47,7 +47,7 @@ instance Pixel PixelRG16F where
 instance ImageFormat PixelRG16F where
   internalFormat _ = GL_RG16F
   pixelFormat    _ = GL_RG
-  pixelType      _ = GL_FLOAT
+  pixelType      _ = GL_HALF_FLOAT
 
 instance Pixel PixelRGB16F where
   type PixelBaseComponent PixelRGB16F = Half
@@ -55,7 +55,7 @@ instance Pixel PixelRGB16F where
 instance ImageFormat PixelRGB16F where
   internalFormat _ = GL_RGB16F
   pixelFormat    _ = GL_RGB
-  pixelType      _ = GL_FLOAT
+  pixelType      _ = GL_HALF_FLOAT
 
 instance Pixel PixelRGB11_11_10F where
   -- TODO better base component

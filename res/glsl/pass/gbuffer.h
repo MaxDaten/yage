@@ -130,9 +130,9 @@ void EncodeGBuffer( Surface surface )
     outChannelA.a     = 1.0; // unused
     outChannelB.r     = surface.Roughness;
     outChannelB.g     = surface.Metallic;
-    // outChannelC.rgb   = EncodeTextureNormal ( normalize ( surface.Normal ) );
-    outChannelC.rgb    = EncodeTextureNormal ( surface.Normal );
-    outChannelC.a      = 1.0;
+    outChannelC.rg    = EncodeNormalXY ( surface.Normal );
+    outChannelC.b     = 1.0; // unused
+    outChannelC.a     = 1.0; // unused
 }
 
 Surface DecodeGBuffer( vec2 uv )
@@ -150,9 +150,9 @@ Surface DecodeGBuffer( vec2 uv )
     surface.Position = position.xyz;
 
     surface.Albedo    = vec4(chA.rgb, 1.0);
-    surface.Roughness = max(chB.r, 0.02);
+    surface.Roughness = max(chB.r, 0.1); // TOOD 0.02 leads to bloom artefacts
     surface.Specular  = vec3(0.5);
-    surface.Normal    = DecodeTextureNormal( chC.rgb );
+    surface.Normal    = DecodeNormalXY( chC.rg );
     surface.Metallic  = chB.g;
 
     surface.Specular = mix( 0.08 * surface.Specular, surface.Albedo.rgb, vec3(surface.Metallic));

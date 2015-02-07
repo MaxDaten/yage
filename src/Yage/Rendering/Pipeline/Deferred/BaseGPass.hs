@@ -126,7 +126,7 @@ data VertexShader = VertexShader
 data GBuffer = GBuffer
   { _aBuffer     :: Texture2D PixelRGBA8
   , _bBuffer     :: Texture2D PixelRGBA8
-  , _cBuffer     :: Texture2D PixelRGBA8
+  , _cBuffer     :: Texture2D PixelRG16F
   , _depthBuffer :: Texture2D (DepthComponent24 Float)
   } deriving (Typeable,Show,Generic)
 
@@ -336,7 +336,7 @@ mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
   return s
 
 instance IsRenderTarget GBuffer where
-  getAttachments GBuffer{..} = (mkAttachment <$> [_aBuffer, _bBuffer, _cBuffer], Just $ mkAttachment _depthBuffer, Nothing)
+  getAttachments GBuffer{..} = ([mkAttachment _aBuffer, mkAttachment _bBuffer, mkAttachment _cBuffer], Just $ mkAttachment _depthBuffer, Nothing)
 
 instance GetRectangle GBuffer Int where
   asRectangle = aBuffer.asRectangle
