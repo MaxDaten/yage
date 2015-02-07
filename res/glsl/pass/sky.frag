@@ -13,5 +13,5 @@ layout (location = 0) out vec4 pixelColor;
 
 void main()
 {
-    pixelColor = SkyColor * texture(SkyTexture, VertexSTP);
+  pixelColor = textureLod(SkyTexture, VertexSTP, 0);
 }
