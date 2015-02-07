@@ -5,8 +5,9 @@
 module Yage.Rendering.Resources.GL.TextureFormat
   (
   -- * Color Formats
-    PixelRGBF16
-  , PixelRGBF11_11_10
+    PixelRG16F
+  , PixelRGB16F
+  , PixelRGB11_11_10F
   -- * Depth Formats
   , DepthComponent16
   , DepthComponent24
@@ -31,26 +32,36 @@ import           Numeric.Half
 import           Quine.Image
 
 -- | Further Pixeltypes beside JuicyPixel's
-data PixelRGBF16
-data PixelRGBF11_11_10
+data PixelRG16F
+data PixelRGB16F
+data PixelRGB11_11_10F
 
 -- | dangling instances for Pixel instance
-deriving instance Eq PixelRGBF16
-deriving instance Eq PixelRGBF11_11_10
+deriving instance Eq PixelRG16F
+deriving instance Eq PixelRGB16F
+deriving instance Eq PixelRGB11_11_10F
 
-instance Pixel PixelRGBF16 where
-  type PixelBaseComponent PixelRGBF16 = Half
+instance Pixel PixelRG16F where
+  type PixelBaseComponent PixelRG16F = Half
 
-instance ImageFormat PixelRGBF16 where
+instance ImageFormat PixelRG16F where
+  internalFormat _ = GL_RG16F
+  pixelFormat    _ = GL_RG
+  pixelType      _ = GL_FLOAT
+
+instance Pixel PixelRGB16F where
+  type PixelBaseComponent PixelRGB16F = Half
+
+instance ImageFormat PixelRGB16F where
   internalFormat _ = GL_RGB16F
   pixelFormat    _ = GL_RGB
   pixelType      _ = GL_FLOAT
 
-instance Pixel PixelRGBF11_11_10 where
+instance Pixel PixelRGB11_11_10F where
   -- TODO better base component
-  type PixelBaseComponent PixelRGBF11_11_10 = Float
+  type PixelBaseComponent PixelRGB11_11_10F = Float
 
-instance ImageFormat PixelRGBF11_11_10 where
+instance ImageFormat PixelRGB11_11_10F where
   internalFormat _ = GL_R11F_G11F_B10F
   pixelFormat    _ = GL_RGB
   pixelType      _ = GL_FLOAT

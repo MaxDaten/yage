@@ -84,7 +84,7 @@ data PassRes = PassRes
   }
 
 type LightData      = RenderData Word32 (V.Position Vec3)
-type LightBuffer    = Texture2D PixelRGBF11_11_10
+type LightBuffer    = Texture2D PixelRGB11_11_10F
 type LightPassInput = (RenderTarget LightBuffer, Lights (Seq Light), (TextureCube PixelRGB8), Camera, GBuffer)
 type LightPass m g  = PassGEnv g PassRes m LightPassInput LightBuffer
 
