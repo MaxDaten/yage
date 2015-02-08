@@ -121,8 +121,8 @@ traverseA tsys = mkDynamicRenderPass $ \xs -> do
 -- Semi static means in this context: during the fold with the 'RenderSystem',
 -- the system is driven forward, but every new call of 'foldA' restarts again with the argument 'RenderSystem'.
 foldA :: Monad m => RenderSystem m (i, o) o -> RenderSystem m ([i], o) o
-foldA s = mkStaticRenderPass go where
- go (xs,z) = liftM fst $ foldM run (z,s) xs
+foldA s = mkDynamicRenderPass go where
+ go (xs,z) = liftM (over _2 foldA) $ foldM run (z,s) xs
  run (z,sys) i = runRenderSystem sys (i,z)
 
 
