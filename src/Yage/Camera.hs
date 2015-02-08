@@ -6,6 +6,7 @@ module Yage.Camera
   , nearZ, farZ, fovy
   , idCamera
   , cameraMatrix
+  , inverseCameraMatrix
   , pitch
   , yaw
   , roll
@@ -19,6 +20,7 @@ import Yage.Transformation
 import           Data.Data
 import           Linear    hiding (lerp, slerp)
 import qualified Linear    (lerp, slerp)
+import Data.Maybe (fromJust)
 
 data Camera = Camera
   { _cameraFovy        :: !Double
@@ -40,6 +42,11 @@ idCamera fovy' near far = Camera fovy' 0 1 near far
 cameraMatrix :: Getter Camera (M44 Double)
 cameraMatrix = to g where
   g cam = let con = conjugate (cam^.orientation) in mkTransformation con (rotate con . negate $ cam^.position)
+
+inverseCameraMatrix :: Getter Camera (M44 Double)
+inverseCameraMatrix = to g where
+  g cam = fromJust $ cam^.cameraMatrix.to inv44 -- mkTransformation (cam^.orientation) (rotate (cam^.orientation) $ cam^.position)
+  -- g cam = cam^.transformationMatrix -- mkTransformation (cam^.orientation) (rotate (cam^.orientation) $ cam^.position)
 
 -- | Adjusts the camera view up-and-down by an angle in radians
 pitch :: HasCamera c => c -> Double -> c

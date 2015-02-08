@@ -7,6 +7,7 @@ module Yage.Rendering.Resources.GL.TextureFormat
   -- * Color Formats
     PixelRG16F
   , PixelRGB16F
+  , PixelRGB32F
   , PixelRGB11_11_10F
   -- * Depth Formats
   , DepthComponent16
@@ -30,6 +31,8 @@ import           Data.Data
 import           Data.Word
 import           Numeric.Half
 import           Quine.Image
+
+type PixelRGB32F = PixelRGBF
 
 -- | Further Pixeltypes beside JuicyPixel's
 data PixelRG16F

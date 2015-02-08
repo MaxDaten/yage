@@ -21,6 +21,8 @@
 
 
 uniform samplerCube RadianceEnvironment;
+uniform int MaxMipmapLevel;
+uniform int DiffuseMipmapOffset;
 uniform vec3 CameraPosition;
 
 in vec4 ScreenPos;
@@ -50,9 +52,7 @@ float MaskingRadius( float distance2, float radius )
 
 vec3 ApproximateSpecularIBL( vec3 SpecularColor, float Roughness, float NoV, vec3 R)
 {
-    // float MaxMipLevel = 8;
-    float MaxMipLevel = 5;
-    float MipMapLevel = Roughness * MaxMipLevel;
+    float MipMapLevel = Roughness * MaxMipmapLevel;
     vec3 SpecularIBL  = textureLod( RadianceEnvironment, R, MipMapLevel ).rgb;
 
     vec2 envBRDF = EnvironmentBRDF( Roughness, NoV );
@@ -139,9 +139,7 @@ vec3 SurfaceShading ( Surface surface, LightData light )
     }
     vec3 R   = reflect( -V, N );
 
-    //...
-    // TODO : MaxMipLevel & ViewToWorld & Metalness to uniform
-    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, 5 ).rgb;
+    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, MaxMipmapLevel + DiffuseMipmapOffset ).rgb;
     vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
 
     OutColor += DiffuseAmbient;

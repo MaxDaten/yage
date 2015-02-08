@@ -9,7 +9,8 @@
 #define G_CHANNEL_A 0
 #define G_CHANNEL_B 1
 #define G_CHANNEL_C 2
-#define G_DEPTH 3
-#define ENVIRONMENT_UNIT  4
-#define RADIANCE_UNIT     5
+#define G_CHANNEL_D 3
+#define G_DEPTH 4
+#define ENVIRONMENT_UNIT  5
+#define RADIANCE_UNIT     6
 #endif

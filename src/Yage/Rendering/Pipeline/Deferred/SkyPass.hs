@@ -82,7 +82,7 @@ data VertexShader = VertexShader
 
 -- data SkyPassInput =
 
-drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture2D px, Texture2D (DepthComponent24 Float)) (Texture2D px))
+drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture2D px, Texture2D (DepthComponent32F Float)) (Texture2D px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao
@@ -178,7 +178,7 @@ mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   when gl_ARB_seamless_cubemap_per_texture $ do
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE

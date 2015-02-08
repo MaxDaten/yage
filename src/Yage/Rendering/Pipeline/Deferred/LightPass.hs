@@ -59,9 +59,12 @@ import Quine.GL.ProgramPipeline
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
   { radianceEnvironment  :: UniformVar (Maybe (TextureCube PixelRGB8))
+  , maxMipmapLevel       :: UniformVar MipmapLevel
+  , diffuseMipmapOffset  :: UniformVar MipmapLevel
   , gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
+  , viewToWorld          :: UniformVar Mat4
   , fragLight            :: UniformVar Light
   }
 
@@ -148,8 +151,11 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gb
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
   zProjectionRatio    $= zRatio
   radianceEnvironment $= Just radiance
+  maxMipmapLevel      $= radiance^.textureLevel
+  diffuseMipmapOffset $= -2
   gBuffer             $= gbuff
   cameraPosition      $= realToFrac <$> cam^.position
+  viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
  where
   viewprojectionM :: Viewport Int -> M44 Double
   viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
@@ -196,12 +202,15 @@ vertexUniforms prog = do
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
-  sampl <- mkCubeSampler
+  sampl <- mkRadianceSampler
   FragmentShader
     <$> samplerUniform prog sampl "RadianceEnvironment"
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "MaxMipmapLevel")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "DiffuseMipmapOffset")
     <*> gBufferUniform prog
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
+    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewToWorld")
     <*> lightUniform prog "Light"
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
@@ -210,11 +219,13 @@ gBufferUniform prog = do
   aChannel <- samplerUniform prog (sampler2D G_CHANNEL_A gbufferSampler) "inChannelA"
   bChannel <- samplerUniform prog (sampler2D G_CHANNEL_B gbufferSampler) "inChannelB"
   cChannel <- samplerUniform prog (sampler2D G_CHANNEL_C gbufferSampler) "inChannelC"
+  dChannel <- samplerUniform prog (sampler2D G_CHANNEL_D gbufferSampler) "inChannelD"
   depthTexture <- samplerUniform prog (sampler2D G_DEPTH gbufferSampler) "DepthTexture"
   return $ SettableStateVar $ \gbuff -> do
     aChannel  $= Just (gbuff^.aBuffer)
     bChannel  $= Just (gbuff^.bBuffer)
     cChannel  $= Just (gbuff^.cBuffer)
+    dChannel  $= Just (gbuff^.dBuffer)
     depthTexture $= Just (gbuff^.depthBuffer)
 
 -- * Sampler
@@ -229,13 +240,13 @@ mkGBufferSampler = throwWithStack $ do
   -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return sampler
 
-mkCubeSampler :: YageResource (UniformSamplerCube PixelRGB8)
-mkCubeSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
+mkRadianceSampler :: YageResource (UniformSamplerCube PixelRGB8)
+mkRadianceSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
   sampler <- glResource
   samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   when gl_ARB_seamless_cubemap_per_texture $ do
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE

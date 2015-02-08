@@ -1,6 +1,15 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+uniform vec2 ZProjRatio;
+uniform mat4 ViewMatrix;
+uniform mat4 ViewToWorld;
+uniform mat4 VPMatrix;
+uniform mat4 ModelMatrix;
+uniform mat3 NormalMatrix;
+uniform mat4 ViewToScreenMatrix;
+
+
 const float PI = 3.1415926535897932f;
 
 #define saturate(X) (clamp(X, 0.0, 1.0))

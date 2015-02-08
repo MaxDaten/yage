@@ -24,14 +24,14 @@ import Yage.Rendering.Pipeline.Deferred.Common
 
 #include "definitions.h"
 
-data FragmentShader = FragmentShader
-  { iScene :: UniformVar (Texture2D PixelRGB11_11_10F)
-  , iBloom :: UniformVar (Maybe (Texture2D PixelRGB11_11_10F))
+data FragmentShader px = FragmentShader
+  { iScene :: UniformVar (Texture2D px)
+  , iBloom :: UniformVar (Maybe (Texture2D px))
   }
 
 -- * Draw To Screen
 
-toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture2D PixelRGB11_11_10F, Maybe (Texture2D PixelRGB11_11_10F)) (Texture2D PixelRGB8))
+toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture2D px, Maybe (Texture2D px)) (Texture2D PixelRGB8))
 toneMapper = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -81,7 +81,7 @@ toneMapper = do
 
 -- * Shader Interface
 
-fragmentUniforms :: Program -> YageResource FragmentShader
+fragmentUniforms :: Program -> YageResource (FragmentShader px)
 fragmentUniforms prog = do
   toneSampler <- mkToneSampler
   bloomSampler <- mkBloomSampler

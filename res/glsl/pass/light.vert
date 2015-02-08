@@ -10,17 +10,13 @@ out gl_PerVertex {
 vec4 gl_Position;
 };
 
-uniform mat4 ViewMatrix;
-uniform mat4 VPMatrix;
-uniform mat4 ModelMatrix;
-uniform mat4 ViewToScreenMatrix;
 uniform LightData Light;
 
 layout(location = VPOSITION) in vec3 vPosition;
 
 out vec3 VertexPosVS;
 out vec4 ScreenPos;
-out mat4 ViewToWorld;
+// out mat4 ViewToWorld;
 // out Light iLight;
 
 mat4 MVPMatrix = VPMatrix * ModelMatrix;
@@ -28,7 +24,6 @@ mat4 MVPMatrix = VPMatrix * ModelMatrix;
 void main()
 {
     vec4 OutPosition;
-    ViewToWorld = inverse( ViewMatrix ); // TODO : to uniform
     if (IsPositionalLight( Light ))
     {
         VertexPosVS     = (ViewMatrix * ModelMatrix * vec4(vPosition, 1.0)).xyz;

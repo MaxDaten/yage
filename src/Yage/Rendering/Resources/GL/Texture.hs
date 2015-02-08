@@ -20,6 +20,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , BaseTexture(..)
   , Dimension2D(..)
   , Resizeable2D(resize2D)
+  , MipmapLevel
   , textureTarget
   , textureDimension
   , textureLevel
@@ -54,6 +55,7 @@ import           Quine.MipmapChain               as Img
 
 import           Quine.GL.Framebuffer            as Img
 import qualified Quine.GL.Texture                as GL
+import           Quine.GL.Texture                (MipmapLevel)
 import           Quine.GL.Sampler                as GL
 import           Quine.GL.Object
 import           Quine.StateVar

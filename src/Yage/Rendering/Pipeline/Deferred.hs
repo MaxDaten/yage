@@ -90,7 +90,7 @@ yDeferredLighting = do
     lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
     -- bloom pass
-    bloomed <- renderBloom -< (10,sceneTex)
+    bloomed <- renderBloom -< (2,sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
@@ -98,6 +98,7 @@ yDeferredLighting = do
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
   mkGbufferTarget rect | V2 w h <- rect^.extend = GBuffer
     <$> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
     <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
     <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
     <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1

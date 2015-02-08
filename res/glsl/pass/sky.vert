@@ -10,9 +10,6 @@ out gl_PerVertex {
 vec4 gl_Position;
 };
 
-uniform mat4 ViewMatrix        = mat4(1.0);
-uniform mat4 VPMatrix          = mat4(1.0);
-uniform mat4 ModelMatrix       = mat4(1.0);
 uniform mat4 SkyTextureMatrix  = mat4(1.0);
 
 layout(location = VPOSITION) in vec3 vPosition;

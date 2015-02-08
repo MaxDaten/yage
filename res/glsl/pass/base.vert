@@ -2,6 +2,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_include : require
 
+#include <common.h>
 #include <attributes.h>
 
 out gl_PerVertex {
@@ -12,10 +13,6 @@ uniform mat4 AlbedoTextureMatrix    = mat4(1.0);
 uniform mat4 NormalTextureMatrix    = mat4(1.0);
 uniform mat4 RoughnessTextureMatrix = mat4(1.0);
 uniform mat4 MetallicTextureMatrix  = mat4(1.0);
-uniform mat4 ViewMatrix          = mat4(1.0);
-uniform mat4 VPMatrix            = mat4(1.0);
-uniform mat4 ModelMatrix         = mat4(1.0);
-uniform mat3 NormalMatrix        = mat3(1.0);
 
 // naturally in model-space
 layout(location = VPOSITION) in vec3 vPosition;
@@ -28,6 +25,7 @@ out vec2 NormalST;
 out vec2 RoughnessST;
 out vec2 MetallicST;
 out mat3 TangentInverse;
+out vec3 PositionWorld;
 
 // Gram-Schmidt
 mat3 orthogonalize ( mat3 basis )
@@ -55,5 +53,6 @@ void main()
   vec3 tangentY        = normalize(cross( tangentZ, tangentX ) * vTangentZ.w);
   TangentInverse       = mat3( tangentX, tangentY, tangentZ );
 
-  gl_Position     = ModelToProj * vec4( vPosition, 1.0 );
+  PositionWorld        = vec3(ModelMatrix * vec4(vPosition, 1.0));
+  gl_Position     = ModelToProj * vec4(vPosition, 1.0);
 }

@@ -117,8 +117,8 @@ traverseA tsys = mkDynamicRenderPass $ \xs -> do
   tr <- sequence $ zipWithTF runRenderSystem tsys xs
   return (fst <$> tr, traverseA (snd <$> tr))
 
--- | Lifts a 'RenderSysten' into a semi static folding 'RenderSystem'.
--- Semi static means in this context: during the fold with the 'RenderSystem',
+-- | Lifts a 'RenderSysten' into a full dynamic folding 'RenderSystem'.
+-- Full dynamic means in this context: ever call during the fold with the 'RenderSystem',
 -- the system is driven forward, but every new call of 'foldA' restarts again with the argument 'RenderSystem'.
 foldA :: Monad m => RenderSystem m (i, o) o -> RenderSystem m ([i], o) o
 foldA s = mkDynamicRenderPass go where

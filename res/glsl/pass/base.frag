@@ -16,13 +16,12 @@ uniform vec4 NormalColor;
 uniform float RoughnessIntensity;
 uniform float MetallicIntensity;
 
-// uniform mat4 ModelMatrix = mat4(1.0);
-
 in vec2 AlbedoST;
 in vec2 NormalST;
 in vec2 RoughnessST;
 in vec2 MetallicST;
 in mat3 TangentInverse;
+in vec3 PositionWorld;
 
 
 Surface GetSurface(void)
@@ -35,9 +34,10 @@ Surface GetSurface(void)
   vec3 N = NormalColor.rgb * DecodeTextureNormal( texture( NormalTexture, NormalST ).rgb );
   N.z = NormalColor.a;
   surface.Normal      = normalize( TangentInverse * N  );
+
+  surface.Position    = PositionWorld;
   return surface;
 }
-
 
 void main()
 {

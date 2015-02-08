@@ -34,6 +34,7 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , aBuffer
   , bBuffer
   , cBuffer
+  , dBuffer
   , depthBuffer
   -- * Pass
   , gPass
@@ -126,8 +127,9 @@ data VertexShader = VertexShader
 data GBuffer = GBuffer
   { _aBuffer     :: Texture2D PixelRGBA8
   , _bBuffer     :: Texture2D PixelRGBA8
-  , _cBuffer     :: Texture2D PixelRG16F
-  , _depthBuffer :: Texture2D (DepthComponent24 Float)
+  , _cBuffer     :: Texture2D PixelRGB32F
+  , _dBuffer     :: Texture2D PixelRGB32F
+  , _depthBuffer :: Texture2D (DepthComponent32F Float)
   } deriving (Typeable,Show,Generic)
 
 makeLenses ''GBuffer
@@ -252,7 +254,7 @@ defaultGBaseMaterial = GBaseMaterial
       & materialColor   .~ rgb 2 2 2 `withOpacity` 0.75
       & materialTexture .~ zNormalDummy
   , _gBaseMaterialRoughness = mkMaterial 1.0 whiteDummy
-  , _gBaseMaterialMetallic  = mkMaterial 1.0 blackDummy
+  , _gBaseMaterialMetallic  = mkMaterial 0.0 whiteDummy
   }
 
 gBaseMaterialRes :: GBaseMaterial Image -> YageResource (GBaseMaterial Texture2D)
@@ -336,7 +338,13 @@ mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
   return s
 
 instance IsRenderTarget GBuffer where
-  getAttachments GBuffer{..} = ([mkAttachment _aBuffer, mkAttachment _bBuffer, mkAttachment _cBuffer], Just $ mkAttachment _depthBuffer, Nothing)
+  getAttachments GBuffer{..} =
+    ( [ mkAttachment _aBuffer
+      , mkAttachment _bBuffer
+      , mkAttachment _cBuffer
+      , mkAttachment _dBuffer
+      ]
+    , Just $ mkAttachment _depthBuffer, Nothing)
 
 instance GetRectangle GBuffer Int where
   asRectangle = aBuffer.asRectangle
@@ -346,4 +354,5 @@ instance Resizeable2D GBuffer where
     aBuffer <~ resize2D (gbuff^.aBuffer) w h
     bBuffer <~ resize2D (gbuff^.bBuffer) w h
     cBuffer <~ resize2D (gbuff^.cBuffer) w h
+    dBuffer <~ resize2D (gbuff^.dBuffer) w h
     depthBuffer <~ resize2D (gbuff^.depthBuffer) w h

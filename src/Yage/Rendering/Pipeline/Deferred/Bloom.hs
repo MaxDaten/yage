@@ -32,11 +32,11 @@ addBloom numSamples = do
   return $ proc (thrshold, inTexture) -> do
 
     -- filter luma on half texture
-    halfTarget <- autoResized mkTarget -< inTexture^.asRectangle & extend.mapped %~ (`div` 2)
-    half       <- processPass dsampler -< (halfTarget,inTexture)
-    filteredTex <- filterLuma -< (thrshold,half)
+    halfTarget  <- autoResized mkTarget -< inTexture^.asRectangle & extend.mapped %~ (`div` 2)
+    half        <- processPass dsampler -< (halfTarget,inTexture)
+    filteredTex <- filterLuma           -< (thrshold,inTexture)
 
-    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples) (inTexture^.asRectangle)
+    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples+1) (inTexture^.asRectangle)
     downsampledTextures <- halfSamplers                 -< (downTargets,[filteredTex])
 
     targets             <- mapA (autoResized mkTarget)     -< downsampledTextures & mapped %~ view asRectangle
