@@ -128,7 +128,7 @@ simplePipeline = do
     game <- ask
     screenQuadPass .
       dimap (,game^.camera, game^.mainViewport)
-            (\base -> ([(1,baseSampler,base^.aBuffer)], game^.mainViewport))
+            (\base -> ([(1,baseSampler,base^.aChannel)], game^.mainViewport))
             gBasePass
 
 mkBaseSampler :: YageResource Sampler

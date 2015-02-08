@@ -31,11 +31,11 @@ module Yage.Rendering.Pipeline.Deferred.BaseGPass
   , GBaseVertex
   -- * Pass Output
   , GBuffer(..)
-  , aBuffer
-  , bBuffer
-  , cBuffer
-  , dBuffer
-  , depthBuffer
+  , aChannel
+  , bChannel
+  , cChannel
+  , dChannel
+  , depthChannel
   -- * Pass
   , gPass
   ) where
@@ -125,11 +125,11 @@ data VertexShader = VertexShader
 
 -- | The output GBuffer of this pass (for encoding see "res/glsl/pass/gbuffer.h")
 data GBuffer = GBuffer
-  { _aBuffer     :: Texture2D PixelRGBA8
-  , _bBuffer     :: Texture2D PixelRGBA8
-  , _cBuffer     :: Texture2D PixelRGB32F
-  , _dBuffer     :: Texture2D PixelRGB32F
-  , _depthBuffer :: Texture2D (DepthComponent32F Float)
+  { _aChannel     :: Texture2D PixelRGBA8
+  , _bChannel     :: Texture2D PixelRGBA8
+  , _cChannel     :: Texture2D PixelRGB32F
+  , _dChannel     :: Texture2D PixelRGB32F
+  , _depthChannel :: Texture2D (DepthComponent32F Float)
   } deriving (Typeable,Show,Generic)
 
 makeLenses ''GBuffer
@@ -339,20 +339,20 @@ mkMetallicSampler = throwWithStack $ sampler2D METALLIC_UNIT <$> do
 
 instance IsRenderTarget GBuffer where
   getAttachments GBuffer{..} =
-    ( [ mkAttachment _aBuffer
-      , mkAttachment _bBuffer
-      , mkAttachment _cBuffer
-      , mkAttachment _dBuffer
+    ( [ mkAttachment _aChannel
+      , mkAttachment _bChannel
+      , mkAttachment _cChannel
+      , mkAttachment _dChannel
       ]
-    , Just $ mkAttachment _depthBuffer, Nothing)
+    , Just $ mkAttachment _depthChannel, Nothing)
 
 instance GetRectangle GBuffer Int where
-  asRectangle = aBuffer.asRectangle
+  asRectangle = aChannel.asRectangle
 
 instance Resizeable2D GBuffer where
   resize2D gbuff w h = flip execStateT gbuff $ do
-    aBuffer <~ resize2D (gbuff^.aBuffer) w h
-    bBuffer <~ resize2D (gbuff^.bBuffer) w h
-    cBuffer <~ resize2D (gbuff^.cBuffer) w h
-    dBuffer <~ resize2D (gbuff^.dBuffer) w h
-    depthBuffer <~ resize2D (gbuff^.depthBuffer) w h
+    aChannel <~ resize2D (gbuff^.aChannel) w h
+    bChannel <~ resize2D (gbuff^.bChannel) w h
+    cChannel <~ resize2D (gbuff^.cChannel) w h
+    dChannel <~ resize2D (gbuff^.dChannel) w h
+    depthChannel <~ resize2D (gbuff^.depthChannel) w h

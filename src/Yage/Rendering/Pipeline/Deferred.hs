@@ -88,7 +88,7 @@ yDeferredLighting = do
     lbufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
     let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
     lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
-    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthBuffer)
+    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthChannel)
     -- bloom pass
     bloomed <- renderBloom -< (2,sceneTex)
 
@@ -97,11 +97,11 @@ yDeferredLighting = do
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
   mkGbufferTarget rect | V2 w h <- rect^.extend = GBuffer
-    <$> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
-    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
-    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
-    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
-    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+    <$> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1 -- a channel
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1 -- b channel
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1 -- c channel
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1 -- d channel
+    <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1 -- depth channel
 
   mkLightBuffer :: Rectangle Int -> YageResource LightBuffer
   mkLightBuffer rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1

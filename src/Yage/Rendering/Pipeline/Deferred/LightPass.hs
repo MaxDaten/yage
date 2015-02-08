@@ -216,17 +216,17 @@ fragmentUniforms prog = do
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
 gBufferUniform prog = do
   gbufferSampler <- mkGBufferSampler
-  aChannel <- samplerUniform prog (sampler2D G_CHANNEL_A gbufferSampler) "inChannelA"
-  bChannel <- samplerUniform prog (sampler2D G_CHANNEL_B gbufferSampler) "inChannelB"
-  cChannel <- samplerUniform prog (sampler2D G_CHANNEL_C gbufferSampler) "inChannelC"
-  dChannel <- samplerUniform prog (sampler2D G_CHANNEL_D gbufferSampler) "inChannelD"
+  _aChannel <- samplerUniform prog (sampler2D G_CHANNEL_A gbufferSampler) "inChannelA"
+  _bChannel <- samplerUniform prog (sampler2D G_CHANNEL_B gbufferSampler) "inChannelB"
+  _cChannel <- samplerUniform prog (sampler2D G_CHANNEL_C gbufferSampler) "inChannelC"
+  _dChannel <- samplerUniform prog (sampler2D G_CHANNEL_D gbufferSampler) "inChannelD"
   depthTexture <- samplerUniform prog (sampler2D G_DEPTH gbufferSampler) "DepthTexture"
   return $ SettableStateVar $ \gbuff -> do
-    aChannel  $= Just (gbuff^.aBuffer)
-    bChannel  $= Just (gbuff^.bBuffer)
-    cChannel  $= Just (gbuff^.cBuffer)
-    dChannel  $= Just (gbuff^.dBuffer)
-    depthTexture $= Just (gbuff^.depthBuffer)
+    _aChannel  $= Just (gbuff^.aChannel)
+    _bChannel  $= Just (gbuff^.bChannel)
+    _cChannel  $= Just (gbuff^.cChannel)
+    _dChannel  $= Just (gbuff^.dChannel)
+    depthTexture $= Just (gbuff^.depthChannel)
 
 -- * Sampler
 
