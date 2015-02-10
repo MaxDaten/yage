@@ -4,6 +4,7 @@
 
 #include <common.h>
 #include <definitions.h>
+#include <textureUnits.h>
 #include "pass/gbuffer.h"
 
 uniform sampler2D AlbedoTexture;
@@ -22,6 +23,11 @@ in vec2 RoughnessST;
 in vec2 MetallicST;
 in mat3 TangentInverse;
 in vec3 PositionWorld;
+
+layout (location = G_CHANNEL_A) out vec4 outChannelA;
+layout (location = G_CHANNEL_B) out vec4 outChannelB;
+layout (location = G_CHANNEL_C) out vec4 outChannelC;
+layout (location = G_CHANNEL_D) out vec4 outChannelD;
 
 
 Surface GetSurface(void)
@@ -42,5 +48,5 @@ Surface GetSurface(void)
 void main()
 {
     Surface surface = GetSurface();
-    EncodeGBuffer( surface );
+    EncodeGBuffer( surface, outChannelA, outChannelB, outChannelC, outChannelD );
 }

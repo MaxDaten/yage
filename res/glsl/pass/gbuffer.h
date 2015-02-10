@@ -7,7 +7,6 @@
 #define __GBUFFER_H__
 
 #include <common.h>
-#include <textureUnits.h>
 
 /*
     0 : simple z reconstruction
@@ -15,11 +14,6 @@
     2 : octahedron transformation (world space)
 */
 #define NORMAL_ENCODING_TYPE 2
-layout (location = G_CHANNEL_A) out vec4 outChannelA;
-layout (location = G_CHANNEL_B) out vec4 outChannelB;
-layout (location = G_CHANNEL_C) out vec4 outChannelC;
-layout (location = G_CHANNEL_D) out vec4 outChannelD;
-
 
 uniform sampler2D inChannelA;
 uniform sampler2D inChannelB;
@@ -121,7 +115,7 @@ vec3 DecodeNormalXY( vec2 Normal )
 }
 
 
-void EncodeGBuffer( Surface surface )
+void EncodeGBuffer( Surface surface, out vec4 outChannelA, out vec4 outChannelB, out vec4 outChannelC, out vec4 outChannelD )
 {
     outChannelA.rgb   = surface.Albedo.rgb;
     outChannelA.a     = 1.0; // unused

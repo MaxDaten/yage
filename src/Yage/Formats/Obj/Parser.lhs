@@ -17,7 +17,6 @@ full spec: http://www.martinreddy.net/gfx/3d/OBJ.spec
 > import qualified Data.Attoparsec.ByteString.Char8 as B
 > import Control.Applicative
 > import Linear
-> import Linear.DeepSeq ()
 
 > import Generics.Deriving.Monoid
 
