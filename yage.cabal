@@ -220,7 +220,7 @@ library
     , yage-geometry         == 0.0.0.3
 
     , typography-ft2        == 0.4.*
-    , gl                    >= 0.6
+    , gl                    >= 0.7.2.2
     , quine                 == 0.1
     , ekg                   >= 0.4.0.5
     
@@ -266,8 +266,7 @@ library
     , colour                >= 2.3.3
     , linear                >= 1.10
     , half                  >= 0.2
-    , netwire               >= 5
-    , vinyl                 >= 0.5.1
+    , netwire               == 5.0.0
 
     , JuicyPixels           >= 3.2
     , zlib                  >= 0.5
