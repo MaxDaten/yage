@@ -57,6 +57,7 @@ import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 import             Paths_yage                      (version)
 import             Data.Version                    (showVersion)
+import             Graphics.GL.Ext.AMD.SparseTexture
 ---------------------------------------------------------------------------------------------------
 
 type RendererM = ResourceT (ReaderT RenderContext IO)
@@ -146,10 +147,14 @@ yageMain title config sim piperesource dt = do
     liftApp $ infoLog $ asString $ printf "yage:    %s" (showVersion version)
     liftApp $ infoLog $ asString $ printf "gl:      %s" (asString VERSION_gl)
     liftApp $ infoLog $ asString $ printf "netwire: %s" (asString VERSION_netwire)
-    win <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
+    win   <- createWindowWithHints (windowHints winConf) (fst $ windowSize winConf) (snd $ windowSize winConf) title
     ogl   <- liftApp $ getWindowContextGLVersion win
     liftApp $ infoLog $ asString $ printf "opengl:  %s" (showVersion ogl)
+    liftApp $ infoLog $ asString $ printf "=========="
+    liftApp $ infoLog $ asString $ printf "switch context:  %s" (show win)
     makeContextCurrent $ Just win
+    liftApp $ infoLog $ asString $ printf "after context"
+    liftApp $ infoLog $ asString $ printf "extension sparse: %s" (show gl_AMD_sparse_texture)
     installGLDebugHook =<< io (getLogger "opengl.debughook")
 
     with ((>>>) <$> piperesource <*> textureToScreen) $ \pipe -> do

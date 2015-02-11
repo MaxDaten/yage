@@ -33,6 +33,7 @@ installGLDebugHook logger = go `catch` \(e::DebugHookException) -> logging logge
      wrapException DebugHookException $ do
       gl $ glDebugMessageCallback cb nullPtr
       gl $ glEnable GL_DEBUG_OUTPUT_SYNCHRONOUS
+      liftIO $ logL logger NOTICE $ printf "debug hook installed"
    | otherwise = throw DebugHookNotSupported
 
 
