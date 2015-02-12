@@ -32,7 +32,7 @@ import           Yage.Rendering.RenderTarget
 import           Yage.Rendering.Resources.GL
 import           Yage.Scene
 import           Yage.Viewport
-import           Yage.Material
+import           Yage.Material hiding (over)
 import           Foreign.Ptr
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
@@ -65,7 +65,7 @@ yDeferredLighting
   => YageResource (RenderSystem m a (Texture2D PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWithStack $ buildNamedStrings embeddedShaders ("/res/glsl"</>)
+  throwWithStack $ buildNamedStrings (embeddedShaders) ((++) "/res/glsl/")
   -- throwWithStack $ setupDefaultTexture
 
   drawGBuffer    <- gPass
@@ -94,6 +94,7 @@ yDeferredLighting = do
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
+
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
   mkGbufferTarget rect | V2 w h <- rect^.extend = GBuffer

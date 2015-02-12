@@ -27,6 +27,8 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.Resources.GL.Base
 import qualified Data.ByteString.Char8 as Char8
 import           Data.Data
+import qualified System.FilePath.Windows as W (pathSeparator)
+import qualified System.FilePath.Posix   as P (pathSeparator)
 import           Data.FileEmbed (bsToExp)
 import qualified Data.Text.IO as T
 import qualified Data.Text.Encoding as T
@@ -104,7 +106,7 @@ compileProgram (fp, src) paths = mkAcquire create free where
     let ty = fileToShaderType fp
     s <- createShader ty
     shaderSource s $= repack src
-    compileShaderInclude s (fpToString <$> paths)
+    compileShaderInclude s (fmap toPosixStyle . fpToString <$> paths)
     compiled <- compileStatus s
     shaderLog <- fmap (force.Char8.unpack) . Char8.lines <$> shaderInfoLog s
     prog <- gen
@@ -119,6 +121,9 @@ compileProgram (fp, src) paths = mkAcquire create free where
     unless linked $ throwM $ ShaderException "linking not successful" fp theLog
     return $ ShaderProgram fp ty prog theLog
   free = delete . _shaderProg
+  toPosixStyle c | c == W.pathSeparator = P.pathSeparator
+                 | otherwise = c
+
 
 createShaderPipeline :: [ShaderProgram] -> Acquire Pipeline
 createShaderPipeline programs = do

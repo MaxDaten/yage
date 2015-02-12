@@ -6,7 +6,11 @@ module Yage.Rendering.Pipeline.Deferred.Common
   , includePaths
   ) where
 
+import Yage.Prelude hiding (FilePath)
+import Yage.Lens
 import System.FilePath
+import qualified System.FilePath.Windows as W (pathSeparator)
+import qualified System.FilePath.Posix   as P (pathSeparator)
 import qualified Filesystem.Path.CurrentOS as F
 import Data.ByteString
 import Data.FileEmbed
@@ -15,7 +19,9 @@ import Data.FileEmbed
 -- as a try to speed up the recompile times. A seperate module changes less often
 -- than a core module
 embeddedShaders :: [(FilePath,ByteString)]
-embeddedShaders = $(embedDir "res/glsl")
+embeddedShaders = over (mapped._1.mapped) toPosixStyle ($(embedDir "res/glsl")) where
+  toPosixStyle c | c == W.pathSeparator = P.pathSeparator
+                 | otherwise = c
 
 includePaths :: [F.FilePath]
 includePaths = ["/res/glsl"]
