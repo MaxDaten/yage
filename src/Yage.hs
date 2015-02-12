@@ -52,6 +52,7 @@ import             Yage.Internal.Debug
 import             Quine.StateVar                  as Quine
 import             Quine.Monitor
 import             Quine.GL.Types                  as GLTypes
+import qualified   Quine.GL.Version                as GL
 import             Yage.Rendering.Resources.GL
 import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
@@ -153,8 +154,10 @@ yageMain title config sim piperesource dt = do
     liftApp $ infoLog $ asString $ printf "=========="
     liftApp $ infoLog $ asString $ printf "switch context:  %s" (show win)
     makeContextCurrent $ Just win
-    liftApp $ infoLog $ asString $ printf "after context"
-    liftApp $ infoLog $ asString $ printf "extension sparse: %s" (show gl_AMD_sparse_texture)
+    liftApp $ infoLog $ asString $ printf "vendor:    %s" GL.vendor
+    liftApp $ infoLog $ asString $ printf "renderer:  %s" GL.renderer
+    liftApp $ infoLog $ asString $ printf "version:   %s" (showVersion GL.version)
+    liftApp $ infoLog $ asString $ printf "glsl:      %s" (showVersion GL.shadingLanguageVersion)
     installGLDebugHook =<< io (getLogger "opengl.debughook")
 
     with ((>>>) <$> piperesource <*> textureToScreen) $ \pipe -> do
