@@ -18,6 +18,7 @@ import Yage.Core.Application
 
 data DebugHookException =
     DebugHookException GLError
+  | DebugHookCriticalError
   | DebugHookNotSupported
   deriving (Show,Typeable,Data,Generic)
 
@@ -41,6 +42,8 @@ glCallback :: Logger -> GLenum -> GLenum -> GLuint -> GLenum -> GLsizei -> Ptr G
 glCallback logger source t ident severity _ message _ = do
   message' <- peekCString message
   logL logger priority $ (printf "[%s] %s (%d): {%s}" t' source' ident message')
+  --when (priority >= Error) $ throwIO DebugHookCriticalError
+  when (priority == CRITICAL) $ throwIO DebugHookCriticalError
  where
   source', t' :: String
   source' = case source of
