@@ -48,6 +48,7 @@ import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
 
 import           System.FilePath ((</>))
+import           Control.Arrow
 import           Quine.GL.Shader
 import           Quine.GL.Types
 import           Quine.StateVar
@@ -91,7 +92,10 @@ yDeferredLighting = do
 
     -- sky pass
     skyTarget <- onChange  -< (lBuffer, gBuffer^.depthChannel)
-    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
+    sceneTex <- if isJust $ input^.scene.environment.sky
+      then skyPass -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
+      else returnA -< lBuffer
+
     -- bloom pass
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
