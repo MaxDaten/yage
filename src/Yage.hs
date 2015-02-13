@@ -153,11 +153,12 @@ yageMain title config sim piperesource dt = do
     liftApp $ infoLog $ asString $ printf "=========="
     liftApp $ infoLog $ asString $ printf "switch context:  %s" (show win)
     makeContextCurrent $ Just win
-    liftApp $ infoLog $ asString $ printf "vendor:    %s" GL.vendor
-    liftApp $ infoLog $ asString $ printf "renderer:  %s" GL.renderer
-    liftApp $ infoLog $ asString $ printf "version:   %s" (showVersion GL.version)
-    liftApp $ infoLog $ asString $ printf "glsl:      %s" (showVersion GL.shadingLanguageVersion)
-    installGLDebugHook =<< io (getLogger "opengl.debughook")
+    glDebugLogger <- io (getLogger "opengl.debughook")
+    liftApp $ logging glDebugLogger INFO $ asString $ printf "vendor:    %s" GL.vendor
+    liftApp $ logging glDebugLogger INFO $ asString $ printf "renderer:  %s" GL.renderer
+    liftApp $ logging glDebugLogger INFO $ asString $ printf "version:   %s" (showVersion GL.version)
+    liftApp $ logging glDebugLogger INFO $ asString $ printf "glsl:      %s" (showVersion GL.shadingLanguageVersion)
+    installGLDebugHook glDebugLogger
 
     with ((>>>) <$> piperesource <*> textureToScreen) $ \pipe -> do
       let metric    = Metrics ekg simCounter renderCounter
