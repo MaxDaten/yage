@@ -75,16 +75,8 @@ data Texture d a = Texture
   { _textureTarget    :: !GL.TextureTarget
   , _textureDimension :: !d
   , _textureLevel     :: !GL.MipmapLevel
-  , _textureObject    :: !(IORef GL.Texture)
-  } deriving (Typeable,Generic)
-
-instance Show d => Show (Texture d px) where
-  show Texture{..} =
-    showString "Texture { " .
-    showString "textureTarget = " . showString (GL.showTextureTarget _textureTarget) .
-    showString ", textureDimension = ". shows _textureDimension .
-    showString ", textureLevel = " . shows _textureLevel $
-    " }"
+  , _textureObject    :: !GL.Texture
+  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
 
 makeLenses ''Texture
 
@@ -117,26 +109,26 @@ createTextureFromImage :: (Image2D i, GetRectangle i Int, BaseTexture i d) => i 
 createTextureFromImage img = mkAcquire acq free where
   acq = throwWithStack $ do
     obj <- gen
-    tex <- Texture target dimension (levels img) <$> newIORef obj
+    let tex = Texture target dimension (levels img) obj
     GL.boundTexture target 0 $= obj
     store img target
     upload img target 0
     return tex
-  free tex  = delete =<< (get $ tex^.textureObject)
+  free tex  = delete $ tex^.textureObject
   target    = baseTarget img
   dimension = baseDimension img
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
 createTexture2D :: forall px d. (ImageFormat px, Dimension2D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
 createTexture2D target d l = mkAcquire acq free where
-  acq = Texture target d (fromIntegral l) <$> (newIORef =<< newTextureStorageObj target (fromIntegral l) (d^.wh._x) (d^.wh._y) (Proxy :: Proxy px))
-  free tex = delete =<< (get $ tex^.textureObject)
+  acq = Texture target d (fromIntegral l) <$> (newTextureStorageObj target (fromIntegral l) (d^.wh._x) (d^.wh._y) (Proxy :: Proxy px))
+  free tex = delete (tex^.textureObject)
 
 resizeTexture2D :: forall px d m. (ImageFormat px, Dimension2D d, MonadIO m) => Texture d px -> Int -> Int -> m (Texture d px)
 resizeTexture2D tex w h = throwWithStack $! do
   new <- newTextureStorageObj (tex^.textureTarget) (tex^.textureLevel) w h (Proxy :: Proxy px)
-  delete =<< (liftIO $ atomicModifyIORef' (tex^.textureObject) (new,))
-  return $ tex & textureDimension.wh .~ V2 w h
+  delete $ tex^.textureObject
+  return $ tex & textureObject .~ new & textureDimension.wh .~ V2 w h
 
 bindTexture:: (MonadIO m, HasGetter g IO a, Integral a) => GL.TextureTarget -> g -> Maybe (Texture2D px) -> m ()
 bindTexture target st mtex = throwWithStack $! do
@@ -146,31 +138,13 @@ bindTexture target st mtex = throwWithStack $! do
 bindTextures:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Texture d px))] -> m ()
 bindTextures target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= unit
-  obj <- maybe (return def) (get . view (textureObject)) mtex
-  GL.boundTexture target 0 $= obj
+  GL.boundTexture target 0 $= maybe def (view (textureObject)) mtex
 
 bindTextureSamplers:: MonadIO m => GL.TextureTarget -> [(GL.TextureUnit, Maybe (Sampler, Texture d px))] -> m ()
 bindTextureSamplers target pairs = throwWithStack $ forM_ pairs $ \(unit,mtex) -> do
   GL.activeTexture $= unit
-  obj <- maybe (return def) (get . view (_2.textureObject)) mtex
-  GL.boundTexture target 0 $= obj
+  GL.boundTexture target 0 $= maybe def (view (_2.textureObject)) mtex
   GL.boundSampler unit $= maybe def (view _1) mtex
-
-instance FramebufferAttachment (Texture Tex1D a) where
-  attach (FramebufferTarget target _) p tex = do
-    obj <- liftM object $ get (tex^.textureObject)
-    glFramebufferTexture1D target p (tex^.textureTarget) obj 0
-
-instance FramebufferAttachment (Texture Tex2D a) where
-  attach (FramebufferTarget target _) p tex = do
-    obj <- liftM object $ get (tex^.textureObject)
-    glFramebufferTexture2D target p (tex^.textureTarget) obj 0
-
-instance FramebufferAttachment (Texture Tex3D a) where
-  attach (FramebufferTarget target _) p tex = do
-    obj <- liftM object $ get (tex^.textureObject)
-    glFramebufferTexture3D target p (tex^.textureTarget) obj 0 0
-
 
 newTextureStorageObj :: MonadIO m => ImageFormat px => GL.TextureTarget -> GL.MipmapLevel -> Int -> Int -> Proxy px -> m GL.Texture
 newTextureStorageObj t l w h p = throwWithStack $! do
@@ -178,6 +152,15 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   throwWithStack $ GL.boundTexture t GL_TEXTURE_BINDING_2D $= tex
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
   return $ tex
+
+instance FramebufferAttachment (Texture Tex1D a) where
+  attach (FramebufferTarget target _) p tex = glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
+
+instance FramebufferAttachment (Texture Tex2D a) where
+  attach (FramebufferTarget target _) p tex = glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
+
+instance FramebufferAttachment (Texture Tex3D a) where
+  attach (FramebufferTarget target _) p tex = glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0
 
 instance (BaseTexture i Tex2D) => BaseTexture (Cubemap i) TexCube where
   baseTarget _ = GL_TEXTURE_CUBE_MAP
