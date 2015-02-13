@@ -12,7 +12,6 @@ import System.FilePath
 import qualified System.FilePath.Windows as W (pathSeparator)
 import qualified System.FilePath.Posix   as P (pathSeparator)
 import qualified Filesystem.Path.CurrentOS as F
-import Data.ByteString
 import Data.FileEmbed
 
 -- | Stored outside of 'Yage.Rendering.Pipeline.Deferred' in a seperated module
