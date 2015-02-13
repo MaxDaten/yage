@@ -58,7 +58,6 @@ import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 import             Paths_yage                      (version)
 import             Data.Version                    (showVersion)
-import             Graphics.GL.Ext.AMD.SparseTexture
 ---------------------------------------------------------------------------------------------------
 
 type RendererM = ResourceT (ReaderT RenderContext IO)
