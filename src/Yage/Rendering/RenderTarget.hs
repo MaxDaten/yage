@@ -49,7 +49,7 @@ instance (IsRenderTarget t, Resizeable2D t) => Resizeable2D (RenderTarget t) whe
     | t^.targetRectangle.extend == V2 w h = return t
     | otherwise = do
       new <- resize2D (t^.renderTarget) w h
-      let (cs,d,s) = getAttachments (t^.renderTarget)
+      let (cs,d,s) = getAttachments new
       fbo <- attachFramebuffer (t^.framebufferObj) cs d s
       return $ t & framebufferObj         .~ fbo
                  & targetRectangle.extend .~ V2 w h
