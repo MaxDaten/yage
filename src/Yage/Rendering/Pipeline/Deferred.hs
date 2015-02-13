@@ -81,14 +81,17 @@ yDeferredLighting = do
 
     -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
-    gbuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
+    gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
     -- environment & lighting
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
     lbufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
-    let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gbuffer)
+    let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gBuffer)
     lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
-    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, lBuffer, gbuffer^.depthChannel)
+
+    -- sky pass
+    skyTarget <- onChange  -< (lBuffer, gBuffer^.depthChannel)
+    sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
     -- bloom pass
     bloomed <- renderBloom -< (2,sceneTex)
 

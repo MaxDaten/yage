@@ -14,6 +14,8 @@ module Yage.Rendering.Pipeline.Deferred.SkyPass
   , SkyVertex
   , SkyMaterial(..)
   , HasSkyMaterial(skyMaterial)
+  , SkyTarget
+  , SkyPassInput
   , environmentMap
   , radianceMap
   , drawSky
@@ -36,6 +38,7 @@ import           Yage.Viewport
 import           Yage.Rendering.GL
 import           Yage.Rendering.Pipeline.Deferred.Common
 import           Yage.Rendering.RenderSystem
+import           Yage.Rendering.RenderTarget
 import           Yage.Rendering.Resources.GL
 
 import           Quine.GL.Uniform
@@ -80,9 +83,11 @@ data VertexShader = VertexShader
   , modelMatrix             :: UniformVar Mat4
   }
 
--- data SkyPassInput =
+type SkyTarget px = RenderTarget (Texture2D px, Texture2D (DepthComponent32F Float))
 
-drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (sky, Camera, Texture2D px, Texture2D (DepthComponent32F Float)) (Texture2D px))
+type SkyPassInput sky px = (sky, Camera, SkyTarget px)
+
+drawSky :: (MonadReader w m, HasViewport w Int, MonadResource m) => SkyEntity sky i v => YageResource (RenderSystem m (SkyPassInput sky px) (Texture2D px))
 drawSky = do
   vao <- glResource
   boundVertexArray $= vao
@@ -94,15 +99,8 @@ drawSky = do
   Just frag <- traverse fragmentUniforms =<< get (fragmentShader $ pipeline^.pipelineProgram)
   Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
 
-  fbo <- glResource
-  baseTexturesRef <- newIORef Nothing
-
-  return $ mkStaticRenderPass $ \(sky, cam, albedo, depth) -> do
-    boundFramebuffer RWFramebuffer $= fbo
-    baseTexs <- get baseTexturesRef
-    when (baseTexs /= Just (albedo^.textureObject,depth^.textureObject)) $ do
-      void $ attachFramebuffer fbo [mkAttachment albedo] (Just $ mkAttachment depth) Nothing
-      baseTexturesRef $= Just (albedo^.textureObject,depth^.textureObject)
+  return $ mkStaticRenderPass $ \(sky, cam, target) -> do
+    boundFramebuffer RWFramebuffer $= target^.framebufferObj
 
     -- state setting
     glEnable GL_DEPTH_TEST
@@ -122,7 +120,7 @@ drawSky = do
 
     setupSceneGlobals vert frag cam
     drawSkyEntity vert frag sky
-    return albedo
+    return $ target^.renderTarget._1
 
 
 setupSceneGlobals :: (MonadReader v m, HasViewport v Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> m ()
