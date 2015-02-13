@@ -9,11 +9,14 @@ import           Yage.Prelude hiding ((</>), foldM, cons, (++))
 import           Yage.Lens
 import           Yage.Math (V2(V2))
 
+import           Control.Applicative
+import           Control.Arrow
 import           Yage.Rendering.RenderSystem                     as RenderSystem
 import           Yage.Rendering.RenderTarget
 import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Yage.Scene
+import           Yage.HDR
 
 import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
 import           Yage.Rendering.Pipeline.Deferred.GaussianBlur   as Pass
@@ -23,25 +26,27 @@ import           Data.Maybe (fromJust)
 
 
 -- redundancy Yage.Rendering.Pipeline.Deferred.GaussianBlur.blurRenderSystem will be fixed with 'YageResource' factored out
-addBloom :: (ImageFormat px, MonadResource m) => Int -> YageResource (RenderSystem m (Float,Texture2D px) (Texture2D px))
-addBloom numSamples = do
+addBloom :: (ImageFormat px, MonadResource m) => YageResource (RenderSystem m (HDRBloomSettings,Texture2D px) (Texture2D px))
+addBloom = do
   dsampler          <- downsampler
   let halfSamplers  = batchedDownsampler dsampler
   gaussPass         <- dimap (\((a,b),c)->(a,b,c)) Just <$> gaussianSampler
-  filterLuma <- luminanceFilter
-  return $ proc (thrshold, inTexture) -> do
+  filterLuma        <- luminanceFilter
+  return $ proc (settings, inTexture) -> do
 
     -- filter luma on half texture
-    halfTarget  <- autoResized mkTarget -< inTexture^.asRectangle & extend.mapped %~ (`div` 2)
-    half        <- processPass dsampler -< (halfTarget,inTexture)
-    filteredTex <- filterLuma           -< (thrshold,inTexture)
+    half <- if settings^.bloomPreDownsampling > 1
+      then do
+        halfTarget <- autoResized mkTarget -< inTexture^.asRectangle & extend.mapped %~ (`div` (settings^.bloomPreDownsampling))
+        processPass dsampler -< (halfTarget,inTexture)
+      else returnA -< inTexture
+    filteredTex <- filterLuma           -< (settings^.bloomThreshold, half)
 
-    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (numSamples+1) (inTexture^.asRectangle)
+    downTargets         <- mapA (autoResized mkTarget)  -< targetRects (settings^.bloomGaussPasses) (inTexture^.asRectangle)
     downsampledTextures <- halfSamplers                 -< (downTargets,[filteredTex])
 
     targets             <- mapA (autoResized mkTarget)     -< downsampledTextures & mapped %~ view asRectangle
-    let gaussFoldingInput = (zip targets downsampledTextures, Nothing)
-    fromJust <$> foldA gaussPass -< gaussFoldingInput
+    fromJust <$> foldA gaussPass -< (zip targets downsampledTextures, Nothing)
  where
   mkTarget rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
   targetRects :: Int -> Rectangle Int -> [Rectangle Int]

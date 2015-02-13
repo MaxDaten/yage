@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE PatternGuards          #-}
+{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE Arrows                 #-}
 
 module Yage.Rendering.Pipeline.Deferred
@@ -57,11 +58,10 @@ type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMateri
 type DeferredEnvironment = Environment Light DeferredSky
 type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 
-maxBloomSamples :: Int
-maxBloomSamples = 5
+type DeferredMonad m env = (MonadResource m, MonadReader env m, HasViewport env Int)
 
 yDeferredLighting
-  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, MonadResource m, MonadReader v m, HasViewport v Int)
+  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
   => YageResource (RenderSystem m a (Texture2D PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
@@ -73,7 +73,7 @@ yDeferredLighting = do
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   drawLights      <- lightPass
-  renderBloom     <- addBloom maxBloomSamples
+  renderBloom     <- addBloom
   tonemapPass     <- toneMapper
 
   return $ proc input -> do
@@ -93,7 +93,7 @@ yDeferredLighting = do
     skyTarget <- onChange  -< (lBuffer, gBuffer^.depthChannel)
     sceneTex  <- skyPass   -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
     -- bloom pass
-    bloomed <- renderBloom -< (2,sceneTex)
+    bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)

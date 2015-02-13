@@ -34,7 +34,7 @@ data FragmentShader px = FragmentShader
 
 -- * Draw To Screen
 
-luminanceFilter :: forall px m. (MonadResource m, ImageFormat px) => YageResource (RenderSystem m (Float,Texture2D px) (Texture2D px))
+luminanceFilter :: forall px m. (MonadResource m, ImageFormat px) => YageResource (RenderSystem m (Double,Texture2D px) (Texture2D px))
 luminanceFilter = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -78,7 +78,7 @@ luminanceFilter = do
 
 
     iTexture $= toFilter
-    iLuminanceCutoff $= cutoff
+    iLuminanceCutoff $= realToFrac cutoff
 
     throwWithStack $
       glDrawArrays GL_TRIANGLES 0 3
