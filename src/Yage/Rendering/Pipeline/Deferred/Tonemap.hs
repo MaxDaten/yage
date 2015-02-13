@@ -19,19 +19,21 @@ import Quine.GL.VertexArray
 import Quine.GL.Program
 import Quine.GL.Sampler
 import Quine.GL.ProgramPipeline
+import Quine.GL.Uniform
 import Yage.Rendering.GL
 import Yage.Rendering.Pipeline.Deferred.Common
 
 #include "definitions.h"
 
 data FragmentShader px = FragmentShader
-  { iScene :: UniformVar (Texture2D px)
-  , iBloom :: UniformVar (Maybe (Texture2D px))
+  { iScene     :: UniformVar (Texture2D px)
+  , iBloom     :: UniformVar (Maybe (Texture2D px))
+  , iHdrSensor :: UniformVar HDRSensor
   }
 
 -- * Draw To Screen
 
-toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRCamera, Texture2D px, Maybe (Texture2D px)) (Texture2D PixelRGB8))
+toneMapper :: MonadResource m => YageResource (RenderSystem m (HDRSensor, Texture2D px, Maybe (Texture2D px)) (Texture2D PixelRGB8))
 toneMapper = do
   emptyvao <- glResource
   boundVertexArray $= emptyvao
@@ -46,7 +48,7 @@ toneMapper = do
   fbo <- glResource
 
   -- RenderPass
-  return $ mkStaticRenderPass $ \(_cam, sceneTex, mBloomTex) -> do
+  return $ mkStaticRenderPass $ \(sensor, sceneTex, mBloomTex) -> do
     target <- get outTexture
     when (target^.textureDimension /= sceneTex^.textureDimension) $ do
       let V2 w h = sceneTex^.asRectangle.extend
@@ -73,6 +75,7 @@ toneMapper = do
 
     iScene $= sceneTex
     iBloom $= mBloomTex
+    iHdrSensor $= sensor
 
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
 
@@ -88,6 +91,17 @@ fragmentUniforms prog = do
   FragmentShader
     <$> fmap (contramap Just) (samplerUniform prog toneSampler "iTextures[0]")
     <*> samplerUniform prog bloomSampler "iTextures[1]"
+    <*> hdrSensorUniform prog
+
+hdrSensorUniform :: MonadIO m => Program -> m (UniformVar HDRSensor)
+hdrSensorUniform prog = do
+  iExposure     <- programUniform programUniform1f prog "Exposure"
+  iExposureBias <- programUniform programUniform1f prog "ExposureBias"
+  iWhitePoint   <- programUniform programUniform1f prog "WhitePoint"
+  return $ SettableStateVar $ \sensor -> do
+    iExposure      $= sensor^.exposure.to realToFrac
+    iExposureBias  $= sensor^.exposureBias.to realToFrac
+    iWhitePoint    $= sensor^.whitePoint.to realToFrac
 
 -- * Samplers
 

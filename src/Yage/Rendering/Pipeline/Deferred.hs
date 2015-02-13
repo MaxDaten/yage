@@ -96,7 +96,7 @@ yDeferredLighting = do
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapPass -< (input^.hdrCamera, sceneTex, Just bloomed)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer

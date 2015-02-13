@@ -59,9 +59,9 @@ defaultHDRCamera :: Camera -> HDRCamera
 defaultHDRCamera cam = HDRCamera
   { _hdrCameraHandle  = cam
   , _hdrCameraSensor  = HDRSensor
-    { _hdrExposure      = 0.5
-    , _hdrExposureBias  = 1.0
-    , _hdrWhitePoint    = 0.5
+    { _hdrExposure      = 0.0
+    , _hdrExposureBias  = 0.0
+    , _hdrWhitePoint    = 0
     }
   , _hdrBloomSettings = defaultBloomSettings
   }
