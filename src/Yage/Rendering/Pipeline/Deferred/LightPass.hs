@@ -58,10 +58,7 @@ import Quine.GL.ProgramPipeline
 
 -- | Uniform StateVars of the fragment shader
 data FragmentShader = FragmentShader
-  { radianceEnvironment  :: UniformVar (Maybe (TextureCube PixelRGB8))
-  , maxMipmapLevel       :: UniformVar MipmapLevel
-  , diffuseMipmapOffset  :: UniformVar MipmapLevel
-  , gBuffer              :: UniformVar GBuffer
+  { gBuffer              :: UniformVar GBuffer
   , cameraPosition       :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
   , viewToWorld          :: UniformVar Mat4
@@ -88,7 +85,7 @@ data PassRes = PassRes
 
 type LightData      = RenderData Word32 (V.Position Vec3)
 type LightBuffer    = Texture2D PixelRGB11_11_10F
-type LightPassInput = (RenderTarget LightBuffer, Lights (Seq Light), (TextureCube PixelRGB8), Camera, GBuffer)
+type LightPassInput = (RenderTarget LightBuffer, Lights (Seq Light), Camera, GBuffer)
 type LightPass m g  = PassGEnv g PassRes m LightPassInput LightBuffer
 
 lightPass :: (MonadIO m, MonadThrow m, HasViewport g Int) => YageResource (LightPass m g)
@@ -109,20 +106,20 @@ lightPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline frag vert (Lights pointData spotData dirData)
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m LightPassInput LightBuffer
-  runPass = mkStaticRenderPass $ \(target, lights, radianceMap, cam, gBuffer) -> do
+  runPass = mkStaticRenderPass $ \(target, lights, cam, gBuffer) -> do
     PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
 
     -- some state setting
     -- we dont want to write to the depth buffer
-    glEnable GL_DEPTH_TEST
+    -- glEnable GL_DEPTH_TEST
+    glDisable GL_DEPTH_TEST
     glDepthMask GL_FALSE
     glDepthFunc GL_ALWAYS
 
-    glDisable GL_BLEND
-    -- glEnable GL_BLEND
-    -- glBlendEquation GL_FUNC_ADD
-    -- glBlendFunc GL_ONE GL_ONE
+    glEnable GL_BLEND
+    glBlendEquation GL_FUNC_ADD
+    glBlendFunc GL_ONE GL_ONE
 
     glFrontFace GL_CCW
     glEnable GL_CULL_FACE
@@ -136,13 +133,13 @@ lightPass = PassGEnv <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    setupSceneGlobals vert frag cam radianceMap gBuffer
+    setupSceneGlobals vert frag cam gBuffer
     drawLightEntities vert frag lightsData lights
     return $ target^.renderTarget
 
 
-setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> TextureCube PixelRGB8 -> GBuffer -> m ()
-setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gbuff = do
+setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => VertexShader -> FragmentShader -> Camera -> GBuffer -> m ()
+setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} gbuff = do
   vp <- view $ globalEnv.viewport
   let Rectangle xy0 xy1 = fromIntegral <$> vp^.rectangle
 
@@ -150,9 +147,6 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} radiance gb
   vpMatrix            $= fmap realToFrac <$> viewprojectionM vp
   viewMatrix          $= fmap realToFrac <$> (cam^.cameraMatrix)
   zProjectionRatio    $= zRatio
-  radianceEnvironment $= Just radiance
-  maxMipmapLevel      $= radiance^.textureLevel
-  diffuseMipmapOffset $= -2
   gBuffer             $= gbuff
   cameraPosition      $= realToFrac <$> cam^.position
   viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
@@ -177,8 +171,8 @@ drawLightEntities
     forM_ lights $ \light -> do
       -- set shader
       modelMatrix $= (fmap realToFrac <$> (light^.transformation.transformationMatrix))
-      fragLight $= light
       vertLight $= light
+      fragLight $= light
       -- render data (subject for instanced rendering)
       {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (dats^.elementMode) (fromIntegral $ dats^.elementCount) (dats^.elementType) nullPtr
 
@@ -204,10 +198,7 @@ fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
   sampl <- mkRadianceSampler
   FragmentShader
-    <$> samplerUniform prog sampl "RadianceEnvironment"
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "MaxMipmapLevel")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "DiffuseMipmapOffset")
-    <*> gBufferUniform prog
+    <$> gBufferUniform prog
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
     <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewToWorld")

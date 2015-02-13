@@ -49,16 +49,6 @@ float MaskingRadius( float distance2, float radius )
     return square( saturate( 1 - L0) );
 }
 
-
-vec3 ApproximateSpecularIBL( vec3 SpecularColor, float Roughness, float NoV, vec3 R)
-{
-    float MipMapLevel = Roughness * MaxMipmapLevel;
-    vec3 SpecularIBL  = textureLod( RadianceEnvironment, R, MipMapLevel ).rgb;
-
-    vec2 envBRDF = EnvironmentBRDF( Roughness, NoV );
-    return SpecularIBL * (SpecularColor * envBRDF.x + envBRDF.y);
-}
-
 vec3 ReflectanceTerm ( Surface surface, vec3 L, vec3 V )
 {
     float Roughness = surface.Roughness;
@@ -137,13 +127,6 @@ vec3 SurfaceShading ( Surface surface, LightData light )
         SpecularShading = ReflectanceTerm( surface, L, V );
         OutColor = light.LightColor.rgb * NoL * Attenuation * (DiffuseShading + SpecularShading);
     }
-    vec3 R   = reflect( -V, N );
-
-    vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, MaxMipmapLevel + DiffuseMipmapOffset ).rgb;
-    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
-
-    OutColor += DiffuseAmbient;
-    OutColor += SpecularAmbient;
 
     return OutColor;
 }
@@ -156,8 +139,10 @@ void main()
     pixelColor.rgb  = SurfaceShading ( surface, Light );
 
     // pixelColor.rgb = vec3(surface.Roughness);
-    // pixelColor.rgb  += vec3(0.1, 0, 0);
-    // pixelColor.rgb  = vec3(100, 0, 0);
+    // pixelColor.rgb  += vec3(0.01, 0, 0);
+    // if (IsPositionalLight(Light))
+    // {
+    // }
     // pixelColor.rgb  = EncodeTextureNormal(surface.Position / 10);
     // pixelColor.rgb = 0.5 * EncodeTextureNormal( surface.Normal );
 

@@ -36,16 +36,17 @@ import           Yage.Viewport
 import           Yage.Material hiding (over)
 import           Foreign.Ptr
 
-import           Yage.Rendering.Pipeline.Deferred.BaseGPass      as Pass
-import           Yage.Rendering.Pipeline.Deferred.Common         as Pass
-import           Yage.Rendering.Pipeline.Deferred.Downsampling   as Pass
+import           Yage.Rendering.Pipeline.Deferred.BaseGPass       as Pass
+import           Yage.Rendering.Pipeline.Deferred.Common          as Pass
+import           Yage.Rendering.Pipeline.Deferred.Downsampling    as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.GuiPass        as Pass
 -- import           Yage.Rendering.Pipeline.Deferred.HDR            as Pass
-import           Yage.Rendering.Pipeline.Deferred.Bloom          as Pass
-import           Yage.Rendering.Pipeline.Deferred.Tonemap        as Pass
-import           Yage.Rendering.Pipeline.Deferred.LightPass      as Pass
-import           Yage.Rendering.Pipeline.Deferred.ScreenPass     as Pass
-import           Yage.Rendering.Pipeline.Deferred.SkyPass        as Pass
+import           Yage.Rendering.Pipeline.Deferred.PostAmbientPass as Pass
+import           Yage.Rendering.Pipeline.Deferred.Bloom           as Pass
+import           Yage.Rendering.Pipeline.Deferred.Tonemap         as Pass
+import           Yage.Rendering.Pipeline.Deferred.LightPass       as Pass
+import           Yage.Rendering.Pipeline.Deferred.ScreenPass      as Pass
+import           Yage.Rendering.Pipeline.Deferred.SkyPass         as Pass
 
 import           System.FilePath ((</>))
 import           Control.Arrow
@@ -74,6 +75,7 @@ yDeferredLighting = do
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   drawLights      <- lightPass
+  postAmbient     <- postAmbientPass
   renderBloom     <- addBloom
   tonemapPass     <- toneMapper
 
@@ -84,17 +86,19 @@ yDeferredLighting = do
     gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
     gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
 
-    -- environment & lighting
+    -- lighting
+    lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
+    let lightPassInput = (lBufferTarget, input^.scene.environment.lights, input^.hdrCamera.camera, gBuffer)
+    lBuffer   <- processPassWithGlobalEnv drawLights  -< lightPassInput
+
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
-    lbufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
-    let lightPassInput = (lbufferTarget, input^.scene.environment.lights, radiance, input^.hdrCamera.camera, gBuffer)
-    lBuffer   <- processPassWithGlobalEnv drawLights -< lightPassInput
+    post      <- processPassWithGlobalEnv postAmbient -< (lBufferTarget, radiance, input^.hdrCamera.camera, gBuffer)
 
     -- sky pass
-    skyTarget <- onChange  -< (lBuffer, gBuffer^.depthChannel)
+    skyTarget <- onChange  -< (post, gBuffer^.depthChannel)
     sceneTex <- if isJust $ input^.scene.environment.sky
       then skyPass -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
-      else returnA -< lBuffer
+      else returnA -< post
 
     -- bloom pass
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)

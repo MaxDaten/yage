@@ -145,19 +145,20 @@ library
     Yage.Rendering.Resources.GL.TextureFormat
 
     Yage.Rendering.Pipeline.Deferred    
-    Yage.Rendering.Pipeline.Deferred.Common
-    Yage.Rendering.Pipeline.Deferred.Bloom
-    Yage.Rendering.Pipeline.Deferred.HDR
     Yage.Rendering.Pipeline.Deferred.BaseGPass
-    Yage.Rendering.Pipeline.Deferred.LightPass
-    Yage.Rendering.Pipeline.Deferred.Tonemap
-    Yage.Rendering.Pipeline.Deferred.SkyPass
-    Yage.Rendering.Pipeline.Deferred.ScreenPass
+    Yage.Rendering.Pipeline.Deferred.Bloom
+    Yage.Rendering.Pipeline.Deferred.Common
     Yage.Rendering.Pipeline.Deferred.Downsampling
     Yage.Rendering.Pipeline.Deferred.GaussianBlur
-    Yage.Rendering.Pipeline.Deferred.LuminanceFilter
-    Yage.Rendering.Pipeline.Deferred.Sampler
     Yage.Rendering.Pipeline.Deferred.GuiPass
+    Yage.Rendering.Pipeline.Deferred.HDR
+    Yage.Rendering.Pipeline.Deferred.LightPass
+    Yage.Rendering.Pipeline.Deferred.LuminanceFilter
+    Yage.Rendering.Pipeline.Deferred.PostAmbientPass
+    Yage.Rendering.Pipeline.Deferred.Sampler
+    Yage.Rendering.Pipeline.Deferred.ScreenPass
+    Yage.Rendering.Pipeline.Deferred.SkyPass
+    Yage.Rendering.Pipeline.Deferred.Tonemap
     
     Yage.Resource.YageResource
     Yage.Resource.MSlot
