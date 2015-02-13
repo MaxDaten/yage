@@ -123,3 +123,22 @@ makeDirectionalLight direction color intensity = Light
     }
  where
   worldpace = V3 (V3 1 0 0) (V3 0 1 0) (V3 0 0 1)
+
+-- | Creates a point omnidirectional light
+makePointlight
+  :: V3 Double
+  -- ^ position in world space
+  -> Double
+  -- ^ radius
+  -> V3 Double
+  -- ^ linear emitting color
+  -> Double
+  -- ^ intensity (lumen)
+  -> Light
+  -- ^ constructed point light
+makePointlight pos radius color intensity = Light
+    { _lightType           = Pointlight
+    , _lightTransformation = idTransformation & position .~ pos & scale .~ pure radius
+    , _lightIntensity      = intensity
+    , _lightColor          = color
+    }
