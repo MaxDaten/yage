@@ -59,22 +59,18 @@ data Scene ent env = Scene
 makeFields ''Scene
 makeClassy ''Scene
 
--- instance HasCamera cam => HasCamera (Scene cam ent env gui) where
---   camera = Yage.Scene.camera.camera
-
 emptyEnvironment :: Environment lit mat
 emptyEnvironment = Environment (Lights S.empty S.empty S.empty) Nothing (AmbientLight 0)
 {-# INLINE emptyEnvironment #-}
 
-{--
-## Structure access
-
-emptyScene :: cam -> gui -> Scene cam ent (Environment lit skymat) gui
-emptyScene cam = Scene S.empty emptyEnvironment cam
+emptyScene :: Scene ent (Environment lit sky)
+emptyScene = Scene S.empty emptyEnvironment
 {-# INLINE emptyScene #-}
 
 
+{--
 
+-- * Structure access
 
 addEntity :: Scene cam ent env dat -> ent -> Scene cam ent env dat
 addEntity scene ent = scene & sceneEntities %~ (S.|> ent)
