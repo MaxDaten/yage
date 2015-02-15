@@ -195,14 +195,12 @@ vertexUniforms prog = do
     <*> (lightUniform prog "Light")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
-fragmentUniforms prog = do
-  sampl <- mkRadianceSampler
-  FragmentShader
-    <$> gBufferUniform prog
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewToWorld")
-    <*> lightUniform prog "Light"
+fragmentUniforms prog = FragmentShader
+  <$> gBufferUniform prog
+  <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
+  <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
+  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewToWorld")
+  <*> lightUniform prog "Light"
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
 gBufferUniform prog = do
@@ -229,16 +227,4 @@ mkGBufferSampler = throwWithStack $ do
   samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
-  return sampler
-
-mkRadianceSampler :: YageResource (UniformSamplerCube PixelRGB8)
-mkRadianceSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
-  sampler <- glResource
-  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
-  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  when gl_ARB_seamless_cubemap_per_texture $ do
-    samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
   return sampler
