@@ -120,7 +120,6 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
 
 setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => FragmentShader px -> Camera -> TextureCube px -> GBuffer -> m ()
 setupSceneGlobals FragmentShader{..} cam@Camera{..} radiance gbuff = do
-  vp <- view $ globalEnv.viewport
   zProjectionRatio    $= zRatio
   radianceEnvironment $= Just radiance
   maxMipmapLevel      $= radiance^.textureLevel
@@ -129,8 +128,6 @@ setupSceneGlobals FragmentShader{..} cam@Camera{..} radiance gbuff = do
   cameraPosition      $= realToFrac <$> cam^.position
   viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
  where
-  viewprojectionM :: Viewport Int -> M44 Double
-  viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
   zRatio = realToFrac <$> V2 ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ)) (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
 
 fragmentUniforms :: Program -> YageResource (FragmentShader px)
