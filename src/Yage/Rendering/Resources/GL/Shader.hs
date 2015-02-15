@@ -67,7 +67,7 @@ fileToShaderType fp
   | hasExtension fp "vert"  = GL_VERTEX_SHADER
   | hasExtension fp "tessc" = GL_TESS_CONTROL_SHADER
   | hasExtension fp "tesse" = GL_TESS_EVALUATION_SHADER
-  | hasExtension fp "geo"   = GL_GEOMETRY_SHADER
+  | hasExtension fp "geom"  = GL_GEOMETRY_SHADER
   | hasExtension fp "frag"  = GL_FRAGMENT_SHADER
   | hasExtension fp "comp"  = GL_COMPUTE_SHADER
   | otherwise = error "invalid shader extension"
