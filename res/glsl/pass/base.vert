@@ -27,14 +27,6 @@ out vec2 MetallicST;
 out mat3 TangentInverse;
 out vec3 PositionWorld;
 
-// Gram-Schmidt
-mat3 orthogonalize ( mat3 basis )
-{
-  vec3 t = basis[0] - dot(basis[2], basis[0]) * basis[2];
-  vec3 b = basis[1] - dot(basis[2], basis[1]) * basis[2] - dot(t, basis[1]) * t;
-  return mat3(normalize(t), normalize(b), normalize(basis[2]));
-}
-
 void main()
 {
   mat4 ModelToView     = ViewMatrix * ModelMatrix;
