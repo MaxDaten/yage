@@ -14,12 +14,12 @@ in gl_PerVertex { vec4 gl_Position; } gl_in [];
 out gl_PerVertex { vec4 gl_Position; };
 
 out vec3 Position;
+out vec2 TextureCoord;
 flat out int Axis;
 flat out vec4 AABB;
-// out vec2 TextureCoord;
 // out mat3 TangentInverse;
 
-// in vec2 v_textureCoord[];
+in vec2 g_textureCoord[];
 // in vec3 v_tangentX[];
 // in vec4 v_tangentZ[];
 
@@ -94,15 +94,18 @@ void main()
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
 
   
-  Position = clip_position[0].xyz;
-  gl_Position = clip_position[0];
+  Position     = clip_position[0].xyz;
+  TextureCoord = g_textureCoord[0];
+  gl_Position  = clip_position[0];
   EmitVertex();
   
   Position = clip_position[1].xyz;
+  TextureCoord = g_textureCoord[1];
   gl_Position = clip_position[1];
   EmitVertex();
   
   Position = clip_position[2].xyz;
+  TextureCoord = g_textureCoord[2];
   gl_Position = clip_position[2];
   EmitVertex();
   
@@ -119,7 +122,7 @@ void main()
   vec3 tangentX   = normalize(NormalMatrix * v_tangentX[0].xyz);
   vec3 tangentY   = normalize(cross( tangentZ, tangentX ) * v_tangentZ[0].w);
   TangentInverse  = mat3( tangentX, tangentY, tangentZ );
-  TextureCoord = v_textureCoord[0];
+
   EmitVertex();
 
   // gl_Position = vec4(0, 1, 0, 0);

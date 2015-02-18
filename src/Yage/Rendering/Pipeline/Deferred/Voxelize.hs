@@ -147,6 +147,7 @@ setupGlobals GeometryShader{..} FragmentShader{..} voxelBuffer = do
  where
   Tex3D w h _ = voxelBuffer^.textureDimension
   dim     = V4 (fromIntegral w) (fromIntegral h) (recip $ fromIntegral w) (recip $ fromIntegral h)
+  -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
   xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
@@ -164,7 +165,7 @@ drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents =
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
     -- setup material
-    -- albedoMaterial    $= ent^.gBaseMaterial.albedo
+    albedoMaterial    $= ent^.gBaseMaterial.albedo
 
     -- bind vbo
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer

@@ -10,13 +10,13 @@
 #include "pass/voxelize.h"
 #include "pass/gbuffer.h"
 
-// uniform sampler2D AlbedoTexture;
-// uniform vec4 AlbedoColor;
+uniform sampler2D AlbedoTexture;
+uniform vec4 AlbedoColor;
 
 uniform layout(binding = 0, rgba8 ) image3D VoxelAlbedo;
 
 in vec3 Position;
-// in vec2 TextureCoord;
+in vec2 TextureCoord;
 // in mat3 TangentInverse;
 
 flat in int Axis;
@@ -67,5 +67,6 @@ void main()
     // discard;
   }
   // Surface surface = GetSurface();
-  imageStore(VoxelAlbedo, gridCoord, vec4(1, 1, 1, 1)); // Todo atomic
+  vec4 albedo = texture(AlbedoTexture, TextureCoord) * AlbedoColor;
+  imageStore(VoxelAlbedo, gridCoord, albedo); // Todo atomic
 }
