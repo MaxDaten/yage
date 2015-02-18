@@ -15,6 +15,7 @@ out gl_PerVertex { vec4 gl_Position; };
 
 out vec3 Position;
 flat out int Axis;
+flat out vec4 AABB;
 // out vec2 TextureCoord;
 // out mat3 TangentInverse;
 
@@ -26,9 +27,8 @@ uniform mat4 X_Projection;
 uniform mat4 Y_Projection;
 uniform mat4 Z_Projection;
 // x,y dimension of the voxel grid and the reciprocal 1/x, 1/y
-// uniform vec4 gridDim;
+uniform vec4 gridDim;
 
-// flat out vec4 AABB;
 
 void main()
 {
@@ -62,27 +62,6 @@ void main()
   clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
   clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
   clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
-  
-  Position = clip_position[0].xyz;
-  gl_Position = clip_position[0];
-  EmitVertex();
-  
-  Position = clip_position[1].xyz;
-  gl_Position = clip_position[1];
-  EmitVertex();
-  
-  Position = clip_position[2].xyz;
-  gl_Position = clip_position[2];
-  EmitVertex();
-  
-  EndPrimitive();
-
-/*
-  vec4 clip_position[3];
-  // project the vertices on the clip plane
-  clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
-  clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
-  clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
 
   // Axis Aligned Bounding Box of the triangle in clip space
   AABB = vec4(clip_position[0].xy, clip_position[0].xy);
@@ -99,7 +78,6 @@ void main()
   // vertex enlargement for conservative rasterization
   // (Conservative Rasterisation GPU Gems 2, Ch 42)[http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter42.html]
   // "Overestimated conservative rasterization can be seen as the image-processing operation dilation of the polygon by the pixel cell."
-  float pl = 1.4142135637309 * gridDim.z;
 
   // calculate the planes on the 3 edges (in normal form) for dilation
   vec3 e0 = vec3(clip_position[1].xy - clip_position[0].xy, 0);
@@ -110,9 +88,27 @@ void main()
   vec3 n2 = cross(e2, vec3(0,0,1));
 
   // now dilate (grow along the normal of the corresponding edge)
-  // clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
-  // clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
-  // clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
+  float pl = 1.4142135637309 * gridDim.z;
+  clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
+  clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
+  clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
+
+  
+  Position = clip_position[0].xyz;
+  gl_Position = clip_position[0];
+  EmitVertex();
+  
+  Position = clip_position[1].xyz;
+  gl_Position = clip_position[1];
+  EmitVertex();
+  
+  Position = clip_position[2].xyz;
+  gl_Position = clip_position[2];
+  EmitVertex();
+  
+  EndPrimitive();
+
+/*
 
   // we are done here, emit the new triangle
   // gl_Position = projectionMatrix * gl_in[0].gl_Position;

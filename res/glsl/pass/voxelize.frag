@@ -19,8 +19,8 @@ in vec3 Position;
 // in vec2 TextureCoord;
 // in mat3 TangentInverse;
 
-// flat in vec4 AABB;
 flat in int Axis;
+flat in vec4 AABB;
 
 /*
 Surface GetSurface(void)
@@ -39,9 +39,9 @@ Surface GetSurface(void)
 void main()
 {
   // discard fragments outside the triangle bound
-/*   if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
+  if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
     discard;
- */
+
   ivec3 gridDim = imageSize(VoxelAlbedo);
   ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z * gridDim.x);
   ivec3 gridCoord;
