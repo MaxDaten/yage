@@ -70,10 +70,11 @@ data GeometryShader = GeometryShader
 
 data FragmentShader = FragmentShader
   { albedoMaterial  :: UniformVar (Material MaterialColorAlpha (Texture2D PixelRGB8))
-  , voxelAlbedoImg  :: UniformVar (Texture3D PixelRGBA8)
+  , voxelAlbedoImg  :: UniformVar (Texture3D PixelR32UI)
   }
 
-type VoxelBuffer = Texture3D PixelRGBA8
+type VoxelBuffer = Texture3D PixelR32UI
+
 -- * Pass Resources
 
 data PassRes = PassRes
@@ -135,7 +136,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
     return $ voxelBuffer
 
-  cleardata = V.replicate (width * height * depth * componentCount (undefined :: PixelRGBA8)) 0
+  cleardata = V.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
 
 setupGlobals :: MonadIO m => GeometryShader -> FragmentShader -> VoxelBuffer -> m ()
 setupGlobals GeometryShader{..} FragmentShader{..} voxelBuffer = do

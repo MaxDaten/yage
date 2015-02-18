@@ -1,8 +1,10 @@
-#version 420 core
+#version 430 core
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_include : require
+#extension GL_ARB_shader_image_load_store : require
 #extension GL_ARB_geometry_shader4 : enable
 
+#include <common.h>
 
 in gl_PerVertex { vec4 gl_Position; } gl_in [];
 out gl_PerVertex { vec4 gl_Position; };
@@ -10,10 +12,10 @@ out gl_PerVertex { vec4 gl_Position; };
 layout ( points ) in;
 layout ( points, max_vertices = 1 ) out;
 
-in uvec3 v_VoxelCoord[];
+in ivec3 v_VoxelCoord[];
 out vec4 f_VoxelColor;
 
-uniform sampler3D toVis3D;
+uniform readonly layout(binding = 0, r32ui /*rgba32ui*/ ) uimage3D toVis3D;
 uniform vec2 gridDim;
 
 bool isVoxelPresent(in vec4 voxel)
@@ -23,7 +25,11 @@ bool isVoxelPresent(in vec4 voxel)
 
 void main()
 {
-	vec4 voxel = texture(toVis3D, v_VoxelCoord[0] / gridDim.x).rgba;
+	vec4 voxel = convRGBA8ToVec4(imageLoad(toVis3D, v_VoxelCoord[0]));
+	voxel.rgb /= 255.0;
+	// voxel.xyz = voxel.xyz * voxel.w;
+	// voxel.w = 1;
+
 	if (isVoxelPresent(voxel))
 	{
 		f_VoxelColor = voxel;

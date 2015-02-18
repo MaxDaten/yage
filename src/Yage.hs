@@ -58,6 +58,8 @@ import             Yage.Rendering.RenderContext
 import             Yage.Rendering.Pipeline.Deferred.ScreenPass as ScreenPass
 import             Paths_yage                      (version)
 import             Data.Version                    (showVersion)
+
+import             Graphics.GL.Ext.NV.ShaderAtomicFloat
 ---------------------------------------------------------------------------------------------------
 
 type RendererM = ResourceT (ReaderT RenderContext IO)
@@ -158,6 +160,8 @@ yageMain title config sim piperesource dt = do
     liftApp $ logging glDebugLogger INFO $ asString $ printf "renderer:  %s" GL.renderer
     liftApp $ logging glDebugLogger INFO $ asString $ printf "version:   %s" (showVersion GL.version)
     liftApp $ logging glDebugLogger INFO $ asString $ printf "glsl:      %s" (showVersion GL.shadingLanguageVersion)
+    -- check some requirements
+    liftApp $ logging glDebugLogger INFO $ asString $ printf "gl_NV_shader_atomic_float:      %s" (show gl_NV_shader_atomic_float)
     installGLDebugHook glDebugLogger
 
     with ((>>>) <$> piperesource <*> textureToScreen) $ \pipe -> do

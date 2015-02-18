@@ -8,7 +8,7 @@ out gl_PerVertex {
 vec4 gl_Position;
 };
 
-out uvec3 v_VoxelCoord;
+out ivec3 v_VoxelCoord;
 uniform vec2 gridDim;
 
 void main()
