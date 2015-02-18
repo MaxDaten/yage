@@ -202,7 +202,7 @@ fragmentUniforms prog = do
   albedoSampler    <- mkAlbedoSampler
   FragmentShader
     <$> materialUniformRGBA prog albedoSampler "AlbedoTexture" "AlbedoColor"
-    <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture 0 GL_READ_WRITE) "VoxelAlbedo")
+    <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_WRITE) "VoxelAlbedo")
 
 -- * Voxel Buffer
 
