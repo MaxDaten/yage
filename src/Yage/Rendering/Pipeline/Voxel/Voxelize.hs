@@ -13,7 +13,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE Arrows              #-}
-module Yage.Rendering.Pipeline.Deferred.Voxelize
+module Yage.Rendering.Pipeline.Voxel.Voxelize
   ( voxelizePass
   ) where
 
@@ -96,9 +96,9 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     vao <- glResource
     boundVertexArray $= vao
 
-    pipeline <- [ $(embedShaderFile "res/glsl/pass/voxelize.vert")
-                , $(embedShaderFile "res/glsl/pass/voxelize.frag")
-                , $(embedShaderFile "res/glsl/pass/voxelize.geom")]
+    pipeline <- [ $(embedShaderFile "res/glsl/voxel/voxelize.vert")
+                , $(embedShaderFile "res/glsl/voxel/voxelize.frag")
+                , $(embedShaderFile "res/glsl/voxel/voxelize.geom")]
                 `compileShaderPipeline` includePaths
 
     Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)

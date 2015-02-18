@@ -21,11 +21,10 @@ data-files:
   res/glsl/*.h
   res/glsl/pass/*.frag
   res/glsl/pass/*.vert
-  res/glsl/pass/*.geom
   res/glsl/pass/*.h
-  res/glsl/utils/*.frag
-  res/glsl/utils/*.vert
-  res/glsl/utils/*.geom
+  res/glsl/voxel/*.frag
+  res/glsl/voxel/*.vert
+  res/glsl/voxel/*.geom
   res/glsl/sampling/*.frag
   res/glsl/sampling/*.h
 
@@ -164,9 +163,9 @@ library
     Yage.Rendering.Pipeline.Deferred.ScreenPass
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.Tonemap
-    Yage.Rendering.Pipeline.Deferred.Voxelize
 
-    Yage.Rendering.Pipeline.Utils.Visualize3DTex
+    Yage.Rendering.Pipeline.Voxel.Voxelize
+    Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
     
     Yage.Resource.YageResource
     Yage.Resource.MSlot

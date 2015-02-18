@@ -47,8 +47,9 @@ import           Yage.Rendering.Pipeline.Deferred.Tonemap         as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass       as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass         as Pass
-import           Yage.Rendering.Pipeline.Deferred.Voxelize        as Pass
-import           Yage.Rendering.Pipeline.Utils.Visualize3DTex     as Pass
+
+import           Yage.Rendering.Pipeline.Voxel.Voxelize           as Pass
+import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as Pass
 
 import           Control.Arrow
 import           Quine.GL.Shader
@@ -83,9 +84,9 @@ yDeferredLighting = do
   --postAmbient     <- postAmbientPass
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
-  voxelizeScene   <- voxelizePass 64 64 64
+  voxelizeScene   <- voxelizePass 128 128 128
   --voxelBuffer     <- genVoxelBuffer 256 256 256
-  voxelVis        <- visualize3DPass
+  voxelVis        <- visualizeVoxelPass
 
   return $ proc input -> do
     mainViewport  <- currentViewport -< ()
@@ -98,7 +99,7 @@ yDeferredLighting = do
 
     -- voxellzation
     voxelBuffer      <- processPass voxelizeScene    -< input^.scene
-    voxelSceneTarget <- autoResized mkVoxelVisTarget -< mainViewport^.rectangle
+    voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
                             , voxelBuffer

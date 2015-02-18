@@ -13,9 +13,9 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE Arrows              #-}
-module Yage.Rendering.Pipeline.Utils.Visualize3DTex
-  ( visualize3DPass
-  , mkVoxelVisTarget
+module Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
+  ( visualizeVoxelPass
+  , mkVisVoxelTarget
   ) where
 
 import           Yage.Prelude
@@ -24,8 +24,6 @@ import           Yage.Lens
 import           Yage.GL
 import           Yage.Viewport                           as GL
 import           Yage.Camera
-import           Yage.Vertex                             hiding (Texture)
-import           Yage.Attribute
 import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout, componentCount)
 import           Yage.Uniform                            as Uniform
@@ -33,18 +31,12 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
-import           Foreign.Ptr
 import           Linear
-import           Data.Vector.Storable as V hiding (forM_)
 import           Quine.GL.Uniform
-import           Quine.GL.Attribute
 import           Quine.GL.Program
-import           Quine.GL.Buffer
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
-import           Quine.GL.Sampler
 import           Quine.StateVar
-import           Quine.GL.Texture
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -79,25 +71,25 @@ data PassRes = PassRes
   , frag         :: FragmentShader
   }
 
-data VoxelVisTarget = VoxelVisTarget
+data VisVoxelTarget = VisVoxelTarget
   { voxelVisScene :: Texture2D PixelRGBA8
   , voxelVisDepth :: Texture2D (DepthComponent24 Float)
   }
 
-type Vis3DInput = (RenderTarget VoxelVisTarget, Texture3D PixelR32UI, Mat4, Camera)
-type Vis3DOutput = Texture2D PixelRGBA8
-type Vis3DPass m g = PassGEnv g PassRes m Vis3DInput Vis3DOutput
+type VisVoxelInput = (RenderTarget VisVoxelTarget, Texture3D PixelR32UI, Mat4, Camera)
+type VisVoxelOutput = Texture2D PixelRGBA8
+type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
-visualize3DPass :: (MonadIO m, MonadThrow m, HasViewport g Int) => YageResource (Vis3DPass m g)
-visualize3DPass = PassGEnv <$> passRes <*> pure runPass where
+visualizeVoxelPass :: (MonadIO m, MonadThrow m, HasViewport g Int) => YageResource (VisVoxelPass m g)
+visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
     boundVertexArray $= vao
 
-    pipeline <- [ $(embedShaderFile "res/glsl/utils/vis3dTex.vert")
-                , $(embedShaderFile "res/glsl/utils/vis3dTex.geom")
-                , $(embedShaderFile "res/glsl/utils/vis3dTex.frag")]
+    pipeline <- [ $(embedShaderFile "res/glsl/voxel/visVoxelTex.vert")
+                , $(embedShaderFile "res/glsl/voxel/visVoxelTex.geom")
+                , $(embedShaderFile "res/glsl/voxel/visVoxelTex.frag")]
                 `compileShaderPipeline` includePaths
 
     Just vert <- traverse vertexUniforms =<< get (vertexShader $ pipeline^.pipelineProgram)
@@ -106,7 +98,7 @@ visualize3DPass = PassGEnv <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m Vis3DInput Vis3DOutput
+  runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
   runPass = mkStaticRenderPass $ \(target, tex3d, modelM, cam) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
@@ -122,7 +114,7 @@ visualize3DPass = PassGEnv <$> passRes <*> pure runPass where
     glDepthMask GL_TRUE
     glDepthFunc GL_LESS
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
-    glPointSize 20
+    glPointSize 10
 
     GL.glViewport $= target^.asRectangle
     glClearColor 0 0 0 1
@@ -160,38 +152,25 @@ vertexUniforms prog = VertexShader
   <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "gridDim")
 
 geometryUniforms :: Program -> YageResource GeometryShader
-geometryUniforms prog = do
-  sampler <- mk3DSampler
-  GeometryShader
-    <$> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "gridDim")
-    <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_ONLY) "VoxelAlbedo")
+geometryUniforms prog = GeometryShader
+  <$> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "gridDim")
+  <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_ONLY) "VoxelAlbedo")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader
 
 -- * Sampler
 
-mk3DSampler :: YageResource (UniformSampler3D PixelR32UI)
-mk3DSampler = throwWithStack $ sampler3D 0 <$> do
-  s <- glResource
-  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  samplerParameteri s GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_NEAREST
-  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-  return s
-
-
-mkVoxelVisTarget :: Rectangle Int -> YageResource VoxelVisTarget
-mkVoxelVisTarget rect | V2 w h <- rect^.extend = VoxelVisTarget
+mkVisVoxelTarget :: Rectangle Int -> YageResource VisVoxelTarget
+mkVisVoxelTarget rect | V2 w h <- rect^.extend = VisVoxelTarget
   <$> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
   <*> createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
 
-instance IsRenderTarget VoxelVisTarget where
-  getAttachments (VoxelVisTarget c d) = ([mkAttachment c], Just $ mkAttachment d, Nothing)
+instance IsRenderTarget VisVoxelTarget where
+  getAttachments (VisVoxelTarget c d) = ([mkAttachment c], Just $ mkAttachment d, Nothing)
 
-instance Resizeable2D VoxelVisTarget where
-  resize2D (VoxelVisTarget c d) w h = liftM2 VoxelVisTarget (resize2D c w h) (resize2D d w h)
+instance Resizeable2D VisVoxelTarget where
+  resize2D (VisVoxelTarget c d) w h = liftM2 VisVoxelTarget (resize2D c w h) (resize2D d w h)
 
-instance GetRectangle VoxelVisTarget Int where
+instance GetRectangle VisVoxelTarget Int where
   asRectangle = to voxelVisScene.asRectangle

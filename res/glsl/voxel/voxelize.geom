@@ -5,7 +5,7 @@
 
 #include <common.h>
 #include <definitions.h>
-#include "pass/voxelize.h"
+#include "voxel/voxelize.h"
 
 layout ( triangles ) in;
 layout ( triangle_strip, max_vertices = 3 ) out;
@@ -58,7 +58,7 @@ void main()
     Axis = Z_AXIS;
   }
   vec4 clip_position[3];
-  
+
   clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
   clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
   clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
@@ -67,7 +67,7 @@ void main()
   AABB = vec4(clip_position[0].xy, clip_position[0].xy);
   AABB.xy = min( clip_position[1].xy, AABB.xy);
   AABB.zw = max( clip_position[1].xy, AABB.zw);
-  
+
   AABB.xy = min( clip_position[2].xy, AABB.xy);
   AABB.zw = max( clip_position[2].xy, AABB.zw);
 
@@ -93,22 +93,22 @@ void main()
   clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
 
-  
+
   Position     = clip_position[0].xyz;
   TextureCoord = g_textureCoord[0];
   gl_Position  = clip_position[0];
   EmitVertex();
-  
+
   Position = clip_position[1].xyz;
   TextureCoord = g_textureCoord[1];
   gl_Position = clip_position[1];
   EmitVertex();
-  
+
   Position = clip_position[2].xyz;
   TextureCoord = g_textureCoord[2];
   gl_Position = clip_position[2];
   EmitVertex();
-  
+
   EndPrimitive();
 
 /*

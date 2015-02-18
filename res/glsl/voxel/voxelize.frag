@@ -9,7 +9,7 @@
 
 #include <common.h>
 #include <definitions.h>
-#include "pass/voxelize.h"
+#include "voxel/voxelize.h"
 #include "pass/gbuffer.h"
 
 uniform sampler2D AlbedoTexture;
