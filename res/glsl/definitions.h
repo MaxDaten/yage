@@ -4,4 +4,8 @@
 #define UNUSED(X) X
 #define MAX_TEXTURES (12)
 
+#define X_AXIS 1
+#define Y_AXIS 2
+#define Z_AXIS 3
+
 #endif

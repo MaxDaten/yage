@@ -14,6 +14,7 @@ module Yage.Uniform.Material
   -- * Sampler
   , sampler
   , sampler2D
+  , sampler3D
   , samplerCube
   , samplerUniform
   ) where
@@ -53,6 +54,9 @@ sampler t u s = UniformSampler u $ SettableStateVar $ \mtex -> do
 
 sampler2D :: TextureUnit -> Sampler -> UniformSampler2D px
 sampler2D = sampler GL_TEXTURE_2D
+
+sampler3D :: TextureUnit -> Sampler -> UniformSampler3D px
+sampler3D = sampler GL_TEXTURE_3D
 
 samplerCube :: TextureUnit -> Sampler -> UniformSamplerCube px
 samplerCube = sampler GL_TEXTURE_CUBE_MAP

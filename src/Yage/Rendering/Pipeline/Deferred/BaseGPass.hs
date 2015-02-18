@@ -171,17 +171,15 @@ gPass = PassGEnv <$> passRes <*> pure runPass where
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
     glEnable GL_DEPTH_TEST
+    glDisable GL_BLEND
+    glEnable GL_CULL_FACE
     glDepthMask GL_TRUE
     glDepthFunc GL_LESS
-
-    glDisable GL_BLEND
-    -- glBlendEquation GL_FUNC_ADD
-    -- glBlendFunc GL_ONE GL_ZERO
-
     glFrontFace GL_CCW
-    glEnable GL_CULL_FACE
     glCullFace GL_BACK
 
+    GL.glViewport $= target^.asRectangle
+    glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
@@ -205,13 +203,14 @@ setupSceneGlobals VertexShader{..} FragmentShader{..} cam@Camera{..} = do
   viewprojectionM :: Viewport Int -> M44 Double
   viewprojectionM vp = projectionMatrix3D _cameraNearZ _cameraFarZ _cameraFovy (fromIntegral <$> vp^.rectangle) !*! (cam^.cameraMatrix)
 
+
 drawEntities :: forall f ent i v m .
   (MonadIO m, MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
   => VertexShader
   -> FragmentShader
   -> (f ent)
   -> m ()
-drawEntities VertexShader{..} FragmentShader{..} ents = do
+drawEntities VertexShader{..} FragmentShader{..} ents =
   forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
@@ -230,10 +229,6 @@ drawEntities VertexShader{..} FragmentShader{..} ents = do
     boundBufferAt ElementArrayBuffer $= ent^.indexBuffer
     boundBufferAt ArrayBuffer $= ent^.vertexBuffer
 
-    -- update layout
-    -- lastVertexLayout <- get vertexLayoutRef
-    -- let currentLayout = gBaseVertexLayout (Proxy::Proxy v)
-    -- when (lastVertexLayout /= Just currentLayout) $ do
     vPosition $= Just ((Proxy :: Proxy v)^.positionlayout)
     vTexture  $= Just ((Proxy :: Proxy v)^.texturelayout)
     vTangentX $= Just ((Proxy :: Proxy v)^.tangentXlayout)

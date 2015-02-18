@@ -28,7 +28,6 @@ import Yage.Light
 import Yage.Viewport as VP
 import Yage.Scene
 import Yage.Transformation
-import Yage.Material
 import qualified Yage.Vertex as V
 import Yage.Attribute
 import Yage.Geometry3D
@@ -113,18 +112,20 @@ lightPass = PassGEnv <$> passRes <*> pure runPass where
     -- some state setting
     -- we dont want to write to the depth buffer
     -- glEnable GL_DEPTH_TEST
+    --glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glDisable GL_DEPTH_TEST
-    glDepthMask GL_FALSE
-    glDepthFunc GL_ALWAYS
-
     glEnable GL_BLEND
     glBlendEquation GL_FUNC_ADD
     glBlendFunc GL_ONE GL_ONE
-
-    glFrontFace GL_CCW
     glEnable GL_CULL_FACE
     glCullFace GL_FRONT
+    glDepthMask GL_FALSE
+    glDepthFunc GL_ALWAYS
+    glFrontFace GL_CCW
+    glCullFace GL_BACK
 
+    VP.glViewport $= target^.asRectangle
+    glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glClearColor 0 0 0 1
     glClear GL_COLOR_BUFFER_BIT
 

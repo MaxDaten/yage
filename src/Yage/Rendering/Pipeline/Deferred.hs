@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -34,7 +35,6 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Scene
 import           Yage.Viewport
 import           Yage.Material hiding (over)
-import           Foreign.Ptr
 
 import           Yage.Rendering.Pipeline.Deferred.BaseGPass       as Pass
 import           Yage.Rendering.Pipeline.Deferred.Common          as Pass
@@ -47,13 +47,18 @@ import           Yage.Rendering.Pipeline.Deferred.Tonemap         as Pass
 import           Yage.Rendering.Pipeline.Deferred.LightPass       as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass         as Pass
+import           Yage.Rendering.Pipeline.Deferred.Voxelize        as Pass
+import           Yage.Rendering.Pipeline.Utils.Visualize3DTex     as Pass
 
-import           System.FilePath ((</>))
 import           Control.Arrow
 import           Quine.GL.Shader
-import           Quine.GL.Types
 import           Quine.StateVar
+import           Quine.GL.Types
+import           Quine.GL.Texture
 import           Data.Maybe (fromJust)
+
+import           Foreign.Ptr
+import           Data.Vector.Storable as V hiding (forM_,(++))
 
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture2D)
 type DeferredSky         = Entity (RenderData Word32 (Position Vec3)) (SkyMaterial TextureCube)
@@ -70,34 +75,58 @@ yDeferredLighting = do
   throwWithStack $ buildNamedStrings (embeddedShaders) ((++) "/res/glsl/")
   -- throwWithStack $ setupDefaultTexture
 
-  drawGBuffer    <- gPass
-  skyPass        <- drawSky
+  --drawGBuffer    <- gPass
+  --skyPass        <- drawSky
 
-  defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
-  drawLights      <- lightPass
-  postAmbient     <- postAmbientPass
-  renderBloom     <- addBloom
+  --defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
+  --drawLights      <- lightPass
+  --postAmbient     <- postAmbientPass
+  --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
+  voxelizeScene   <- voxelizePass 64 64 64
+  --voxelBuffer     <- genVoxelBuffer 256 256 256
+  voxelVis        <- visualize3DPass
 
   return $ proc input -> do
     mainViewport  <- currentViewport -< ()
 
     -- render surface attributes for lighting out
-    gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
-    gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< (gbufferTarget, input^.scene, input^.hdrCamera.camera)
+    --gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
+    --gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
+                                                              --, input^.scene
+                                                              --, input^.hdrCamera.camera )
+
+    -- voxellzation
+    voxelBuffer      <- processPass voxelizeScene    -< input^.scene
+    voxelSceneTarget <- autoResized mkVoxelVisTarget -< mainViewport^.rectangle
+    voxelScene       <- processPassWithGlobalEnv voxelVis
+                         -< ( voxelSceneTarget
+                            , voxelBuffer
+                            , eye4 & _xyz *~ 4
+                            , input^.hdrCamera.camera )
 
     -- lighting
+    {--
     lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
-    let lightPassInput = (lBufferTarget, input^.scene.environment.lights, input^.hdrCamera.camera, gBuffer)
-    lBuffer   <- processPassWithGlobalEnv drawLights  -< lightPassInput
+    _lBuffer   <- processPassWithGlobalEnv drawLights  -< ( lBufferTarget
+                                                          , input^.scene.environment.lights
+                                                          , input^.hdrCamera.camera
+                                                          , gBuffer )
 
+    -- ambient
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
-    post      <- processPassWithGlobalEnv postAmbient -< (lBufferTarget, radiance, input^.hdrCamera.camera, gBuffer)
+    post      <- processPassWithGlobalEnv postAmbient -< ( lBufferTarget
+                                                         , radiance
+                                                         , input^.hdrCamera.camera
+                                                         , gBuffer )
 
     -- sky pass
     skyTarget <- onChange  -< (post, gBuffer^.depthChannel)
     sceneTex <- if isJust $ input^.scene.environment.sky
-      then skyPass -< (fromJust $ input^.scene.environment.sky, input^.hdrCamera.camera, skyTarget)
+      then skyPass -< ( fromJust $ input^.scene.environment.sky
+                      , input^.hdrCamera.camera
+                      , skyTarget
+                      )
       else returnA -< post
 
     -- bloom pass
@@ -105,6 +134,8 @@ yDeferredLighting = do
 
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    --}
+    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
@@ -117,6 +148,18 @@ yDeferredLighting = do
 
   mkLightBuffer :: Rectangle Int -> YageResource LightBuffer
   mkLightBuffer rect = let V2 w h = rect^.extend in createTexture2D GL_TEXTURE_2D (Tex2D w h) 1
+
+  genVoxelBuffer :: Int -> Int -> Int -> YageResource (Texture3D PixelRGBA8)
+  genVoxelBuffer w h d = do
+    --let dat = V.replicate (w * h * d * 4) (maxBound :: Word8)
+    let dat = V.generate  (w * h * d * 4) (\i -> if i `mod` (w + 1) == 0 then maxBound :: Word8 else minBound)
+    tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1
+    boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
+    glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER GL_NEAREST
+    glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER GL_NEAREST
+    io $ V.unsafeWith dat $ glTexSubImage3D GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) (pixelFormat (Proxy :: Proxy PixelRGBA8)) (pixelType (Proxy :: Proxy PixelRGBA8)) . castPtr
+    boundTexture GL_TEXTURE_3D 0 $= def
+    return tex
 
 
 currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)
