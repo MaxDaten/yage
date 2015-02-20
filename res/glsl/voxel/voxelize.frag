@@ -4,6 +4,7 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_ARB_shader_image_load_store : require
 #extension GL_ARB_shader_image_size : require
+#extension GL_ARB_sparse_textures : require
 // #extension GL_NV_shader_atomic_fp16_vector : require
 // #extension GL_NV_shader_atomic_float : require
 
