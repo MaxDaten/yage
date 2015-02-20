@@ -9,7 +9,6 @@ import           Yage.Prelude hiding ((</>), foldM, cons, (++))
 import           Yage.Lens
 import           Yage.Math (V2(V2))
 
-import           Control.Applicative
 import           Control.Arrow
 import           Yage.Rendering.RenderSystem                     as RenderSystem
 import           Yage.Rendering.RenderTarget
