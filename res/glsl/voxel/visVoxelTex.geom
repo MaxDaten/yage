@@ -5,7 +5,7 @@
 #extension GL_ARB_geometry_shader4 : enable
 
 #include <common.h>
-#include "voxel/voxel.h"
+#include "voxel/voxelize.h"
 
 in gl_PerVertex { vec4 gl_Position; } gl_in [];
 out gl_PerVertex { vec4 gl_Position; };
@@ -18,6 +18,7 @@ out vec4 f_VoxelColor;
 
 uniform readonly layout(binding = 0, r32ui /*rgba32ui*/ ) uimage3D toVis3D;
 uniform vec2 gridDim;
+uniform int renderEmpty = 0;
 
 void main()
 {
@@ -28,10 +29,14 @@ void main()
 	{
 		f_VoxelColor = voxel;
 	}
-	else
+	else if (renderEmpty == 1)
 	{
 		f_VoxelColor = vec4(1, 1, 1, 0.005);
 	}
+  else
+  {
+    return;
+  }
 
 	// gl_PointSize = gl_in[0].gl_PointSize * 2; // no working for a reason
 	gl_Position = gl_in[0].gl_Position;
