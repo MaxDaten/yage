@@ -16,6 +16,8 @@ module Yage.Rendering.Resources.GL.Shader
   , fileToShaderType
   , validatePipeline
   , checkPipelineError
+  , validateShaderProgram
+  , checkShaderProgramError
   -- * Embeding Shader Sources
   , embedShaderFile
   ) where
@@ -58,6 +60,7 @@ makeLenses ''Pipeline
 data ShaderException =
     ShaderException String FilePath [String]
   | PipelineValidationError Pipeline [String]
+  | ProgramValidationError ShaderProgram [String]
   deriving (Eq,Show,Data,Typeable,Generic)
 
 instance Exception ShaderException
@@ -140,6 +143,21 @@ validatePipeline Pipeline{..} = do
   validateProgramPipeline _pipelineProgram
   pipeLog <- liftM (fmap (force.Char8.unpack) . Char8.lines) (programPipelineInfoLog _pipelineProgram)
   return $! pipeLog ++ shlog
+
+validateShaderProgram :: MonadIO m => ShaderProgram -> m [String]
+validateShaderProgram ShaderProgram{..} = do
+  validateProgram _shaderProg
+  progLog <- liftM (fmap (force.Char8.unpack) . Char8.lines) (programInfoLog _shaderProg)
+  return $! progLog ++ _shaderLog
+
+-- | Throws a 'ProgramValidationError' when the validation is not successful (log contains entries) and
+-- the compiler 'GL_ERRCHECK' flag is defined
+checkShaderProgramError :: (MonadThrow m, MonadIO m) => ShaderProgram -> m ()
+#ifdef GL_ERRCHECK
+checkShaderProgramError p = validateShaderProgram p >>= \l -> unless (null l) $ throwM $ ProgramValidationError p l
+#else
+checkShaderProgramError = const (return ())
+#endif
 
 -- | Throws a 'PipelineValidationError' when the validation is not successful (log contains entries) and
 -- the compiler 'GL_ERRCHECK' flag is defined
