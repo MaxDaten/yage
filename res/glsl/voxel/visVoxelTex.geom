@@ -44,7 +44,7 @@ void main()
   else
   {
     bool pageInMarker = imageLoad(VoxelPageMask, v_VoxelCoord[0]).r == USE_PAGE_MARKER;
-    voxel = pageInMarker ? vec4(0.0,1.0,0.0,1.0) : vec4(0.0,0.0,0.0,0.0);
+    voxel = pageInMarker ? vec4(1.0,0.5,0.0,0.3) : vec4(0.0,0.0,0.0,0.0);
     halfVox = 0.8/imageSize(VoxelPageMask);
   }
 

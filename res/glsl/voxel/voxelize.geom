@@ -49,7 +49,7 @@ void main()
     projectionMatrix = X_Projection;
     Axis = X_AXIS;
     gl_ViewportIndex = X_AXIS;
-    // gridDim.xyz = gridDim.zyx;
+    gridDim.xyz = gridDim.zyx;
   }
   // Y Dominant?
   else if (absY > absX && absY > absZ)
@@ -57,6 +57,7 @@ void main()
     projectionMatrix = Y_Projection;
     Axis = Y_AXIS;
     gl_ViewportIndex = Y_AXIS;
+    gridDim.xyz = gridDim.xzy;
   }
   // Z Dominant!
   else
@@ -64,6 +65,7 @@ void main()
     projectionMatrix = Z_Projection;
     Axis = Z_AXIS;
     gl_ViewportIndex = Z_AXIS;
+    gridDim.xyz = gridDim.xyz;
   }
   vec4 clip_position[3];
 
@@ -96,7 +98,7 @@ void main()
   vec3 n2 = cross(e2, vec3(0,0,1));
 
   // now dilate (grow along the normal of the corresponding edge)
-  float pl = 1.4142135637309 / gridDim.x;
+  vec2 pl = 1.4142135637309 / gridDim.xy;
   clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
   clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));

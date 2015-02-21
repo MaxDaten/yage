@@ -77,7 +77,7 @@ data VisVoxelTarget = VisVoxelTarget
   , voxelVisDepth :: Texture2D (DepthComponent24 Float)
   }
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelBuffer, VoxelPageMask, Mat4, Camera)
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizeMode, Mat4, Camera)
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -100,7 +100,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, voxelBuff, pageMask, modelM, cam) -> do
+  runPass = mkStaticRenderPass $ \(target, mode, modelM, cam) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -128,7 +128,6 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        mode = VoxelPageMask pageMask
         V3 w h d = case mode of
           VoxelPageMask pageMask -> pageMask^.textureDimension.whd
           VoxelizeScene vbuff -> vbuff^.textureDimension.whd
@@ -137,7 +136,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     modelMatrix   $= modelM
     g_voxelizeMode  $= mode
     v_voxelizeMode  $= mode
-    renderEmpty     $= True
+    renderEmpty     $= False
 
     glDrawArrays GL_POINTS 0 (fromIntegral $ w * h * d )
 

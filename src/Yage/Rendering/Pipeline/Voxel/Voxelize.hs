@@ -26,7 +26,7 @@ import           Yage.Prelude
 
 import           Yage.Lens
 import           Yage.GL
-import           Yage.Viewport                           as GL
+import           Yage.Viewport
 import           Yage.Vertex                             hiding (Texture)
 import           Yage.Attribute
 import           Yage.Material                           hiding (over, HasPosition, position)
@@ -38,7 +38,8 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
 import           Linear
-import           Data.Vector.Storable as V hiding (forM_)
+import           Data.List (findIndex,(!!))
+import           Data.Vector.Storable as V hiding (forM_,find,findIndex)
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
@@ -54,6 +55,7 @@ import           Quine.GL.InternalFormat
 
 import Yage.Rendering.Pipeline.Deferred.Common
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
+import Graphics.GL.Ext.ARB.ViewportArray
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -150,6 +152,11 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     clearVoxelBuffer pageMaskTex pageClearData
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 
+    -- memory layout
+    setupGlobals geom frag (VoxelPageMask pageMaskTex)
+    drawEntities vert geom frag (scene^.entities)
+
+    -- scene
     setupGlobals geom frag (VoxelizeScene voxelBuffer)
     drawEntities vert geom frag (scene^.entities)
 
@@ -170,9 +177,6 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   viewportIndexed X_AXIS $= xviewport
   viewportIndexed Y_AXIS $= yviewport
   viewportIndexed Z_AXIS $= zviewport
-  --glDepthRangeIndexed X_AXIS 1 0
-  --glDepthRangeIndexed Y_AXIS (fromIntegral y) 0
-  --glDepthRangeIndexed Z_AXIS 0 (fromIntegral z)
  where
   -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
@@ -240,7 +244,7 @@ fragmentUniforms prog = do
 
 voxelizeModeUniform :: MonadIO m => Program-> m (UniformVar VoxelizeMode)
 voxelizeModeUniform prog = do
-  buffUniform     <- imageTextureUniform (imageTexture3D 0 GL_READ_WRITE)
+  buffUniform     <- imageTextureUniform (imageTexture3D 0 GL_WRITE_ONLY)
   maskUniform     <- imageTextureUniform (imageTexture3D 1 GL_READ_WRITE)
   flagMaskUniform <- programUniform programUniform1i prog "VoxelizeMode"
   return $ mkUniformVar $ \case
@@ -258,23 +262,34 @@ voxelizeModeUniform prog = do
 -- TODO Textures
 clearVoxelBuffer :: forall m px. (MonadIO m, ImageFormat px, Pixel px) => Texture3D px -> SVector (PixelBaseComponent px) -> m ()
 clearVoxelBuffer tex cleardata = do
-  boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
-  io $ V.unsafeWith cleardata $ glTexSubImage3D GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) (pixelFormat (Proxy :: Proxy px)) (pixelType (Proxy :: Proxy px)) . castPtr
-  boundTexture GL_TEXTURE_3D 0 $= def
+  boundTexture (tex^.textureTarget) 0 $= tex^.textureObject
+  io $ V.unsafeWith cleardata $ glTexSubImage3D (tex^.textureTarget) 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) (pixelFormat (Proxy :: Proxy px)) (pixelType (Proxy :: Proxy px)) . castPtr
+  boundTexture (tex^.textureTarget) 0 $= def
  where
   Tex3D w h d = tex^.textureDimension
 
 genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> SVector (PixelBaseComponent px) -> YageResource (Texture3D px)
 genVoxelTexture w h d cleardata = do
-  tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1
-  boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
+  tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
+    fmtIdx <- selectPageFormat t
+    printf "Selected Page Format: %s\n" (show fmtIdx)
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
+    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= fst fmtIdx -- TODO on my machine 128x128x1
+  glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
   clearVoxelBuffer tex cleardata
   return tex
+ where
+  selectPageFormat tex = do
+    fmts <- virtualPageSizes3D tex
+    case (findIndex  ((==) 1 . view _z)) fmts of
+      Nothing     -> error "GL_TEXTURE_3D requires a tile depth == 1, no matching format found"
+      Just fmtIdx -> return $ (fromIntegral fmtIdx, fmts!!fmtIdx)
+
 
 genPageMask :: forall px. ImageFormat px => Texture3D px -> YageResource (VoxelPageMask)
 genPageMask baseBuff = do
@@ -282,13 +297,12 @@ genPageMask baseBuff = do
   io $ printf "PageSizes for %s: %s\n" (show baseBuff) (show pageSize)
   io $ printf "Max Sparse 3D Size: %d\n" maxSparseSize3D
 
-  tex <- createTexture3D GL_TEXTURE_3D (Tex3D 32 32 32) 1
-  boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
-  texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
+  tex <- createTexture3D GL_TEXTURE_3D (maskSize (V3 8 8 8)) 1 $ \_ -> do
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
   io $ printf "created page mask: %s\n" (show tex)
   return tex
  where

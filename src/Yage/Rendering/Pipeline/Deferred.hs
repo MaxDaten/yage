@@ -102,7 +102,14 @@ yDeferredLighting = do
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
-                            , voxelBuffer, pageMask
+                            , VoxelizeScene voxelBuffer
+                            , eye4 & _xyz *~ 4
+                            , input^.hdrCamera.camera )
+
+    voxelMaskTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
+    voxelMask       <- processPassWithGlobalEnv voxelVis
+                         -< (voxelMaskTarget
+                            , VoxelPageMask pageMask
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera )
 
@@ -136,7 +143,7 @@ yDeferredLighting = do
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
     --}
-    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Just voxelMask)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
@@ -154,10 +161,10 @@ yDeferredLighting = do
   genVoxelBuffer w h d = do
     --let dat = V.replicate (w * h * d * 4) (maxBound :: Word8)
     let dat = V.generate  (w * h * d * 4) (\i -> if i `mod` (w + 1) == 0 then maxBound :: Word8 else minBound)
-    tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1
-    boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
-    glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER GL_NEAREST
-    glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER GL_NEAREST
+    tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1 $ \_ -> do
+      glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER GL_NEAREST
+      glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER GL_NEAREST
+
     io $ V.unsafeWith dat $ glTexSubImage3D GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) (pixelFormat (Proxy :: Proxy PixelRGBA8)) (pixelType (Proxy :: Proxy PixelRGBA8)) . castPtr
     boundTexture GL_TEXTURE_3D 0 $= def
     return tex

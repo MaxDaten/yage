@@ -148,10 +148,18 @@ createTexture2D target d l = mkAcquire acq free where
   free tex = delete (tex^.textureObject)
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
-createTexture3D :: forall px d. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
-createTexture3D target d l = mkAcquire acq free where
-  acq = Texture target d (fromIntegral l) <$> (newTextureStorageObj3d target (fromIntegral l) (d^.whd._x) (d^.whd._y) (d^.whd._z) (Proxy :: Proxy px))
+createTexture3D :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> (Texture d px -> IO ()) -> YageResource (Texture d px)
+createTexture3D target dim l ma = mkAcquire acq free where
   free tex = delete (tex^.textureObject)
+  acq :: IO (Texture d px)
+  acq = do
+    obj <- gen
+    let tex = Texture target dim (fromIntegral l) obj
+    GL.boundTexture target 0 $= obj
+    ma tex
+    glTexStorage3D target (fromIntegral l) (internalFormat (Proxy :: Proxy px)) w h d
+    return $ tex
+  V3 w h d = fromIntegral <$> dim^.whd
 
 resizeTexture2D :: forall px d m. (ImageFormat px, Dimension2D d, MonadIO m) => Texture d px -> Int -> Int -> m (Texture d px)
 resizeTexture2D tex w h = throwWithStack $! do
@@ -180,13 +188,6 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   tex  <- gen
   throwWithStack $ GL.boundTexture t GL_TEXTURE_BINDING_2D $= tex
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
-  return $ tex
-
-newTextureStorageObj3d :: MonadIO m => ImageFormat px => GL.TextureTarget -> GL.MipmapLevel -> Int -> Int -> Int -> Proxy px -> m GL.Texture
-newTextureStorageObj3d t l w h d p = throwWithStack $! do
-  tex  <- gen
-  throwWithStack $ GL.boundTexture t GL_TEXTURE_BINDING_3D $= tex
-  throwWithStack $ glTexStorage3D t l (internalFormat p) (fromIntegral w) (fromIntegral h) (fromIntegral d)
   return $ tex
 
 instance FramebufferAttachment (Texture Tex1D a) where

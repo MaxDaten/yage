@@ -6,6 +6,8 @@ module Yage.Rendering.Resources.GL.SparseTexture
    virtualPageSize3D
  , virtualPageSize2D
  , virtualPageSize1D
+ , virtualPageSizes3D
+ , virtualPageSizes2D
  , maxSparseSize3D
  , maxSparseSize
  , maxSparseArrayLayers
@@ -50,6 +52,29 @@ virtualPageSize2D tex = getVirtualPageSize2D (tex^.textureTarget) (internalForma
 
 virtualPageSize1D :: forall px m. (MonadIO m, ImageFormat px) => Texture1D px -> m Int
 virtualPageSize1D tex = getVirtualPageSize1D (tex^.textureTarget) (internalFormat (Proxy::Proxy px))
+
+-- | The available page size formats. select it with 'texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= index'
+virtualPageSizes3D :: forall m px. (ImageFormat px, MonadIO m) => Texture3D px -> m [V3 Int]
+virtualPageSizes3D tex = do
+  numSizes <- GL.getInternalFormat1 target fmt GL_NUM_VIRTUAL_PAGE_SIZES_ARB
+  liftM3 (zipWith3 V3)
+    (GL.getInternalFormats target fmt GL_VIRTUAL_PAGE_SIZE_X_ARB numSizes)
+    (GL.getInternalFormats target fmt GL_VIRTUAL_PAGE_SIZE_Y_ARB numSizes)
+    (GL.getInternalFormats target fmt GL_VIRTUAL_PAGE_SIZE_Z_ARB numSizes)
+ where
+  fmt = (internalFormat (Proxy::Proxy px))
+  target = tex^.textureTarget
+
+-- | The available page size formats. select it with 'texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= index'
+virtualPageSizes2D :: forall m px. (ImageFormat px, MonadIO m) => Texture3D px -> m [V2 Int]
+virtualPageSizes2D tex = do
+  numSizes <- GL.getInternalFormat1 target fmt GL_NUM_VIRTUAL_PAGE_SIZES_ARB
+  liftM2 (zipWith V2)
+    (GL.getInternalFormats target fmt GL_VIRTUAL_PAGE_SIZE_X_ARB numSizes)
+    (GL.getInternalFormats target fmt GL_VIRTUAL_PAGE_SIZE_Y_ARB numSizes)
+ where
+  fmt = (internalFormat (Proxy::Proxy px))
+  target = tex^.textureTarget
 
 -- | Maximum 3D texture image dimension for sparse texture
 maxSparseSize3D :: Int
