@@ -8,4 +8,6 @@
 #define Y_AXIS 2
 #define Z_AXIS 3
 
+#define USE_PAGE_MARKER (0xFF)
+
 #endif

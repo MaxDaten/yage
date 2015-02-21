@@ -6,8 +6,9 @@ module Yage.Rendering.Resources.GL.SparseTexture
    virtualPageSize3D
  , virtualPageSize2D
  , virtualPageSize1D
- , maxSparseTextureSize3D
- , maxSparseTextureSize
+ , maxSparseSize3D
+ , maxSparseSize
+ , maxSparseArrayLayers
  , getInternalFormat
  , getInternalFormatv
  -- * Simple GL Wrapper
@@ -21,18 +22,21 @@ module Yage.Rendering.Resources.GL.SparseTexture
  , module ARBSparse
  ) where
 
-import Yage.Prelude
-import Yage.Math
-import Yage.Lens
-import Graphics.GL.Ext.ARB.SparseTexture as ARBSparse
-import Graphics.GL.Types
-import qualified Quine.GL.InternalFormat as GL
-import Quine.GL.Texture (TextureTarget)
-import Quine.GL.Pixel (InternalFormat)
-import Yage.Rendering.Resources.GL.Texture
 import GHC.TypeLits
+import Graphics.GL.Ext.ARB.SparseTexture as ARBSparse
+import Graphics.GL (glGetIntegerv)
+import Graphics.GL.Types
 import Linear.V
-
+import qualified Quine.GL.InternalFormat as GL
+import Quine.GL.Pixel (InternalFormat)
+import Quine.GL.Texture (TextureTarget)
+import Yage.Lens
+import Yage.Math
+import Yage.Prelude
+import Foreign.Marshal.Alloc
+import Foreign.Storable
+import Yage.Rendering.Resources.GL.Texture
+import System.IO.Unsafe (unsafePerformIO)
 
 --------------------------------------------------------------------------------
 -- * Checks for 'Yage.Rendering.Resources.GL.Textures'
@@ -48,12 +52,16 @@ virtualPageSize1D :: forall px m. (MonadIO m, ImageFormat px) => Texture1D px ->
 virtualPageSize1D tex = getVirtualPageSize1D (tex^.textureTarget) (internalFormat (Proxy::Proxy px))
 
 -- | Maximum 3D texture image dimension for sparse texture
-maxSparseTextureSize3D :: forall px d m. (MonadIO m, ImageFormat px, Dimension3D d) => Texture d px -> m Int
-maxSparseTextureSize3D = getInternalFormat GL_MAX_SPARSE_3D_TEXTURE_SIZE_ARB
+maxSparseSize3D :: Int
+maxSparseSize3D = unsafePerformIO $ alloca $ (>>) <$> glGetIntegerv GL_MAX_SPARSE_3D_TEXTURE_SIZE_ARB <*> fmap fromIntegral . peek
 
 -- | Maximum 1D/2D/Rectangle texture image dimension for sparse texture
-maxSparseTextureSize :: forall px d m. (MonadIO m, ImageFormat px) => Texture d px -> m Int
-maxSparseTextureSize = getInternalFormat GL_MAX_SPARSE_TEXTURE_SIZE_ARB
+maxSparseSize :: Int
+maxSparseSize = unsafePerformIO $ alloca $ (>>) <$> glGetIntegerv GL_MAX_SPARSE_TEXTURE_SIZE_ARB <*> fmap fromIntegral . peek
+
+-- | Maximum 1D/2D/Rectangle texture image dimension for sparse texture
+maxSparseArrayLayers :: Int
+maxSparseArrayLayers = unsafePerformIO $ alloca $ (>>) <$> glGetIntegerv GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS_ARB <*> fmap fromIntegral . peek
 
 -- | Utilitiy function to perform format queries on concrete textures
 getInternalFormat :: forall m d px. (MonadIO m, ImageFormat px) => GLenum -> Texture d px -> m Int

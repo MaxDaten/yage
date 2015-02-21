@@ -26,12 +26,21 @@ in vec2 g_textureCoord[];
 uniform mat4 X_Projection;
 uniform mat4 Y_Projection;
 uniform mat4 Z_Projection;
-// x,y dimension of the voxel grid and the reciprocal 1/x, 1/y
-uniform vec4 gridDim;
+
+
+uniform readonly layout(binding = 0, r32ui) uimage3D VoxelBuffer;
+uniform readonly layout(binding = 1, r8ui) uimage3D PageMask;
 
 
 void main()
 {
+  ivec3 gridDim;
+  if (VoxelizeMode == VOXELIZESCENE)
+    gridDim = imageSize(VoxelBuffer);
+  else
+    gridDim = imageSize(PageMask);
+
+
   vec3 faceNormal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
   float absX = abs(faceNormal.x);
   float absY = abs(faceNormal.y);
@@ -72,8 +81,9 @@ void main()
   AABB.zw = max( clip_position[2].xy, AABB.zw);
 
   // enlarge it for conservative rasterization in fragment
-  AABB.xy -= gridDim.zw;
-  AABB.zw += gridDim.zw;
+  // TODO resize according the current axis
+  AABB.xy -= 1.0 / gridDim.xy;
+  AABB.zw += 1.0 / gridDim.xy;
 
   // vertex enlargement for conservative rasterization
   // (Conservative Rasterisation GPU Gems 2, Ch 42)[http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter42.html]
@@ -88,7 +98,7 @@ void main()
   vec3 n2 = cross(e2, vec3(0,0,1));
 
   // now dilate (grow along the normal of the corresponding edge)
-  float pl = 1.4142135637309 * gridDim.z;
+  float pl = 1.4142135637309 / gridDim.x;
   clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
   clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
@@ -110,6 +120,7 @@ void main()
   EmitVertex();
 
   EndPrimitive();
+}
 
 /*
 
@@ -148,4 +159,3 @@ void main()
 
   EndPrimitive();
   */
-}

@@ -63,8 +63,8 @@ imageTextureCube u = imageTexture u Layered
 
 imageTextureUniform :: MonadIO m => Program -> ImageTexture d px -> String -> m (UniformVar (Maybe (Texture d px)))
 imageTextureUniform prog (ImageTexture imgUnit bindImg) name = do
-  imgUniform <- programUniform programUniform1i prog name
+  --imgUniform <- programUniform programUniform1i prog name
   return $ SettableStateVar $ \tex -> do
     bindImg $= tex
-    imgUniform $= fromIntegral imgUnit
+    --imgUniform $= fromIntegral imgUnit
 

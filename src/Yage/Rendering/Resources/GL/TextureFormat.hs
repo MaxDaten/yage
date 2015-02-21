@@ -12,6 +12,7 @@ module Yage.Rendering.Resources.GL.TextureFormat
   , PixelRG16UI
   , PixelRGBA32UI
   , PixelR32UI
+  , PixelR8UI
   -- * Depth Formats
   , DepthComponent16
   , DepthComponent24
@@ -46,6 +47,7 @@ data PixelRGB11_11_10F
 data PixelRG16UI
 data PixelRGBA32UI
 data PixelR32UI
+data PixelR8UI
 
 -- | dangling instances for Pixel instance
 deriving instance Eq PixelRG16F
@@ -54,6 +56,7 @@ deriving instance Eq PixelRGB11_11_10F
 deriving instance Eq PixelRG16UI
 deriving instance Eq PixelRGBA32UI
 deriving instance Eq PixelR32UI
+deriving instance Eq PixelR8UI
 
 instance Pixel PixelRG16F where
   type PixelBaseComponent PixelRG16F = Half
@@ -110,8 +113,20 @@ instance Pixel PixelR32UI where
 
 instance ImageFormat PixelR32UI where
   internalFormat _ = GL_R32UI
-  pixelFormat    _ = GL_RED_INTEGER -- ! a bit strange? GL_RED should work also?
+  -- | *UI needs 'GL_RED_INTEGER' instead of 'GL_RED'
+  -- see: <https://www.khronos.org/opengles/sdk/docs/man3/docbook4/xhtml/glTexImage2D.xml#idp5128544>
+  pixelFormat    _ = GL_RED_INTEGER
   pixelType      _ = GL_UNSIGNED_INT
+
+instance Pixel PixelR8UI where
+  -- TODO better base component
+  type PixelBaseComponent PixelR8UI = Word8
+  componentCount _ = 1
+
+instance ImageFormat PixelR8UI where
+  internalFormat _ = GL_R8UI
+  pixelFormat    _ = GL_RED_INTEGER
+  pixelType      _ = GL_UNSIGNED_BYTE
 
 -- | Plain sized internal formats for the phantom types
 -- <https://www.opengl.org/registry/doc/glspec45.core.pdf> Table 8.13

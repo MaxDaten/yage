@@ -40,6 +40,7 @@ import           Quine.StateVar
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
+import Yage.Rendering.Pipeline.Voxel.Voxelize
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -48,15 +49,15 @@ import Yage.Rendering.Pipeline.Deferred.Common
 -- * Shader
 
 data VertexShader = VertexShader
-  { vpMatrix              :: UniformVar Mat4
-  , modelMatrix           :: UniformVar Mat4
-  , v_gridDim             :: UniformVar Vec2
+  { gridDim            :: UniformVar Vec3
   }
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
-  { g_gridDim      :: UniformVar Vec2
-  , toVis3D        :: UniformVar (Texture3D PixelR32UI)
+  { voxelBuffer        :: UniformVar VoxelBuffer
+  , voxelPageMask      :: UniformVar VoxelPageMask
+  , vpMatrix           :: UniformVar Mat4
+  , modelMatrix        :: UniformVar Mat4
   }
 
 data FragmentShader = FragmentShader
@@ -76,7 +77,7 @@ data VisVoxelTarget = VisVoxelTarget
   , voxelVisDepth :: Texture2D (DepthComponent24 Float)
   }
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, Texture3D PixelR32UI, Mat4, Camera)
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelBuffer, VoxelPageMask, Mat4, Camera)
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -99,7 +100,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, tex3d, modelM, cam) -> do
+  runPass = mkStaticRenderPass $ \(target, voxelBuff, pageMask, modelM, cam) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -120,21 +121,22 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 
-    -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
+
+    -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        Tex3D w _ _ = tex3d^.textureDimension
+        dim@(V3 w h d) = voxelBuff^.textureDimension.whd
 
     vpMatrix      $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix   $= modelM
-    g_gridDim     $= V2 (fromIntegral w) (recip $ fromIntegral w)
-    v_gridDim     $= V2 (fromIntegral w) (recip $ fromIntegral w)
-    toVis3D       $= tex3d
+    gridDim       $= fmap fromIntegral dim
+    voxelBuffer   $= voxelBuff
+    voxelPageMask $= pageMask
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ w * w * w )
+    glDrawArrays GL_POINTS 0 (fromIntegral $ w * h * d )
 
     return $ target^.renderTarget.to voxelVisScene
 
@@ -147,14 +149,14 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
 vertexUniforms prog = VertexShader
-  <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "gridDim")
+  <$> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "gridDim")
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
-  <$> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "gridDim")
-  <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_ONLY) "VoxelAlbedo")
+  <$> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_ONLY) "VoxelBuffer")
+  <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 1 GL_READ_ONLY) "VoxelPageMask")
+  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
+  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader

@@ -19,6 +19,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , TextureCube
   , BaseTexture(..)
   , Dimension2D(..)
+  , Dimension3D(..)
   , Resizeable2D(resize2D)
   , MipmapLevel
   , textureTarget
@@ -77,9 +78,22 @@ data Texture d a = Texture
   , _textureDimension :: !d
   , _textureLevel     :: !GL.MipmapLevel
   , _textureObject    :: !GL.Texture
-  } deriving (Show,Eq,Ord,Data,Typeable,Generic)
+  } deriving (Eq,Ord,Data,Typeable,Generic)
 
 makeLenses ''Texture
+
+instance Show d => Show (Texture d px) where
+  showsPrec d Texture{..} = showParen (d>10) $ showString "Texture {" .
+    showString "textureTarget = " . showString (GL.showTextureTarget _textureTarget) .
+    showString ",textureDimension = " . shows _textureDimension .
+    showString ",textureLevel = " . shows _textureLevel .
+    showString ",textureObject = " . shows _textureObject .
+{--
+    showString ",internalFormat = " . shows (internalFormat (Proxy::Proxy px)) .
+    showString ",pixelFormat = " . shows (pixelFormat (Proxy::Proxy px)) .
+    showString ",pixelType = " . shows (pixelType (Proxy::Proxy px)) .
+--}
+    showString "}"
 
 class BaseTexture t d | t -> d where
   baseTarget :: t -> GL.TextureTarget

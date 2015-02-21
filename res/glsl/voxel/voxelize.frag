@@ -4,7 +4,6 @@
 #extension GL_ARB_shading_language_include : require
 #extension GL_ARB_shader_image_load_store : require
 #extension GL_ARB_shader_image_size : require
-#extension GL_ARB_sparse_textures : require
 // #extension GL_NV_shader_atomic_fp16_vector : require
 // #extension GL_NV_shader_atomic_float : require
 
@@ -16,10 +15,8 @@
 uniform sampler2D AlbedoTexture;
 uniform vec4 AlbedoColor;
 
-uniform coherent volatile layout(binding = 0, r32ui /*rgba32ui*/ ) uimage3D VoxelAlbedo;
-// uniform coherent volatile layout(binding = 1, r32ui /*rgba32ui*/ ) uimage3D VoxelAlbedoG;
-// uniform coherent volatile layout(binding = 2, r32ui /*rgba32ui*/ ) uimage3D VoxelAlbedoB;
-// uniform coherent volatile layout(binding = 1, rg16ui ) image3D VoxelAlbedoBA;
+uniform coherent volatile layout(binding = 0, r32ui) uimage3D VoxelBuffer;
+uniform coherent volatile layout(binding = 1, r8ui) uimage3D PageMask;
 
 in vec3 Position;
 in vec2 TextureCoord;
@@ -49,8 +46,13 @@ void main()
   if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
     discard;
 
-  ivec3 gridDim = imageSize(VoxelAlbedo);
-  ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z * gridDim.x);
+  ivec3 gridDim;
+  if (VoxelizeMode == 0)
+    gridDim = imageSize(VoxelBuffer);
+  else
+    gridDim = imageSize(PageMask);
+
+  ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z * gridDim.z);
   ivec3 gridCoord;
 
   // we need to swizzle the coords according to the view direction
@@ -73,14 +75,18 @@ void main()
     gridCoord = tempCoord;
     // discard;
   }
-  // Surface surface = GetSurface();
-  vec4 albedo = texture(AlbedoTexture, TextureCoord) * AlbedoColor;
-  /*
-  imageAtomicAdd(VoxelAlbedoRG, gridCoord, albedo.rg); // Todo atomic
-  imageAtomicAdd(VoxelAlbedoBA, gridCoord, vec2(albedo.b, 1));
-  */
 
-  imageAtomicRGBA8Avg(albedo, gridCoord, VoxelAlbedo);
+  if (VoxelizeMode == VOXELIZESCENE)
+  {
+    // Surface surface = GetSurface();
+    vec4 albedo = texture(AlbedoTexture, TextureCoord) * AlbedoColor;
+    imageAtomicRGBA8Avg(albedo, gridCoord, VoxelBuffer);
+  }
+  else
+  {
+    imageStore(PageMask, ivec3(4,4,4), uvec4(USE_PAGE_MARKER,0,0,0));
+  }
+
 }
 
 void imageAtomicRGBA8Avg( vec4 val, ivec3 coord, layout(r32ui) coherent volatile uimage3D img )

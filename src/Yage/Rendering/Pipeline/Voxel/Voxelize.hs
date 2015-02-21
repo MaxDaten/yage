@@ -15,6 +15,11 @@
 {-# LANGUAGE Arrows              #-}
 module Yage.Rendering.Pipeline.Voxel.Voxelize
   ( voxelizePass
+  , VoxelBuffer
+  , VoxelPageMask
+  -- * VoxelizeMode for Visualization
+  , VoxelizeMode(..)
+  , voxelizeModeUniform
   ) where
 
 import           Yage.Prelude
@@ -28,6 +33,7 @@ import           Yage.Material                           hiding (over, HasPositi
 import           Yage.Scene                              hiding (Layout, componentCount)
 import           Yage.Uniform                            as Uniform
 import           Yage.Rendering.Resources.GL
+import           Yage.Rendering.Resources.GL.SparseTexture
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
@@ -42,6 +48,9 @@ import           Quine.GL.ProgramPipeline
 import           Quine.GL.Sampler
 import           Quine.StateVar
 import           Quine.GL.Texture
+import           Quine.GL.InternalFormat
+
+-- import           Graphics.GL.Ext.ARB.ClearTexture
 
 import Yage.Rendering.Pipeline.Deferred.Common
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
@@ -65,29 +74,37 @@ data GeometryShader = GeometryShader
   { x_Projection   :: UniformVar Mat4
   , y_Projection   :: UniformVar Mat4
   , z_Projection   :: UniformVar Mat4
-  , gridDim        :: UniformVar Vec4
+  , g_VoxelizeMode :: UniformVar VoxelizeMode
   }
 
 data FragmentShader = FragmentShader
   { albedoMaterial  :: UniformVar (Material MaterialColorAlpha (Texture2D PixelRGB8))
-  , voxelAlbedoImg  :: UniformVar (Texture3D PixelR32UI)
+  , f_VoxelizeMode  :: UniformVar VoxelizeMode
   }
 
+type VoxelPageMask = Texture3D PixelR8UI
 type VoxelBuffer = Texture3D PixelR32UI
 
 -- * Pass Resources
 
 data PassRes = PassRes
-  { vao          :: VertexArray
-  , voxelBuffer  :: VoxelBuffer
-  , pipe         :: Pipeline
-  , vert         :: VertexShader
-  , geom         :: GeometryShader
-  , frag         :: FragmentShader
+  { vao           :: VertexArray
+  , voxelBuffer   :: VoxelBuffer
+  , pageMaskTex   :: VoxelPageMask
+  , pageClearData :: SVector Word8
+  , pipe          :: Pipeline
+  , vert          :: VertexShader
+  , geom          :: GeometryShader
+  , frag          :: FragmentShader
   }
 
-type VoxelizePass m scene = Pass PassRes m scene VoxelBuffer
+type VoxelizePass m scene = Pass PassRes m scene (VoxelBuffer, VoxelPageMask)
 
+
+data VoxelizeMode =
+    VoxelizeScene VoxelBuffer
+  | VoxelPageMask VoxelPageMask
+  deriving (Show,Ord,Eq,Generic)
 
 voxelizePass :: (MonadIO m, MonadThrow m, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
 voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
@@ -105,12 +122,15 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     Just geom <- traverse geometryUniforms  =<< get (geometryShader $ pipeline^.pipelineProgram)
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-
     voxBuff <- genVoxelTexture width height depth cleardata
+    pageMaskTex <- genPageMask voxBuff
+    let V3 w h d = pageMaskTex^.textureDimension.whd
+        pageClear = V.replicate (w * h * d * componentCount (undefined :: PixelR8UI)) (minBound :: Word8)
 
-    return $ PassRes vao voxBuff pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelBuffer
+    return $ PassRes vao voxBuff pageMaskTex pageClear pipeline vert geom frag
+
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene (VoxelBuffer, VoxelPageMask)
   runPass = mkStaticRenderPass $ \scene -> do
     PassRes{..} <- ask
     -- some state setting
@@ -121,38 +141,42 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     glDepthMask GL_FALSE
     glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
 
-    GL.glViewport $= Rectangle (V2 0 0) (V2 width height)
-
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
     clearVoxelBuffer voxelBuffer cleardata
+    clearVoxelBuffer pageMaskTex pageClearData
+    glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 
-    setupGlobals geom frag voxelBuffer
+    setupGlobals geom frag (VoxelizeScene voxelBuffer)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-    return $ voxelBuffer
+    return $ (voxelBuffer, pageMaskTex)
 
   cleardata = V.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
 
-setupGlobals :: MonadIO m => GeometryShader -> FragmentShader -> VoxelBuffer -> m ()
-setupGlobals GeometryShader{..} FragmentShader{..} voxelBuffer = do
-  gridDim        $= dim
+
+-- | set all shader globals
+setupGlobals :: MonadIO m => GeometryShader -> FragmentShader -> VoxelizeMode -> m ()
+setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   x_Projection   $= xproj
   y_Projection   $= yproj
   z_Projection   $= zproj
-  voxelAlbedoImg $= voxelBuffer
+  g_VoxelizeMode $= mode
+  f_VoxelizeMode $= mode
+  GL.glViewport  $= vp
  where
-  Tex3D w h _ = voxelBuffer^.textureDimension
-  dim     = V4 (fromIntegral w) (fromIntegral h) (recip $ fromIntegral w) (recip $ fromIntegral h)
   -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
   xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
+  vp = case mode of
+    VoxelizeScene vbuff -> Rectangle 0 (vbuff^.textureDimension.whd._xy)
+    VoxelPageMask mask  -> Rectangle 0 (mask^.textureDimension.whd._xy)
 
 drawEntities :: forall f ent i v m .
   (MonadIO m, MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
@@ -197,14 +221,29 @@ geometryUniforms prog = GeometryShader
   <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "X_Projection")
   <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "Y_Projection")
   <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "Z_Projection")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniform4f prog "gridDim")
+  <*> voxelizeModeUniform prog
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
   albedoSampler    <- mkAlbedoSampler
   FragmentShader
     <$> materialUniformRGBA prog albedoSampler "AlbedoTexture" "AlbedoColor"
-    <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_WRITE) "VoxelAlbedo")
+    <*> voxelizeModeUniform prog
+
+voxelizeModeUniform :: MonadIO m => Program-> m (UniformVar VoxelizeMode)
+voxelizeModeUniform prog = do
+  buffUniform     <- imageTextureUniform prog (imageTexture3D 0 GL_READ_WRITE) "VoxelBuffer"
+  maskUniform     <- imageTextureUniform prog (imageTexture3D 1 GL_READ_WRITE) "PageMask"
+  flagMaskUniform <- programUniform programUniform1i prog "VoxelizeMode"
+  return $ SettableStateVar $ \case
+    VoxelizeScene vbuff -> do
+      buffUniform $= Just vbuff
+      maskUniform $= Nothing
+      flagMaskUniform $= 0
+    VoxelPageMask maskBuff -> do
+      buffUniform $= Nothing
+      maskUniform $= Just maskBuff
+      flagMaskUniform $= 1
 
 -- * Voxel Buffer
 
@@ -228,6 +267,27 @@ genVoxelTexture w h d cleardata = do
   texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
   clearVoxelBuffer tex cleardata
   return tex
+
+genPageMask :: forall px. ImageFormat px => Texture3D px -> YageResource (VoxelPageMask)
+genPageMask baseBuff = do
+  pageSize <- virtualPageSize3D baseBuff
+  io $ printf "PageSizes for %s: %s\n" (show baseBuff) (show pageSize)
+  io $ printf "Max Sparse 3D Size: %d\n" maxSparseSize3D
+
+  tex <- createTexture3D GL_TEXTURE_3D (Tex3D 32 32 32) 1
+  boundTexture GL_TEXTURE_3D 0 $= tex^.textureObject
+  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
+  texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
+  io $ printf "created page mask: %s\n" (show tex)
+  return tex
+ where
+  maskSize (V3 x y z) = (baseBuff^.textureDimension)
+    & whd._x %~ (`div` x)
+    & whd._y %~ (`div` y)
+    & whd._z %~ (`div` z)
 
 -- * Sampler
 
