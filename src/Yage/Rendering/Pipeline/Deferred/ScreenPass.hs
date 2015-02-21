@@ -69,7 +69,7 @@ drawRectangle = do
 
     mainViewport <- view viewport
     when (lastViewport /= mainViewport) $ do
-      GL.glViewport $= mainViewport^.rectangle
+      GL.globalViewport $= mainViewport^.rectangle
 
     glDepthMask GL_TRUE
     glDisable GL_DEPTH_TEST

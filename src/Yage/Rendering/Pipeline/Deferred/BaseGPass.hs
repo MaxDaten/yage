@@ -178,7 +178,7 @@ gPass = PassGEnv <$> passRes <*> pure runPass where
     glFrontFace GL_CCW
     glCullFace GL_BACK
 
-    GL.glViewport $= target^.asRectangle
+    GL.globalViewport $= target^.asRectangle
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT

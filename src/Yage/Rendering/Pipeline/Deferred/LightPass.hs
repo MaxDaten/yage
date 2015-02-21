@@ -124,7 +124,7 @@ lightPass = PassGEnv <$> passRes <*> pure runPass where
     glFrontFace GL_CCW
     glCullFace GL_BACK
 
-    VP.glViewport $= target^.asRectangle
+    VP.globalViewport $= target^.asRectangle
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glClearColor 0 0 0 1
     glClear GL_COLOR_BUFFER_BIT

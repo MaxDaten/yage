@@ -5,7 +5,8 @@
 module Yage.Viewport
   ( Viewport(..), HasViewport(..)
   , defaultViewport
-  , glViewport
+  , globalViewport
+  , viewportIndexed
   , projectionMatrix3D
   , orthographicMatrix
   , module Rectangle
@@ -40,12 +41,22 @@ instance HasRectangle (Viewport Int) Int where
 defaultViewport :: Num a => a -> a -> Viewport a
 defaultViewport w h = Viewport (Rectangle 0 (V2 w h)) 1 2.2
 
-glViewport :: StateVar (Rectangle Int)
-glViewport = StateVar g s where
+-- | Access to the unique global opengl viewport. setting it is equivalent to 'glViewport x y w h'
+globalViewport :: StateVar (Rectangle Int)
+globalViewport = StateVar g s where
   g = do
     [x,y,w,h] <- fmap fromIntegral <$> (allocaArray 4 $ \ptr -> GL.glGetIntegerv GL.GL_VIEWPORT ptr >> peekArray 4 ptr)
     return $ Rectangle (V2 x y) (V2 w h)
   s (Rectangle (V2 x y) (V2 w h)) = GL.glViewport (fromIntegral x) (fromIntegral y) (fromIntegral w) (fromIntegral h)
+
+
+-- | Access to the indexed opengl viewport. Usefull for a geometry shader to emmit primitives to specific viewports.
+viewportIndexed :: Int -> StateVar (Rectangle Float)
+viewportIndexed idx = StateVar g s where
+  g = do
+    [x,y,w,h] <- fmap fromIntegral <$> (allocaArray 4 $ \ptr -> GL.glGetIntegeri_v GL.GL_VIEWPORT (fromIntegral idx) ptr >> peekArray 4 ptr)
+    return $ Rectangle (V2 x y) (V2 w h)
+  s (Rectangle (V2 x y) (V2 w h)) = GL.glViewportIndexedf (fromIntegral idx) (realToFrac x) (realToFrac y) (realToFrac w) (realToFrac h)
 
 
 -- | creates the projectiom matrix for the given viewport

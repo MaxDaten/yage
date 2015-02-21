@@ -117,7 +117,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
     glPointSize 10
 
-    GL.glViewport $= target^.asRectangle
+    GL.globalViewport $= target^.asRectangle
     glClearColor 0 0 0 1
     glClear $ GL_DEPTH_BUFFER_BIT .|. GL_COLOR_BUFFER_BIT
 

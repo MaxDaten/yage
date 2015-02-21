@@ -167,16 +167,22 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   z_Projection   $= zproj
   g_VoxelizeMode $= mode
   f_VoxelizeMode $= mode
-  GL.glViewport  $= vp
+  --GL.globalViewport  $= vp
+  GL.globalViewport  $= Rectangle 0 (V2 100 200) --vp
+
  where
   -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
-  xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
+  orthoX  = ortho (-10) 10 (-10) 10 10 30
+  xproj   = orthoX !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
-  vp = case mode of
-    VoxelizeScene vbuff -> Rectangle 0 (vbuff^.textureDimension.whd._xy)
-    VoxelPageMask mask  -> Rectangle 0 (mask^.textureDimension.whd._xy)
+  xviewport = Rectangle 0 (V2 z y)
+  yviewport = Rectangle 0 (V2 x z)
+  zviewport = Rectangle 0 (V2 x y)
+  V3 x y z = case mode of
+    VoxelizeScene vbuff -> vbuff^.textureDimension.whd
+    VoxelPageMask mask  -> mask^.textureDimension.whd
 
 drawEntities :: forall f ent i v m .
   (MonadIO m, MonoFoldable (f ent), GBaseEntity (Element (f ent)) i v)
