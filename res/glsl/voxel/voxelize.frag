@@ -46,11 +46,7 @@ void main()
   if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
     discard;
 
-  ivec3 gridDim;
-  if (VoxelizeMode == 0)
-    gridDim = imageSize(VoxelBuffer);
-  else
-    gridDim = imageSize(PageMask);
+  ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
 
   ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z * gridDim.z);
   ivec3 gridCoord;
