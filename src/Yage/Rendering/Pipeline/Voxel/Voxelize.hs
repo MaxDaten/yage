@@ -167,8 +167,9 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   z_Projection   $= zproj
   g_VoxelizeMode $= mode
   f_VoxelizeMode $= mode
-  --GL.globalViewport  $= vp
-  GL.globalViewport  $= Rectangle 0 (V2 100 200) --vp
+  GL.viewportIndexed X_AXIS $= xviewport
+  GL.viewportIndexed Y_AXIS $= yviewport
+  GL.viewportIndexed Z_AXIS $= zviewport
 
  where
   -- TODO: Scene extends
@@ -177,9 +178,9 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   xproj   = orthoX !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
-  xviewport = Rectangle 0 (V2 z y)
-  yviewport = Rectangle 0 (V2 x z)
-  zviewport = Rectangle 0 (V2 x y)
+  xviewport = fromIntegral <$> Rectangle 0 (V2 z y)
+  yviewport = fromIntegral <$> Rectangle 0 (V2 x z)
+  zviewport = fromIntegral <$> Rectangle 0 (V2 x y)
   V3 x y z = case mode of
     VoxelizeScene vbuff -> vbuff^.textureDimension.whd
     VoxelPageMask mask  -> mask^.textureDimension.whd

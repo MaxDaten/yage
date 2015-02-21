@@ -11,7 +11,7 @@ layout ( triangles ) in;
 layout ( triangle_strip, max_vertices = 3 ) out;
 
 in gl_PerVertex { vec4 gl_Position; } gl_in [];
-out gl_PerVertex { vec4 gl_Position; };
+out gl_PerVertex { vec4 gl_Position; int gl_ViewportIndex; };
 
 out vec3 Position;
 out vec2 TextureCoord;
@@ -48,18 +48,22 @@ void main()
   {
     projectionMatrix = X_Projection;
     Axis = X_AXIS;
+    gl_ViewportIndex = X_AXIS;
+    // gridDim.xyz = gridDim.zyx;
   }
   // Y Dominant?
   else if (absY > absX && absY > absZ)
   {
     projectionMatrix = Y_Projection;
     Axis = Y_AXIS;
+    gl_ViewportIndex = Y_AXIS;
   }
   // Z Dominant!
   else
   {
     projectionMatrix = Z_Projection;
     Axis = Z_AXIS;
+    gl_ViewportIndex = Z_AXIS;
   }
   vec4 clip_position[3];
 
