@@ -54,16 +54,12 @@ void main()
   // we need to swizzle the coords according to the view direction
   if (Axis == X_AXIS)
   {
-    gridCoord.x = gridDim.x - tempCoord.z;
-    gridCoord.y = tempCoord.y;
-    gridCoord.z = tempCoord.x;
+    gridCoord.xyz = ivec3(gridDim.x - tempCoord.z, tempCoord.y, tempCoord.x);
     // discard;
   }
   else if (Axis == Y_AXIS)
   {
-    gridCoord.x = tempCoord.x;
-    gridCoord.y = gridDim.x - tempCoord.z;
-    gridCoord.z = tempCoord.y;
+    gridCoord.xyz = ivec3(tempCoord.x, gridDim.x - tempCoord.z, tempCoord.y);
     // discard;
   }
   else // Z_AXIS

@@ -34,12 +34,7 @@ uniform readonly layout(binding = 1, r8ui) uimage3D PageMask;
 
 void main()
 {
-  ivec3 gridDim;
-  if (VoxelizeMode == VOXELIZESCENE)
-    gridDim = imageSize(VoxelBuffer);
-  else
-    gridDim = imageSize(PageMask);
-
+  ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
 
   vec3 faceNormal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
   float absX = abs(faceNormal.x);
@@ -81,7 +76,6 @@ void main()
   AABB.zw = max( clip_position[2].xy, AABB.zw);
 
   // enlarge it for conservative rasterization in fragment
-  // TODO resize according the current axis
   AABB.xy -= 1.0 / gridDim.xy;
   AABB.zw += 1.0 / gridDim.xy;
 
