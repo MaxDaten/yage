@@ -149,14 +149,14 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
 vertexUniforms prog = VertexShader
-  <$> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "gridDim")
+  <$> fmap (mkUniformVar.($=)) (programUniform programUniform3f prog "gridDim")
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
-  <$> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 0 GL_READ_ONLY) "VoxelBuffer")
-  <*> fmap (contramap Just) (imageTextureUniform prog (imageTexture3D 1 GL_READ_ONLY) "VoxelPageMask")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
+  <$> fmap (contramap Just) (imageTextureUniform (imageTexture3D 0 GL_READ_ONLY))
+  <*> fmap (contramap Just) (imageTextureUniform (imageTexture3D 1 GL_READ_ONLY))
+  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
+  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader

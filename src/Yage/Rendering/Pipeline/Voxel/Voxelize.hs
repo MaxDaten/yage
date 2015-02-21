@@ -214,13 +214,13 @@ vertexUniforms prog = do
   boundAttributeLocation prog "vTangentZ" $= VTANGENTZ
   VertexShader (setVertexAttribute VPOSITION) (setVertexAttribute VTEXTURE) (setVertexAttribute VTANGENTX) (setVertexAttribute VTANGENTZ)
     -- wrap the StateVar into a simple SettableStateVar
-    <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
+    <$> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
-  <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "X_Projection")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "Y_Projection")
-  <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "Z_Projection")
+  <$> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "X_Projection")
+  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Y_Projection")
+  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Z_Projection")
   <*> voxelizeModeUniform prog
 
 fragmentUniforms :: Program -> YageResource FragmentShader
@@ -232,10 +232,10 @@ fragmentUniforms prog = do
 
 voxelizeModeUniform :: MonadIO m => Program-> m (UniformVar VoxelizeMode)
 voxelizeModeUniform prog = do
-  buffUniform     <- imageTextureUniform prog (imageTexture3D 0 GL_READ_WRITE) "VoxelBuffer"
-  maskUniform     <- imageTextureUniform prog (imageTexture3D 1 GL_READ_WRITE) "PageMask"
+  buffUniform     <- imageTextureUniform (imageTexture3D 0 GL_READ_WRITE)
+  maskUniform     <- imageTextureUniform (imageTexture3D 1 GL_READ_WRITE)
   flagMaskUniform <- programUniform programUniform1i prog "VoxelizeMode"
-  return $ SettableStateVar $ \case
+  return $ mkUniformVar $ \case
     VoxelizeScene vbuff -> do
       buffUniform $= Just vbuff
       maskUniform $= Nothing
