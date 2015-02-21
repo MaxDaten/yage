@@ -84,7 +84,7 @@ void main()
   }
   else
   {
-    imageStore(PageMask, ivec3(4,4,4), uvec4(USE_PAGE_MARKER,0,0,0));
+    imageStore(PageMask, gridCoord, uvec4(USE_PAGE_MARKER,0,0,0));
   }
 
 }
