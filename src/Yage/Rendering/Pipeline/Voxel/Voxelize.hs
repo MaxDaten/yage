@@ -167,15 +167,16 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   z_Projection   $= zproj
   g_VoxelizeMode $= mode
   f_VoxelizeMode $= mode
-  GL.viewportIndexed X_AXIS $= xviewport
-  GL.viewportIndexed Y_AXIS $= yviewport
-  GL.viewportIndexed Z_AXIS $= zviewport
-
+  viewportIndexed X_AXIS $= xviewport
+  viewportIndexed Y_AXIS $= yviewport
+  viewportIndexed Z_AXIS $= zviewport
+  --glDepthRangeIndexed X_AXIS 1 0
+  --glDepthRangeIndexed Y_AXIS (fromIntegral y) 0
+  --glDepthRangeIndexed Z_AXIS 0 (fromIntegral z)
  where
   -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
-  orthoX  = ortho (-10) 10 (-10) 10 10 30
-  xproj   = orthoX !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
+  xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
   xviewport = fromIntegral <$> Rectangle 0 (V2 z y)
