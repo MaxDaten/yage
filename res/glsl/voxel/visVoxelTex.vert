@@ -1,19 +1,24 @@
-#version 420 core
+#version 430 core
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_include : require
 
 #include <common.h>
+#include "voxel/voxelize.h"
 
 out gl_PerVertex {
 vec4 gl_Position;
 };
 
 out ivec3 v_VoxelCoord;
-uniform vec3 gridDim;
+
+uniform readonly layout(binding = 0, r32ui) uimage3D VoxelBuffer;
+uniform readonly layout(binding = 1, r8ui) uimage3D VoxelPageMask;
+
 
 void main()
 {
   // texel coord [0..dim)
+  const ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(VoxelPageMask);
   v_VoxelCoord.x = gl_VertexID % int(gridDim.x);
   v_VoxelCoord.y = gl_VertexID / int(gridDim.x * gridDim.z);
   v_VoxelCoord.z = (gl_VertexID / int(gridDim.x)) % int(gridDim.z);

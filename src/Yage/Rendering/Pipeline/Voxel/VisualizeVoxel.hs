@@ -49,13 +49,13 @@ import Yage.Rendering.Pipeline.Voxel.Voxelize
 -- * Shader
 
 data VertexShader = VertexShader
-  { gridDim            :: UniformVar Vec3
+  { v_voxelizeMode     :: UniformVar VoxelizeMode
   }
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
-  { voxelBuffer        :: UniformVar VoxelBuffer
-  , voxelPageMask      :: UniformVar VoxelPageMask
+  { g_voxelizeMode     :: UniformVar VoxelizeMode
+  , renderEmpty        :: UniformVar Bool
   , vpMatrix           :: UniformVar Mat4
   , modelMatrix        :: UniformVar Mat4
   }
@@ -128,13 +128,15 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        dim@(V3 w h d) = voxelBuff^.textureDimension.whd
+        mode = VoxelPageMask pageMask
+        V3 w h d = case mode of
+          VoxelPageMask pageMask -> pageMask^.textureDimension.whd
+          VoxelizeScene vbuff -> vbuff^.textureDimension.whd
 
     vpMatrix      $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix   $= modelM
-    gridDim       $= fmap fromIntegral dim
-    voxelBuffer   $= voxelBuff
-    voxelPageMask $= pageMask
+    g_voxelizeMode  $= mode
+    v_voxelizeMode  $= mode
 
     glDrawArrays GL_POINTS 0 (fromIntegral $ w * h * d )
 
@@ -148,15 +150,14 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 -- * Shader Interfaces
 
 vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
-vertexUniforms prog = VertexShader
-  <$> fmap (mkUniformVar.($=)) (programUniform programUniform3f prog "gridDim")
+vertexUniforms prog = VertexShader <$> voxelizeModeUniform prog
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
-  <$> fmap (contramap Just) (imageTextureUniform (imageTexture3D 0 GL_READ_ONLY))
-  <*> fmap (contramap Just) (imageTextureUniform (imageTexture3D 1 GL_READ_ONLY))
-  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
-  <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
+  <$> voxelizeModeUniform prog
+  <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "RenderEmpty")
+  <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
+  <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader

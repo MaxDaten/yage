@@ -22,14 +22,13 @@ out vec4 f_VoxelColor;
 uniform readonly layout(binding = 0, r32ui) uimage3D VoxelBuffer;
 uniform readonly layout(binding = 1, r8ui) uimage3D VoxelPageMask;
 
-uniform int renderEmpty = 0;
+uniform int RenderEmpty;
 
 void main()
 {
   vec4 voxel;
   vec3 halfVox;
-  int mode = VOXELIZESCENE; // VOXELPAGEMASK; //  = VoxelizeMode;
-  if (mode == VOXELIZESCENE)
+  if (VoxelizeMode == VOXELIZESCENE)
   {
     voxel = convRGBA8ToVec4(imageLoad(VoxelBuffer, v_VoxelCoord[0]));
 	  voxel.rgb /= 255.0;
@@ -46,7 +45,7 @@ void main()
 	{
 		f_VoxelColor = voxel;
 	}
-	else if (renderEmpty == 1)
+	else if (RenderEmpty == 1)
 	{
 		f_VoxelColor = vec4(1, 1, 1, 0.005);
 	}
