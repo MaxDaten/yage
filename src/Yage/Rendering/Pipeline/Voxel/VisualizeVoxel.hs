@@ -137,6 +137,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     modelMatrix   $= modelM
     g_voxelizeMode  $= mode
     v_voxelizeMode  $= mode
+    renderEmpty     $= True
 
     glDrawArrays GL_POINTS 0 (fromIntegral $ w * h * d )
 
