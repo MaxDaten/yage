@@ -24,6 +24,13 @@ uniform readonly layout(binding = 1, r8ui) uimage3D VoxelPageMask;
 
 uniform int RenderEmpty;
 
+
+bool isVoxelPresent(in vec4 voxel)
+{
+  return dot(voxel,voxel) > 0;
+}
+
+
 void main()
 {
   vec4 voxel;

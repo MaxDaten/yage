@@ -10,10 +10,4 @@ Voxelize Mode
 #define VOXELPAGEMASK 1
 uniform int VoxelizeMode;
 
-bool isVoxelPresent(in vec4 voxel)
-{
-  return dot(voxel,voxel) > 0;
-}
-
-
 #endif /* __VOXELIZE_H__ */
