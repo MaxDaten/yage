@@ -18,19 +18,12 @@ import Yage.Lens
 import Yage.Math hiding (lookAt)
 import Yage.GL
 
-import Data.Foldable (forM_)
-import Foreign.Ptr (nullPtr)
-
 import Yage.Uniform as U
 import Yage.Camera
-import Yage.Light
 import Yage.Viewport as VP
 import Yage.Scene
 import Yage.Transformation
 import Yage.Material
-import qualified Yage.Vertex as V
-import Yage.Attribute
-import Yage.Geometry3D
 
 import Yage.Rendering.GL
 import Yage.Rendering.Resources.GL
@@ -41,10 +34,7 @@ import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Rendering.Pipeline.Deferred.Common
 
 import Quine.GL.Uniform
-import Quine.GL.Attribute hiding (normalize)
 import Quine.GL.Program
-import Quine.GL.Buffer
-import Quine.GL.Sampler
 import Quine.GL.VertexArray
 import Quine.StateVar
 import Quine.GL.ProgramPipeline

@@ -45,7 +45,6 @@ import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
 import           Quine.GL.Buffer
-import           Quine.GL.Sampler
 import           Quine.GL.VertexArray
 import           Quine.StateVar
 import           Quine.GL.ProgramPipeline
