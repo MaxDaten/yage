@@ -124,7 +124,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     Just geom <- traverse geometryUniforms  =<< get (geometryShader $ pipeline^.pipelineProgram)
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    voxBuff <- genVoxelTexture width height depth cleardata
+    voxBuff <- genVoxelTexture width height depth
     pageMaskTex <- genPageMask voxBuff
     let V3 w h d = pageMaskTex^.textureDimension.whd
         pageClear = V.replicate (w * h * d * componentCount (undefined :: PixelR8UI)) (minBound :: Word8)
@@ -150,7 +150,6 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     clearVoxelBuffer voxelBuffer cleardata
     clearVoxelBuffer pageMaskTex pageClearData
-    glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 
     -- memory layout
     setupGlobals geom frag (VoxelPageMask pageMaskTex)
@@ -268,9 +267,9 @@ clearVoxelBuffer tex cleardata = do
  where
   Tex3D w h d = tex^.textureDimension
 
-genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> SVector (PixelBaseComponent px) -> YageResource (Texture3D px)
-genVoxelTexture w h d cleardata = do
-  tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
+genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px)
+genVoxelTexture w h d = do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
     fmtIdx <- selectPageFormat t
     printf "Selected Page Format: %s\n" (show fmtIdx)
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
@@ -278,10 +277,10 @@ genVoxelTexture w h d cleardata = do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
-    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= fst fmtIdx -- TODO on my machine 128x128x1
-  glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
-  clearVoxelBuffer tex cleardata
+    --texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
+    --texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= fst fmtIdx -- TODO on my machine 128x128x1
+  --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
+  --clearVoxelBuffer tex cleardata
   return tex
  where
   selectPageFormat tex = do
@@ -297,7 +296,7 @@ genPageMask baseBuff = do
   io $ printf "PageSizes for %s: %s\n" (show baseBuff) (show pageSize)
   io $ printf "Max Sparse 3D Size: %d\n" maxSparseSize3D
 
-  tex <- createTexture3D GL_TEXTURE_3D (maskSize (V3 8 8 8)) 1 $ \_ -> do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (maskSize (V3 128 128 128)) 1 $ \_ -> do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE

@@ -84,7 +84,7 @@ yDeferredLighting = do
   --postAmbient     <- postAmbientPass
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
-  voxelizeScene   <- voxelizePass 128 128 128
+  voxelizeScene   <- voxelizePass 256 256 256
   --voxelBuffer     <- genVoxelBuffer 256 256 256
   voxelVis        <- visualizeVoxelPass
 
@@ -161,7 +161,7 @@ yDeferredLighting = do
   genVoxelBuffer w h d = do
     --let dat = V.replicate (w * h * d * 4) (maxBound :: Word8)
     let dat = V.generate  (w * h * d * 4) (\i -> if i `mod` (w + 1) == 0 then maxBound :: Word8 else minBound)
-    tex <- createTexture3D GL_TEXTURE_3D (Tex3D w h d) 1 $ \_ -> do
+    tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \_ -> do
       glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER GL_NEAREST
       glTexParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER GL_NEAREST
 

@@ -29,6 +29,7 @@ module Yage.Rendering.Resources.GL.Texture (
   -- * Creation
   , createTexture2D
   , createTexture3D
+  , createTexture3DWithSetup
   , createTextureFromImage
   -- * Resize
   , resizeTexture2D
@@ -147,9 +148,12 @@ createTexture2D target d l = mkAcquire acq free where
   acq = Texture target d (fromIntegral l) <$> (newTextureStorageObj target (fromIntegral l) (d^.wh._x) (d^.wh._y) (Proxy :: Proxy px))
   free tex = delete (tex^.textureObject)
 
+createTexture3D :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
+createTexture3D target dim l = createTexture3DWithSetup target dim l (const (return ()))
+
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
-createTexture3D :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> (Texture d px -> IO ()) -> YageResource (Texture d px)
-createTexture3D target dim l ma = mkAcquire acq free where
+createTexture3DWithSetup :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> (Texture d px -> IO ()) -> YageResource (Texture d px)
+createTexture3DWithSetup target dim l ma = mkAcquire acq free where
   free tex = delete (tex^.textureObject)
   acq :: IO (Texture d px)
   acq = do
