@@ -37,18 +37,23 @@ module Yage.Rendering.Resources.GL.Texture (
   , bindTexture
   , bindTextures
   , bindTextureSamplers
+  , withMappedTexture
   ) where
 
-import           Yage.Lens         hiding (levels)
+import           Yage.Lens         hiding (levels, coerce)
 import           Yage.Math         hiding (unit)
 import           Yage.Prelude
 import           Yage.Rendering.GL as GL
 
 import           Data.Data
+import           Data.Coerce
+import           Data.Foldable                   (foldr1)
+import           Data.Vector.Storable            (unsafeFromForeignPtr0)
+import           Foreign.Ptr
+import           Foreign.ForeignPtr.Safe
 import           Yage.Rendering.Resources.GL.Base
 import           Yage.Geometry.D2.Rectangle
 import           Yage.Resource.YageResource
-
 import           Codec.Picture                   as Img
 import           Codec.Picture.Types             as Img
 
@@ -61,6 +66,8 @@ import qualified Quine.GL.Texture                as GL
 import           Quine.GL.Texture                (MipmapLevel)
 import           Quine.GL.Sampler                as GL
 import           Quine.GL.Object
+import           Quine.GL.Buffer
+import           Quine.GL.Pixel
 import           Quine.StateVar
 
 
@@ -193,6 +200,28 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   throwWithStack $ GL.boundTexture t GL_TEXTURE_BINDING_2D $= tex
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
   return $ tex
+
+-- | bracket style texture mapping, just read only
+withMappedTexture :: forall m px a. (MonadIO m, ImageFormat px, Storable px) =>
+  Buffer (SVector px) ->
+  GLenum ->
+  -- ^ 'GL_READ_ONLY' | 'GL_WRITE_ONLY' 'GL_READ_WRITE'
+  Texture3D px ->
+  (SVector px -> m a) ->
+  m a
+withMappedTexture storage access tex ma = do
+  GL.boundTexture target 0 $= (tex^.textureObject)
+  boundBufferAt PixelUnpackBuffer $= storage
+  --r <- ma . flip unsafeFromForeignPtr0 len =<< liftIO . newForeignPtr_ =<< (liftM castPtr $ glMapBufferRange GL_PIXEL_UNPACK_BUFFER 0 (fromIntegral len) GL_MAP_READ_BIT)
+  fptr <- liftIO $ newForeignPtr_ =<< liftM castPtr (glMapBuffer GL_PIXEL_UNPACK_BUFFER access)
+  r <- ma $ unsafeFromForeignPtr0 fptr len
+  glUnmapBuffer GL_PIXEL_UNPACK_BUFFER
+  boundBufferAt PixelUnpackBuffer   $= def
+  GL.boundTexture (tex^.textureTarget) 0 $= def
+  return r
+ where
+  target = tex^.textureTarget
+  len = traceShowId $ (foldr1 (*) $ tex^.textureDimension.whd) * components (pixelFormat (Proxy::Proxy px))
 
 instance FramebufferAttachment (Texture Tex1D a) where
   attach (FramebufferTarget target _) p tex = glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0

@@ -38,9 +38,11 @@ import           Yage.Rendering.Resources.GL.SparseTexture
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
+import           Foreign.Marshal.Array
 import           Linear
+import           Data.Foldable (foldr1)
 import           Data.List (findIndex,(!!))
-import           Data.Vector.Storable as V hiding (forM_,find,findIndex)
+import           Data.Vector.Storable as V hiding (forM_,find,findIndex,foldr1)
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
@@ -109,7 +111,8 @@ data PassRes = PassRes
   { vao           :: VertexArray
   , voxelBuffer   :: VoxelBuffer
   , pageMaskTex   :: VoxelPageMask
-  , pageClearData :: SVector Word8
+  , pageMaskPBO   :: Buffer (SVector PixelR8UI)
+  , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
   , pipe          :: Pipeline
   , vert          :: VertexShader
   , geom          :: GeometryShader
@@ -138,10 +141,11 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     voxBuff <- genVoxelTexture width height depth
     pageMaskTex <- genPageMask voxBuff
     let V3 w h d = pageMaskTex^.textureDimension.whd
-        pageClear = V.replicate (w * h * d * componentCount (undefined :: PixelR8UI)) (minBound :: Word8)
+        pageMaskSize = w * h * d * 1 -- (components (pixelFormat (Proxy::Proxy PixelR8UI)))
+        pageClear = V.replicate pageMaskSize (minBound :: Word8)
 
-
-    return $ PassRes vao voxBuff pageMaskTex pageClear pipeline vert geom frag
+    pbo <- createEmptyBuffer PixelUnpackBuffer StaticRead pageMaskSize
+    return $ PassRes vao voxBuff pageMaskTex pbo pageClear pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
   runPass = mkStaticRenderPass $ \scene -> do
@@ -165,6 +169,12 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     -- memory layout
     setupGlobals geom frag (ProcessPageMask pageMaskTex)
     drawEntities vert geom frag (scene^.entities)
+
+    -- map page Mask
+    withMappedTexture pageMaskPBO GL_READ_ONLY pageMaskTex $ \vector -> do
+      print $ V.length vector
+
+    -- iterate over page mask and commit/decommit pages if voxelBuffer
 
     -- scene
     setupGlobals geom frag (ProcessSceneVoxelization voxelBuffer)

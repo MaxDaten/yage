@@ -12,7 +12,7 @@ module Yage.Rendering.Resources.GL.TextureFormat
   , PixelRG16UI
   , PixelRGBA32UI
   , PixelR32UI
-  , PixelR8UI
+  , PixelR8UI(PixelR8UI)
   -- * Depth Formats
   , DepthComponent16
   , DepthComponent24
@@ -47,7 +47,7 @@ data PixelRGB11_11_10F
 data PixelRG16UI
 data PixelRGBA32UI
 data PixelR32UI
-data PixelR8UI
+newtype PixelR8UI = PixelR8UI Pixel8 deriving (Storable,Eq,Ord,Show,Read,Generic)
 
 -- | dangling instances for Pixel instance
 deriving instance Eq PixelRG16F
@@ -56,7 +56,6 @@ deriving instance Eq PixelRGB11_11_10F
 deriving instance Eq PixelRG16UI
 deriving instance Eq PixelRGBA32UI
 deriving instance Eq PixelR32UI
-deriving instance Eq PixelR8UI
 
 instance Pixel PixelRG16F where
   type PixelBaseComponent PixelRG16F = Half
