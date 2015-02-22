@@ -33,21 +33,24 @@ bool isVoxelPresent(in vec4 voxel)
 
 void main()
 {
-  vec4 voxel;
+  vec4 voxel = vec4(0,0,0,0);
   vec3 halfVox;
+  ivec3 maskSize = textureSize(VoxelPageMask, 0);
+  ivec3 size = textureSize(VoxelBuffer, 0);
+  bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
+
   if (VoxelizeMode == VOXELIZESCENE)
   {
-    ivec3 size = textureSize(VoxelBuffer, 0);
-    voxel = convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size));
+    voxel = pageInMarker ? convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size)) : voxel;
 	  voxel.rgb /= 255.0;
     halfVox = 0.9/size;
   }
   else
   {
-    ivec3 size = textureSize(VoxelPageMask, 0);
-    bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
-    voxel = pageInMarker ? vec4(1.0,0.5,0.0,0.3) : vec4(0.0,0.0,0.0,0.0);
-    halfVox = 0.8/size;
+    voxel = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ maskSize).r == USE_PAGE_MARKER
+              ? vec4(1.0,0.5,0.0,0.3)
+              : vec4(0.0,0.0,0.0,0.0);
+    halfVox = 0.8/maskSize;
   }
 
 	if (isVoxelPresent(voxel))
