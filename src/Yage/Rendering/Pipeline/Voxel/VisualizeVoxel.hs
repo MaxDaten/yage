@@ -40,7 +40,7 @@ import           Quine.StateVar
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
-import Yage.Rendering.Pipeline.Voxel.Voxelize
+import Yage.Rendering.Pipeline.Voxel.Voxelize hiding (voxelizeModeUniform)
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -149,7 +149,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 
 -- * Shader Interfaces
 
-vertexUniforms :: (MonadIO m, Functor m, Applicative m) => Program -> m VertexShader
+vertexUniforms :: Program -> YageResource VertexShader
 vertexUniforms prog = VertexShader <$> voxelizeModeUniform prog
 
 geometryUniforms :: Program -> YageResource GeometryShader
@@ -162,7 +162,35 @@ geometryUniforms prog = GeometryShader
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader
 
+
+voxelizeModeUniform :: Program -> YageResource (UniformVar VoxelizeMode)
+voxelizeModeUniform prog = do
+  sceneSampler    <- mkVoxelSampler 0
+  maskSampler     <- mkVoxelSampler 1
+  flagMaskUniform <- programUniform programUniform1i prog "VoxelizeMode"
+  return $ mkUniformVar $ \case
+    VoxelizeScene vbuff -> do
+      sceneSampler $= Just vbuff
+      maskSampler  $= Nothing
+      flagMaskUniform $= 0
+    VoxelPageMask maskBuff -> do
+      sceneSampler $= Nothing
+      maskSampler  $= Just maskBuff
+      flagMaskUniform $= 1
+
+
 -- * Sampler
+
+mkVoxelSampler :: TextureUnit -> YageResource (UniformSampler3D px)
+mkVoxelSampler unit = throwWithStack $ sampler3D unit <$> do
+  s <- glResource
+  samplerParameteri s GL_TEXTURE_WRAP_R $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_S $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_WRAP_T $= GL_REPEAT
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  return s
+
 
 mkVisVoxelTarget :: Rectangle Int -> YageResource VisVoxelTarget
 mkVisVoxelTarget rect | V2 w h <- rect^.extend = VisVoxelTarget

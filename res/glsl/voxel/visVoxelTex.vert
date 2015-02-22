@@ -11,14 +11,14 @@ vec4 gl_Position;
 
 out ivec3 v_VoxelCoord;
 
-uniform readonly layout(binding = 0, r32ui) uimage3D VoxelBuffer;
-uniform readonly layout(binding = 1, r8ui) uimage3D VoxelPageMask;
+uniform layout(binding = 0) usampler3D VoxelBuffer;
+uniform layout(binding = 1) usampler3D VoxelPageMask;
 
 
 void main()
 {
   // texel coord [0..dim)
-  const ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(VoxelPageMask);
+  const ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? textureSize(VoxelBuffer,0) : textureSize(VoxelPageMask,0);
   v_VoxelCoord.x = gl_VertexID % int(gridDim.x);
   v_VoxelCoord.y = gl_VertexID / int(gridDim.x * gridDim.z);
   v_VoxelCoord.z = (gl_VertexID / int(gridDim.x)) % int(gridDim.z);

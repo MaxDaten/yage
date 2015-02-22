@@ -19,8 +19,8 @@ layout ( triangle_strip, max_vertices = 26 ) out;
 in ivec3 v_VoxelCoord[];
 out vec4 f_VoxelColor;
 
-uniform readonly layout(binding = 0, r32ui) uimage3D VoxelBuffer;
-uniform readonly layout(binding = 1, r8ui) uimage3D VoxelPageMask;
+uniform layout(binding = 0) usampler3D VoxelBuffer;
+uniform layout(binding = 1) usampler3D VoxelPageMask;
 
 uniform int RenderEmpty;
 
@@ -37,15 +37,17 @@ void main()
   vec3 halfVox;
   if (VoxelizeMode == VOXELIZESCENE)
   {
-    voxel = convRGBA8ToVec4(imageLoad(VoxelBuffer, v_VoxelCoord[0]));
+    ivec3 size = textureSize(VoxelBuffer, 0);
+    voxel = convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size));
 	  voxel.rgb /= 255.0;
-    halfVox = 0.9/imageSize(VoxelBuffer);
+    halfVox = 0.9/size;
   }
   else
   {
-    bool pageInMarker = imageLoad(VoxelPageMask, v_VoxelCoord[0]).r == USE_PAGE_MARKER;
+    ivec3 size = textureSize(VoxelPageMask, 0);
+    bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
     voxel = pageInMarker ? vec4(1.0,0.5,0.0,0.3) : vec4(0.0,0.0,0.0,0.0);
-    halfVox = 0.8/imageSize(VoxelPageMask);
+    halfVox = 0.8/size;
   }
 
 	if (isVoxelPresent(voxel))
