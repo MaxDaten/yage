@@ -104,19 +104,19 @@ void main()
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
 
 
-  Position     = clip_position[0].xyz;
-  TextureCoord = g_textureCoord[0];
-  gl_Position  = clip_position[0];
+  Position      = clip_position[0].xyz;
+  TextureCoord  = g_textureCoord[0];
+  gl_Position   = clip_position[0];
   EmitVertex();
 
-  Position = clip_position[1].xyz;
-  TextureCoord = g_textureCoord[1];
-  gl_Position = clip_position[1];
+  Position      = clip_position[1].xyz;
+  TextureCoord  = g_textureCoord[1];
+  gl_Position   = clip_position[1];
   EmitVertex();
 
-  Position = clip_position[2].xyz;
-  TextureCoord = g_textureCoord[2];
-  gl_Position = clip_position[2];
+  Position      = clip_position[2].xyz;
+  TextureCoord  = g_textureCoord[2];
+  gl_Position   = clip_position[2];
   EmitVertex();
 
   EndPrimitive();
