@@ -40,9 +40,11 @@ import           Yage.Rendering.RenderSystem
 import           Foreign.Ptr
 import           Foreign.Marshal.Array
 import           Linear
+import           GHC.Real (lcm)
 import           Data.Foldable (foldr1)
 import           Data.List (findIndex,(!!))
-import           Data.Vector.Storable as V hiding (forM_,find,findIndex,foldr1)
+import qualified Data.Vector.Storable as VS hiding (forM_,find,findIndex,foldr1)
+import qualified Data.Vector          as V
 import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
@@ -101,6 +103,7 @@ type VoxelBuffer = Texture3D PixelR32UI
 data VoxelizedScene = VoxelizedScene
   { _voxelizedScene :: VoxelBuffer
   , _pageMask       :: VoxelPageMask
+  , _pageSizes      :: V3 Int
   } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''VoxelizedScene
@@ -109,8 +112,7 @@ makeLenses ''VoxelizedScene
 
 data PassRes = PassRes
   { vao           :: VertexArray
-  , voxelBuffer   :: VoxelBuffer
-  , pageMaskTex   :: VoxelPageMask
+  , voxelBuf      :: VoxelizedScene
   , pageMaskPBO   :: Buffer (SVector PixelR8UI)
   , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
   , pipe          :: Pipeline
@@ -138,14 +140,13 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     Just geom <- traverse geometryUniforms  =<< get (geometryShader $ pipeline^.pipelineProgram)
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    voxBuff <- genVoxelTexture width height depth
-    pageMaskTex <- genPageMask voxBuff
-    let V3 w h d = pageMaskTex^.textureDimension.whd
-        pageMaskSize = w * h * d * 1 -- (components (pixelFormat (Proxy::Proxy PixelR8UI)))
-        pageClear = V.replicate pageMaskSize (minBound :: Word8)
+    voxBuf <- genVoxelBuffer width height depth
+    let V3 w h d = voxBuf^.pageMask.textureDimension.whd
+        pageMaskSize = w * h * d * 1 -- components (pixelFormat (Proxy::Proxy px))
+        pageClear = VS.replicate pageMaskSize (minBound :: Word8)
 
-    pbo <- createEmptyBuffer PixelUnpackBuffer StaticRead pageMaskSize
-    return $ PassRes vao voxBuff pageMaskTex pbo pageClear pipeline vert geom frag
+    pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
+    return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
   runPass = mkStaticRenderPass $ \scene -> do
@@ -163,27 +164,33 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    clearVoxelBuffer voxelBuffer cleardata
-    clearVoxelBuffer pageMaskTex pageClearData
+    clearVoxelBuffer (voxelBuf^.voxelizedScene) cleardata
+    clearVoxelBuffer (voxelBuf^.pageMask) pageClearData
 
     -- memory layout
-    setupGlobals geom frag (ProcessPageMask pageMaskTex)
-    drawEntities vert geom frag (scene^.entities)
-
-    -- map page Mask
-    withMappedTexture pageMaskPBO GL_READ_ONLY pageMaskTex $ \vector -> do
-      print $ V.length vector
-
-    -- iterate over page mask and commit/decommit pages if voxelBuffer
-
-    -- scene
-    setupGlobals geom frag (ProcessSceneVoxelization voxelBuffer)
+    setupGlobals geom frag (ProcessPageMask $ voxelBuf^.pageMask)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-    return $ VoxelizedScene voxelBuffer pageMaskTex
 
-  cleardata = V.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
+    -- map page mask
+    -- and iterate over page mask and commit/decommit pages
+    withMappedTexture pageMaskPBO GL_READ_ONLY (voxelBuf^.pageMask) $ \vec -> do
+      withTextureBound (voxelBuf^.voxelizedScene) $ do
+        let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
+        V.forM_ (V.indexed vec) $ \(i, p) -> do
+          -- map the idx back to the page coord
+          let pageId = V3 (i `mod` pagesX) (i `div` (pagesX * pagesZ)) (i `div` (pagesX * pagesY))
+          setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
+
+    -- full resolution voxelize scene
+    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelizedScene))
+    drawEntities vert geom frag (scene^.entities)
+
+    glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+    return $ voxelBuf
+
+  cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
 
 
 -- | set all shader globals
@@ -283,54 +290,90 @@ voxelizeModeUniform prog = do
 clearVoxelBuffer :: forall m px. (MonadIO m, ImageFormat px, Pixel px) => Texture3D px -> SVector (PixelBaseComponent px) -> m ()
 clearVoxelBuffer tex cleardata = do
   boundTexture (tex^.textureTarget) 0 $= tex^.textureObject
-  io $ V.unsafeWith cleardata $ glTexSubImage3D (tex^.textureTarget) 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) (pixelFormat (Proxy :: Proxy px)) (pixelType (Proxy :: Proxy px)) . castPtr
+  io $ VS.unsafeWith cleardata $ glTexSubImage3D (tex^.textureTarget) 0
+        0 0 0
+        (fromIntegral w) (fromIntegral h) (fromIntegral d)
+        (pixelFormat (Proxy :: Proxy px))
+        (pixelType (Proxy :: Proxy px)) . castPtr
   boundTexture (tex^.textureTarget) 0 $= def
  where
   Tex3D w h d = tex^.textureDimension
 
-genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px)
+genVoxelBuffer :: Int -> Int -> Int -> YageResource VoxelizedScene
+genVoxelBuffer w h d = do
+  (tex, minPageSize) <- genVoxelTexture w h d
+  (mask, selectedPageSize) <- genPageMask tex minPageSize
+  return $ VoxelizedScene tex mask selectedPageSize
+
+genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
 genVoxelTexture w h d = do
   tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
     fmtIdx <- selectPageFormat t
     printf "Selected Page Format: %s\n" (show fmtIdx)
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
-    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= fst fmtIdx -- TODO on my machine 128x128x1
+    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
   --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_FALSE
-  glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
+  --glTexPageCommitmentARB GL_TEXTURE_3D 0 (fromIntegral $ w `div` 2) 0 0 (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
+
+  --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
   --clearVoxelBuffer tex cleardata
-  return tex
+  fmt <- selectPageFormat tex
+  return (tex, snd fmt)
  where
+  cleardata = VS.replicate ((w `div` 2) * h * d * componentCount (undefined :: PixelR32UI)) (0::Word32)
+  selectPageFormat :: MonadIO m => Texture3D px -> m (Int, V3 Int)
   selectPageFormat tex = do
     fmts <- virtualPageSizes3D tex
     case (findIndex  ((==) 1 . view _z)) fmts of
       Nothing     -> error "GL_TEXTURE_3D requires a tile depth == 1, no matching format found"
-      Just fmtIdx -> return $ (fromIntegral fmtIdx, fmts!!fmtIdx)
+      Just fmtIdx -> return $ (fmtIdx, fmts!!fmtIdx)
 
 
-genPageMask :: forall px. ImageFormat px => Texture3D px -> YageResource (VoxelPageMask)
-genPageMask baseBuff = do
-  pageSize <- virtualPageSize3D baseBuff
-  io $ printf "PageSizes for %s: %s\n" (show baseBuff) (show pageSize)
-  io $ printf "Max Sparse 3D Size: %d\n" maxSparseSize3D
+genPageMask :: forall px. ImageFormat px => Texture3D px -> V3 Int -> YageResource (VoxelPageMask, V3 Int)
+genPageMask baseBuff pageSize = do
+  -- select the common least multiple to select cubic page sizes
+  let lcmPageSize = pure $ foldr1 lcm pageSize :: V3 Int
+  io $ printf "minimum pageSize %s: %s\n" (show baseBuff) (show pageSize)
+  io $ printf "selected pageSize %s\n" (show lcmPageSize)
 
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize (V3 8 8 8)) 1 $ \_ -> do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize $ pageSize & _z .~ 16 ) 1 $ \_ -> do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
   io $ printf "created page mask: %s\n" (show tex)
-  return tex
+  return (tex, pageSize & _z .~ 16)
  where
   calcMaskSize (V3 x y z) = (baseBuff^.textureDimension)
     & whd._x %~ (`div` x)
     & whd._y %~ (`div` y)
     & whd._z %~ (`div` z)
+
+
+setPageCommitment :: MonadIO m => VoxelizedScene -> V3 Int -> Bool -> m ()
+setPageCommitment sparse (V3 x y z) commit = do
+  glTexPageCommitmentARB (sparse^.voxelizedScene.textureTarget) 0
+    (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
+    (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
+    (if commit then GL_TRUE else GL_FALSE)
+--{--
+  liftIO $ VS.unsafeWith cleardata $
+    glTexSubImage3D GL_TEXTURE_3D 0
+    (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
+    (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
+    GL_RED_INTEGER GL_UNSIGNED_BYTE . castPtr
+--}
+ where
+  V3 pageSizeX pageSizeY pageSizeZ = sparse^.pageSizes
+  cleardata = VS.replicate (pageSizeX * pageSizeY * pageSizeZ * componentCount (undefined :: PixelR32UI)) (0::Word32)
+
 
 -- * Sampler
 

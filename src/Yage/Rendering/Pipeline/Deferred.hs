@@ -98,11 +98,11 @@ yDeferredLighting = do
                                                               --, input^.hdrCamera.camera )
 
     -- voxellzation
-    VoxelizedScene voxelBuffer pageMask      <- processPass voxelizeScene    -< input^.scene
+    voxelizedScene   <- processPass voxelizeScene    -< input^.scene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
-                            , VoxelizedScene voxelBuffer pageMask
+                            , voxelizedScene
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera )
 

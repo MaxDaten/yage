@@ -37,6 +37,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , bindTexture
   , bindTextures
   , bindTextureSamplers
+  , withTextureBound
   , withMappedTexture
   ) where
 
@@ -46,9 +47,8 @@ import           Yage.Prelude
 import           Yage.Rendering.GL as GL
 
 import           Data.Data
-import           Data.Coerce
 import           Data.Foldable                   (foldr1)
-import           Data.Vector.Storable            (unsafeFromForeignPtr0)
+import           Data.Vector.Storable            (unsafeFromForeignPtr0, convert)
 import           Foreign.Ptr
 import           Foreign.ForeignPtr.Safe
 import           Yage.Rendering.Resources.GL.Base
@@ -155,11 +155,11 @@ createTexture2D target d l = mkAcquire acq free where
   acq = Texture target d (fromIntegral l) <$> (newTextureStorageObj target (fromIntegral l) (d^.wh._x) (d^.wh._y) (Proxy :: Proxy px))
   free tex = delete (tex^.textureObject)
 
-createTexture3D :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
+createTexture3D :: forall px d. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> YageResource (Texture d px)
 createTexture3D target dim l = createTexture3DWithSetup target dim l (const (return ()))
 
 -- | Creates an uninitialized 'Texture' with 'ImageFormat' derived from the result type
-createTexture3DWithSetup :: forall px d m. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> (Texture d px -> IO ()) -> YageResource (Texture d px)
+createTexture3DWithSetup :: forall px d. (ImageFormat px, Dimension3D d) => GL.TextureTarget -> d -> Int -> (Texture d px -> IO ()) -> YageResource (Texture d px)
 createTexture3DWithSetup target dim l ma = mkAcquire acq free where
   free tex = delete (tex^.textureObject)
   acq :: IO (Texture d px)
@@ -201,27 +201,40 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
   return $ tex
 
+withTextureBound :: MonadIO m => Texture d px -> m a -> m a
+withTextureBound tex ma = do
+  GL.boundTexture (tex^.textureTarget) 0 $= (tex^.textureObject)
+  r <- ma
+  GL.boundTexture (tex^.textureTarget) 0 $= def
+  return r
+
 -- | bracket style texture mapping, just read only
+-- a better solution: create, capture and map after it
+-- https://www.opengl.org/discussion_boards/showthread.php/165780-PBO-glReadPixels-not-so-fast?p=1172482&viewfull=1#post1172482
 withMappedTexture :: forall m px a. (MonadIO m, ImageFormat px, Storable px) =>
   Buffer (SVector px) ->
   GLenum ->
   -- ^ 'GL_READ_ONLY' | 'GL_WRITE_ONLY' 'GL_READ_WRITE'
   Texture3D px ->
-  (SVector px -> m a) ->
+  (Vector px -> m a) ->
   m a
 withMappedTexture storage access tex ma = do
   GL.boundTexture target 0 $= (tex^.textureObject)
-  boundBufferAt PixelUnpackBuffer $= storage
+  boundBufferAt PixelPackBuffer $= storage
   --r <- ma . flip unsafeFromForeignPtr0 len =<< liftIO . newForeignPtr_ =<< (liftM castPtr $ glMapBufferRange GL_PIXEL_UNPACK_BUFFER 0 (fromIntegral len) GL_MAP_READ_BIT)
-  fptr <- liftIO $ newForeignPtr_ =<< liftM castPtr (glMapBuffer GL_PIXEL_UNPACK_BUFFER access)
-  r <- ma $ unsafeFromForeignPtr0 fptr len
-  glUnmapBuffer GL_PIXEL_UNPACK_BUFFER
-  boundBufferAt PixelUnpackBuffer   $= def
+  glGetnTexImage target 0 fmt ty (fromIntegral 2048) nullPtr
+  fptr <- liftIO $ newForeignPtr_ =<< liftM castPtr (glMapBuffer GL_PIXEL_PACK_BUFFER access)
+  a <- ma (convert $ unsafeFromForeignPtr0 fptr len)
+  r <- glUnmapBuffer GL_PIXEL_PACK_BUFFER
+  when (r /= GL_TRUE) $ error "glUnmapBuffer not successful"
+  boundBufferAt PixelPackBuffer   $= def
   GL.boundTexture (tex^.textureTarget) 0 $= def
-  return r
+  return a
  where
   target = tex^.textureTarget
-  len = traceShowId $ (foldr1 (*) $ tex^.textureDimension.whd) * components (pixelFormat (Proxy::Proxy px))
+  fmt = pixelFormat (Proxy::Proxy px)
+  ty  = pixelType (Proxy::Proxy px)
+  len = (foldr1 (*) $ tex^.textureDimension.whd) * components (pixelFormat (Proxy::Proxy px))
 
 instance FramebufferAttachment (Texture Tex1D a) where
   attach (FramebufferTarget target _) p tex = glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0

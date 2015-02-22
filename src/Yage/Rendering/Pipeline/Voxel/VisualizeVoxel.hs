@@ -109,7 +109,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, vscene@(VoxelizedScene vbuff pageMask), modelM, cam) -> do
+  runPass = mkStaticRenderPass $ \(target, vscene, modelM, cam) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -146,12 +146,13 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     g_mode          $= VisualizeScene
     renderEmpty     $= False
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vbuff^.textureDimension.whd )
+    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd )
 
     v_mode          $= VisuallizePageMask
     g_mode          $= VisuallizePageMask
+    renderEmpty     $= True
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ pageMask^.textureDimension.whd )
+    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.pageMask.textureDimension.whd )
 
     return $ target^.renderTarget.to voxelVisScene
 
@@ -183,7 +184,7 @@ voxelizedSceneUniform :: Program -> YageResource (UniformVar VoxelizedScene)
 voxelizedSceneUniform prog = do
   sceneSampler    <- mkVoxelSampler 0
   maskSampler     <- mkVoxelSampler 1
-  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff) -> do
+  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff _) -> do
       sceneSampler $= Just vbuff
       maskSampler  $= Just maskBuff
 
