@@ -17,7 +17,6 @@ import Yage.Uniform
 import Yage.Rendering.Resources.GL
 import Quine.GL.VertexArray
 import Quine.GL.Program
-import Quine.GL.Sampler
 import Quine.GL.ProgramPipeline
 import Quine.GL.Uniform
 import Yage.Rendering.GL

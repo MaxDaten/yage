@@ -17,6 +17,9 @@ module Yage.Uniform.Material
   , sampler3D
   , samplerCube
   , samplerUniform
+  -- * Reexports
+  , TextureUnit
+  , module Sampler
   ) where
 
 import Yage.Prelude
@@ -29,7 +32,7 @@ import Data.Foldable
 import Quine.GL.Program
 import Quine.GL.Texture         hiding (Texture)
 import Quine.GL.Uniform
-import Quine.GL.Sampler
+import Quine.GL.Sampler         as Sampler
 import Quine.StateVar
 import Linear
 
