@@ -308,7 +308,7 @@ genPageMask baseBuff = do
   io $ printf "PageSizes for %s: %s\n" (show baseBuff) (show pageSize)
   io $ printf "Max Sparse 3D Size: %d\n" maxSparseSize3D
 
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (maskSize (V3 128 128 128)) 1 $ \_ -> do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize (V3 8 8 8)) 1 $ \_ -> do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
@@ -317,7 +317,7 @@ genPageMask baseBuff = do
   io $ printf "created page mask: %s\n" (show tex)
   return tex
  where
-  maskSize (V3 x y z) = (baseBuff^.textureDimension)
+  calcMaskSize (V3 x y z) = (baseBuff^.textureDimension)
     & whd._x %~ (`div` x)
     & whd._y %~ (`div` y)
     & whd._z %~ (`div` z)
