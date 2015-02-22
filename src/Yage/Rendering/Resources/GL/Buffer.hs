@@ -5,6 +5,7 @@ module Yage.Rendering.Resources.GL.Buffer
   ( RenderData(..)
   , HasRenderData(..)
   , createBuffer
+  , createEmptyBuffer
   , createVertexBuffer
   , createElementBuffer
   , fromMesh
@@ -21,6 +22,7 @@ import           Yage.Resource.YageResource
 import qualified Data.Vector.Storable       as VS
 
 import           Quine.GL.Buffer            as Img
+import           Quine.GL.Object
 import           Quine.StateVar
 
 data RenderData i v = RenderData
@@ -56,6 +58,9 @@ createBuffer target usage xs = do
   boundBufferAt target $= buff
   bufferData target $= (usage, xs)
   return buff
+
+createEmptyBuffer :: BufferTarget -> BufferUsage -> Int -> Acquire (Buffer a)
+createEmptyBuffer target usage size = mkAcquire (sizedEmptyBuffer target usage size) delete
 
 createVertexBuffer :: Storable a => BufferUsage -> SVector a -> Acquire (Buffer (SVector a))
 createVertexBuffer = createBuffer ArrayBuffer
