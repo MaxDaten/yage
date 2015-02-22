@@ -32,6 +32,8 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
 import           Linear
+import           Data.Data
+import           Data.Foldable (foldr1)
 import           Quine.GL.Uniform
 import           Quine.GL.Program
 import           Quine.GL.VertexArray
@@ -40,21 +42,28 @@ import           Quine.StateVar
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
-import Yage.Rendering.Pipeline.Voxel.Voxelize hiding (voxelizeModeUniform)
+import Yage.Rendering.Pipeline.Voxel.Voxelize
 
 #include "definitions.h"
 #include "textureUnits.h"
 #include "attributes.h"
 
+data VisualizeMode =
+    VisualizeScene
+  | VisuallizePageMask
+  deriving (Ord,Eq,Show,Data,Typeable,Generic,Enum)
+
 -- * Shader
 
 data VertexShader = VertexShader
-  { v_voxelizeMode     :: UniformVar VoxelizeMode
+  { v_voxelBuffer     :: UniformVar VoxelizedScene
+  , v_mode            :: UniformVar VisualizeMode
   }
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
-  { g_voxelizeMode     :: UniformVar VoxelizeMode
+  { g_voxelBuffer      :: UniformVar VoxelizedScene
+  , g_mode             :: UniformVar VisualizeMode
   , renderEmpty        :: UniformVar Bool
   , vpMatrix           :: UniformVar Mat4
   , modelMatrix        :: UniformVar Mat4
@@ -77,7 +86,7 @@ data VisVoxelTarget = VisVoxelTarget
   , voxelVisDepth :: Texture2D (DepthComponent24 Float)
   }
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizeMode, Mat4, Camera)
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizedScene, Mat4, Camera)
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -100,7 +109,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, mode, modelM, cam) -> do
+  runPass = mkStaticRenderPass $ \(target, vscene@(VoxelizedScene vbuff pageMask), modelM, cam) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -128,17 +137,21 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        V3 w h d = case mode of
-          VoxelPageMask pageMask -> pageMask^.textureDimension.whd
-          VoxelizeScene vbuff -> vbuff^.textureDimension.whd
 
-    vpMatrix      $= fmap realToFrac <$> viewprojectionM cam mainViewport
-    modelMatrix   $= modelM
-    g_voxelizeMode  $= mode
-    v_voxelizeMode  $= mode
+    vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
+    modelMatrix     $= modelM
+    v_voxelBuffer   $= vscene
+    g_voxelBuffer   $= vscene
+    v_mode          $= VisualizeScene
+    g_mode          $= VisualizeScene
     renderEmpty     $= False
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ w * h * d )
+    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vbuff^.textureDimension.whd )
+
+    v_mode          $= VisuallizePageMask
+    g_mode          $= VisuallizePageMask
+
+    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ pageMask^.textureDimension.whd )
 
     return $ target^.renderTarget.to voxelVisScene
 
@@ -150,11 +163,14 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 -- * Shader Interfaces
 
 vertexUniforms :: Program -> YageResource VertexShader
-vertexUniforms prog = VertexShader <$> voxelizeModeUniform prog
+vertexUniforms prog = VertexShader
+  <$> voxelizedSceneUniform prog
+  <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
-  <$> voxelizeModeUniform prog
+  <$> voxelizedSceneUniform prog
+  <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
   <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "RenderEmpty")
   <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
   <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
@@ -163,20 +179,13 @@ fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader
 
 
-voxelizeModeUniform :: Program -> YageResource (UniformVar VoxelizeMode)
-voxelizeModeUniform prog = do
+voxelizedSceneUniform :: Program -> YageResource (UniformVar VoxelizedScene)
+voxelizedSceneUniform prog = do
   sceneSampler    <- mkVoxelSampler 0
   maskSampler     <- mkVoxelSampler 1
-  flagMaskUniform <- programUniform programUniform1i prog "VoxelizeMode"
-  return $ mkUniformVar $ \case
-    VoxelizeScene vbuff -> do
+  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff) -> do
       sceneSampler $= Just vbuff
-      maskSampler  $= Nothing
-      flagMaskUniform $= 0
-    VoxelPageMask maskBuff -> do
-      sceneSampler $= Nothing
       maskSampler  $= Just maskBuff
-      flagMaskUniform $= 1
 
 
 -- * Sampler

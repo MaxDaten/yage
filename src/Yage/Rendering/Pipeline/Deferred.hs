@@ -98,18 +98,11 @@ yDeferredLighting = do
                                                               --, input^.hdrCamera.camera )
 
     -- voxellzation
-    (voxelBuffer, pageMask)      <- processPass voxelizeScene    -< input^.scene
+    VoxelizedScene voxelBuffer pageMask      <- processPass voxelizeScene    -< input^.scene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
-                            , VoxelizeScene voxelBuffer
-                            , eye4 & _xyz *~ 4
-                            , input^.hdrCamera.camera )
-
-    voxelMaskTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
-    voxelMask       <- processPassWithGlobalEnv voxelVis
-                         -< (voxelMaskTarget
-                            , VoxelPageMask pageMask
+                            , VoxelizedScene voxelBuffer pageMask
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera )
 
@@ -143,7 +136,7 @@ yDeferredLighting = do
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
     --}
-    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Just voxelMask)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
