@@ -41,8 +41,10 @@ void main()
 
   if (VoxelizeMode == VOXELIZESCENE)
   {
-    voxel = pageInMarker ? convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size)) : voxel;
+    // voxel = pageInMarker ? convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size)) : voxel;
+    voxel = convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size));
 	  voxel.rgb /= 255.0;
+    // voxel = pageInMarker ? vec4(1,0,1,1) : voxel;
     halfVox = 0.9/size;
   }
   else

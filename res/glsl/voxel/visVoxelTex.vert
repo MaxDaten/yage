@@ -26,5 +26,6 @@ void main()
   vec3 pos = vec3(v_VoxelCoord.x, v_VoxelCoord.y, v_VoxelCoord.z) / gridDim * 2.0 - 1.0;
   pos.z += 1.0 / gridDim.z;
   pos.x += 1.0 / gridDim.x;
+  pos.y += 1.0 / gridDim.y;
   gl_Position = vec4(pos, 1.0);
 }

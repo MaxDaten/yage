@@ -50,6 +50,7 @@ void main()
     Axis = X_AXIS;
     gl_ViewportIndex = X_AXIS;
     gridDim.xyz = gridDim.zyx;
+    // return;
   }
   // Y Dominant?
   else if (absY > absX && absY > absZ)
@@ -58,6 +59,7 @@ void main()
     Axis = Y_AXIS;
     gl_ViewportIndex = Y_AXIS;
     gridDim.xyz = gridDim.xzy;
+    // return;
   }
   // Z Dominant!
   else
@@ -68,6 +70,20 @@ void main()
     gridDim.xyz = gridDim.xyz;
   }
   vec4 clip_position[3];
+  const vec3 halfVox = 1.0 / gridDim;
+
+
+  // clip_position[0] = projectionMatrix * 10 * vec4(0.1, 0.1, 0.1, 0.1);
+  // clip_position[1] = projectionMatrix * 10 * vec4(0.9, 0.1, 0.1, 0.1);
+  // clip_position[2] = projectionMatrix * 10 * vec4(0.1, 0.9, 0.1, 0.1);
+
+  // clip_position[0] = vec4(0.1, 0.1, 0.1, 1);
+  // clip_position[1] = vec4(0.5, 0.1, 0.1, 1);
+  // clip_position[2] = vec4(0.5, 0.1, 0.3, 1);
+
+  // clip_position[0] = projectionMatrix * vec4(-5.0, 1.0, 0, 1);
+  // clip_position[1] = projectionMatrix * vec4(10.0, 1.0, 0, 1);
+  // clip_position[2] = projectionMatrix * vec4(1.0, 5, 0, 1);
 
   clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
   clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
@@ -82,14 +98,32 @@ void main()
   AABB.zw = max( clip_position[2].xy, AABB.zw);
 
   // enlarge it for conservative rasterization in fragment
-  AABB.xy -= 1.0 / gridDim.xy;
-  AABB.zw += 1.0 / gridDim.xy;
+  AABB.xy -= halfVox.xy;
+  AABB.zw += halfVox.xy;
 
   // vertex enlargement for conservative rasterization
   // (Conservative Rasterisation GPU Gems 2, Ch 42)[http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter42.html]
   // "Overestimated conservative rasterization can be seen as the image-processing operation dilation of the polygon by the pixel cell."
 
   // calculate the planes on the 3 edges (in normal form) for dilation
+  // plane through the edges, plane is defined as: x*n + c = 0 with n = xy; c = z
+/*
+  vec3 planes[3];
+  planes[0] = cross(clip_position[0].xyw - clip_position[2].xyw, clip_position[2].xyw);
+  planes[1] = cross(clip_position[1].xyw - clip_position[0].xyw, clip_position[0].xyw);
+  planes[2] = cross(clip_position[2].xyw - clip_position[1].xyw, clip_position[1].xyw);
+
+  planes[0].z -= dot(halfVox.xy, abs(planes[0].xy));
+  planes[1].z -= dot(halfVox.xy, abs(planes[1].xy));
+  planes[2].z -= dot(halfVox.xy, abs(planes[2].xy));
+
+  // calculate intersections between the moved planes
+  clip_position[0].xy = cross(planes[0], planes[1]).xy;
+  clip_position[1].xy = cross(planes[1], planes[2]).xy;
+  clip_position[2].xy = cross(planes[2], planes[0]).xy;
+*/
+
+
   vec3 e0 = vec3(clip_position[1].xy - clip_position[0].xy, 0);
   vec3 e1 = vec3(clip_position[2].xy - clip_position[1].xy, 0);
   vec3 e2 = vec3(clip_position[0].xy - clip_position[2].xy, 0);
@@ -97,7 +131,9 @@ void main()
   vec3 n1 = cross(e1, vec3(0,0,1));
   vec3 n2 = cross(e2, vec3(0,0,1));
 
-  // now dilate (grow along the normal of the corresponding edge)
+  // now dilate (grow along the normal of the corresponding edges)
+  // vec2 pl = 1.4142135637309 / gridDim.xy;
+  // sqrt 2 == 1.4142135623730951
   vec2 pl = 1.4142135637309 / gridDim.xy;
   clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
   clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
@@ -121,6 +157,25 @@ void main()
 
   EndPrimitive();
 }
+
+/*
+  vec3 e0 = vec3(clip_position[1].xy - clip_position[0].xy, 0);
+  vec3 e1 = vec3(clip_position[2].xy - clip_position[1].xy, 0);
+  vec3 e2 = vec3(clip_position[0].xy - clip_position[2].xy, 0);
+  vec3 n0 = cross(e0, vec3(0,0,1));
+  vec3 n1 = cross(e1, vec3(0,0,1));
+  vec3 n2 = cross(e2, vec3(0,0,1));
+
+  // now dilate (grow along the normal of the corresponding edges)
+  // vec2 pl = 1.4142135637309 / gridDim.xy;
+  // sqrt 2 == 1.4142135623730951
+  const vec2 pl = halfVox.xy;
+  vec2 p_moved[3];
+  p_moved[0] = (e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy));
+  p_moved[1] = (e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy));
+  p_moved[2] = (e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy));
+
+*/
 
 /*
 

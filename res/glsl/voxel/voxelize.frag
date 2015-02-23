@@ -47,6 +47,7 @@ void main()
     discard;
 
   ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
+  gridDim -= 1; // index starts with 0, imageSize in total pixel 1..n
 
   ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z);
   ivec3 gridCoord;
@@ -54,20 +55,20 @@ void main()
   // we need to swizzle the coords according to the view direction
   if (Axis == X_AXIS)
   {
-    tempCoord.z = gridDim.x - int(gl_FragCoord.z * gridDim.x);
+    tempCoord.z = gridDim.x - int(round(gl_FragCoord.z * gridDim.x));
     gridCoord.xyz = tempCoord.zyx;
     // map depth because our grid has no uniform dimensions
     // discard;
   }
   else if (Axis == Y_AXIS)
   {
-    tempCoord.z = gridDim.y - int(gl_FragCoord.z * gridDim.y);
+    tempCoord.z = gridDim.y - int(round(gl_FragCoord.z * gridDim.y));
     gridCoord.xyz = tempCoord.xzy;
     // discard;
   }
   else // Z_AXIS
   {
-    tempCoord.z = int(gl_FragCoord.z * gridDim.z);
+    tempCoord.z = int(round(gl_FragCoord.z * gridDim.z));
     gridCoord = tempCoord;
     // discard;
   }
