@@ -17,7 +17,7 @@ module Yage.Rendering.Pipeline.Voxel.Voxelize
   ( voxelizePass
   , VoxelBuffer
   , VoxelPageMask
-  , VoxelizedScene(..), pageMask, voxelizedScene
+  , VoxelizedScene(..), pageMask, voxelizedScene, voxelizedLevels
   -- * VoxelizeMode for Visualization
   , VoxelizeMode(..)
   , voxelizeModeUniform
