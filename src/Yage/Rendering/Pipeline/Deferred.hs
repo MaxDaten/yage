@@ -85,21 +85,20 @@ yDeferredLighting = do
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
   voxelizeScene   <- voxelizePass 128 128 128
-  --voxelBuffer     <- genVoxelBuffer 256 256 256
   voxelVis        <- visualizeVoxelPass
 
   return $ proc input -> do
     mainViewport  <- currentViewport -< ()
 
     -- render surface attributes for lighting out
-    --gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
-    --gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
-    --                                                          , input^.scene
-    --                                                          , input^.hdrCamera.camera )
-
-    -- voxellzation
     {--
+    gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
+    gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
+                                                              , input^.scene
+                                                              , input^.hdrCamera.camera )
     --}
+    -- voxellzation
+    --{--
     voxelizedScene   <- processPass voxelizeScene    -< input^.scene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
@@ -108,6 +107,7 @@ yDeferredLighting = do
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera )
 
+    --}
     -- lighting
     {--
     lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
@@ -133,10 +133,10 @@ yDeferredLighting = do
       else returnA -< post
 
     -- bloom pass
-    bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
+    --bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    tonemapPass -< (input^.hdrCmaera.hdrSensor, sceneTex, Nothing)
     --}
     tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
