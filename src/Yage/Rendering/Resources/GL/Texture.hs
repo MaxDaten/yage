@@ -39,6 +39,7 @@ module Yage.Rendering.Resources.GL.Texture (
   , bindTextureSamplers
   , withTextureBound
   , withMappedTexture
+  , withPixels3D
   ) where
 
 import           Yage.Lens         hiding (levels, coerce)
@@ -201,6 +202,18 @@ newTextureStorageObj t l w h p = throwWithStack $! do
   throwWithStack $ glTexStorage2D t l (internalFormat p) (fromIntegral w) (fromIntegral h)
   return $ tex
 
+withPixels3D :: forall m px a. (Storable px, ImageFormat px, MonadIO m) => Texture3D px -> (Vector px -> m a) -> m a
+withPixels3D tex ma = withTextureBound tex $ do
+  fptr <- liftIO $ mallocForeignPtrBytes bytes
+  liftIO $ withForeignPtr fptr $ glGetnTexImage (tex^.textureTarget) 0 fmt ty (fromIntegral bytes) . castPtr
+  ma (convert $ unsafeFromForeignPtr0 fptr len)
+ where
+  target = tex^.textureTarget
+  fmt = pixelFormat (Proxy::Proxy px)
+  ty  = pixelType (Proxy::Proxy px)
+  len = foldr1 (*) $ tex^.textureDimension.whd
+  bytes = len * components (pixelFormat (Proxy::Proxy px))
+
 withTextureBound :: MonadIO m => Texture d px -> m a -> m a
 withTextureBound tex ma = do
   GL.boundTexture (tex^.textureTarget) 0 $= (tex^.textureObject)
@@ -234,7 +247,8 @@ withMappedTexture storage access tex ma = do
   target = tex^.textureTarget
   fmt = pixelFormat (Proxy::Proxy px)
   ty  = pixelType (Proxy::Proxy px)
-  len = (foldr1 (*) $ tex^.textureDimension.whd) * components (pixelFormat (Proxy::Proxy px))
+  len = foldr1 (*) $ tex^.textureDimension.whd
+  bytes = len * components (pixelFormat (Proxy::Proxy px))
 
 instance FramebufferAttachment (Texture Tex1D a) where
   attach (FramebufferTarget target _) p tex = glFramebufferTexture1D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
