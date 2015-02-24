@@ -101,9 +101,10 @@ type VoxelPageMask = Texture3D PixelR8UI
 type VoxelBuffer = Texture3D PixelR32UI
 
 data VoxelizedScene = VoxelizedScene
-  { _voxelizedScene :: VoxelBuffer
-  , _pageMask       :: VoxelPageMask
-  , _pageSizes      :: V3 Int
+  { _voxelizedScene  :: VoxelBuffer
+  , _pageMask        :: VoxelPageMask
+  , _voxelizedLevels :: Int
+  , _pageSizes       :: V3 Int
   } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''VoxelizedScene
@@ -190,6 +191,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+    withTextureBound (voxelBuf^.voxelizedScene) $ glGenerateMipmap GL_TEXTURE_3D
     return $ voxelBuf
 
   cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
@@ -303,20 +305,21 @@ clearVoxelBuffer tex cleardata = do
 
 genVoxelBuffer :: Int -> Int -> Int -> YageResource VoxelizedScene
 genVoxelBuffer w h d = do
-  (tex, minPageSize) <- genVoxelTexture w h d
+  let levels = truncate(logBase 2 $ fromIntegral w)
+  (tex, minPageSize) <- genVoxelTexture w h d levels
   (mask, selectedPageSize) <- genPageMask tex minPageSize
-  return $ VoxelizedScene tex mask selectedPageSize
+  return $ VoxelizedScene tex mask levels selectedPageSize
 
-genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
-genVoxelTexture w h d = do
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
+genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
+genVoxelTexture w h d l = do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) l $ \t -> do
     fmtIdx <- selectPageFormat t
     printf "Selected Page Format: %s\n" (show fmtIdx)
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_REPEAT
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_REPEAT
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_REPEAT
     texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= 0
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral l
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST_MIPMAP_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
@@ -370,8 +373,17 @@ setPageCommitment sparse (V3 x y z) commit = do
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
     (if commit then GL_TRUE else GL_FALSE)
+  -- currently just commit the complete mipmap chain
+  -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
+  -- about offset + width must be less or equal to texture width
+  forM_ [1.. (sparse^.voxelizedLevels - 1)] $ \l -> do
+    let V3 w h d = sparse^.voxelizedScene^.textureDimension.whd & mapped %~ (`div` 2^l)
+    glTexPageCommitmentARB (sparse^.voxelizedScene.textureTarget) (fromIntegral l)
+      0 0 0
+      (fromIntegral w) (fromIntegral h) (fromIntegral d)
+      (if commit then GL_TRUE else GL_FALSE)
 --}
---{--
+{--
   liftIO $ VS.unsafeWith cleardata $
     glTexSubImage3D GL_TEXTURE_3D 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)

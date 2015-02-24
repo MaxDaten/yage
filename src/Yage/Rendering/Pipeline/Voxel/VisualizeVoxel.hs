@@ -184,7 +184,7 @@ voxelizedSceneUniform :: Program -> YageResource (UniformVar VoxelizedScene)
 voxelizedSceneUniform prog = do
   sceneSampler    <- mkVoxelSampler 0
   maskSampler     <- mkVoxelSampler 1
-  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff _) -> do
+  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff _ _) -> do
       sceneSampler $= Just vbuff
       maskSampler  $= Just maskBuff
 

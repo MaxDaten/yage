@@ -23,7 +23,7 @@ uniform layout(binding = 0) usampler3D VoxelBuffer;
 uniform layout(binding = 1) usampler3D VoxelPageMask;
 
 uniform int RenderEmpty;
-
+uniform int sampleLevel = 5;
 
 bool isVoxelPresent(in vec4 voxel)
 {
@@ -36,12 +36,12 @@ void main()
   vec4 voxel = vec4(0,0,0,0);
   vec3 halfVox;
   ivec3 maskSize = textureSize(VoxelPageMask, 0);
-  ivec3 size = textureSize(VoxelBuffer, 0);
+  ivec3 size = textureSize(VoxelBuffer, sampleLevel);
   bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
 
   if (VoxelizeMode == VOXELIZESCENE)
   {
-    voxel = pageInMarker ? convRGBA8ToVec4(texture(VoxelBuffer, vec3(v_VoxelCoord[0]) / size)) : voxel;
+    voxel = pageInMarker ? convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / size, sampleLevel)) : voxel;
 	  voxel.rgb /= 255.0;
     halfVox = 0.9/size;
   }
