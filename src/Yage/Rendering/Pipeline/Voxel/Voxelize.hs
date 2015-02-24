@@ -142,7 +142,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     voxBuf <- genVoxelBuffer width height depth
     let V3 w h d = voxBuf^.pageMask.textureDimension.whd
-        pageMaskSize = w * h * d * 1 -- components (pixelFormat (Proxy::Proxy px))
+        pageMaskSize = w * h * d -- * components (pixelFormat (Proxy::Proxy PixelR8UI))
         pageClear = VS.replicate pageMaskSize (minBound :: Word8)
 
     pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
@@ -175,14 +175,14 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     -- map page mask
     -- and iterate over page mask and commit/decommit pages
-    {--
-    withMappedTexture pageMaskPBO GL_READ_ONLY (voxelBuf^.pageMask) $ \vec -> do
-      withTextureBound (voxelBuf^.voxelizedScene) $ do
-        let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
-        V.forM_ (V.indexed vec) $ \(i, p) -> do
-          -- map the idx back to the page coord
-          let pageId = V3 (i `mod` pagesX) (i `div` (pagesX * pagesZ)) (i `div` (pagesX * pagesY))
-          setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
+    --{--
+    --withMappedTexture pageMaskPBO GL_READ_ONLY (voxelBuf^.pageMask) $ \vec -> do
+    withPixels3D (voxelBuf^.pageMask) $ \vec -> withTextureBound (voxelBuf^.voxelizedScene) $ do
+      let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
+      V.forM_ (V.indexed vec) $ \(i, p) -> do
+        -- map the idx back to the page coord
+        let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
+        setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
     --}
 
     -- full resolution voxelize scene
@@ -319,10 +319,13 @@ genVoxelTexture w h d = do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= 0
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST_MIPMAP_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
     texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
+
   --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
-  --glTexPageCommitmentARB GL_TEXTURE_3D 0 (fromIntegral $ w `div` 2) 0 0 (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
+  -- glTexPageCommitmentARB GL_TEXTURE_3D 0
+  --  0 0 0
+  --  (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
 
 {--
   glTexPageCommitmentARB GL_TEXTURE_3D 0
@@ -346,17 +349,13 @@ genPageMask :: forall px. ImageFormat px => Texture3D px -> V3 Int -> YageResour
 genPageMask baseBuff pageSize = do
   -- select the common least multiple to select cubic page sizes
   let lcmPageSize = pure $ foldr1 lcm pageSize :: V3 Int
-  io $ printf "minimum pageSize %s: %s\n" (show baseBuff) (show pageSize)
-  io $ printf "selected pageSize %s\n" (show lcmPageSize)
-
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize $ pageSize & _xyz .~ 16 ) 1 $ \_ -> do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize lcmPageSize) 1 $ \_ -> do
     --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-  io $ printf "created page mask: %s\n" (show tex)
-  return (tex, pageSize & _xyz .~ 16)
+  return (tex, lcmPageSize)
  where
   calcMaskSize (V3 x y z) = (baseBuff^.textureDimension)
     & whd._x %~ (`div` x)
@@ -365,21 +364,19 @@ genPageMask baseBuff pageSize = do
 
 
 setPageCommitment :: MonadIO m => VoxelizedScene -> V3 Int -> Bool -> m ()
-setPageCommitment sparse (V3 x y z) commit =
-  return ()
-{--
+setPageCommitment sparse (V3 x y z) commit = do
+--{--
   glTexPageCommitmentARB (sparse^.voxelizedScene.textureTarget) 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
     (if commit then GL_TRUE else GL_FALSE)
 --}
-{--
+--{--
   liftIO $ VS.unsafeWith cleardata $
     glTexSubImage3D GL_TEXTURE_3D 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
     GL_RED_INTEGER GL_UNSIGNED_BYTE . castPtr
-}
 --}
  where
   V3 pageSizeX pageSizeY pageSizeZ = sparse^.pageSizes

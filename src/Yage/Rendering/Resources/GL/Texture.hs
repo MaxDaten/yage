@@ -57,6 +57,7 @@ import           Yage.Geometry.D2.Rectangle
 import           Yage.Resource.YageResource
 import           Codec.Picture                   as Img
 import           Codec.Picture.Types             as Img
+import           Foreign.Storable
 
 import           Quine.Cubemap                   as Img
 import           Quine.Image                     as Img
@@ -204,15 +205,18 @@ newTextureStorageObj t l w h p = throwWithStack $! do
 
 withPixels3D :: forall m px a. (Storable px, ImageFormat px, MonadIO m) => Texture3D px -> (Vector px -> m a) -> m a
 withPixels3D tex ma = withTextureBound tex $ do
-  fptr <- liftIO $ mallocForeignPtrBytes bytes
-  liftIO $ withForeignPtr fptr $ glGetnTexImage (tex^.textureTarget) 0 fmt ty (fromIntegral bytes) . castPtr
-  ma (convert $ unsafeFromForeignPtr0 fptr len)
+  fptr <- io $ mallocForeignPtrBytes bytes
+  glPixelStorei GL_PACK_ALIGNMENT 1
+  io $ withForeignPtr fptr $ glGetnTexImage (tex^.textureTarget) 0 fmt ty (fromIntegral bytes) . castPtr
+  r <- ma (convert $ unsafeFromForeignPtr0 fptr len)
+  io $ touchForeignPtr fptr
+  return r
  where
   target = tex^.textureTarget
   fmt = pixelFormat (Proxy::Proxy px)
   ty  = pixelType (Proxy::Proxy px)
   len = foldr1 (*) $ tex^.textureDimension.whd
-  bytes = len * components (pixelFormat (Proxy::Proxy px))
+  bytes = len * components (pixelFormat (Proxy::Proxy px)) * sizeOf ((undefined :: PixelBaseComponent px))
 
 withTextureBound :: MonadIO m => Texture d px -> m a -> m a
 withTextureBound tex ma = do
