@@ -50,6 +50,7 @@ void main()
     Axis = X_AXIS;
     gl_ViewportIndex = X_AXIS;
     gridDim.xyz = gridDim.zyx;
+    gridDim.xy *= -1; // TODO : find a good explanation for this!
     // return;
   }
   // Y Dominant?
@@ -121,9 +122,9 @@ void main()
   clip_position[0].xy = cross(planes[0], planes[1]).xy;
   clip_position[1].xy = cross(planes[1], planes[2]).xy;
   clip_position[2].xy = cross(planes[2], planes[0]).xy;
-*/
+/*/
 
-
+//*
   vec3 e0 = vec3(clip_position[1].xy - clip_position[0].xy, 0);
   vec3 e1 = vec3(clip_position[2].xy - clip_position[1].xy, 0);
   vec3 e2 = vec3(clip_position[0].xy - clip_position[2].xy, 0);
@@ -134,11 +135,11 @@ void main()
   // now dilate (grow along the normal of the corresponding edges)
   // vec2 pl = 1.4142135637309 / gridDim.xy;
   // sqrt 2 == 1.4142135623730951
-  vec2 pl = 1.4142135637309 / gridDim.xy;
+  const vec2 pl = 1.4142135637309 * halfVox.xy;// 1.4142135637309 / gridDim.xy;
   clip_position[0].xy += pl * ((e2.xy / dot(e2.xy,n0.xy)) + (e0.xy / dot(e0.xy,n2.xy)));
   clip_position[1].xy += pl * ((e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy)));
   clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
-
+//*/
 
   Position      = clip_position[0].xyz;
   TextureCoord  = g_textureCoord[0];

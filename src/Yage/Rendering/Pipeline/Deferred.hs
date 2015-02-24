@@ -94,10 +94,12 @@ yDeferredLighting = do
     -- render surface attributes for lighting out
     --gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
     --gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
-                                                              --, input^.scene
-                                                              --, input^.hdrCamera.camera )
+    --                                                          , input^.scene
+    --                                                          , input^.hdrCamera.camera )
 
     -- voxellzation
+    {--
+    --}
     voxelizedScene   <- processPass voxelizeScene    -< input^.scene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis

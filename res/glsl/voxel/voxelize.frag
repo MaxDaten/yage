@@ -56,19 +56,20 @@ void main()
   if (Axis == X_AXIS)
   {
     tempCoord.z = gridDim.x - int(round(gl_FragCoord.z * gridDim.x));
-    gridCoord.xyz = tempCoord.zyx;
+    // gridCoord.xyz = tempCoord.zyx;
+    gridCoord.xyz = ivec3(tempCoord.z, tempCoord.y, gridDim.z - tempCoord.x);
     // map depth because our grid has no uniform dimensions
     // discard;
   }
   else if (Axis == Y_AXIS)
   {
     tempCoord.z = gridDim.y - int(round(gl_FragCoord.z * gridDim.y));
-    gridCoord.xyz = tempCoord.xzy;
+    gridCoord.xyz = ivec3(tempCoord.x, tempCoord.z, gridDim.z - tempCoord.y);
     // discard;
   }
   else // Z_AXIS
   {
-    tempCoord.z = int(round(gl_FragCoord.z * gridDim.z));
+    tempCoord.z = gridDim.z - int(round(gl_FragCoord.z * gridDim.z));
     gridCoord = tempCoord;
     // discard;
   }
