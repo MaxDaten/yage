@@ -40,12 +40,13 @@ Surface GetSurface(void)
   return surface;
 }
 */
+const bool DebugAxis = true;
 void main()
 {
   // discard fragments outside the triangle bound
-  if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
-    discard;
-
+  // if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
+  //   discard;
+  vec3 AxisColor = vec3(0);
   ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
   gridDim -= 1; // index starts with 0, imageSize in total pixel 1..n
 
@@ -55,29 +56,33 @@ void main()
   // we need to swizzle the coords according to the view direction
   if (Axis == X_AXIS)
   {
-    tempCoord.z = gridDim.x - int(round(gl_FragCoord.z * gridDim.x));
+    tempCoord.z = int(round(gl_FragCoord.z * gridDim.x));
     // gridCoord.xyz = tempCoord.zyx;
-    gridCoord.xyz = ivec3(tempCoord.z, tempCoord.y, gridDim.z - tempCoord.x);
+    gridCoord.xyz = ivec3(tempCoord.z, tempCoord.y, tempCoord.x);
     // map depth because our grid has no uniform dimensions
     // discard;
+    AxisColor.r = 1.0;
   }
   else if (Axis == Y_AXIS)
   {
-    tempCoord.z = gridDim.y - int(round(gl_FragCoord.z * gridDim.y));
-    gridCoord.xyz = ivec3(tempCoord.x, tempCoord.z, gridDim.z - tempCoord.y);
+    tempCoord.z = int(round(gl_FragCoord.z * gridDim.y));
+    gridCoord.xyz = ivec3(tempCoord.x, tempCoord.z, tempCoord.y);
+    AxisColor.g = 1.0;
     // discard;
   }
   else // Z_AXIS
   {
-    tempCoord.z = gridDim.z - int(round(gl_FragCoord.z * gridDim.z));
+    tempCoord.z = int(round(gl_FragCoord.z * gridDim.z));
     gridCoord = tempCoord;
     // discard;
+    AxisColor.b = 1.0;
   }
 
   if (VoxelizeMode == VOXELIZESCENE)
   {
     // Surface surface = GetSurface();
     vec4 albedo = texture(AlbedoTexture, TextureCoord) * AlbedoColor;
+    albedo.xyz = DebugAxis ? AxisColor : albedo.rgb;
     imageAtomicRGBA8Avg(albedo, gridCoord, VoxelBuffer);
   }
   else

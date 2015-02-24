@@ -90,6 +90,7 @@ data GeometryShader = GeometryShader
   , y_Projection   :: UniformVar Mat4
   , z_Projection   :: UniformVar Mat4
   , g_VoxelizeMode :: UniformVar VoxelizeMode
+  , g_RasterizationMode :: UniformVar Int32
   }
 
 data FragmentShader = FragmentShader
@@ -105,6 +106,7 @@ data VoxelizedScene = VoxelizedScene
   , _pageMask        :: VoxelPageMask
   , _voxelizedLevels :: Int
   , _pageSizes       :: V3 Int
+  --, _pagesIn         :: Set (V3 Int)
   } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''VoxelizedScene
@@ -183,7 +185,8 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
       V.forM_ (V.indexed vec) $ \(i, p) -> do
         -- map the idx back to the page coord
         let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
-        setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
+        --setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
+        return()
     --}
 
     -- full resolution voxelize scene
@@ -208,6 +211,7 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   viewportIndexed X_AXIS $= xviewport
   viewportIndexed Y_AXIS $= yviewport
   viewportIndexed Z_AXIS $= zviewport
+  g_RasterizationMode $= 2
  where
   -- TODO: Scene extends
   orthoM  = ortho (-10) 10 (-10) 10 10 30
@@ -228,7 +232,9 @@ drawEntities :: forall f ent i v m .
   -> FragmentShader
   -> (f ent)
   -> m ()
-drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents =
+drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents = do
+  glDrawArrays GL_TRIANGLES 0 3
+{--
   forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
@@ -244,7 +250,10 @@ drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents =
     vTangentX $= Just ((Proxy :: Proxy v)^.tangentXlayout)
     vTangentZ $= Just ((Proxy :: Proxy v)^.tangentZlayout)
 
+
+
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
+  --}
 
 
 -- * Shader Interfaces
@@ -265,6 +274,7 @@ geometryUniforms prog = GeometryShader
   <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Y_Projection")
   <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Z_Projection")
   <*> voxelizeModeUniform prog
+  <*> fmap (mkUniformVar.($=)) (programUniform programUniform1i prog "RasterizationMode")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do
@@ -322,7 +332,7 @@ genVoxelTexture w h d l = do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral l
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST_MIPMAP_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
     texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
 
   --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE

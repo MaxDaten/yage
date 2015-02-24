@@ -39,6 +39,7 @@ import           Quine.GL.Program
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
 import           Quine.StateVar
+import           Data.Time.Clock.POSIX
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -136,10 +137,11 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
+    time <- io $ round <$> getPOSIXTime
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        sampleLevel        = 3
+        sampleLevel        = 0 -- time `mod` (vscene^.voxelizedLevels)
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix     $= modelM

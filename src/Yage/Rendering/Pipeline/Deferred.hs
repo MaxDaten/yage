@@ -84,7 +84,7 @@ yDeferredLighting = do
   --postAmbient     <- postAmbientPass
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
-  voxelizeScene   <- voxelizePass 512 512 512
+  voxelizeScene   <- voxelizePass 256 256 256
   voxelVis        <- visualizeVoxelPass
 
   return $ proc input -> do
