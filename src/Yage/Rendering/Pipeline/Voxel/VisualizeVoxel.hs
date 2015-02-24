@@ -58,12 +58,14 @@ data VisualizeMode =
 data VertexShader = VertexShader
   { v_voxelBuffer     :: UniformVar VoxelizedScene
   , v_mode            :: UniformVar VisualizeMode
+  , v_sampleLevel     :: UniformVar Int
   }
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
   { g_voxelBuffer      :: UniformVar VoxelizedScene
   , g_mode             :: UniformVar VisualizeMode
+  , g_sampleLevel      :: UniformVar Int
   , renderEmpty        :: UniformVar Bool
   , vpMatrix           :: UniformVar Mat4
   , modelMatrix        :: UniformVar Mat4
@@ -137,6 +139,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
+        sampleLevel        = 3
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix     $= modelM
@@ -144,9 +147,11 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     g_voxelBuffer   $= vscene
     v_mode          $= VisualizeScene
     g_mode          $= VisualizeScene
+    g_sampleLevel   $= sampleLevel
+    v_sampleLevel   $= sampleLevel
     renderEmpty     $= False
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd )
+    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd & mapped %~ (`div` (2^sampleLevel)) )
 
     v_mode          $= VisuallizePageMask
     g_mode          $= VisuallizePageMask
@@ -167,11 +172,13 @@ vertexUniforms :: Program -> YageResource VertexShader
 vertexUniforms prog = VertexShader
   <$> voxelizedSceneUniform prog
   <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
+  <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
 
 geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = GeometryShader
   <$> voxelizedSceneUniform prog
   <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
+  <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
   <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "RenderEmpty")
   <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
   <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
