@@ -105,7 +105,9 @@ yDeferredLighting = do
                          -< ( voxelSceneTarget
                             , voxelizedScene
                             , eye4 & _xyz *~ 4
-                            , input^.hdrCamera.camera )
+                            , input^.hdrCamera.camera
+                            , [VisualizeSceneVoxel,VisualizePageMask]
+                            )
 
     --}
     -- lighting

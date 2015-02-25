@@ -41,6 +41,7 @@ import           Foreign.Ptr
 import           Foreign.Marshal.Array
 import           Linear
 import           GHC.Real (lcm)
+import           Data.Data
 import           Data.Foldable (foldr1)
 import           Data.List (findIndex,(!!))
 import qualified Data.Vector.Storable as VS hiding (forM_,find,findIndex,foldr1)
@@ -55,6 +56,7 @@ import           Quine.GL.Sampler
 import           Quine.StateVar
 import           Quine.GL.Texture
 import           Quine.GL.InternalFormat
+import           Quine.Geometry.Box
 
 -- import           Graphics.GL.Ext.ARB.ClearTexture
 
@@ -74,6 +76,16 @@ data VoxelizeMode =
     -- ^ calculate page mask for sparse voxel texture
   deriving (Show,Ord,Eq,Generic)
 
+-- | Rasterization Modes
+data RasterizationMode =
+    ConservativeHasselgren
+  -- ^ [Hasselgren et. al 05] <https://developer.nvidia.com/gpugems/GPUGems2/gpugems2_chapter42.html>
+  | ConservativeOtaku
+  -- ^ otaku690 inspired <https://github.com/otaku690/SparseVoxelOctree>
+  | Standard
+    -- ^ no extra dilatation
+  deriving (Show,Ord,Read,Data,Typeable,Eq,Generic,Enum)
+
 -- * Shader
 
 data VertexShader = VertexShader
@@ -90,7 +102,7 @@ data GeometryShader = GeometryShader
   , y_Projection   :: UniformVar Mat4
   , z_Projection   :: UniformVar Mat4
   , g_VoxelizeMode :: UniformVar VoxelizeMode
-  , g_RasterizationMode :: UniformVar Int32
+  , g_RasterizationMode :: UniformVar RasterizationMode
   }
 
 data FragmentShader = FragmentShader
@@ -195,6 +207,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
     withTextureBound (voxelBuf^.voxelizedScene) $ glGenerateMipmap GL_TEXTURE_3D
+    glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
     return $ voxelBuf
 
   cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
@@ -211,13 +224,28 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   viewportIndexed X_AXIS $= xviewport
   viewportIndexed Y_AXIS $= yviewport
   viewportIndexed Z_AXIS $= zviewport
-  g_RasterizationMode $= 2
+  g_RasterizationMode $= Standard -- ConservativeOtaku -- ConservativeHasselgren --  | Standard
+
  where
+  sceneBox = Box (pure (-10)) (pure 10)
+
   -- TODO: Scene extends
+  --{--
+  -- orthoM  = ortho (-20) 20 (-20) 20 10 50
+  orthoDist = 10
+  orthoX  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._x)
+  orthoY  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._y)
+  orthoZ  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._z)
+  xproj   = orthoX !*! lookAt (V3 (orthoDist + sceneBox^.hi._x) 0 0) (V3 0 0 0) (V3 0 1 0)
+  yproj   = orthoY !*! lookAt (V3 0 (orthoDist + sceneBox^.hi._y) 0) (V3 0 0 0) (V3 0 0 (-1))
+  zproj   = orthoZ !*! lookAt (V3 0 0 (orthoDist + sceneBox^.hi._z)) (V3 0 0 0) (V3 0 1 0)
+  --}
+  {--
   orthoM  = ortho (-10) 10 (-10) 10 10 30
   xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
+  --}
   xviewport = fromIntegral <$> Rectangle 0 (V2 z y)
   yviewport = fromIntegral <$> Rectangle 0 (V2 x z)
   zviewport = fromIntegral <$> Rectangle 0 (V2 x y)
@@ -233,8 +261,8 @@ drawEntities :: forall f ent i v m .
   -> (f ent)
   -> m ()
 drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents = do
-  glDrawArrays GL_TRIANGLES 0 3
-{--
+  --glDrawArrays GL_TRIANGLES 0 3
+--{--
   forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
@@ -274,7 +302,7 @@ geometryUniforms prog = GeometryShader
   <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Y_Projection")
   <*> fmap (mkUniformVar.($=)) (programUniform programUniformMatrix4f prog "Z_Projection")
   <*> voxelizeModeUniform prog
-  <*> fmap (mkUniformVar.($=)) (programUniform programUniform1i prog "RasterizationMode")
+  <*> fmap (contramap (fromIntegral.fromEnum) . mkUniformVar.($=)) (programUniform programUniform1i prog "RasterizationMode")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do

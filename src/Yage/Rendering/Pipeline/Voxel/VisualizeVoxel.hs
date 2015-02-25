@@ -14,7 +14,8 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE Arrows              #-}
 module Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
-  ( visualizeVoxelPass
+  ( VisualizeMode(..)
+  , visualizeVoxelPass
   , mkVisVoxelTarget
   ) where
 
@@ -50,9 +51,9 @@ import Yage.Rendering.Pipeline.Voxel.Voxelize
 #include "attributes.h"
 
 data VisualizeMode =
-    VisualizeScene
-  | VisuallizePageMask
-  deriving (Ord,Eq,Show,Data,Typeable,Generic,Enum)
+    VisualizeSceneVoxel
+  | VisualizePageMask
+  deriving (Ord,Eq,Read,Show,Data,Typeable,Generic,Enum)
 
 -- * Shader
 
@@ -89,7 +90,8 @@ data VisVoxelTarget = VisVoxelTarget
   , voxelVisDepth :: Texture2D (DepthComponent24 Float)
   }
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizedScene, Mat4, Camera)
+
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizedScene, Mat4, Camera, [VisualizeMode])
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -112,7 +114,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, vscene, modelM, cam) -> do
+  runPass = mkStaticRenderPass $ \(target, vscene, modelM, cam, visModes) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -145,21 +147,24 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix     $= modelM
-    v_voxelBuffer   $= vscene
-    g_voxelBuffer   $= vscene
-    v_mode          $= VisualizeScene
-    g_mode          $= VisualizeScene
-    g_sampleLevel   $= sampleLevel
-    v_sampleLevel   $= sampleLevel
-    renderEmpty     $= False
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd & mapped %~ (`div` (2^sampleLevel)) )
+    when (VisualizeSceneVoxel `oelem` visModes) $ do
+      v_voxelBuffer   $= vscene
+      g_voxelBuffer   $= vscene
+      v_mode          $= VisualizeSceneVoxel
+      g_mode          $= VisualizeSceneVoxel
+      g_sampleLevel   $= sampleLevel
+      v_sampleLevel   $= sampleLevel
+      renderEmpty     $= False
 
-    v_mode          $= VisuallizePageMask
-    g_mode          $= VisuallizePageMask
-    renderEmpty     $= True
+      glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd & mapped %~ (`div` (2^sampleLevel)) )
 
-    glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.pageMask.textureDimension.whd )
+    when (VisualizePageMask `oelem` visModes) $ do
+      v_mode          $= VisualizePageMask
+      g_mode          $= VisualizePageMask
+      renderEmpty     $= True
+
+      glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.pageMask.textureDimension.whd )
 
     return $ target^.renderTarget.to voxelVisScene
 

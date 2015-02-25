@@ -45,13 +45,21 @@ void main()
   gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
   gl_in[1].gl_Position.xyzw = vec4(1, 0, -1.0, 1.0);
   gl_in[2].gl_Position.xyzw = vec4(0, 1.0, 1.0, 1.0);
-*/
-/* z dominant sample
+/*/
+/* z dominant
   gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
   gl_in[1].gl_Position.xyzw = vec4(1, -1, 1.0, 1.0);
   gl_in[2].gl_Position.xyzw = vec4(0, 1, 0, 1.0);
 //*/
 
+  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(10, -10, 10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
+
+  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(10, 0, -10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 10.0, 10.0, 1.0);
+//
   vec3 faceNormal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
   float absX = abs(faceNormal.x);
   float absY = abs(faceNormal.y);
@@ -103,9 +111,9 @@ void main()
   // clip_position[1] = projectionMatrix * vec4(10.0, 1.0, 0, 1);
   // clip_position[2] = projectionMatrix * vec4(1.0, 5, 0, 1);
 
-  clip_position[0] = /* projectionMatrix * */ gl_in[0].gl_Position;
-  clip_position[1] = /* projectionMatrix * */ gl_in[1].gl_Position;
-  clip_position[2] = /* projectionMatrix * */ gl_in[2].gl_Position;
+  clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
+  clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
+  clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
 
   // Axis Aligned Bounding Box of the triangle in clip space
   AABB = vec4(clip_position[0].xy, clip_position[0].xy);
