@@ -224,7 +224,7 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   viewportIndexed X_AXIS $= xviewport
   viewportIndexed Y_AXIS $= yviewport
   viewportIndexed Z_AXIS $= zviewport
-  g_RasterizationMode $= Standard -- ConservativeOtaku -- ConservativeHasselgren --  | Standard
+  g_RasterizationMode    $= ConservativeHasselgren --Standard -- ConservativeOtaku -- ConservativeHasselgren
 
  where
   sceneBox = Box (pure (-10)) (pure 10)
@@ -232,7 +232,7 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   -- TODO: Scene extends
   --{--
   -- orthoM  = ortho (-20) 20 (-20) 20 10 50
-  orthoDist = 10
+  orthoDist = 1
   orthoX  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._x)
   orthoY  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._y)
   orthoZ  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._z)

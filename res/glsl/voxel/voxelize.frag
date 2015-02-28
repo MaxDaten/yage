@@ -18,7 +18,7 @@ uniform vec4 AlbedoColor;
 uniform coherent volatile layout(binding = 0, r32ui) uimage3D VoxelBuffer;
 uniform coherent volatile layout(binding = 1, r8ui) uimage3D PageMask;
 
-in vec3 Position;
+in vec4 Position;
 in vec2 TextureCoord;
 // in mat3 TangentInverse;
 
@@ -46,9 +46,9 @@ void main()
   // discard fragments outside the triangle bound
   if (Position.x < AABB.x || Position.y < AABB.y || Position.x > AABB.z || Position.y > AABB.w)
     discard;
+
   vec3 AxisColor = vec3(0);
-  ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
-  gridDim -= 1; // index starts with 0, imageSize in total pixel 1..n
+  const ivec3 gridDim = (VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask)) -1;
 
   ivec3 tempCoord = ivec3(gl_FragCoord.x, gl_FragCoord.y, gl_FragCoord.z);
   ivec3 gridCoord;

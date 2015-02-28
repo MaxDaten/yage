@@ -13,7 +13,7 @@ layout ( triangle_strip, max_vertices = 3 ) out;
 in gl_PerVertex { vec4 gl_Position; } gl_in [];
 out gl_PerVertex { vec4 gl_Position; int gl_ViewportIndex; };
 
-out vec3 Position;
+out vec4 Position;
 out vec2 TextureCoord;
 flat out int Axis;
 flat out vec4 AABB;
@@ -53,29 +53,37 @@ void main()
 //*/
 
   // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
-  // gl_in[1].gl_Position.xyzw = vec4(10, -10, 10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(-5, -10, 10.0, 1.0);
   // gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
 
+  // gl_in[0].gl_Position.xyzw = vec4(-10, 10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(10, 10, -10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(5, -5, -5, 1.0);
+
   // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
-  // gl_in[1].gl_Position.xyzw = vec4(10, 0, -10.0, 1.0);
-  // gl_in[2].gl_Position.xyzw = vec4(0, 10.0, 10.0, 1.0);
-//
+  // gl_in[1].gl_Position.xyzw = vec4(10, -10, 10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
+
+  // gl_in[1].gl_Position.xyzw = vec4(-10, -10, 10.0, 1.0);
+  // gl_in[0].gl_Position.xyzw = vec4(10, -10, -10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
+
   vec3 faceNormal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
-  float absX = abs(faceNormal.x);
-  float absY = abs(faceNormal.y);
-  float absZ = abs(faceNormal.z);
+  const float absX = abs(faceNormal.x);
+  const float absY = abs(faceNormal.y);
+  const float absZ = abs(faceNormal.z);
 
   // find dominant axis (axis with maximal areo of projected triangle)
   // X dominant?
   mat4 projectionMatrix;
+  bool backface;
   if (absX > absY && absX > absZ)
   {
     projectionMatrix = X_Projection;
     Axis = X_AXIS;
     gl_ViewportIndex = X_AXIS;
     gridDim.xyz = gridDim.zyx;
-    // gridDim.xy *= -1; // TODO : find a good explanation for this!
-    // return;
+    backface = dot(faceNormal,vec3(1,0,0)) < 0;
   }
   // Y Dominant?
   else if (absY > absX && absY > absZ)
@@ -84,7 +92,7 @@ void main()
     Axis = Y_AXIS;
     gl_ViewportIndex = Y_AXIS;
     gridDim.xyz = gridDim.xzy;
-    // return;
+    backface = dot(faceNormal,vec3(0,1,0)) < 0;
   }
   // Z Dominant!
   else
@@ -93,10 +101,13 @@ void main()
     Axis = Z_AXIS;
     gl_ViewportIndex = Z_AXIS;
     gridDim.xyz = gridDim.xyz;
-    // return;
+    backface = dot(faceNormal,vec3(0,0,1)) < 0;
   }
   vec4 clip_position[3];
-  const vec3 halfVox = 1.0 / gridDim;
+
+  // we need to rotate our grid volume according the new view
+  // halfVox in clip space [-1..1]
+  const vec3 halfVox = 1.0 / vec3(gridDim);
 
 
   // clip_position[0] = projectionMatrix * 10 * vec4(0.1, 0.1, 0.1, 0.1);
@@ -115,6 +126,15 @@ void main()
   clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
   clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
 
+  // flip winding order when this is a backface
+  // otherwise our dilatation would erode
+  if (backface)
+  {
+    const vec4 tmp = clip_position[0];
+    clip_position[0] = clip_position[1];
+    clip_position[1] = tmp;
+  }
+
   // Axis Aligned Bounding Box of the triangle in clip space
   AABB = vec4(clip_position[0].xy, clip_position[0].xy);
   AABB.xy = min( clip_position[1].xy, AABB.xy);
@@ -131,11 +151,11 @@ void main()
   // (Conservative Rasterisation GPU Gems 2, Ch 42)[http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter42.html]
   // "Overestimated conservative rasterization can be seen as the image-processing operation dilation of the polygon by the pixel cell."
 
-  // calculate the planes on the 3 edges (in normal form) for dilation
-  // plane through the edges, plane is defined as: x*n + c = 0 with n = xy; c = z
-//*
   if (RasterizationMode == 0)
   {
+    // calculate the planes on the 3 edges (in normal form) for dilatation
+    // plane through the edges, defined with 3 points, the origin 0/0/0 and the two vertices of one edge
+    // the resulting plane is a line: x*n + c = 0 with n = xy; c = z
     vec3 planes[3];
     planes[0] = cross(clip_position[0].xyw - clip_position[2].xyw, clip_position[2].xyw);
     planes[1] = cross(clip_position[1].xyw - clip_position[0].xyw, clip_position[0].xyw);
@@ -149,6 +169,22 @@ void main()
     clip_position[0].xyw = cross(planes[0], planes[1]);
     clip_position[1].xyw = cross(planes[1], planes[2]);
     clip_position[2].xyw = cross(planes[2], planes[0]);
+
+    clip_position[0].xyw /= clip_position[0].w;
+    clip_position[1].xyw /= clip_position[1].w;
+    clip_position[2].xyw /= clip_position[2].w;
+
+    /*
+    // recalculate the new z value for the enlarged triangle
+    const vec2 p = gl_in[0].gl_Position.xz;
+    const vec2 u = gl_in[1].gl_Position.xz - gl_in[0].gl_Position.xz;
+    const vec3 s = vec3( (clip_position[0].x - p.x) / u.x
+                       , (clip_position[1].x - p.x) / u.x
+                       , (clip_position[2].x - p.x) / u.x );
+    clip_position[0].z = (p + s.x * u).y;
+    clip_position[1].z = (p + s.y * u).y;
+    clip_position[2].z = (p + s.z * u).y;
+    */
 
   }
   else if (RasterizationMode == 1)
@@ -169,17 +205,17 @@ void main()
     clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
   }
 
-  Position      = clip_position[0].xyz;
+  Position      = clip_position[0] / clip_position[0].w;
   TextureCoord  = g_textureCoord[0];
   gl_Position   = clip_position[0];
   EmitVertex();
 
-  Position      = clip_position[1].xyz;
+  Position      = clip_position[1] / clip_position[1].w;
   TextureCoord  = g_textureCoord[1];
   gl_Position   = clip_position[1];
   EmitVertex();
 
-  Position      = clip_position[2].xyz;
+  Position      = clip_position[2] / clip_position[2].w;
   TextureCoord  = g_textureCoord[2];
   gl_Position   = clip_position[2];
   EmitVertex();
