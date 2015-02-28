@@ -84,7 +84,7 @@ yDeferredLighting = do
   --postAmbient     <- postAmbientPass
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
-  voxelizeScene   <- voxelizePass 256 256 256
+  voxelizeScene   <- voxelizePass 128 128 128
   voxelVis        <- visualizeVoxelPass
 
   return $ proc input -> do
@@ -106,7 +106,7 @@ yDeferredLighting = do
                             , voxelizedScene
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera
-                            , [VisualizeSceneVoxel,VisualizePageMask]
+                            , [VisualizeSceneVoxel]
                             )
 
     --}

@@ -36,37 +36,6 @@ uniform int RasterizationMode = 1;
 void main()
 {
   ivec3 gridDim = VoxelizeMode == VOXELIZESCENE ? imageSize(VoxelBuffer) : imageSize(PageMask);
-/* x dominant
-  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
-  gl_in[1].gl_Position.xyzw = vec4(-0.5, -1, 1.0, 1.0);
-  gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
-//*/
-/* y dominant
-  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
-  gl_in[1].gl_Position.xyzw = vec4(1, 0, -1.0, 1.0);
-  gl_in[2].gl_Position.xyzw = vec4(0, 1.0, 1.0, 1.0);
-/*/
-/* z dominant
-  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
-  gl_in[1].gl_Position.xyzw = vec4(1, -1, 1.0, 1.0);
-  gl_in[2].gl_Position.xyzw = vec4(0, 1, 0, 1.0);
-//*/
-
-  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
-  // gl_in[1].gl_Position.xyzw = vec4(-5, -10, 10.0, 1.0);
-  // gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
-
-  // gl_in[0].gl_Position.xyzw = vec4(-10, 10, -10.0, 1.0);
-  // gl_in[1].gl_Position.xyzw = vec4(10, 10, -10.0, 1.0);
-  // gl_in[2].gl_Position.xyzw = vec4(5, -5, -5, 1.0);
-
-  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
-  // gl_in[1].gl_Position.xyzw = vec4(10, -10, 10.0, 1.0);
-  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
-
-  // gl_in[1].gl_Position.xyzw = vec4(-10, -10, 10.0, 1.0);
-  // gl_in[0].gl_Position.xyzw = vec4(10, -10, -10.0, 1.0);
-  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
 
   vec3 faceNormal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
   const float absX = abs(faceNormal.x);
@@ -109,19 +78,6 @@ void main()
   // halfVox in clip space [-1..1]
   const vec3 halfVox = 1.0 / vec3(gridDim);
 
-
-  // clip_position[0] = projectionMatrix * 10 * vec4(0.1, 0.1, 0.1, 0.1);
-  // clip_position[1] = projectionMatrix * 10 * vec4(0.9, 0.1, 0.1, 0.1);
-  // clip_position[2] = projectionMatrix * 10 * vec4(0.1, 0.9, 0.1, 0.1);
-
-  // clip_position[0] = vec4(0.1, 0.1, 0.1, 1);
-  // clip_position[1] = vec4(0.5, 0.1, 0.1, 1);
-  // clip_position[2] = vec4(0.5, 0.1, 0.3, 1);
-
-  // clip_position[0] = projectionMatrix * vec4(-5.0, 1.0, 0, 1);
-  // clip_position[1] = projectionMatrix * vec4(10.0, 1.0, 0, 1);
-  // clip_position[2] = projectionMatrix * vec4(1.0, 5, 0, 1);
-
   clip_position[0] = projectionMatrix * gl_in[0].gl_Position;
   clip_position[1] = projectionMatrix * gl_in[1].gl_Position;
   clip_position[2] = projectionMatrix * gl_in[2].gl_Position;
@@ -150,7 +106,6 @@ void main()
   // vertex enlargement for conservative rasterization
   // (Conservative Rasterisation GPU Gems 2, Ch 42)[http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter42.html]
   // "Overestimated conservative rasterization can be seen as the image-processing operation dilation of the polygon by the pixel cell."
-
   if (RasterizationMode == 0)
   {
     // calculate the planes on the 3 edges (in normal form) for dilatation
@@ -205,6 +160,15 @@ void main()
     clip_position[2].xy += pl * ((e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy)));
   }
 
+
+  // flip winding order back to keep vertex attributes correct
+  if (backface)
+  {
+    const vec4 tmp = clip_position[0];
+    clip_position[0] = clip_position[1];
+    clip_position[1] = tmp;
+  }
+
   Position      = clip_position[0] / clip_position[0].w;
   TextureCoord  = g_textureCoord[0];
   gl_Position   = clip_position[0];
@@ -224,6 +188,40 @@ void main()
 }
 
 /*
+
+/* x dominant
+  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
+  gl_in[1].gl_Position.xyzw = vec4(-0.5, -1, 1.0, 1.0);
+  gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
+//*/
+/* y dominant
+  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
+  gl_in[1].gl_Position.xyzw = vec4(1, 0, -1.0, 1.0);
+  gl_in[2].gl_Position.xyzw = vec4(0, 1.0, 1.0, 1.0);
+/*/
+/* z dominant
+  gl_in[0].gl_Position.xyzw = vec4(-1, -1, -1.0, 1.0);
+  gl_in[1].gl_Position.xyzw = vec4(1, -1, 1.0, 1.0);
+  gl_in[2].gl_Position.xyzw = vec4(0, 1, 0, 1.0);
+//
+
+  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(-5, -10, 10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 0, 0, 1.0);
+
+  // gl_in[0].gl_Position.xyzw = vec4(-10, 10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(10, 10, -10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(5, -5, -5, 1.0);
+
+  // gl_in[0].gl_Position.xyzw = vec4(-10, -10, -10.0, 1.0);
+  // gl_in[1].gl_Position.xyzw = vec4(10, -10, 10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
+
+  // gl_in[1].gl_Position.xyzw = vec4(-10, -10, 10.0, 1.0);
+  // gl_in[0].gl_Position.xyzw = vec4(10, -10, -10.0, 1.0);
+  // gl_in[2].gl_Position.xyzw = vec4(0, 10, 0, 1.0);
+
+
   vec3 e0 = vec3(clip_position[1].xy - clip_position[0].xy, 0);
   vec3 e1 = vec3(clip_position[2].xy - clip_position[1].xy, 0);
   vec3 e2 = vec3(clip_position[0].xy - clip_position[2].xy, 0);
@@ -240,10 +238,7 @@ void main()
   p_moved[1] = (e0.xy / dot(e0.xy,n1.xy)) + (e1.xy / dot(e1.xy,n0.xy));
   p_moved[2] = (e1.xy / dot(e1.xy,n2.xy)) + (e2.xy / dot(e2.xy,n1.xy));
 
-*/
-
 /*
-
   // we are done here, emit the new triangle
   // gl_Position = projectionMatrix * gl_in[0].gl_Position;
   // gl_Position = vec4(-1, 1, 0, 0);

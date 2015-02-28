@@ -40,7 +40,7 @@ Surface GetSurface(void)
   return surface;
 }
 */
-const bool DebugAxis = true;
+const bool DebugAxis = false;
 void main()
 {
   // discard fragments outside the triangle bound
