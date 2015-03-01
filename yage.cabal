@@ -26,6 +26,7 @@ data-files:
   res/glsl/voxel/*.vert
   res/glsl/voxel/*.geom
   res/glsl/sampling/*.frag
+  res/glsl/sampling/*.vert
   res/glsl/sampling/*.h
 
 Flag dev
@@ -167,6 +168,7 @@ library
 
     Yage.Rendering.Pipeline.Voxel.Voxelize
     Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
+    Yage.Rendering.Pipeline.Voxel.UnpackVoxel
     
     Yage.Resource.YageResource
     Yage.Resource.MSlot

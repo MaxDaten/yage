@@ -37,6 +37,7 @@ import           Yage.Rendering.Resources.GL
 import           Yage.Rendering.Resources.GL.SparseTexture
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
+import           Yage.Rendering.RenderTarget
 import           Foreign.Ptr
 import           Foreign.Marshal.Array
 import           Linear
@@ -130,6 +131,7 @@ data PassRes = PassRes
   , voxelBuf      :: VoxelizedScene
   , pageMaskPBO   :: Buffer (SVector PixelR8UI)
   , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
+  , target        :: RenderTarget (Texture3D PixelRGB8)
   , pipe          :: Pipeline
   , vert          :: VertexShader
   , geom          :: GeometryShader
@@ -161,7 +163,11 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
         pageClear = VS.replicate pageMaskSize (minBound :: Word8)
 
     pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
-    return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
+
+    voxTarget <- mkRenderTarget =<< (
+        createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) (truncate $ logBase 2 $ fromIntegral width) $ \t -> do
+          texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE)
+    return $ PassRes vao voxBuf pbo pageClear voxTarget pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
   runPass = mkStaticRenderPass $ \scene -> do
@@ -206,8 +212,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-    withTextureBound (voxelBuf^.voxelizedScene) $ glGenerateMipmap GL_TEXTURE_3D
-    glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+
     return $ voxelBuf
 
   cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
@@ -227,7 +232,7 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   g_RasterizationMode    $= ConservativeHasselgren --Standard -- ConservativeOtaku -- ConservativeHasselgren
 
  where
-  sceneBox = Box (pure (-10)) (pure 10)
+  sceneBox = Box (pure (-12)) (pure 12)
 
   -- TODO: Scene extends
   --{--

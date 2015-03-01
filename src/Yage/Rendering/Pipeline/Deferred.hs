@@ -50,6 +50,7 @@ import           Yage.Rendering.Pipeline.Deferred.SkyPass         as Pass
 
 import           Yage.Rendering.Pipeline.Voxel.Voxelize           as Pass
 import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as Pass
+import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as Pass
 
 import           Control.Arrow
 import           Quine.GL.Shader
@@ -85,6 +86,7 @@ yDeferredLighting = do
   --renderBloom     <- addBloom
   tonemapPass     <- toneMapper
   voxelizeScene   <- voxelizePass 128 128 128
+  unpackVoxel     <- unpackVoxelPass 128 128 128
   voxelVis        <- visualizeVoxelPass
 
   return $ proc input -> do
@@ -100,6 +102,7 @@ yDeferredLighting = do
     -- voxellzation
     --{--
     voxelizedScene   <- processPass voxelizeScene    -< input^.scene
+    rgbVoxel         <- processPass unpackVoxel      -< voxelizedScene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
@@ -140,7 +143,7 @@ yDeferredLighting = do
     -- tone map from hdr (floating) to discrete Word8
     tonemapPass -< (input^.hdrCmaera.hdrSensor, sceneTex, Nothing)
     --}
-    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
+    tonemapPass -< (error "xxxx" $ input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer

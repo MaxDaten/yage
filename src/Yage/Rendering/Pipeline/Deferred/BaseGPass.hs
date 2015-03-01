@@ -66,7 +66,6 @@ import           Quine.GL.Program
 import           Quine.GL.Buffer
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
-import           Quine.GL.Sampler
 import           Quine.StateVar
 
 import Yage.Rendering.Pipeline.Deferred.Common

@@ -143,7 +143,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        sampleLevel        = 0 -- time `mod` (vscene^.voxelizedLevels)
+        sampleLevel        = time `mod` (vscene^.voxelizedLevels)
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix     $= modelM
