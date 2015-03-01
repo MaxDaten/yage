@@ -101,7 +101,7 @@ downsampler = Pass <$> passRes <*> pure runRes where
 
     let FragmentShader{..} = frag
     iTexture $= toFilter
-    iTargetSize $= outTarget^.targetRectangle.extend
+    iTargetSize $= outTarget^.asRectangle.extend
 
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
     return $ outTarget^.renderTarget

@@ -3,13 +3,13 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE UndecidableInstances    #-}
 
 module Yage.Rendering.RenderTarget
   ( RenderTarget
   , IsRenderTarget(getAttachments)
   , renderTarget
   , framebufferObj
-  , targetRectangle
   -- * Constructor
   , mkRenderTarget
   -- * Controlled Targets
@@ -33,7 +33,6 @@ import Yage.Rendering.RenderSystem
 data RenderTarget cs = RenderTarget
   { _renderTarget       :: cs
   , _framebufferObj     :: Framebuffer
-  , _targetRectangle    :: Rectangle Int
   } deriving (Show,Typeable,Data,Generic)
 
 makeLenses ''RenderTarget
@@ -41,26 +40,28 @@ makeLenses ''RenderTarget
 class IsRenderTarget cs where
   getAttachments :: cs -> ([Attachment], Maybe Attachment, Maybe Attachment)
 
-mkRenderTarget :: (IsRenderTarget cs, GetRectangle cs Int) => cs -> YageResource (RenderTarget cs)
-mkRenderTarget b =  RenderTarget b <$> createFramebuffer cs d s <*> pure (b^.asRectangle)
+mkRenderTarget :: (IsRenderTarget cs) => cs -> YageResource (RenderTarget cs)
+mkRenderTarget b =  RenderTarget b <$> createFramebuffer cs d s
   where (cs,d,s) = getAttachments b
 
-instance GetRectangle (RenderTarget t) Int where
-  asRectangle = targetRectangle
+instance GetRectangle t Int => GetRectangle (RenderTarget t) Int where
+  asRectangle = renderTarget.asRectangle
 
-instance (IsRenderTarget t, Resizeable2D t) => Resizeable2D (RenderTarget t) where
+instance (IsRenderTarget t, Resizeable2D t, GetRectangle t Int) => Resizeable2D (RenderTarget t) where
   resize2D t w h
-    | t^.targetRectangle.extend == V2 w h = return t
+    | t^.renderTarget.asRectangle.extend == V2 w h = return t
     | otherwise = do
       new <- resize2D (t^.renderTarget) w h
       let (cs,d,s) = getAttachments new
       fbo <- attachFramebuffer (t^.framebufferObj) cs d s
       return $ t & framebufferObj         .~ fbo
-                 & targetRectangle.extend .~ V2 w h
                  & renderTarget           .~ new
 
 -- | Shortcut for 'Texture's to make a single texture to a single color 'RenderTarget'
 instance IsRenderTarget (Texture2D px) where
+  getAttachments tx = ([mkAttachment tx], Nothing, Nothing)
+
+instance IsRenderTarget (Texture3D px) where
   getAttachments tx = ([mkAttachment tx], Nothing, Nothing)
 
 instance IsRenderTarget (Texture2D px, Texture2D (DepthComponent32F f)) where
@@ -68,9 +69,6 @@ instance IsRenderTarget (Texture2D px, Texture2D (DepthComponent32F f)) where
 
 instance IsRenderTarget (Texture2D px, Texture2D (DepthComponent24 f)) where
   getAttachments (t,d) = ([mkAttachment t], Just $ mkAttachment d, Nothing)
-
-instance GetRectangle t Int => GetRectangle (t, b) Int where
-  asRectangle = _1.asRectangle
 
 -- * Controlled Targets
 
@@ -86,10 +84,10 @@ autoResized initRes = initTarget where
     (\(_, target) -> (target, doResize target)) <$> allocateAcquire (mkRenderTarget =<< (initRes inRect))
   doResize s = flip mkStatefulRenderPass s $ \target newRect -> do
     let V2 w h = newRect^.extend
-    if (V2 w h == target^.targetRectangle.extend)
+    if (V2 w h == target^.renderTarget.asRectangle.extend)
     then return (target,target)
     else do
-      resizedTarget <- resize2D target w h <&> targetRectangle.extend .~ V2 w h
+      resizedTarget <- resize2D target w h
       return (resizedTarget, resizedTarget)
 
 -- | Creates and returns constantly a 'RenderTarget' (never freed till termination of the application)
@@ -105,7 +103,6 @@ onChange = off where
       fbo <- attachFramebuffer (lastTarget^.framebufferObj) cs d s
       let new = lastTarget
             & framebufferObj   .~ fbo
-            & targetRectangle  .~ inTarget^.asRectangle
             & renderTarget     .~ inTarget
       return (new,new)
 
