@@ -261,7 +261,7 @@ instance FramebufferAttachment (Texture Tex2D a) where
   attach (FramebufferTarget target _) p tex = glFramebufferTexture2D target p (tex^.textureTarget) (tex^.textureObject.to object) 0
 
 instance FramebufferAttachment (Texture Tex3D a) where
-  attach (FramebufferTarget target _) p tex = glFramebufferTexture3D target p (tex^.textureTarget) (tex^.textureObject.to object) 0 0
+  attach (FramebufferTarget target _) p tex = glFramebufferTexture target p (tex^.textureObject.to object) 0
 
 instance (BaseTexture i Tex2D) => BaseTexture (Cubemap i) TexCube where
   baseTarget _ = GL_TEXTURE_CUBE_MAP
