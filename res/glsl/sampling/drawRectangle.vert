@@ -5,9 +5,9 @@ out gl_PerVertex {
 vec4 gl_Position;
 };
 
-out int g_Layer;
+flat out int vInstance;
 
 void main() {
-  g_Layer = gl_InstanceID;
+  vInstance = gl_InstanceID;
   gl_Position = vec4 (float(gl_VertexID / 2) * 4.0 - 1.0, float(gl_VertexID % 2) * 4.0 - 1.0, 0.0, 1.0);
 }
