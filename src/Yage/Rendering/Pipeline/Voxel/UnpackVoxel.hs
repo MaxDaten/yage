@@ -95,9 +95,8 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    voxTarget <- mkRenderTarget =<< (
-        createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) (truncate $ logBase 2 $ fromIntegral width) $ \t -> do
-          texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE)
+    voxTarget <- mkRenderTarget =<< createTargetTexture
+
     return $ PassRes vao pipeline frag voxTarget
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m VoxelizedScene (Texture3D PixelRGB8)
@@ -110,7 +109,11 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     glDisable GL_CULL_FACE
     glDepthFunc GL_ALWAYS
     glDepthMask GL_FALSE
-    glColorMask GL_FALSE GL_FALSE GL_FALSE GL_FALSE
+
+    globalViewport $= Rectangle 0 (V2 width height)
+    glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
+    glClearColor 0 0 1 1
+    glClear GL_COLOR_BUFFER_BIT
 
     -- set globals
     {-# SCC boundVertexArray #-} throwWithStack $ boundVertexArray $= vao
@@ -123,6 +126,15 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
     return $ target^.renderTarget
 
+  createTargetTexture = createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) (traceShowId $ truncate $ traceShowId $ logBase 2 $ fromIntegral width) $ \t -> do
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= (truncate $ logBase 2 $ fromIntegral width)
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
 -- * Shader Interfaces
 
 fragmentUniforms :: Program -> YageResource FragmentShader

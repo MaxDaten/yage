@@ -13,5 +13,6 @@ void main()
     const vec3 pixel = 1.0 / size;
     const vec3 samplingUV = vec3(gl_FragCoord.xy,gl_Layer) * pixel;
 
-    fragColor = convRGBA8ToVec4(texture( iTexture, samplingUV ));
+    fragColor = convRGBA8ToVec4(texture( iTexture, samplingUV )) / 255.0;
+    // fragColor = (float(gl_Layer) / 128.0) * vec4(1,0.5,0,1);
 }

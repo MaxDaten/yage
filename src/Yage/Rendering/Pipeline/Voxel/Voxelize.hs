@@ -131,7 +131,6 @@ data PassRes = PassRes
   , voxelBuf      :: VoxelizedScene
   , pageMaskPBO   :: Buffer (SVector PixelR8UI)
   , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
-  , target        :: RenderTarget (Texture3D PixelRGB8)
   , pipe          :: Pipeline
   , vert          :: VertexShader
   , geom          :: GeometryShader
@@ -164,10 +163,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
 
-    voxTarget <- mkRenderTarget =<< (
-        createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) (truncate $ logBase 2 $ fromIntegral width) $ \t -> do
-          texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE)
-    return $ PassRes vao voxBuf pbo pageClear voxTarget pipeline vert geom frag
+    return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
   runPass = mkStaticRenderPass $ \scene -> do
