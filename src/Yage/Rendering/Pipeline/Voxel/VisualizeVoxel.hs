@@ -67,6 +67,7 @@ data VertexShader = VertexShader
 data GeometryShader = GeometryShader
   { g_voxelBuffer      :: UniformVar VoxelizedScene
   , g_mode             :: UniformVar VisualizeMode
+  , g_voxelTexture     :: UniformVar (Texture3D PixelRGB8)
   , g_sampleLevel      :: UniformVar Int
   , renderEmpty        :: UniformVar Bool
   , vpMatrix           :: UniformVar Mat4
@@ -91,7 +92,7 @@ data VisVoxelTarget = VisVoxelTarget
   }
 
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizedScene, Mat4, Camera, [VisualizeMode])
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelizedScene, Texture3D PixelRGB8, Mat4, Camera, [VisualizeMode])
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -114,7 +115,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, vscene, modelM, cam, visModes) -> do
+  runPass = mkStaticRenderPass $ \(target, vscene, unpackedTex, modelM, cam, visModes) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -143,7 +144,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     -- setup globals shader vars
     let VertexShader{..}   = vert
         GeometryShader{..} = geom
-        sampleLevel        = time `mod` (vscene^.voxelizedLevels)
+        sampleLevel        = 0 -- time `mod` (vscene^.voxelizedLevels)
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
     modelMatrix     $= modelM
@@ -155,9 +156,10 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
       g_mode          $= VisualizeSceneVoxel
       g_sampleLevel   $= sampleLevel
       v_sampleLevel   $= sampleLevel
+      g_voxelTexture  $= unpackedTex
       renderEmpty     $= False
 
-      glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ vscene^.voxelizedScene.textureDimension.whd & mapped %~ (`div` (2^sampleLevel)) )
+      glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ unpackedTex^.textureDimension.whd & mapped %~ (`div` (2^sampleLevel)) )
 
     when (VisualizePageMask `oelem` visModes) $ do
       v_mode          $= VisualizePageMask
@@ -182,13 +184,16 @@ vertexUniforms prog = VertexShader
   <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
 
 geometryUniforms :: Program -> YageResource GeometryShader
-geometryUniforms prog = GeometryShader
-  <$> voxelizedSceneUniform prog
-  <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
-  <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
-  <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "RenderEmpty")
-  <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
-  <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
+geometryUniforms prog = do
+  smpl <- mkVoxelSampler 3
+  GeometryShader
+    <$> voxelizedSceneUniform prog
+    <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
+    <*> fmap (contramap Just) (samplerUniform prog smpl "VoxelRGB")
+    <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
+    <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "RenderEmpty")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader

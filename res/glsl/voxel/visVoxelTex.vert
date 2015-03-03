@@ -11,8 +11,8 @@ vec4 gl_Position;
 
 out ivec3 v_VoxelCoord;
 
-uniform layout(binding = 0) usampler3D VoxelBuffer;
-uniform layout(binding = 1) usampler3D VoxelPageMask;
+uniform usampler3D VoxelBuffer;
+uniform usampler3D VoxelPageMask;
 
 uniform int SampleLevel;
 void main()

@@ -126,15 +126,16 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
     return $ target^.renderTarget
 
-  createTargetTexture = createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) (traceShowId $ truncate $ traceShowId $ logBase 2 $ fromIntegral width) $ \t -> do
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= (truncate $ logBase 2 $ fromIntegral width)
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
+  createTargetTexture = let lvl = truncate $ logBase 2 $ fromIntegral width in
+    createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \t -> do
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral lvl
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+      texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
 -- * Shader Interfaces
 
 fragmentUniforms :: Program -> YageResource FragmentShader

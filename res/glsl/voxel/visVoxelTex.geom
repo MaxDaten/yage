@@ -1,9 +1,7 @@
 #version 430 core
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_include : require
-#extension GL_ARB_shader_image_load_store : require
 #extension GL_ARB_geometry_shader4 : enable
-#extension GL_ARB_shader_image_size : require
 
 #include <common.h>
 #include <definitions.h>
@@ -19,15 +17,16 @@ layout ( triangle_strip, max_vertices = 26 ) out;
 in ivec3 v_VoxelCoord[];
 out vec4 f_VoxelColor;
 
-uniform layout(binding = 0) usampler3D VoxelBuffer;
-uniform layout(binding = 1) usampler3D VoxelPageMask;
+uniform sampler3D VoxelRGB;
+uniform usampler3D VoxelPageMask;
+uniform usampler3D VoxelBuffer;
 
 uniform int RenderEmpty;
 uniform int SampleLevel;
 
 bool isVoxelPresent(in vec4 voxel)
 {
-  return dot(voxel,voxel) > 0;
+  return dot(voxel.rgb,voxel.rgb) > 0;
 }
 
 
@@ -36,15 +35,17 @@ void main()
   vec4 voxel = vec4(0,0,0,0);
   vec3 halfVox;
   ivec3 maskSize = textureSize(VoxelPageMask, 0);
-  ivec3 size = textureSize(VoxelBuffer, SampleLevel);
+  ivec3 size = textureSize(VoxelRGB, SampleLevel);
   bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
 
   if (VoxelizeMode == VOXELIZESCENE)
   {
+    VoxelBuffer;
     // voxel = pageInMarker ? convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / size, SampleLevel)) : voxel;
     halfVox = 1.0/vec3(size);
-    voxel = convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / vec3(size), SampleLevel));
-    voxel.rgb /= 255.0;
+    voxel = textureLod(VoxelRGB, vec3(v_VoxelCoord[0]) / vec3(size), SampleLevel);
+    // voxel = convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / vec3(size), SampleLevel));
+    // voxel.rgb /= 255.0;
   }
   else
   {
