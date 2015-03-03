@@ -25,6 +25,7 @@ data-files:
   res/glsl/voxel/*.frag
   res/glsl/voxel/*.vert
   res/glsl/voxel/*.geom
+  res/glsl/voxel/*.h
   res/glsl/sampling/*.frag
   res/glsl/sampling/*.vert
   res/glsl/sampling/*.h
@@ -165,7 +166,9 @@ library
     Yage.Rendering.Pipeline.Deferred.ScreenPass
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.Tonemap
+    Yage.Rendering.Pipeline.Deferred.Types
 
+    Yage.Rendering.Pipeline.Voxel.Base
     Yage.Rendering.Pipeline.Voxel.Voxelize
     Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
     Yage.Rendering.Pipeline.Voxel.UnpackVoxel

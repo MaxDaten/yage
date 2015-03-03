@@ -180,3 +180,6 @@ mkCubeSampler = throwWithStack $ samplerCube ENVIRONMENT_UNIT <$> do
   when gl_ARB_seamless_cubemap_per_texture $ do
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
   return sampler
+
+instance HasSkyMaterial mat TextureCube => HasSkyMaterial (Entity d mat) TextureCube where
+  skyMaterial = materials.skyMaterial

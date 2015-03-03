@@ -70,6 +70,8 @@ import           Quine.StateVar
 
 import Yage.Rendering.Pipeline.Deferred.Common
 
+
+
 #include "definitions.h"
 #include "textureUnits.h"
 #include "attributes.h"
@@ -350,3 +352,6 @@ instance Resizeable2D GBuffer where
     cChannel <~ resize2D (gbuff^.cChannel) w h
     dChannel <~ resize2D (gbuff^.dChannel) w h
     depthChannel <~ resize2D (gbuff^.depthChannel) w h
+
+instance HasGBaseMaterial mat Texture2D => HasGBaseMaterial (Entity d mat) Texture2D where
+  gBaseMaterial = materials.gBaseMaterial

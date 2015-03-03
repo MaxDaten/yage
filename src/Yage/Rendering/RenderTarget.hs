@@ -70,6 +70,9 @@ instance IsRenderTarget (Texture2D px, Texture2D (DepthComponent32F f)) where
 instance IsRenderTarget (Texture2D px, Texture2D (DepthComponent24 f)) where
   getAttachments (t,d) = ([mkAttachment t], Just $ mkAttachment d, Nothing)
 
+instance GetRectangle (Texture2D px, Texture2D px') Int where
+  asRectangle  = _1.asRectangle
+
 -- * Controlled Targets
 
 -- | Creates and returns constantly a 'RenderTarget' (never freed till termination of the application)

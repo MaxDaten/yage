@@ -11,17 +11,16 @@ module Yage.Scene
     ) where
 
 
-import           Yage.Prelude                   hiding ( mapM )
-import           Yage.Lens
-import           Yage.Camera
+import Yage.Prelude hiding ( mapM )
+import Yage.Lens
+import Yage.Camera
+import Yage.Light
+import Yage.Resources as Res
+import Yage.Transformation
+import Yage.Rendering.Resources.GL.Buffer
 
-import           Yage.Light
-import           Yage.Resources                 as Res
-
-import qualified Data.Sequence                  as S
-import           Data.Data
-
-import           Yage.Transformation
+import qualified Data.Sequence as S
+import Data.Data
 
 data Entity mesh mat = Entity
   { _renderData            :: !mesh
@@ -144,6 +143,9 @@ instance HasTransformation (Entity e g) Double where
 -- TODO: Material Interpolation?
 instance LinearInterpolatable (Entity a b) where
     lerp alpha u v = u & entityTransformation .~ lerp alpha (u^.entityTransformation) (v^.entityTransformation)
+
+instance HasRenderData (Entity (RenderData i v) mat) i v where
+  renderData = Yage.Scene.renderData
 
 
 -- instance ( LinearInterpolatable cam
