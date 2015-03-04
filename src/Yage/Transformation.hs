@@ -10,6 +10,8 @@ import           Yage.Math           hiding (lerp)
 import           Control.Applicative
 import           Data.Data
 import qualified Linear              (lerp, slerp)
+import qualified Quine.Geometry.Box as Q
+import qualified Quine.Geometry.Position as Q
 
 data Transformation a = Transformation
   { _transformationPosition    :: !(V3 a)
@@ -55,7 +57,6 @@ instance RealFloat a => Num (Transformation a) where
   signum = fmap signum
   fromInteger = pure . fromInteger
 
-
 instance (RealFloat a, Epsilon a) => Epsilon (Transformation a) where
   nearZero (Transformation p o s) = nearZero p && nearZero o && nearZero s
 
@@ -78,6 +79,11 @@ instance LinearInterpolatable Float where
 instance LinearInterpolatable Double where
   lerp alpha u v = (Linear.lerp (realToFrac alpha) (V1 u) (V1 v))^._x
   {-# INLINE lerp #-}
+
+instance HasTransformation Q.Box Float where
+  transformation = lens getter setter where
+    getter b = Transformation (Q.toPosition b) 1 (view Q.size b)
+    setter b t = b & Q.size .~ t^.scale & Q.position .~ t^.position
 
 -- | Creates a Quaternion from a orthonormalized vector space
 --   and a normalized look-at direction vector

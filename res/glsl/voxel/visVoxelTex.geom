@@ -26,7 +26,7 @@ uniform int SampleLevel;
 
 bool isVoxelPresent(in vec4 voxel)
 {
-  return dot(voxel.rgb,voxel.rgb) > 0;
+  return voxel.a > 0;
 }
 
 

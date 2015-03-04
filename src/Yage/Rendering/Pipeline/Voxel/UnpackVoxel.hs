@@ -14,7 +14,8 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE Arrows              #-}
 module Yage.Rendering.Pipeline.Voxel.UnpackVoxel
-  ( unpackVoxelPass
+  ( VoxelScene(..)
+  , unpackVoxelPass
   ) where
 
 import           Yage.Prelude
@@ -31,7 +32,6 @@ import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
 import           Linear
-import           Quine.GL.Attribute
 import           Quine.GL.Program
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
@@ -59,10 +59,12 @@ data PassRes = PassRes
   { vao           :: VertexArray
   , pipe          :: Pipeline
   , frag          :: FragmentShader
-  , target        :: RenderTarget (Texture3D PixelRGB8)
+  , target        :: RenderTarget (Texture3D PixelRGBA8)
   }
 
-type UnpackVoxelPass m = Pass PassRes m VoxelizedScene (Texture3D PixelRGB8)
+data VoxelScene = VoxelScene (Texture3D PixelRGBA8) Box
+
+type UnpackVoxelPass m = Pass PassRes m (VoxelizedScene,Box) VoxelScene
 
 -- | Takes the unsigned integer voxel texture and converts it into a better usable RGB channel texture
 unpackVoxelPass :: (MonadIO m, MonadThrow m) => Int -> Int -> Int -> YageResource (UnpackVoxelPass m)
@@ -84,8 +86,8 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline frag voxTarget
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m VoxelizedScene (Texture3D PixelRGB8)
-  runPass = mkStaticRenderPass $ \inTex -> do
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (VoxelizedScene,Box) VoxelScene
+  runPass = mkStaticRenderPass $ \(inTex,bounds) -> do
     PassRes{..} <- ask
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
@@ -97,7 +99,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     globalViewport $= Rectangle 0 (V2 width height)
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
-    glClearColor 0 0 1 1
+    glClearColor 0 0 0 0
     glClear GL_COLOR_BUFFER_BIT
 
     -- set globals
@@ -109,7 +111,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.textureDimension.whd._z)
 
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
-    return $ target^.renderTarget
+    return $! VoxelScene (target^.renderTarget) bounds
 
   createTargetTexture = let lvl = truncate $ logBase 2 $ fromIntegral width in
     createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \t -> do

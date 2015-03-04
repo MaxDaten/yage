@@ -93,7 +93,6 @@ yDeferredLighting = do
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
                             , voxelOcclusion
-                            , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera
                             , [VisualizeSceneVoxel]
                             )

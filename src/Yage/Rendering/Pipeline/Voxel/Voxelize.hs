@@ -137,7 +137,7 @@ data PassRes = PassRes
   , frag          :: FragmentShader
   }
 
-type VoxelizePass m scene = Pass PassRes m scene VoxelizedScene
+type VoxelizePass m scene = Pass PassRes m scene (VoxelizedScene, Box)
 
 
 voxelizePass :: (MonadIO m, MonadThrow m, HasBox scene, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
@@ -165,7 +165,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene (VoxelizedScene, Box)
   runPass = mkStaticRenderPass $ \scene -> do
     PassRes{..} <- ask
     -- some state setting
@@ -209,7 +209,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 
-    return $ voxelBuf
+    return $! (voxelBuf, scene^.box)
 
   cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
 

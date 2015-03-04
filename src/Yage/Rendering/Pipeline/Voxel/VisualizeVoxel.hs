@@ -45,6 +45,7 @@ import           Data.Time.Clock.POSIX
 
 import Yage.Rendering.Pipeline.Deferred.Common
 import Yage.Rendering.Pipeline.Voxel.Voxelize
+import Yage.Rendering.Pipeline.Voxel.UnpackVoxel (VoxelScene(..))
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -59,7 +60,7 @@ data VisualizeMode =
 
 data VertexShader = VertexShader
   { v_voxelBuffer     :: UniformVar VoxelizedScene
-  , v_voxelTexture    :: UniformVar (Texture3D PixelRGB8)
+  , v_voxelTexture    :: UniformVar (Texture3D PixelRGBA8)
   , v_mode            :: UniformVar VisualizeMode
   , v_sampleLevel     :: UniformVar Int
   }
@@ -68,7 +69,7 @@ data VertexShader = VertexShader
 data GeometryShader = GeometryShader
   { g_voxelBuffer      :: UniformVar VoxelizedScene
   , g_mode             :: UniformVar VisualizeMode
-  , g_voxelTexture     :: UniformVar (Texture3D PixelRGB8)
+  , g_voxelTexture     :: UniformVar (Texture3D PixelRGBA8)
   , g_sampleLevel      :: UniformVar Int
   , renderEmpty        :: UniformVar Bool
   , vpMatrix           :: UniformVar Mat4
@@ -93,7 +94,7 @@ data VisVoxelTarget = VisVoxelTarget
   }
 
 
-type VisVoxelInput = (RenderTarget VisVoxelTarget, Texture3D PixelRGB8, Mat4, Camera, [VisualizeMode])
+type VisVoxelInput = (RenderTarget VisVoxelTarget, VoxelScene, Camera, [VisualizeMode])
 type VisVoxelOutput = Texture2D PixelRGBA8
 type VisVoxelPass m g = PassGEnv g PassRes m VisVoxelInput VisVoxelOutput
 
@@ -116,7 +117,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g PassRes) m, HasViewport g Int) => RenderSystem m VisVoxelInput VisVoxelOutput
-  runPass = mkStaticRenderPass $ \(target, unpackedTex, modelM, cam, visModes) -> do
+  runPass = mkStaticRenderPass $ \(target, VoxelScene unpackedTex bounds, cam, visModes) -> do
     PassRes{..}  <- view localEnv
     mainViewport <- view $ globalEnv.viewport
 
@@ -148,7 +149,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
         sampleLevel        = time `mod` (fromIntegral $ unpackedTex^.textureLevel)
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
-    modelMatrix     $= modelM
+    modelMatrix     $= (bounds^.transformationMatrix)
 
     when (VisualizeSceneVoxel `oelem` visModes) $ do
       --v_voxelBuffer   $= vscene

@@ -19,8 +19,6 @@ import           Yage.Lens hiding (cons)
 
 
 import           Yage.HDR
-import           Yage.Rendering.GL
-import           Yage.Rendering.Resources.GL.Texture
 import           Yage.Rendering.RenderSystem                     as RenderSystem
 import           Yage.Scene
 
@@ -29,17 +27,13 @@ import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as V
 import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as V
 import           Yage.Rendering.Pipeline.Deferred.Types
 
-import           Control.Arrow
-
 
 voxelizePass :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
-  => Int -> Int -> Int -> YageResource (RenderSystem m a (Texture3D PixelRGB8))
+  => Int -> Int -> Int -> YageResource (RenderSystem m a VoxelScene)
 voxelizePass width height depth = do
   voxelizeScene   <- V.voxelizePass width height depth
   unpackVoxel     <- unpackVoxelPass width height depth
-  return $ proc input -> do
-    rgbVoxel <- processPass unpackVoxel . processPass voxelizeScene    -< input^.scene
-    returnA  -< rgbVoxel
+  return $ lmap (view scene) $ processPass unpackVoxel . processPass voxelizeScene
 
 {--
     voxelizedScene   <- processPass voxelizeScene    -< input^.scene
