@@ -73,7 +73,7 @@ yDeferredLighting = do
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
   voxelize        <- voxelizePass 128 128 128
-  voxelVis        <- visualizeVoxelPass
+  --voxelVis        <- visualizeVoxelPass
   drawLights      <- lightPass
   postAmbient     <- postAmbientPass
   renderBloom     <- addBloom
@@ -90,12 +90,12 @@ yDeferredLighting = do
     -- voxelize for ambient occlusion
     voxelOcclusion <- voxelize -< input
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
-    voxelScene       <- processPassWithGlobalEnv voxelVis
-                         -< ( voxelSceneTarget
-                            , voxelOcclusion
-                            , input^.hdrCamera.camera
-                            , [VisualizeSceneVoxel]
-                            )
+    --voxelScene       <- processPassWithGlobalEnv voxelVis
+    --                     -< ( voxelSceneTarget
+    --                        , voxelOcclusion
+    --                        , input^.hdrCamera.camera
+    --                        , [VisualizeSceneVoxel]
+    --                        )
 
 
     -- lighting
@@ -126,8 +126,8 @@ yDeferredLighting = do
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    --tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
-    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    --tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer

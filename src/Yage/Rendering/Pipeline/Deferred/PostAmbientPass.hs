@@ -56,7 +56,7 @@ data FragmentShader px = FragmentShader
   , zProjectionRatio     :: UniformVar Vec2
   , viewToWorld          :: UniformVar Mat4
   , sceneOpacityVoxel    :: UniformVar (Texture3D PixelRGBA8)
-  , sceneBounds          :: UniformVar Box
+  , worldToVoxel         :: UniformVar Mat4
   }
 
 data PassRes px = PassRes
@@ -116,7 +116,7 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
     cameraPos           $= realToFrac <$> cam^.position
     viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
     sceneOpacityVoxel   $= voxTex
-    sceneBounds         $= bounds
+    worldToVoxel        $= traceShowId (bounds^.transformationMatrix)
 
     -- Draw
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
@@ -136,14 +136,7 @@ fragmentUniforms prog = do
     <*> fmap toUniformVar (programUniform programUniform2f prog "ZProjRatio")
     <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ViewToWorld")
     <*> fmap (contramap Just) (samplerUniform prog opacitySampl "SceneOpacityVoxel")
-    <*> boxUniforms
- where
-  boxUniforms = do
-    lowU <- programUniform programUniform3f prog "SceneBoundsLow"
-    highU <- programUniform programUniform3f prog "SceneBoundsHigh"
-    return $ mkUniformVar $ \(Box l h) -> do
-      lowU $= l
-      highU $= h
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "WorldToVoxelSpace")
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
 gBufferUniform prog = do
