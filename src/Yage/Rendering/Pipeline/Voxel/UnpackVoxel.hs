@@ -22,8 +22,6 @@ import           Yage.Prelude
 import           Yage.Lens
 import           Yage.GL
 import           Yage.Viewport
-import           Yage.Vertex                             hiding (Texture)
-import           Yage.Attribute
 import           Yage.Material                           hiding (over, HasPosition, position)
 import           Yage.Scene                              hiding (Layout, componentCount)
 import           Yage.Uniform                            as Uniform
@@ -32,26 +30,13 @@ import           Yage.Rendering.Resources.GL.SparseTexture
 import           Yage.Rendering.GL
 import           Yage.Rendering.RenderSystem
 import           Yage.Rendering.RenderTarget
-import           Foreign.Ptr
-import           Foreign.Marshal.Array
 import           Linear
-import           GHC.Real (lcm)
-import           Data.Data
-import           Data.Foldable (foldr1)
-import           Data.List (findIndex,(!!))
-import qualified Data.Vector.Storable as VS hiding (forM_,find,findIndex,foldr1)
-import qualified Data.Vector          as V
-import           Quine.GL.Uniform
 import           Quine.GL.Attribute
 import           Quine.GL.Program
-import           Quine.GL.Buffer
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
-import           Quine.GL.Sampler
 import           Quine.StateVar
 import           Quine.GL.Texture
-import           Quine.GL.InternalFormat
-import           Quine.Geometry.Box
 
 -- import           Graphics.GL.Ext.ARB.ClearTexture
 
