@@ -36,22 +36,20 @@ void main()
   vec3 halfVox;
   ivec3 maskSize = textureSize(VoxelPageMask, 0);
   ivec3 size = textureSize(VoxelRGB, SampleLevel);
-  bool pageInMarker = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ size).r == USE_PAGE_MARKER;
+  float pageMask = float(texelFetch(VoxelPageMask, v_VoxelCoord[0], 0).r) / USE_PAGE_MARKER;
 
   if (VoxelizeMode == VOXELIZESCENE)
   {
     VoxelBuffer;
     // voxel = pageInMarker ? convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / size, SampleLevel)) : voxel;
     halfVox = 1.0/vec3(size);
-    voxel = textureLod(VoxelRGB, vec3(v_VoxelCoord[0]) / vec3(size), SampleLevel);
+    voxel = texelFetch(VoxelRGB, v_VoxelCoord[0], SampleLevel);
     // voxel = convRGBA8ToVec4(textureLod(VoxelBuffer, vec3(v_VoxelCoord[0]) / vec3(size), SampleLevel));
     // voxel.rgb /= 255.0;
   }
   else
   {
-    voxel = texture(VoxelPageMask, vec3(v_VoxelCoord[0])/ maskSize).r == USE_PAGE_MARKER
-              ? vec4(0.0,1.0,0.5,0.25)
-              : vec4(0.0,0.0,0.0,0.0);
+    voxel = pageMask * vec4(0.0,1.0,0.5,0.25);
     halfVox = 0.95/vec3(maskSize);
   }
 
