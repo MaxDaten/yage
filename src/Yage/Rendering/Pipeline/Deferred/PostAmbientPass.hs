@@ -31,6 +31,7 @@ import Yage.Rendering.RenderSystem
 import Yage.Rendering.RenderTarget
 
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
+import Yage.Rendering.Pipeline.Voxel.Base
 import Yage.Rendering.Pipeline.Deferred.Common
 
 import Quine.GL.Uniform
@@ -51,9 +52,11 @@ data FragmentShader px = FragmentShader
   , maxMipmapLevel       :: UniformVar MipmapLevel
   , diffuseMipmapOffset  :: UniformVar MipmapLevel
   , gBuffer              :: UniformVar GBuffer
-  , cameraPosition       :: UniformVar Vec3
+  , cameraPos            :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
   , viewToWorld          :: UniformVar Mat4
+  , sceneOpacityVoxel    :: UniformVar (Texture3D PixelRGBA8)
+  , sceneBounds          :: UniformVar Box
   }
 
 data PassRes px = PassRes
@@ -63,7 +66,7 @@ data PassRes px = PassRes
   }
 
 type PostAmbientBuffer = Texture2D PixelRGB11_11_10F
-type PostAmbientInput px = (RenderTarget PostAmbientBuffer, (TextureCube px), Camera, GBuffer)
+type PostAmbientInput px = (RenderTarget PostAmbientBuffer, (TextureCube px), VoxelScene, Camera, GBuffer)
 type PostAmbientPass m g px = PassGEnv g (PassRes px) m (PostAmbientInput px) PostAmbientBuffer
 
 -- | Writes the ambient term additive to the given RenderTarget
@@ -84,7 +87,7 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g (PassRes px)) m, HasViewport g Int, ImageFormat px)
           => RenderSystem m (PostAmbientInput px) PostAmbientBuffer
-  runPass = mkStaticRenderPass $ \(target, radianceMap, cam, gBuffer) -> do
+  runPass = mkStaticRenderPass $ \(target, radianceMap, VoxelScene voxTex bounds, cam, gBuf) -> do
     PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
 
@@ -103,34 +106,44 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    setupSceneGlobals frag cam radianceMap gBuffer
+    -- Uniforms
+    let FragmentShader{..} = frag
+    zProjectionRatio    $= realToFrac <$> zRatio cam
+    radianceEnvironment $= Just radianceMap
+    maxMipmapLevel      $= radianceMap^.textureLevel
+    diffuseMipmapOffset $= -2
+    gBuffer             $= gBuf
+    cameraPos           $= realToFrac <$> cam^.position
+    viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
+    sceneOpacityVoxel   $= voxTex
+    sceneBounds         $= bounds
+
+    -- Draw
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
     return $ target^.renderTarget
 
 
-setupSceneGlobals :: (MonadReader (PassEnv g l) m, HasViewport g Int, MonadIO m) => FragmentShader px -> Camera -> TextureCube px -> GBuffer -> m ()
-setupSceneGlobals FragmentShader{..} cam@Camera{..} radiance gbuff = do
-  zProjectionRatio    $= zRatio
-  radianceEnvironment $= Just radiance
-  maxMipmapLevel      $= radiance^.textureLevel
-  diffuseMipmapOffset $= -2
-  gBuffer             $= gbuff
-  cameraPosition      $= realToFrac <$> cam^.position
-  viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
- where
-  zRatio = realToFrac <$> V2 ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ)) (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
-
 fragmentUniforms :: Program -> YageResource (FragmentShader px)
 fragmentUniforms prog = do
-  sampl <- mkRadianceSampler
+  radSampl <- mkRadianceSampler
+  opacitySampl <- mkOpacityVoxelSampler
   FragmentShader
-    <$> samplerUniform prog sampl "RadianceEnvironment"
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "MaxMipmapLevel")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform1i prog "DiffuseMipmapOffset")
+    <$> samplerUniform prog radSampl "RadianceEnvironment"
+    <*> fmap toUniformVar (programUniform programUniform1i prog "MaxMipmapLevel")
+    <*> fmap toUniformVar (programUniform programUniform1i prog "DiffuseMipmapOffset")
     <*> gBufferUniform prog
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform3f prog "CameraPosition")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniform2f prog "ZProjRatio")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewToWorld")
+    <*> fmap toUniformVar (programUniform programUniform3f prog "CameraPosition")
+    <*> fmap toUniformVar (programUniform programUniform2f prog "ZProjRatio")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ViewToWorld")
+    <*> fmap (contramap Just) (samplerUniform prog opacitySampl "SceneOpacityVoxel")
+    <*> boxUniforms
+ where
+  boxUniforms = do
+    lowU <- programUniform programUniform3f prog "SceneBoundsLow"
+    highU <- programUniform programUniform3f prog "SceneBoundsHigh"
+    return $ mkUniformVar $ \(Box l h) -> do
+      lowU $= l
+      highU $= h
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
 gBufferUniform prog = do
@@ -169,4 +182,14 @@ mkRadianceSampler = throwWithStack $ samplerCube RADIANCE_UNIT <$> do
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   when gl_ARB_seamless_cubemap_per_texture $ do
     samplerParameteri sampler GL_TEXTURE_CUBE_MAP_SEAMLESS $= GL_TRUE
+  return sampler
+
+mkOpacityVoxelSampler :: YageResource (UniformSampler3D PixelRGBA8)
+mkOpacityVoxelSampler = throwWithStack $ sampler3D OPACITY_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
   return sampler

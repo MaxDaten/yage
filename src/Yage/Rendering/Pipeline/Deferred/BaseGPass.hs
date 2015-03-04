@@ -270,14 +270,14 @@ vertexUniforms prog = do
   boundAttributeLocation prog "vTangentZ" $= VTANGENTZ
   VertexShader (setVertexAttribute VPOSITION) (setVertexAttribute VTEXTURE) (setVertexAttribute VTANGENTX) (setVertexAttribute VTANGENTZ)
     -- wrap the StateVar into a simple SettableStateVar
-    <$> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ViewMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "VPMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix4f prog "ModelMatrix")
-    <*> fmap (SettableStateVar.($=)) (programUniform programUniformMatrix3f prog "NormalMatrix")
+    <$> fmap toUniformVar (programUniform programUniformMatrix4f prog "AlbedoTextureMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "NormalTextureMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "RoughnessTextureMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "MetallicTextureMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ViewMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "VPMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ModelMatrix")
+    <*> fmap toUniformVar (programUniform programUniformMatrix3f prog "NormalMatrix")
 
 fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms prog = do

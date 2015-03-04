@@ -65,7 +65,7 @@ yDeferredLighting
   => YageResource (RenderSystem m a (Texture2D PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
-  throwWithStack $ buildNamedStrings (embeddedShaders) ((++) "/res/glsl/")
+  throwWithStack $ buildNamedStrings embeddedShaders ((++) "/res/glsl/")
   -- throwWithStack $ setupDefaultTexture
 
   drawGBuffer    <- gPass
@@ -109,6 +109,7 @@ yDeferredLighting = do
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
     post      <- processPassWithGlobalEnv postAmbient -< ( lBufferTarget
                                                          , radiance
+                                                         , voxelOcclusion
                                                          , input^.hdrCamera.camera
                                                          , gBuffer )
 

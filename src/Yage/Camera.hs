@@ -10,6 +10,7 @@ module Yage.Camera
   , pitch
   , yaw
   , roll
+  , zRatio
   ) where
 
 
@@ -59,6 +60,11 @@ yaw c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 1 0) theta)
 -- | Rotates the camera view along it's view axis by an angle in radians
 roll :: HasCamera c => c -> Double -> c
 roll c theta = c & camera.orientation %~ (*) (axisAngle (V3 0 0 1) theta)
+
+zRatio :: Camera -> V2 Double
+zRatio Camera{..} = V2
+  ((_cameraFarZ + _cameraNearZ) / (_cameraFarZ + _cameraNearZ))
+  (( 2.0 * _cameraNearZ * _cameraFarZ ) / ( _cameraFarZ - _cameraNearZ ))
 
 instance Default Camera where
   def = idCamera (3*pi/8) 0.1 1000

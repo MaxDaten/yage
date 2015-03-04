@@ -9,6 +9,9 @@
 #include <brdf.h>
 
 uniform samplerCube RadianceEnvironment;
+uniform sampler3D SceneOpacityVoxel;
+uniform vec3 SceneBoundsLow;
+uniform vec3 SceneBoundsHigh;
 uniform int MaxMipmapLevel;
 uniform int DiffuseMipmapOffset;
 uniform vec3 CameraPosition;
@@ -39,11 +42,13 @@ vec3 SurfaceAmbientShading ( Surface surface )
     vec3 R   = reflect( -V, N );
 
     vec3 DiffuseAmbient = surface.Albedo.rgb * textureLod( RadianceEnvironment, N, MaxMipmapLevel + DiffuseMipmapOffset ).rgb;
-    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );;
+    vec3 SpecularAmbient = ApproximateSpecularIBL( surface.Specular, surface.Roughness, NoV, R );
+    float OcclusionMaskAmbient = 1.0;
 
     vec3 OutColor = vec3(0.0);
     OutColor += DiffuseAmbient;
     OutColor += SpecularAmbient;
+    OutColor *= OcclusionMaskAmbient;
 
     return OutColor;
 }

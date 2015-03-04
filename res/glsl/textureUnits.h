@@ -13,4 +13,5 @@
 #define G_DEPTH 4
 #define ENVIRONMENT_UNIT  5
 #define RADIANCE_UNIT     6
+#define OPACITY_UNIT     7
 #endif
