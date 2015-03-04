@@ -8,6 +8,7 @@ module Yage.Scene
     ( module Yage.Scene
     , module Yage.Light
     , module Res
+    , module Quine.Geometry.Box
     ) where
 
 
@@ -16,11 +17,13 @@ import Yage.Lens
 import Yage.Camera
 import Yage.Light
 import Yage.Resources as Res
-import Yage.Transformation
+import Yage.Transformation hiding (HasPosition, position)
 import Yage.Rendering.Resources.GL.Buffer
-
 import qualified Data.Sequence as S
 import Data.Data
+import Quine.Geometry.Box
+import Quine.Geometry.Sphere
+import Quine.Geometry.Position
 
 data Entity mesh mat = Entity
   { _renderData            :: !mesh
@@ -53,6 +56,7 @@ makeFields ''Environment
 data Scene ent env = Scene
   { _sceneEntities    :: Seq ent
   , _sceneEnvironment :: env
+  , _sceneBounds      :: Box
   } deriving ( Show )
 
 makeFields ''Scene
@@ -63,7 +67,7 @@ emptyEnvironment = Environment (Lights S.empty S.empty S.empty) Nothing (Ambient
 {-# INLINE emptyEnvironment #-}
 
 emptyScene :: Scene ent (Environment lit sky)
-emptyScene = Scene S.empty emptyEnvironment
+emptyScene = Scene S.empty emptyEnvironment (Box 0 0)
 {-# INLINE emptyScene #-}
 
 
@@ -136,6 +140,24 @@ basicEntity =
         , _entityTransformation = idTransformation
         -- , _drawSettings         = GLDrawSettings GL.Triangles (Just GL.Back)
         }
+
+
+instance HasBox (Scene ent env) where
+  box = bounds
+  {-# INLINE box #-}
+
+instance HasPosition (Scene ent env) where
+  position = bounds.position
+
+instance ToPosition (Scene ent env) where
+  toPosition = toPosition . _sceneBounds
+
+instance ToBox (Scene ent env) where
+  toBox = _sceneBounds
+
+instance ToSphere (Scene ent env) where
+  toSphere = toSphere . _sceneBounds
+
 
 instance HasTransformation (Entity e g) Double where
   transformation = entityTransformation
