@@ -140,7 +140,7 @@ data PassRes = PassRes
 type VoxelizePass m scene = Pass PassRes m scene VoxelizedScene
 
 
-voxelizePass :: (MonadIO m, MonadThrow m, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
+voxelizePass :: (MonadIO m, MonadThrow m, HasBox scene, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
 voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
   passRes :: YageResource PassRes
   passRes = do
@@ -165,7 +165,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene VoxelizedScene
   runPass = mkStaticRenderPass $ \scene -> do
     PassRes{..} <- ask
     -- some state setting
@@ -185,7 +185,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     clearVoxelBuffer (voxelBuf^.pageMask) pageClearData
 
     -- memory layout
-    setupGlobals geom frag (ProcessPageMask $ voxelBuf^.pageMask)
+    setupGlobals geom frag (ProcessPageMask $ voxelBuf^.pageMask) (scene^.box)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
@@ -204,7 +204,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     --}
 
     -- full resolution voxelize scene
-    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelizedScene))
+    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelizedScene)) (scene^.box)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
@@ -215,8 +215,8 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
 
 -- | set all shader globals
-setupGlobals :: MonadIO m => GeometryShader -> FragmentShader -> VoxelizeMode -> m ()
-setupGlobals GeometryShader{..} FragmentShader{..} mode = do
+setupGlobals :: MonadIO m => GeometryShader -> FragmentShader -> VoxelizeMode -> Box -> m ()
+setupGlobals GeometryShader{..} FragmentShader{..} mode sceneBox = do
   x_Projection   $= xproj
   y_Projection   $= yproj
   z_Projection   $= zproj
@@ -228,11 +228,6 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   g_RasterizationMode    $= ConservativeHasselgren --Standard -- ConservativeOtaku -- ConservativeHasselgren
 
  where
-  sceneBox = Box (pure (-12)) (pure 12)
-
-  -- TODO: Scene extends
-  --{--
-  -- orthoM  = ortho (-20) 20 (-20) 20 10 50
   orthoDist = 1
   orthoX  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._x)
   orthoY  = ortho (sceneBox^.lo._x) (sceneBox^.hi._x) (sceneBox^.lo._y) (sceneBox^.hi._y) orthoDist (orthoDist + sceneBox^.size._y)
@@ -240,13 +235,6 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode = do
   xproj   = orthoX !*! lookAt (V3 (orthoDist + sceneBox^.hi._x) 0 0) (V3 0 0 0) (V3 0 1 0)
   yproj   = orthoY !*! lookAt (V3 0 (orthoDist + sceneBox^.hi._y) 0) (V3 0 0 0) (V3 0 0 (-1))
   zproj   = orthoZ !*! lookAt (V3 0 0 (orthoDist + sceneBox^.hi._z)) (V3 0 0 0) (V3 0 1 0)
-  --}
-  {--
-  orthoM  = ortho (-10) 10 (-10) 10 10 30
-  xproj   = orthoM !*! lookAt (V3 20 0 0) (V3 0 0 0) (V3 0 1 0)
-  yproj   = orthoM !*! lookAt (V3 0 20 0) (V3 0 0 0) (V3 0 0 (-1))
-  zproj   = orthoM !*! lookAt (V3 0 0 20) (V3 0 0 0) (V3 0 1 0)
-  --}
   xviewport = fromIntegral <$> Rectangle 0 (V2 z y)
   yviewport = fromIntegral <$> Rectangle 0 (V2 x z)
   zviewport = fromIntegral <$> Rectangle 0 (V2 x y)
