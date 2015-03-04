@@ -48,9 +48,7 @@ import           Yage.Rendering.Pipeline.Deferred.LightPass       as Pass
 import           Yage.Rendering.Pipeline.Deferred.ScreenPass      as Pass
 import           Yage.Rendering.Pipeline.Deferred.SkyPass         as Pass
 
-import           Yage.Rendering.Pipeline.Voxel.Voxelize           as Pass
-import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as Pass
-import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as Pass
+import           Yage.Rendering.Pipeline.Voxel.Base
 
 import           Control.Arrow
 import           Quine.GL.Shader
@@ -74,6 +72,8 @@ yDeferredLighting = do
   skyPass        <- drawSky
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
+  voxelize        <- voxelizePass 128 128 128
+  voxelVis        <- visualizeVoxelPass
   drawLights      <- lightPass
   postAmbient     <- postAmbientPass
   renderBloom     <- addBloom
@@ -83,13 +83,23 @@ yDeferredLighting = do
     mainViewport  <- currentViewport -< ()
 
     -- render surface attributes for lighting out
-    --{--
     gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
     gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
                                                               , input^.scene
                                                               , input^.hdrCamera.camera )
+    -- voxelize for ambient occlusion
+    voxelOcclusion <- voxelize -< input
+    voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
+    voxelScene       <- processPassWithGlobalEnv voxelVis
+                         -< ( voxelSceneTarget
+                            , voxelOcclusion
+                            , eye4 & _xyz *~ 4
+                            , input^.hdrCamera.camera
+                            , [VisualizeSceneVoxel]
+                            )
+
+
     -- lighting
-    --{--
     lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
     _lBuffer   <- processPassWithGlobalEnv drawLights  -< ( lBufferTarget
                                                           , input^.scene.environment.lights
@@ -116,7 +126,8 @@ yDeferredLighting = do
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    --tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer

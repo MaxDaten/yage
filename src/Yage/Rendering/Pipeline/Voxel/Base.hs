@@ -10,47 +10,36 @@
 {-# LANGUAGE Arrows                 #-}
 
 module Yage.Rendering.Pipeline.Voxel.Base
-  () where
+  ( voxelizePass
+  , module V
+  ) where
 
 import           Yage.Prelude hiding ((</>), cons)
 import           Yage.Lens hiding (cons)
-import           Yage.Math
-import           Yage.Vertex hiding (Texture)
-import           Yage.Formats.Ygm
 
 
 import           Yage.HDR
 import           Yage.Rendering.GL
+import           Yage.Rendering.Resources.GL.Texture
 import           Yage.Rendering.RenderSystem                     as RenderSystem
-import           Yage.Rendering.RenderTarget
-import           Yage.Rendering.Resources.GL
 import           Yage.Scene
-import           Yage.Viewport
-import           Yage.Material hiding (over)
 
-import           Yage.Rendering.Pipeline.Voxel.Voxelize           as Pass
-import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as Pass
-import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as Pass
-import           Yage.Rendering.Pipeline.Deferred.Common
+import qualified Yage.Rendering.Pipeline.Voxel.Voxelize           as V
+import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as V
+import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as V
 import           Yage.Rendering.Pipeline.Deferred.Types
 
 import           Control.Arrow
-import           Quine.GL.Shader
-import           Quine.StateVar
-import           Quine.GL.Types
-import           Quine.GL.Texture
 
 
-voxelize :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
+voxelizePass :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
   => Int -> Int -> Int -> YageResource (RenderSystem m a (Texture3D PixelRGB8))
-voxelize width height depth = do
-  voxelizeScene   <- voxelizePass width height depth
+voxelizePass width height depth = do
+  voxelizeScene   <- V.voxelizePass width height depth
   unpackVoxel     <- unpackVoxelPass width height depth
   return $ proc input -> do
-    mainViewport  <- currentViewport -< ()
-    voxelizedScene   <- processPass voxelizeScene    -< input^.scene
-    rgbVoxel         <- processPass unpackVoxel      -< voxelizedScene
-    returnA -< rgbVoxel
+    rgbVoxel <- processPass unpackVoxel . processPass voxelizeScene    -< input^.scene
+    returnA  -< rgbVoxel
 
 {--
     voxelizedScene   <- processPass voxelizeScene    -< input^.scene
