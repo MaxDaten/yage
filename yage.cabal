@@ -169,7 +169,7 @@ library
     Yage.Rendering.Pipeline.Deferred.Types
 
     Yage.Rendering.Pipeline.Voxel.Base
-    Yage.Rendering.Pipeline.Voxel.Voxelize
+    Yage.Rendering.Pipeline.Voxel.BaseVoxelize
     Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
     Yage.Rendering.Pipeline.Voxel.UnpackVoxel
     

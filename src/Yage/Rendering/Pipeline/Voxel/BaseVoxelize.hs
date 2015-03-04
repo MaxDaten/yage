@@ -13,11 +13,11 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE Arrows              #-}
-module Yage.Rendering.Pipeline.Voxel.Voxelize
-  ( voxelizePass
+module Yage.Rendering.Pipeline.Voxel.BaseVoxelize
+  ( baseVoxelizePass
   , VoxelBuffer
   , VoxelPageMask
-  , VoxelizedScene(..), pageMask, voxelizedScene, voxelizedLevels
+  , BaseVoxelScene(..), pageMask, voxelBuffer, voxelizedLevels
   -- * VoxelizeMode for Visualization
   , VoxelizeMode(..)
   , voxelizeModeUniform
@@ -114,21 +114,21 @@ data FragmentShader = FragmentShader
 type VoxelPageMask = Texture3D PixelR8UI
 type VoxelBuffer = Texture3D PixelR32UI
 
-data VoxelizedScene = VoxelizedScene
-  { _voxelizedScene  :: VoxelBuffer
+data BaseVoxelScene = BaseVoxelScene
+  { _voxelBuffer     :: VoxelBuffer
   , _pageMask        :: VoxelPageMask
   , _voxelizedLevels :: Int
   , _pageSizes       :: V3 Int
   --, _pagesIn         :: Set (V3 Int)
   } deriving (Show,Ord,Eq,Generic)
 
-makeLenses ''VoxelizedScene
+makeLenses ''BaseVoxelScene
 
 -- * Pass Resources
 
 data PassRes = PassRes
   { vao           :: VertexArray
-  , voxelBuf      :: VoxelizedScene
+  , voxelBuf      :: BaseVoxelScene
   , pageMaskPBO   :: Buffer (SVector PixelR8UI)
   , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
   , pipe          :: Pipeline
@@ -137,11 +137,11 @@ data PassRes = PassRes
   , frag          :: FragmentShader
   }
 
-type VoxelizePass m scene = Pass PassRes m scene (VoxelizedScene, Box)
+type VoxelizePass m scene = Pass PassRes m scene (BaseVoxelScene, Box)
 
 
-voxelizePass :: (MonadIO m, MonadThrow m, HasBox scene, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
-voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
+baseVoxelizePass :: (MonadIO m, MonadThrow m, HasBox scene, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
+baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
@@ -165,7 +165,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene (VoxelizedScene, Box)
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene (BaseVoxelScene, Box)
   runPass = mkStaticRenderPass $ \scene -> do
     PassRes{..} <- ask
     -- some state setting
@@ -181,7 +181,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    clearVoxelBuffer (voxelBuf^.voxelizedScene) cleardata
+    clearVoxelBuffer (voxelBuf^.voxelBuffer) cleardata
     clearVoxelBuffer (voxelBuf^.pageMask) pageClearData
 
     -- memory layout
@@ -194,7 +194,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     -- and iterate over page mask and commit/decommit pages
     --{--
     --withMappedTexture pageMaskPBO GL_READ_ONLY (voxelBuf^.pageMask) $ \vec -> do
-    withPixels3D (voxelBuf^.pageMask) $ \vec -> withTextureBound (voxelBuf^.voxelizedScene) $ do
+    withPixels3D (voxelBuf^.pageMask) $ \vec -> withTextureBound (voxelBuf^.voxelBuffer) $ do
       let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
       V.forM_ (V.indexed vec) $ \(i, p) -> do
         -- map the idx back to the page coord
@@ -204,7 +204,7 @@ voxelizePass width height depth = Pass <$> passRes <*> pure runPass where
     --}
 
     -- full resolution voxelize scene
-    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelizedScene)) (scene^.box)
+    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelBuffer)) (scene^.box)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
@@ -330,12 +330,12 @@ clearVoxelBuffer tex cleardata = do
  where
   Tex3D w h d = tex^.textureDimension
 
-genVoxelBuffer :: Int -> Int -> Int -> YageResource VoxelizedScene
+genVoxelBuffer :: Int -> Int -> Int -> YageResource BaseVoxelScene
 genVoxelBuffer w h d = do
   let levels = truncate(logBase 2 $ fromIntegral w)
   (tex, minPageSize) <- genVoxelTexture w h d levels
   (mask, selectedPageSize) <- genPageMask tex minPageSize
-  return $ VoxelizedScene tex mask levels selectedPageSize
+  return $ BaseVoxelScene tex mask levels selectedPageSize
 
 genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
 genVoxelTexture w h d l = do
@@ -393,10 +393,10 @@ genPageMask baseBuff pageSize = do
     & whd._z %~ (`div` z)
 
 
-setPageCommitment :: MonadIO m => VoxelizedScene -> V3 Int -> Bool -> m ()
+setPageCommitment :: MonadIO m => BaseVoxelScene -> V3 Int -> Bool -> m ()
 setPageCommitment sparse (V3 x y z) commit = do
 --{--
-  glTexPageCommitmentARB (sparse^.voxelizedScene.textureTarget) 0
+  glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
     (if commit then GL_TRUE else GL_FALSE)
@@ -404,8 +404,8 @@ setPageCommitment sparse (V3 x y z) commit = do
   -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
   -- about offset + width must be less or equal to texture width
   forM_ [1.. (sparse^.voxelizedLevels - 1)] $ \l -> do
-    let V3 w h d = sparse^.voxelizedScene^.textureDimension.whd & mapped %~ (`div` 2^l)
-    glTexPageCommitmentARB (sparse^.voxelizedScene.textureTarget) (fromIntegral l)
+    let V3 w h d = sparse^.voxelBuffer.textureDimension.whd & mapped %~ (`div` 2^l)
+    glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) (fromIntegral l)
       0 0 0
       (fromIntegral w) (fromIntegral h) (fromIntegral d)
       (if commit then GL_TRUE else GL_FALSE)

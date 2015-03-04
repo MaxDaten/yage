@@ -41,7 +41,7 @@ import           Quine.GL.Texture
 -- import           Graphics.GL.Ext.ARB.ClearTexture
 
 import Yage.Rendering.Pipeline.Deferred.Common
-import Yage.Rendering.Pipeline.Voxel.Voxelize
+import Yage.Rendering.Pipeline.Voxel.BaseVoxelize
 
 #include "definitions.h"
 #include "textureUnits.h"
@@ -64,7 +64,7 @@ data PassRes = PassRes
 
 data VoxelScene = VoxelScene (Texture3D PixelRGBA8) Box
 
-type UnpackVoxelPass m = Pass PassRes m (VoxelizedScene,Box) VoxelScene
+type UnpackVoxelPass m = Pass PassRes m (BaseVoxelScene,Box) VoxelScene
 
 -- | Takes the unsigned integer voxel texture and converts it into a better usable RGB channel texture
 unpackVoxelPass :: (MonadIO m, MonadThrow m) => Int -> Int -> Int -> YageResource (UnpackVoxelPass m)
@@ -86,7 +86,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline frag voxTarget
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (VoxelizedScene,Box) VoxelScene
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (BaseVoxelScene,Box) VoxelScene
   runPass = mkStaticRenderPass $ \(inTex,bounds) -> do
     PassRes{..} <- ask
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
@@ -107,14 +107,14 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    sampleTexture frag $= inTex^.voxelizedScene
+    sampleTexture frag $= inTex^.voxelBuffer
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.textureDimension.whd._z)
 
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
     return $! VoxelScene (target^.renderTarget) bounds
 
   createTargetTexture = let lvl = truncate $ logBase 2 $ fromIntegral width in
-    createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \t -> do
+    createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \_ -> do
       texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
       texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
       texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE

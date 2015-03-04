@@ -44,7 +44,7 @@ import           Data.Time.Clock.POSIX
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
-import Yage.Rendering.Pipeline.Voxel.Voxelize
+import Yage.Rendering.Pipeline.Voxel.BaseVoxelize
 import Yage.Rendering.Pipeline.Voxel.UnpackVoxel (VoxelScene(..))
 
 #include "definitions.h"
@@ -59,7 +59,7 @@ data VisualizeMode =
 -- * Shader
 
 data VertexShader = VertexShader
-  { v_voxelBuffer     :: UniformVar VoxelizedScene
+  { v_voxelBuffer     :: UniformVar BaseVoxelScene
   , v_voxelTexture    :: UniformVar (Texture3D PixelRGBA8)
   , v_mode            :: UniformVar VisualizeMode
   , v_sampleLevel     :: UniformVar Int
@@ -67,7 +67,7 @@ data VertexShader = VertexShader
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
-  { g_voxelBuffer      :: UniformVar VoxelizedScene
+  { g_voxelBuffer      :: UniformVar BaseVoxelScene
   , g_mode             :: UniformVar VisualizeMode
   , g_voxelTexture     :: UniformVar (Texture3D PixelRGBA8)
   , g_sampleLevel      :: UniformVar Int
@@ -184,7 +184,7 @@ vertexUniforms :: Program -> YageResource VertexShader
 vertexUniforms prog = do
   smpl <- mkVoxelSampler 3
   VertexShader
-    <$> voxelizedSceneUniform prog
+    <$> baseVoxelSceneUniform prog
     <*> fmap (contramap Just) (samplerUniform prog smpl "VoxelRGB")
     <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
     <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
@@ -193,7 +193,7 @@ geometryUniforms :: Program -> YageResource GeometryShader
 geometryUniforms prog = do
   smpl <- mkVoxelSampler 3
   GeometryShader
-    <$> voxelizedSceneUniform prog
+    <$> baseVoxelSceneUniform prog
     <*> fmap (contramap (fromIntegral.fromEnum) . toUniformVar) (programUniform programUniform1i prog "VoxelizeMode")
     <*> fmap (contramap Just) (samplerUniform prog smpl "VoxelRGB")
     <*> fmap (contramap fromIntegral . toUniformVar) (programUniform programUniform1i prog "SampleLevel")
@@ -205,11 +205,11 @@ fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader
 
 
-voxelizedSceneUniform :: Program -> YageResource (UniformVar VoxelizedScene)
-voxelizedSceneUniform prog = do
+baseVoxelSceneUniform :: Program -> YageResource (UniformVar BaseVoxelScene)
+baseVoxelSceneUniform prog = do
   sceneSampler    <- mkVoxelSampler 0
   maskSampler     <- mkVoxelSampler 1
-  return $ mkUniformVar $ \(VoxelizedScene vbuff maskBuff _ _) -> do
+  return $ mkUniformVar $ \(BaseVoxelScene vbuff maskBuff _ _) -> do
       sceneSampler $= Just vbuff
       maskSampler  $= Just maskBuff
 

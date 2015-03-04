@@ -14,34 +14,33 @@ module Yage.Rendering.Pipeline.Voxel.Base
   , module V
   ) where
 
-import           Yage.Prelude hiding ((</>), cons)
-import           Yage.Lens hiding (cons)
+import Yage.Prelude hiding ((</>), cons)
+import Yage.Lens hiding (cons)
 
+import Yage.HDR
+import Yage.Rendering.RenderSystem                     as RenderSystem
+import Yage.Scene
 
-import           Yage.HDR
-import           Yage.Rendering.RenderSystem                     as RenderSystem
-import           Yage.Scene
-
-import qualified Yage.Rendering.Pipeline.Voxel.Voxelize           as V
-import           Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as V
-import           Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as V
-import           Yage.Rendering.Pipeline.Deferred.Types
+import Yage.Rendering.Pipeline.Voxel.BaseVoxelize       as V
+import Yage.Rendering.Pipeline.Voxel.VisualizeVoxel     as V
+import Yage.Rendering.Pipeline.Voxel.UnpackVoxel        as V
+import Yage.Rendering.Pipeline.Deferred.Types
 
 
 voxelizePass :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
   => Int -> Int -> Int -> YageResource (RenderSystem m a VoxelScene)
 voxelizePass width height depth = do
-  voxelizeScene   <- V.voxelizePass width height depth
+  voxelizeScene   <- baseVoxelizePass width height depth
   unpackVoxel     <- unpackVoxelPass width height depth
   return $ lmap (view scene) $ processPass unpackVoxel . processPass voxelizeScene
 
 {--
-    voxelizedScene   <- processPass voxelizeScene    -< input^.scene
-    rgbVoxel         <- processPass unpackVoxel      -< voxelizedScene
+    BaseVoxelScene   <- processPass voxelizeScene    -< input^.scene
+    rgbVoxel         <- processPass unpackVoxel      -< BaseVoxelScene
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     voxelScene       <- processPassWithGlobalEnv voxelVis
                          -< ( voxelSceneTarget
-                            , voxelizedScene
+                            , BaseVoxelScene
                             , rgbVoxel
                             , eye4 & _xyz *~ 4
                             , input^.hdrCamera.camera
