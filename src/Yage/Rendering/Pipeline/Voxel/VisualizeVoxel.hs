@@ -19,28 +19,29 @@ module Yage.Rendering.Pipeline.Voxel.VisualizeVoxel
   , mkVisVoxelTarget
   ) where
 
-import           Yage.Prelude
+import Yage.Prelude
 
-import           Yage.Lens
-import           Yage.GL
-import           Yage.Viewport                           as GL
-import           Yage.Camera
-import           Yage.Material                           hiding (over, HasPosition, position)
-import           Yage.Scene                              hiding (Layout, componentCount)
-import           Yage.Uniform                            as Uniform
-import           Yage.Rendering.Resources.GL
-import           Yage.Rendering.GL
-import           Yage.Rendering.RenderSystem
-import           Yage.Rendering.RenderTarget
-import           Linear
-import           Data.Data
-import           Data.Foldable (foldr1)
-import           Quine.GL.Uniform
-import           Quine.GL.Program
-import           Quine.GL.VertexArray
-import           Quine.GL.ProgramPipeline
-import           Quine.StateVar
-import           Data.Time.Clock.POSIX
+import Yage.Lens
+import Yage.GL
+import Yage.Viewport                           as GL
+import Yage.Camera
+import Yage.Material                           hiding (over, HasPosition, position)
+import Yage.Scene                              hiding (Layout, componentCount)
+import Yage.Uniform                            as Uniform
+import Yage.Rendering.Resources.GL
+import Yage.Rendering.Resources.GL.SparseTexture
+import Yage.Rendering.GL
+import Yage.Rendering.RenderSystem
+import Yage.Rendering.RenderTarget
+import Linear
+import Data.Data
+import Data.Foldable (foldr1)
+import Quine.GL.Uniform
+import Quine.GL.Program
+import Quine.GL.VertexArray
+import Quine.GL.ProgramPipeline
+import Quine.StateVar
+import Data.Time.Clock.POSIX
 
 
 import Yage.Rendering.Pipeline.Deferred.Common
@@ -59,7 +60,7 @@ data VisualizeMode =
 -- * Shader
 
 data VertexShader = VertexShader
-  { v_voxelBaseBuf    :: UniformVar BaseVoxelScene
+  { v_voxelBaseBuf    :: UniformVar SparseVoxelBuffer
   , v_voxelTexture    :: UniformVar (Texture3D PixelRGBA8)
   , v_mode            :: UniformVar VisualizeMode
   , v_sampleLevel     :: UniformVar Int
@@ -67,7 +68,7 @@ data VertexShader = VertexShader
 
 -- | Uniform StateVars of the fragment shader
 data GeometryShader = GeometryShader
-  { g_voxelBaseBuf     :: UniformVar BaseVoxelScene
+  { g_voxelBaseBuf     :: UniformVar SparseVoxelBuffer
   , g_mode             :: UniformVar VisualizeMode
   , g_voxelTexture     :: UniformVar (Texture3D PixelRGBA8)
   , g_sampleLevel      :: UniformVar Int
@@ -206,15 +207,15 @@ fragmentUniforms :: Program -> YageResource FragmentShader
 fragmentUniforms _prog = return FragmentShader
 
 
-baseVoxelSceneUniform :: Program -> YageResource (UniformVar BaseVoxelScene)
+baseVoxelSceneUniform :: Program -> YageResource (UniformVar SparseVoxelBuffer)
 baseVoxelSceneUniform prog = do
   vbuffSmpl    <- mkVoxelSampler 0
   maskSmpl     <- mkVoxelSampler 1
   vBuffUniform <- samplerUniform prog vbuffSmpl "VoxelBuffer"
   maskUniform  <- samplerUniform prog maskSmpl "VoxelPageMask"
-  return $ mkUniformVar $ \(BaseVoxelScene vbuff maskBuff _ _) -> do
-      vBuffUniform $= Just vbuff
-      maskUniform  $= Just maskBuff
+  return $ mkUniformVar $ \sparse -> do
+      vBuffUniform $= Just (sparse^.sparseTexture)
+      maskUniform  $= Just (sparse^.pageMask)
 
 
 -- * Sampler

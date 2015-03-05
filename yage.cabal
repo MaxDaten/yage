@@ -150,6 +150,7 @@ library
     Yage.Rendering.Resources.GL.Texture
     Yage.Rendering.Resources.GL.TextureFormat
     Yage.Rendering.Resources.GL.SparseTexture
+    Yage.Rendering.Resources.GL.SparseTexture.Internal
 
     Yage.Rendering.Pipeline.Deferred    
     Yage.Rendering.Pipeline.Deferred.BaseGPass

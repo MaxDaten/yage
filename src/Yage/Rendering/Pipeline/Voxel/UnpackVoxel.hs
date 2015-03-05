@@ -65,10 +65,10 @@ data PassRes = PassRes
 data VoxelScene = VoxelScene
   { _voxelScene       :: Texture3D PixelRGBA8
   , _voxelSceneBounds :: Box
-  , _voxelSceneBase   :: BaseVoxelScene
+  , _voxelSceneBase   :: SparseVoxelBuffer
   } deriving (Show,Generic)
 
-type UnpackVoxelPass m = Pass PassRes m (BaseVoxelScene,Box) VoxelScene
+type UnpackVoxelPass m = Pass PassRes m (SparseVoxelBuffer,Box) VoxelScene
 
 -- | Takes the unsigned integer voxel texture and converts it into a better usable RGB channel texture
 unpackVoxelPass :: (MonadIO m, MonadThrow m) => Int -> Int -> Int -> YageResource (UnpackVoxelPass m)
@@ -90,7 +90,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao pipeline frag voxTarget
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (BaseVoxelScene,Box) VoxelScene
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (SparseVoxelBuffer,Box) VoxelScene
   runPass = mkStaticRenderPass $ \(baseBuffer,bounds) -> do
     PassRes{..} <- ask
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
@@ -111,7 +111,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    sampleTexture frag $= baseBuffer^.voxelBuffer
+    sampleTexture frag $= baseBuffer^.sparseTexture
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.textureDimension.whd._z)
 
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
@@ -127,6 +127,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
       texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_LINEAR
       texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_LINEAR
       texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
+
 -- * Shader Interfaces
 
 fragmentUniforms :: Program -> YageResource FragmentShader
