@@ -66,7 +66,7 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
   vec4 accum = vec4(0);
 
   float gridDim = float(textureSize(SceneOpacityVoxel, 0).x);
-  float minDiameter = 4.0 / gridDim;
+  float minDiameter = 4 / gridDim;
 
   float startDist = minDiameter;
   float dist = startDist;
@@ -91,14 +91,14 @@ float AccumulateAmbientOcclusionCones(in Surface surface, in sampler3D SceneVoxe
   origin.xyz = (origin.xyz + 1) / 2.0;
   mat3 TBN = fakeTangentSpace(surface.Normal);
 
-  const float coneRatio = 2;
+  const float coneRatio = 2.0;
   const float maxDist = 0.3;
   vec4 accum = vec4(0);
   accum += VoxelConeTrace(origin.xyz, TBN[2], coneRatio, maxDist);
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[0]), coneRatio, maxDist);
-  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[0]), coneRatio, maxDist);
-  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[1]), coneRatio, maxDist);
-  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[1]), coneRatio, maxDist);
+  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[0]), 1.0, maxDist);
+  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[1]), 1.0, maxDist);
+  accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[1]), 1.0, maxDist);
 
   return 1.0 - accum.a;
 }
