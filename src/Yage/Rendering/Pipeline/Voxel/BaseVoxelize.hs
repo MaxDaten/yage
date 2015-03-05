@@ -17,7 +17,7 @@ module Yage.Rendering.Pipeline.Voxel.BaseVoxelize
   ( baseVoxelizePass
   , VoxelBuffer
   , VoxelPageMask
-  , BaseVoxelScene(..), pageMask, voxelBuffer, voxelizedLevels
+  , BaseVoxelScene(..), pageMask, voxelBuffer
   -- * VoxelizeMode for Visualization
   , VoxelizeMode(..)
   , voxelizeModeUniform
@@ -117,7 +117,6 @@ type VoxelBuffer = Texture3D PixelR32UI
 data BaseVoxelScene = BaseVoxelScene
   { _voxelBuffer     :: VoxelBuffer
   , _pageMask        :: VoxelPageMask
-  , _voxelizedLevels :: Int
   , _pageSizes       :: V3 Int
   --, _pagesIn         :: Set (V3 Int)
   } deriving (Show,Ord,Eq,Generic)
@@ -325,22 +324,21 @@ clearVoxelBuffer tex cleardata = do
 
 genVoxelBuffer :: Int -> Int -> Int -> YageResource BaseVoxelScene
 genVoxelBuffer w h d = do
-  let levels = 1 -- truncate(logBase 2 $ fromIntegral w)
-  (tex, minPageSize) <- genVoxelTexture w h d levels
+  (tex, minPageSize) <- genVoxelTexture w h d
   (mask, selectedPageSize) <- genPageMask tex minPageSize
-  return $ BaseVoxelScene tex mask levels selectedPageSize
+  return $ BaseVoxelScene tex mask selectedPageSize
 
-genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
-genVoxelTexture w h d l = do
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) l $ \t -> do
+genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
+genVoxelTexture w h d = do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
     fmtIdx <- selectPageFormat t
     printf "Selected Page Format: %s\n" (show fmtIdx)
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_REPEAT
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_REPEAT
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_REPEAT
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral l
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST_MIPMAP_NEAREST
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= 0
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
     texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
