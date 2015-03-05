@@ -222,7 +222,8 @@ setupGlobals GeometryShader{..} FragmentShader{..} mode sceneBox = do
   viewportIndexed X_AXIS $= xviewport
   viewportIndexed Y_AXIS $= yviewport
   viewportIndexed Z_AXIS $= zviewport
-  g_RasterizationMode    $= ConservativeHasselgren --Standard -- ConservativeOtaku -- ConservativeHasselgren
+  -- Standard -- ConservativeOtaku -- ConservativeHasselgren
+  g_RasterizationMode    $= ConservativeHasselgren
 
  where
   orthoDist = 1
@@ -247,8 +248,7 @@ drawEntities :: forall f ent i v m .
   -> (f ent)
   -> m ()
 drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents = do
-  --glDrawArrays GL_TRIANGLES 0 3
---{--
+
   forM_ ents $ \ent -> do
     -- set entity globals
     modelMatrix       $= fmap realToFrac <$> (ent^.transformationMatrix)
@@ -265,8 +265,6 @@ drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents = do
     vTangentZ $= Just ((Proxy :: Proxy v)^.tangentZlayout)
 
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
-  --}
-
 
 -- * Shader Interfaces
 
@@ -327,7 +325,7 @@ clearVoxelBuffer tex cleardata = do
 
 genVoxelBuffer :: Int -> Int -> Int -> YageResource BaseVoxelScene
 genVoxelBuffer w h d = do
-  let levels = truncate(logBase 2 $ fromIntegral w)
+  let levels = 1 -- truncate(logBase 2 $ fromIntegral w)
   (tex, minPageSize) <- genVoxelTexture w h d levels
   (mask, selectedPageSize) <- genPageMask tex minPageSize
   return $ BaseVoxelScene tex mask levels selectedPageSize
@@ -347,17 +345,6 @@ genVoxelTexture w h d l = do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
     texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
 
-  --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
-   --glTexPageCommitmentARB GL_TEXTURE_3D 0
-   -- 0 0 0
-   -- (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
-
-{--
-  glTexPageCommitmentARB GL_TEXTURE_3D 0
-    (fromIntegral $ w `div` 2) 0 0
-    (fromIntegral $ w `div` 2) (fromIntegral h) (fromIntegral $ d) GL_TRUE
---}
-  --clearVoxelBuffer tex cleardata
   fmt <- selectPageFormat tex
   return (tex, snd fmt)
  where
@@ -375,9 +362,9 @@ genPageMask baseBuff pageSize = do
   -- select the common least multiple to select cubic page sizes
   let lcmPageSize = pure $ foldr1 lcm pageSize :: V3 Int
   tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize lcmPageSize) 1 $ \_ -> do
-    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-    --texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
   return (tex, lcmPageSize)
@@ -390,28 +377,10 @@ genPageMask baseBuff pageSize = do
 
 setPageCommitment :: MonadIO m => BaseVoxelScene -> V3 Int -> Bool -> m ()
 setPageCommitment sparse (V3 x y z) commit = do
---{--
   glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
     (if commit then GL_TRUE else GL_FALSE)
-  -- currently just commit the complete mipmap chain
-  -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
-  -- about offset + width must be less or equal to texture width
-  forM_ [1.. (sparse^.voxelizedLevels - 1)] $ \l -> do
-    let V3 w h d = sparse^.voxelBuffer.textureDimension.whd & mapped %~ (`div` 2^l)
-    glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) (fromIntegral l)
-      0 0 0
-      (fromIntegral w) (fromIntegral h) (fromIntegral d)
-      (if commit then GL_TRUE else GL_FALSE)
---}
-{--
-  liftIO $ VS.unsafeWith cleardata $
-    glTexSubImage3D GL_TEXTURE_3D 0
-    (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
-    (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
-    GL_RED_INTEGER GL_UNSIGNED_BYTE . castPtr
---}
  where
   V3 pageSizeX pageSizeY pageSizeZ = sparse^.pageSizes
   cleardata = VS.replicate (pageSizeX * pageSizeY * pageSizeZ * componentCount (undefined :: PixelR32UI)) (0::Word32)
