@@ -44,6 +44,8 @@ import           Linear
 import           GHC.Real (lcm)
 import           Data.Data
 import           Data.Foldable (foldr1)
+import           Control.Monad.State               (MonadState, execStateT)
+import qualified Control.Monad.State  as State     (get,put)
 import           Data.List (findIndex,(!!))
 import qualified Data.Vector.Storable as VS hiding (forM_,find,findIndex,foldr1)
 import qualified Data.Vector          as V
@@ -113,12 +115,14 @@ data FragmentShader = FragmentShader
 
 type VoxelPageMask = Texture3D PixelR8UI
 type VoxelBuffer = Texture3D PixelR32UI
+type Pages = Set (V3 Int)
 
 data BaseVoxelScene = BaseVoxelScene
   { _voxelBuffer     :: VoxelBuffer
   , _pageMask        :: VoxelPageMask
   , _pageSizes       :: V3 Int
-  --, _pagesIn         :: Set (V3 Int)
+  , _pagesIn         :: Pages
+  -- ^ committed pages of the sparse voxel buffer
   } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''BaseVoxelScene
@@ -140,7 +144,10 @@ type VoxelizePass m scene = Pass PassRes m scene (BaseVoxelScene, Box)
 
 
 baseVoxelizePass :: (MonadIO m, MonadThrow m, HasBox scene, GBaseScene scene f ent i v) => Int -> Int -> Int -> YageResource (VoxelizePass m scene)
-baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
+baseVoxelizePass width height depth = do
+  res <- passRes
+  return $ Pass res (runPass $ voxelBuf res)
+ where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
@@ -164,9 +171,9 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     return $ PassRes vao voxBuf pageClear pipeline vert geom frag
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene (BaseVoxelScene, Box)
-  runPass = mkStaticRenderPass $ \scene -> do
-    PassRes{..} <- ask
+  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => BaseVoxelScene -> RenderSystem m scene (BaseVoxelScene, Box)
+  runPass v = flip mkStatefulRenderPass v $ \voxelBuf scene -> do
+    PassRes{pageClearData,pipe,vert,geom,frag,vao} <- ask
     -- some state setting
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
@@ -191,21 +198,23 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     -- map page mask
     -- and iterate over page mask and commit/decommit pages
-    withPixels3D (voxelBuf^.pageMask) $ \vec -> withTextureBound (voxelBuf^.voxelBuffer) $ do
-      let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
-      V.forM_ (V.indexed vec) $ \(i, p) -> do
-        -- map the idx back to the page coord
-        let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
-        setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
-        return()
+    updateBuffer <- flip execStateT voxelBuf $ do
+      mask <- use pageMask
+      buf  <- use voxelBuffer
+      withPixels3D mask $ \vec -> withTextureBound buf $ do
+        let V3 pagesX pagesY pagesZ = mask^.textureDimension.whd
+        V.forM_ (V.indexed vec) $ \(i, p) -> do
+          -- map the idx back to the page coord
+          let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
+          setPageCommitment pageId (p == (PixelR8UI maxBound))
 
     -- full resolution voxelize scene
-    setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelBuffer)) (scene^.box)
+    setupGlobals geom frag (ProcessSceneVoxelization $ (updateBuffer^.voxelBuffer)) (scene^.box)
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 
-    return $! (voxelBuf, scene^.box)
+    return $! ((updateBuffer, scene^.box), updateBuffer)
 
   cleardata = VS.replicate (width * height * depth * componentCount (undefined :: PixelR32UI)) 0
 
@@ -326,7 +335,7 @@ genVoxelBuffer :: Int -> Int -> Int -> YageResource BaseVoxelScene
 genVoxelBuffer w h d = do
   (tex, minPageSize) <- genVoxelTexture w h d
   (mask, selectedPageSize) <- genPageMask tex minPageSize
-  return $ BaseVoxelScene tex mask selectedPageSize
+  return $ BaseVoxelScene tex mask selectedPageSize mempty
 
 genVoxelTexture :: forall px. (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (Texture3D px, V3 Int)
 genVoxelTexture w h d = do
@@ -373,16 +382,20 @@ genPageMask baseBuff pageSize = do
     & whd._z %~ (`div` z)
 
 
-setPageCommitment :: MonadIO m => BaseVoxelScene -> V3 Int -> Bool -> m ()
-setPageCommitment sparse (V3 x y z) commit = do
-  glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) 0
-    (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
-    (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
-    (if commit then GL_TRUE else GL_FALSE)
- where
-  V3 pageSizeX pageSizeY pageSizeZ = sparse^.pageSizes
-  cleardata = VS.replicate (pageSizeX * pageSizeY * pageSizeZ * componentCount (undefined :: PixelR32UI)) (0::Word32)
+setPageCommitment :: (MonadIO m, MonadState BaseVoxelScene m) => V3 Int -> Bool -> m ()
+setPageCommitment pageIndex@(V3 x y z) commit = do
+  pages <- use pagesIn
+  buf   <- use voxelBuffer
+  V3 pageSizeX pageSizeY pageSizeZ <- use pageSizes
 
+  when ( pages^.contains pageIndex /= commit ) $ do
+    io $ printf "commit: %s : %s\n" (show pageIndex) (show commit)
+    glTexPageCommitmentARB (buf^.textureTarget) 0
+      (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
+      (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
+      (if commit then GL_TRUE else GL_FALSE)
+
+  pagesIn.contains pageIndex .= commit
 
 -- * Sampler
 
