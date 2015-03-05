@@ -11,7 +11,7 @@ vec4 gl_Position;
 
 out ivec3 v_VoxelCoord;
 
-// uniform usampler3D VoxelBuffer;
+uniform usampler3D VoxelBuffer;
 uniform sampler3D VoxelRGB;
 uniform usampler3D VoxelPageMask;
 
