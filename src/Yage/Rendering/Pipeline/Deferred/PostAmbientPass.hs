@@ -21,7 +21,7 @@ import Yage.GL
 import Yage.Uniform as U
 import Yage.Camera
 import Yage.Viewport as VP
-import Yage.Scene
+import Yage.Scene hiding (point)
 import Yage.Transformation
 import Yage.Material
 
@@ -108,6 +108,8 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
 
     -- Uniforms
     let FragmentShader{..} = frag
+      -- | maps world coords in bounds to the -0.5 .. +0.5 range
+        Just world2Voxel = inv44 $ (bounds^.transformationMatrix) !*! scaled (point $ V3 0.5 0.5 0.5)
     zProjectionRatio    $= realToFrac <$> zRatio cam
     radianceEnvironment $= Just radianceMap
     maxMipmapLevel      $= radianceMap^.textureLevel
@@ -116,11 +118,12 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
     cameraPos           $= realToFrac <$> cam^.position
     viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
     sceneOpacityVoxel   $= voxTex
-    worldToVoxel        $= traceShowId (bounds^.transformationMatrix)
+    worldToVoxel        $= world2Voxel
 
     -- Draw
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
     return $ target^.renderTarget
+
 
 
 fragmentUniforms :: Program -> YageResource (FragmentShader px)

@@ -14,6 +14,7 @@ struct Box {
 
 uniform samplerCube RadianceEnvironment;
 uniform sampler3D SceneOpacityVoxel;
+// maps world coords in bounds to the -0.5 .. +0.5 range
 uniform mat4 WorldToVoxelSpace;
 uniform int MaxMipmapLevel;
 uniform int DiffuseMipmapOffset;
@@ -32,14 +33,26 @@ vec3 ApproximateSpecularIBL( vec3 SpecularColor, float Roughness, float NoV, vec
     return SpecularIBL * (SpecularColor * envBRDF.x + envBRDF.y);
 }
 
-mat3 fakeTangentSpace(Surface surface)
+mat3 fakeTangentSpace(in vec3 N)
 {
-  vec3 N = surface.Normal;
-
-  vec3 a = cross(N, vec3(0,0,1));
+  vec3 a = cross(N, vec3(1,0,0));
   vec3 b = cross(N, vec3(0,1,0));
+  vec3 c = cross(N, vec3(0,0,1));
+  float da = length(a);
+  float db = length(b);
+  float dc = length(c);
+  vec3 T;
+  if (da > db && da > dc)
+  {
+    T = normalize(a);
+  } else if (db > da && db > dc)
+  {
+    T = normalize(b);
+  } else
+  {
+    T = normalize(c);
+  }
 
-  vec3 T = normalize(dot(a,a) > dot(b,b) ? a : b);
   vec3 B = normalize(cross(N,T));
   return mat3(T, B, N);
 }
@@ -49,7 +62,7 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
   vec4 accum = vec4(0);
 
   float gridDim = float(textureSize(SceneOpacityVoxel, 0).x);
-  float minDiameter = 1.0 / gridDim;
+  float minDiameter = 4.0 / gridDim;
 
   float startDist = minDiameter;
   float dist = startDist;
@@ -68,12 +81,14 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
 
 float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 WorldToVoxelSpace)
 {
-  vec4 origin = inverse(WorldToVoxelSpace) * vec4(surface.Position, 1.0);
-  origin.xyz /= origin.w;
-  mat3 TBN = fakeTangentSpace(surface);
+  vec4 origin = WorldToVoxelSpace * vec4(surface.Position, 1.0);
+  origin.xyz *= 1.0 / origin.w;
+  // mapping from -0.5..0.5 to 0..1
+  origin.xyz = (origin.xyz + 1) / 2.0;
+  mat3 TBN = fakeTangentSpace(surface.Normal);
 
-  const float coneRatio = 1.0;
-  const float maxDist = 0.3;
+  const float coneRatio = 2;
+  const float maxDist = 0.5;
   vec4 accum = vec4(0);
   accum += VoxelConeTrace(origin.xyz, TBN[2], coneRatio, maxDist);
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[0]), coneRatio, maxDist);
@@ -113,6 +128,9 @@ void main()
 
     Surface surface = DecodeGBuffer( uv );
     pixelColor.rgb  = SurfaceAmbientShading ( surface );
+    // pixelColor.rgb = ((WorldToVoxelSpace * vec4(surface.Position, 1.0)).xyz + 1) / 2.0;
+    // pixelColor.rgb = ((surface.Position / 10) + 1) / 2;
+
 
     // pixelColor.rgb = vec3(surface.Roughness);
     // pixelColor.rgb  += vec3(0.01, 0, 0);

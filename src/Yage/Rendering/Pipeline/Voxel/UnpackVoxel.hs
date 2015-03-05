@@ -113,7 +113,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
     return $! VoxelScene (target^.renderTarget) bounds
 
-  createTargetTexture = let lvl = truncate $ logBase 2 $ fromIntegral width in
+  createTargetTexture = let lvl = 1 + (truncate $ logBase 2 $ fromIntegral width) in
     createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \_ -> do
       texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
       texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
