@@ -12,19 +12,12 @@ module Yage.Rendering.Pipeline.Deferred
   ( module Pass
   , module Yage.Viewport
   , module RenderSystem
-  , DeferredEnvironment
-  , DeferredEntity
-  , DeferredScene
-  , DeferredSky
   , yDeferredLighting
   ) where
 
 import           Yage.Prelude hiding ((</>), cons)
 import           Yage.Lens hiding (cons)
 import           Yage.Math
-import           Yage.Vertex hiding (Texture)
-import           Yage.Formats.Ygm
-
 
 import           Yage.HDR
 import           Yage.Rendering.GL
@@ -52,13 +45,8 @@ import           Yage.Rendering.Pipeline.Voxel.Base
 
 import           Control.Arrow
 import           Quine.GL.Shader
-import           Quine.StateVar
-import           Quine.GL.Types
-import           Quine.GL.Texture
 import           Data.Maybe (fromJust)
 
-import           Foreign.Ptr
-import           Data.Vector.Storable as V hiding (forM_,(++))
 
 yDeferredLighting
   :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, HasDeferredSettings a, DeferredMonad m env)
