@@ -65,10 +65,10 @@ samplerCube :: TextureUnit -> Sampler -> UniformSamplerCube px
 samplerCube = sampler GL_TEXTURE_CUBE_MAP
 
 samplerUniform :: MonadIO m => Program -> UniformSampler d px -> String -> m (UniformVar (Maybe (Texture d px)))
-samplerUniform prog (UniformSampler texunit var) texname = do
+samplerUniform prog s@(UniformSampler texunit var) texname = do
   texture <- programUniform programUniform1i prog texname
   texture $= fromIntegral texunit
-  return $ SettableStateVar $ \tex -> var $= tex
+  return $ SettableStateVar $ \tex -> s $= tex
 
 materialUniformRGBA :: (Functor m, MonadIO m) => Program -> UniformSampler d px  -> String -> String -> m (UniformVar (Material MaterialColorAlpha (Texture d px)))
 materialUniformRGBA prog smpl texname colorname = contramap (over materialColor linearV4) <$> materialUniformV4 prog smpl texname colorname
