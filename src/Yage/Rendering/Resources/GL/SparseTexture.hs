@@ -63,18 +63,18 @@ makeLenses ''SparseTexture
 -- | Generates a 3D Texture with 'GL_TEXTURE_SPARSE_ARB' enabled
 -- according to the specs a fresh texture is completly virtual
 -- use '@commitPage' to commit or decommit pages
-genSparseTexture3D :: (ImageFormat px, Pixel px) => Int -> Int -> Int -> YageResource (SparseTexture3D px)
-genSparseTexture3D w h d
+genSparseTexture3D :: (ImageFormat px, Pixel px) => Int -> Int -> Int -> Int -> YageResource (SparseTexture3D px)
+genSparseTexture3D w h d l
  | not gl_ARB_sparse_texture = error "ARB_sparse_texture not available"
  | otherwise = do
-  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) 1 $ \t -> do
+  tex <- createTexture3DWithSetup GL_TEXTURE_3D (Tex3D w h d) l $ \t -> do
     fmtIdx <- selectPageFormat t
     printf "Selected Page Format: %s\n" (show fmtIdx)
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= 0
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral (l-1)
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE

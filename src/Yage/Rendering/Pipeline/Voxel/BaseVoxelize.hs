@@ -135,7 +135,7 @@ baseVoxelizePass width height depth = do
     Just geom <- traverse geometryUniforms  =<< get (geometryShader $ pipeline^.pipelineProgram)
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    voxBuf <- genSparseTexture3D width height depth
+    voxBuf <- genSparseTexture3D width height depth 1
     let V3 w h d = voxBuf^.pageMask.textureDimension.whd
         pageMaskSize = w * h * d -- * components (pixelFormat (Proxy::Proxy PixelR8UI))
         pageClear = VS.replicate pageMaskSize (minBound :: Word8)
