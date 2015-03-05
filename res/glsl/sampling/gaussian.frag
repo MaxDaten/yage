@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_include : require
 // http://rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
 // https://software.intel.com/en-us/blogs/2014/07/15/an-investigation-of-fast-real-time-gpu-based-image-blur-algorithms
+// http://stackoverflow.com/a/12733667/605745
 
 #include <locations.h>
 #include "sampling/sampling.h"
@@ -16,6 +17,9 @@ vec3 GaussianBlur( sampler2D tex0, vec2 centreUV, vec2 pixelOffset )
 {
   vec3 colOut = vec3( 0, 0, 0 );
 
+  // const int stepCount = 5;
+  // const float gOffsets[stepCount] = float[]( 0.0, 1.0, 2.0, 3.0, 4.0 );
+  // const float gWeights[stepCount] = float[]( 0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162 );
 
   const int stepCount = 3;
   const float gWeights[stepCount] = float[] ( 0.2270270270, 0.3162162162, 0.0702702703 );

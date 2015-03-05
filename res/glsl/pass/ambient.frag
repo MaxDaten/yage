@@ -88,7 +88,7 @@ float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 W
   mat3 TBN = fakeTangentSpace(surface.Normal);
 
   const float coneRatio = 2;
-  const float maxDist = 0.5;
+  const float maxDist = 0.3;
   vec4 accum = vec4(0);
   accum += VoxelConeTrace(origin.xyz, TBN[2], coneRatio, maxDist);
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[0]), coneRatio, maxDist);

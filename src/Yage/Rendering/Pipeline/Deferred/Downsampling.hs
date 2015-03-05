@@ -126,7 +126,7 @@ mkDownsampler = throwWithStack $ sampler2D 0 <$> do
   s <- glResource
   samplerParameteri s GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
   samplerParameteri s GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR
+  samplerParameteri s GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
   samplerParameteri s GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-  -- when gl_EXT_texture_filter_anisotropic $ samplerParameterf sampler GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
+  when gl_EXT_texture_filter_anisotropic $ samplerParameterf s GL_TEXTURE_MAX_ANISOTROPY_EXT $= 16
   return s

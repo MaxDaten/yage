@@ -18,5 +18,5 @@ void main()
     float bloom = Luminance(color.rgb) - iLuminanceCutoff;
     bloom = saturate(bloom / 2.0);
 
-    fragColor = vec4(bloom * color.rgb, color.a);
+    fragColor = vec4(max(vec3(0),bloom * color.rgb), color.a);
 }

@@ -70,7 +70,8 @@ void main()
   vec3 linearColor = sceneColor;
 
   // add bloom
-  linearColor += texture(iTextures[1], uv).rgb;
+  vec3 bloom = texture(iTextures[1], uv).rgb;
+  linearColor += bloom;
 
   vec3 outColor = 2.0 * ToneMapping( ExposureBias + linearColor );
   vec3 whiteScale = 1.0 / ToneMapping(vec3(WhitePoint));
