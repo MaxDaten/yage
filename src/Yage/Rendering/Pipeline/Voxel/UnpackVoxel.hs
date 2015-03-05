@@ -62,7 +62,11 @@ data PassRes = PassRes
   , target        :: RenderTarget (Texture3D PixelRGBA8)
   }
 
-data VoxelScene = VoxelScene (Texture3D PixelRGBA8) Box
+data VoxelScene = VoxelScene
+  { _voxelScene       :: Texture3D PixelRGBA8
+  , _voxelSceneBounds :: Box
+  , _voxelSceneBase   :: BaseVoxelScene
+  } deriving (Show,Generic)
 
 type UnpackVoxelPass m = Pass PassRes m (BaseVoxelScene,Box) VoxelScene
 
@@ -87,7 +91,7 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     return $ PassRes vao pipeline frag voxTarget
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (BaseVoxelScene,Box) VoxelScene
-  runPass = mkStaticRenderPass $ \(inTex,bounds) -> do
+  runPass = mkStaticRenderPass $ \(baseBuffer,bounds) -> do
     PassRes{..} <- ask
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
     -- some state setting
@@ -107,11 +111,11 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     boundProgramPipeline $= pipe^.pipelineProgram
     checkPipelineError pipe
 
-    sampleTexture frag $= inTex^.voxelBuffer
+    sampleTexture frag $= baseBuffer^.voxelBuffer
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.textureDimension.whd._z)
 
     withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
-    return $! VoxelScene (target^.renderTarget) bounds
+    return $! VoxelScene (target^.renderTarget) bounds baseBuffer
 
   createTargetTexture = let lvl = 1 + (truncate $ logBase 2 $ fromIntegral width) in
     createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \_ -> do

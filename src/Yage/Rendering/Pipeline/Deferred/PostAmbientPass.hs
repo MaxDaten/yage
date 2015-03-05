@@ -146,7 +146,7 @@ fragmentUniforms prog = do
     ambientOcclusionMode <- programUniform programUniform1i prog "AmbientOcclusionMode"
     return $ SettableStateVar $ \case
       Nothing -> ambientOcclusionMode $= 0
-      Just (VoxelScene voxTex bounds) -> do
+      Just (VoxelScene voxTex bounds _voxBuff) -> do
         -- | maps world coords in bounds to the -0.5 .. +0.5 range
         let Just world2Voxel = inv44 $ (bounds^.transformationMatrix) !*! scaled (point $ V3 0.5 0.5 0.5)
         sceneOpacityVoxel   $= Just voxTex

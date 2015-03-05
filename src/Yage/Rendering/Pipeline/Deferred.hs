@@ -72,8 +72,8 @@ yDeferredLighting = do
   skyPass        <- drawSky
 
   defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
-  voxelize        <- voxelizePass 128 128 128
-  --voxelVis        <- visualizeVoxelPass
+  voxelize        <- voxelizePass 256 256 256
+  visVoxel        <- visualizeVoxelPass
   drawLights      <- lightPass
   postAmbient     <- postAmbientPass
   renderBloom     <- addBloom
@@ -91,13 +91,13 @@ yDeferredLighting = do
     mVoxelOcclusion <- if input^.deferredSettings.activeVoxelAmbientOcclusion
       then fmap Just voxelize -< input
       else pure Nothing -< ()
-    -- voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
-    --voxelScene       <- processPassWithGlobalEnv voxelVis
-    --                     -< ( voxelSceneTarget
-    --                        , voxelOcclusion
-    --                        , input^.hdrCamera.camera
-    --                        , [VisualizeSceneVoxel]
-    --                        )
+    voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
+    visVoxTex <- processPassWithGlobalEnv visVoxel
+                    -< ( voxelSceneTarget
+                       , fromJust mVoxelOcclusion
+                       , input^.hdrCamera.camera
+                       , [VisualizePageMask] -- [VisualizeSceneVoxel]
+                       )
 
 
     -- lighting
@@ -128,8 +128,8 @@ yDeferredLighting = do
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
-    --tonemapPass -< (input^.hdrCamera.hdrSensor, voxelScene, Nothing)
+    --tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    tonemapPass -< (input^.hdrCamera.hdrSensor, visVoxTex, Nothing)
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer
