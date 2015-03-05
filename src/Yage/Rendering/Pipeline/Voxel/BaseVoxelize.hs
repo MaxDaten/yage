@@ -192,8 +192,6 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
 
     -- map page mask
     -- and iterate over page mask and commit/decommit pages
-    --{--
-    --withMappedTexture pageMaskPBO GL_READ_ONLY (voxelBuf^.pageMask) $ \vec -> do
     withPixels3D (voxelBuf^.pageMask) $ \vec -> withTextureBound (voxelBuf^.voxelBuffer) $ do
       let V3 pagesX pagesY pagesZ = voxelBuf^.pageMask.textureDimension.whd
       V.forM_ (V.indexed vec) $ \(i, p) -> do
@@ -201,7 +199,6 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
         let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
         setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
         return()
-    --}
 
     -- full resolution voxelize scene
     setupGlobals geom frag (ProcessSceneVoxelization $ (voxelBuf^.voxelBuffer)) (scene^.box)
@@ -397,7 +394,7 @@ setPageCommitment sparse (V3 x y z) commit = do
   glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
-    (if commit then traceShowS' (printf "Commit %s " (show (V3 x y z))) GL_TRUE else GL_FALSE)
+    (if commit then GL_TRUE else GL_FALSE)
   -- currently just commit the complete mipmap chain
   -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
   -- about offset + width must be less or equal to texture width

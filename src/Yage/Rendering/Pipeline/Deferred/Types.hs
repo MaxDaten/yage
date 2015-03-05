@@ -41,6 +41,8 @@ type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 data DeferredSettings = DeferredSettings
   { _activeVoxelAmbientOcclusion :: Bool
   -- ^ perform full scene voxelization and cone tracing for ambient occlusion approximation
+  , _showDebugOverlay :: Bool
+  -- ^ selects a overlay for debug issues (e.g. 3d page mask of the sparse voxelization)
   } deriving (Show,Read,Ord,Eq,Data,Typeable,Generic)
 
 makeClassy ''DeferredSettings
@@ -48,6 +50,7 @@ makeClassy ''DeferredSettings
 instance Default DeferredSettings where
   def = DeferredSettings
     { _activeVoxelAmbientOcclusion = True
+    , _showDebugOverlay = False
     }
 
 -- | The context for a 'RenderSystem' with deferred shading capabilities

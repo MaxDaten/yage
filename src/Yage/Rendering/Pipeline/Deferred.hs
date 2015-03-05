@@ -78,6 +78,7 @@ yDeferredLighting = do
   postAmbient     <- postAmbientPass
   renderBloom     <- addBloom
   tonemapPass     <- toneMapper
+  debugOverlay    <- toneMapper
 
   return $ proc input -> do
     mainViewport  <- sysEnv viewport    -< ()
@@ -92,13 +93,6 @@ yDeferredLighting = do
       then fmap Just voxelize -< input
       else pure Nothing -< ()
     voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
-    visVoxTex <- processPassWithGlobalEnv visVoxel
-                    -< ( voxelSceneTarget
-                       , fromJust mVoxelOcclusion
-                       , input^.hdrCamera.camera
-                       , [VisualizePageMask] -- [VisualizeSceneVoxel]
-                       )
-
 
     -- lighting
     lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
@@ -128,8 +122,17 @@ yDeferredLighting = do
     bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
 
     -- tone map from hdr (floating) to discrete Word8
-    --tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
-    tonemapPass -< (input^.hdrCamera.hdrSensor, visVoxTex, Nothing)
+    finalScene <- tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    if input^.deferredSettings.showDebugOverlay && isJust mVoxelOcclusion
+      then do
+        visVoxTex <- processPassWithGlobalEnv visVoxel
+                      -< ( voxelSceneTarget
+                         , fromJust mVoxelOcclusion
+                         , input^.hdrCamera.camera
+                         , [VisualizePageMask] -- [VisualizeSceneVoxel]
+                         )
+        debugOverlay -< (input^.hdrCamera.hdrSensor, finalScene, Just visVoxTex)
+      else returnA -< finalScene
 
  where
   mkGbufferTarget :: Rectangle Int -> YageResource GBuffer

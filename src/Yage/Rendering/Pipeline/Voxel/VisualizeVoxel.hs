@@ -149,7 +149,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
         sampleLevel        = time `mod` (fromIntegral $ unpackedTex^.textureLevel)
 
     vpMatrix        $= fmap realToFrac <$> viewprojectionM cam mainViewport
-    modelMatrix     $= (bounds^.transformationMatrix)
+    modelMatrix     $= (bounds & size //~ 4)^.transformationMatrix
 
     v_voxelBaseBuf  $= voxBuffer
     g_voxelBaseBuf  $= voxBuffer
