@@ -30,6 +30,7 @@ module Yage.Rendering.RenderSystem
   , foldA
   , traverseA
   , HasRenderSystem(..)
+  , sysEnv
   ) where
 
 import           Yage.Lens                          hiding (elements)
@@ -101,6 +102,9 @@ staticResource res = initRes where
   initRes = mkDynamicRenderPass $ \() -> do
     (_key, a) <- allocateAcquire res
     return (a, pure $ a)
+
+sysEnv :: MonadReader env m => Getting a env a -> RenderSystem m i a
+sysEnv f = mkStaticRenderPass $ const (view f)
 
 -- | Maps dynamically a 'RenderSystem' over a Traversable input, captures the
 -- result and the 'RenderSystem' for the next execution

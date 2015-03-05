@@ -61,7 +61,7 @@ import           Foreign.Ptr
 import           Data.Vector.Storable as V hiding (forM_,(++))
 
 yDeferredLighting
-  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, DeferredMonad m env)
+  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, HasDeferredSettings a, DeferredMonad m env)
   => YageResource (RenderSystem m a (Texture2D PixelRGB8))
 yDeferredLighting = do
   throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
@@ -80,7 +80,7 @@ yDeferredLighting = do
   tonemapPass     <- toneMapper
 
   return $ proc input -> do
-    mainViewport  <- currentViewport -< ()
+    mainViewport  <- sysEnv viewport    -< ()
 
     -- render surface attributes for lighting out
     gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
@@ -88,8 +88,10 @@ yDeferredLighting = do
                                                               , input^.scene
                                                               , input^.hdrCamera.camera )
     -- voxelize for ambient occlusion
-    voxelOcclusion <- voxelize -< input
-    voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
+    mVoxelOcclusion <- if input^.deferredSettings.activeVoxelAmbientOcclusion
+      then fmap Just voxelize -< input
+      else pure Nothing -< ()
+    -- voxelSceneTarget <- autoResized mkVisVoxelTarget -< mainViewport^.rectangle
     --voxelScene       <- processPassWithGlobalEnv voxelVis
     --                     -< ( voxelSceneTarget
     --                        , voxelOcclusion
@@ -109,7 +111,7 @@ yDeferredLighting = do
     let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
     post      <- processPassWithGlobalEnv postAmbient -< ( lBufferTarget
                                                          , radiance
-                                                         , voxelOcclusion
+                                                         , mVoxelOcclusion
                                                          , input^.hdrCamera.camera
                                                          , gBuffer )
 

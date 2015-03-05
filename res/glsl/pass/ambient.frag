@@ -18,6 +18,10 @@ uniform sampler3D SceneOpacityVoxel;
 uniform mat4 WorldToVoxelSpace;
 uniform int MaxMipmapLevel;
 uniform int DiffuseMipmapOffset;
+
+// 0 : Deactivated
+// 1 : Voxel Ambient Occlusion
+uniform int AmbientOcclusionMode;
 uniform vec3 CameraPosition;
 
 in vec4 ScreenPos;
@@ -79,7 +83,7 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
   return accum;
 }
 
-float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 WorldToVoxelSpace)
+float AccumulateAmbientOcclusionCones(in Surface surface, in sampler3D SceneVoxelRep, in mat4 WorldToVoxelSpace)
 {
   vec4 origin = WorldToVoxelSpace * vec4(surface.Position, 1.0);
   origin.xyz *= 1.0 / origin.w;
@@ -97,6 +101,18 @@ float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 W
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[1]), coneRatio, maxDist);
 
   return 1.0 - accum.a;
+}
+
+float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 WorldToVoxelSpace)
+{
+  if (AmbientOcclusionMode == 0)
+  {
+    return 1.0;
+  }
+  else if (AmbientOcclusionMode == 1)
+  {
+    return AccumulateAmbientOcclusionCones(surface, SceneVoxelRep, WorldToVoxelSpace);
+  }
 }
 
 vec3 SurfaceAmbientShading ( Surface surface )

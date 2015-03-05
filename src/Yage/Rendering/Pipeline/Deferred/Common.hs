@@ -4,13 +4,10 @@
 module Yage.Rendering.Pipeline.Deferred.Common
   ( embeddedShaders
   , includePaths
-  , currentViewport
   ) where
 
 import Yage.Prelude hiding (FilePath)
 import Yage.Lens
-import Yage.Viewport
-import Yage.Rendering.RenderSystem
 import System.FilePath
 import qualified System.FilePath.Windows as W (pathSeparator)
 import qualified System.FilePath.Posix   as P (pathSeparator)
@@ -27,7 +24,3 @@ embeddedShaders = over (mapped._1.mapped) toPosixStyle ($(embedDir "res/glsl")) 
 
 includePaths :: [F.FilePath]
 includePaths = ["/res/glsl"]
-
--- | Extracs the current viewport from the current system environment
-currentViewport :: (MonadReader v m, HasViewport v Int) => RenderSystem m b (Viewport Int)
-currentViewport = mkStaticRenderPass $ const (view viewport)
