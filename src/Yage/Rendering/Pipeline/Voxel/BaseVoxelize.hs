@@ -129,7 +129,7 @@ makeLenses ''BaseVoxelScene
 data PassRes = PassRes
   { vao           :: VertexArray
   , voxelBuf      :: BaseVoxelScene
-  , pageMaskPBO   :: Buffer (SVector PixelR8UI)
+  -- , pageMaskPBO   :: Buffer (SVector PixelR8UI)
   , pageClearData :: SVector (PixelBaseComponent PixelR8UI)
   , pipe          :: Pipeline
   , vert          :: VertexShader
@@ -161,9 +161,9 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
         pageMaskSize = w * h * d -- * components (pixelFormat (Proxy::Proxy PixelR8UI))
         pageClear = VS.replicate pageMaskSize (minBound :: Word8)
 
-    pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
+    --pbo <- createEmptyBuffer PixelPackBuffer StaticRead 2048
 
-    return $ PassRes vao voxBuf pbo pageClear pipeline vert geom frag
+    return $ PassRes vao voxBuf pageClear pipeline vert geom frag
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => RenderSystem m scene (BaseVoxelScene, Box)
   runPass = mkStaticRenderPass $ \scene -> do
@@ -199,7 +199,7 @@ baseVoxelizePass width height depth = Pass <$> passRes <*> pure runPass where
       V.forM_ (V.indexed vec) $ \(i, p) -> do
         -- map the idx back to the page coord
         let pageId = V3 (i `mod` pagesX) (i `div` pagesX `mod` pagesY) (i `div` (pagesX * pagesY))
-        --setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
+        setPageCommitment voxelBuf pageId (p == (PixelR8UI maxBound))
         return()
     --}
 
@@ -266,8 +266,6 @@ drawEntities VertexShader{..} GeometryShader{..} FragmentShader{..} ents = do
     vTexture  $= Just ((Proxy :: Proxy v)^.texturelayout)
     vTangentX $= Just ((Proxy :: Proxy v)^.tangentXlayout)
     vTangentZ $= Just ((Proxy :: Proxy v)^.tangentZlayout)
-
-
 
     {-# SCC glDrawElements #-} throwWithStack $ glDrawElements (ent^.elementMode) (fromIntegral $ ent^.elementCount) (ent^.elementType) nullPtr
   --}
@@ -349,13 +347,13 @@ genVoxelTexture w h d l = do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral l
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST_MIPMAP_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
-    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
+    texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
     texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
 
   --glTexPageCommitmentARB GL_TEXTURE_3D 0 0 0 0 (fromIntegral w) (fromIntegral h) (fromIntegral d) GL_TRUE
-  -- glTexPageCommitmentARB GL_TEXTURE_3D 0
-  --  0 0 0
-  --  (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
+   --glTexPageCommitmentARB GL_TEXTURE_3D 0
+   -- 0 0 0
+   -- (fromIntegral $ w `div` 2) (fromIntegral $ h) (fromIntegral $ d) GL_TRUE
 
 {--
   glTexPageCommitmentARB GL_TEXTURE_3D 0
@@ -399,7 +397,7 @@ setPageCommitment sparse (V3 x y z) commit = do
   glTexPageCommitmentARB (sparse^.voxelBuffer.textureTarget) 0
     (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
     (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
-    (if commit then GL_TRUE else GL_FALSE)
+    (if commit then traceShowS' (printf "Commit %s " (show (V3 x y z))) GL_TRUE else GL_FALSE)
   -- currently just commit the complete mipmap chain
   -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
   -- about offset + width must be less or equal to texture width
