@@ -245,6 +245,7 @@ library
     , containers            >= 0.5
     , semigroups            >= 0.15
     , mono-traversable      >= 0.6
+    , multiset              >= 0.2
     , contravariant
     , comonad               >= 4.2
     , generic-deriving      >= 1.6
