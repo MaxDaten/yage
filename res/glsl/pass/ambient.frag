@@ -5,6 +5,7 @@
 */
 
 #include <common.h>
+#include <definitions.h>
 #include "pass/gbuffer.h"
 #include <brdf.h>
 
@@ -14,6 +15,7 @@ struct Box {
 
 uniform samplerCube RadianceEnvironment;
 uniform sampler3D SceneOpacityVoxel;
+uniform usampler3D PageMask;
 // maps world coords in bounds to the -0.5 .. +0.5 range
 uniform mat4 WorldToVoxelSpace;
 uniform int MaxMipmapLevel;
@@ -75,6 +77,8 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
     float sampleDiameter = max(minDiameter, ConeAngleRatio * dist);
     float sampleLOD   = log2(sampleDiameter * gridDim);
     vec3 samplePos    = Origin + Direction * dist;
+    // front to back accumulation
+    // float mask = float(texture(PageMask, samplePos).r) / USE_PAGE_MARKER;
     vec4 sampleValue  = textureLod(SceneOpacityVoxel, samplePos, sampleLOD);
     accum += sampleValue * (1.0 - accum.w);
     dist += sampleDiameter;
