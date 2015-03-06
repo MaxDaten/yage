@@ -36,7 +36,6 @@ import           Quine.GL.Program
 import           Quine.GL.VertexArray
 import           Quine.GL.ProgramPipeline
 import           Quine.StateVar
-import           Quine.GL.Texture
 
 -- import           Graphics.GL.Ext.ARB.ClearTexture
 
@@ -68,11 +67,11 @@ data VoxelScene = VoxelScene
   , _voxelSceneBase   :: SparseVoxelBuffer
   } deriving (Show,Generic)
 
-type UnpackVoxelPass m = Pass PassRes m (SparseVoxelBuffer,Box) VoxelScene
+type UnpackVoxelPass m = RenderSystem m (SparseVoxelBuffer,Box) VoxelScene
 
 -- | Takes the unsigned integer voxel texture and converts it into a better usable RGB channel texture
 unpackVoxelPass :: (MonadIO m, MonadThrow m) => Int -> Int -> Int -> YageResource (UnpackVoxelPass m)
-unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
+unpackVoxelPass width height depth = runPass <$> passRes where
   passRes :: YageResource PassRes
   passRes = do
     vao <- glResource
@@ -86,15 +85,17 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    let level = 1 + (truncate $ logBase 2 $ fromIntegral width)
+    let level = (truncate $ logBase 2 $ fromIntegral width)
     voxTarget <- mkRenderTarget =<< genSparseTexture3D width height depth level
 
     return $ PassRes vao pipeline frag voxTarget
 
-  runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m) => RenderSystem m (SparseVoxelBuffer,Box) VoxelScene
-  runPass = mkStaticRenderPass $ \(baseBuffer,bounds) -> do
-    PassRes{..} <- ask
-    boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
+  runPass :: (MonadIO m, MonadThrow m) => PassRes -> UnpackVoxelPass m
+  runPass r = flip mkStatefulRenderPass r $ \res@PassRes{..} (baseBuffer,bounds) -> do
+    updatedSparse <- syncPages baseBuffer (target^.renderTarget)
+    let updatedTarget = target & renderTarget .~ updatedSparse
+
+    boundFramebuffer RWFramebuffer $= (updatedTarget^.framebufferObj)
     -- some state setting
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
@@ -113,10 +114,10 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     checkPipelineError pipe
 
     sampleTexture frag $= baseBuffer^.sparseTexture
-    throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.sparseTexture.textureDimension.whd._z)
+    throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ updatedTarget^.renderTarget.sparseTexture.textureDimension.whd._z)
 
-    withTextureBound (target^.renderTarget.sparseTexture) $ glGenerateMipmap GL_TEXTURE_3D
-    return $! VoxelScene (target^.renderTarget.sparseTexture) bounds baseBuffer
+    withTextureBound (updatedTarget^.renderTarget.sparseTexture) $ glGenerateMipmap GL_TEXTURE_3D
+    return $! (VoxelScene (updatedTarget^.renderTarget.sparseTexture) bounds baseBuffer, res{target = updatedTarget})
 
 -- * Shader Interfaces
 

@@ -23,6 +23,7 @@ module Yage.Rendering.Resources.GL.SparseTexture
  -- * Updating
  , updateSparseTexture
  , commitPage
+ , syncPages
  -- * Reexports
  , module Internal
  ) where
@@ -113,22 +114,40 @@ genPageMask baseBuff pageSize = do
 -- * Updates
 
 updateSparseTexture :: MonadIO m => SparseTexture d px -> (StateT (SparseTexture d px) m ()) -> m (SparseTexture d px)
-updateSparseTexture tex updateM = execStateT updateM tex
+updateSparseTexture tex updateM = withTextureBound (tex^.sparseTexture) $ execStateT updateM tex
 
-commitPage :: (MonadIO m, MonadState (SparseTexture d px) m) => PageIndex -> Bool -> m ()
+commitPage :: (MonadIO m, MonadState (SparseTexture3D px) m) => PageIndex -> Bool -> m ()
 commitPage pageIndex@(V3 x y z) commit = do
   pages <- use pagesIn
   tex   <- use sparseTexture
   V3 pageSizeX pageSizeY pageSizeZ <- use pageSizes
 
   when ( pages^.contains pageIndex /= commit ) $ do
-    io $ printf "commit: %s : %s\n" (show pageIndex) (show commit)
+    io $ printf "commit: %s - %s : %s\n" (show $ tex^.textureObject) (show pageIndex) (show commit)
     glTexPageCommitmentARB (tex^.textureTarget) 0
       (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
       (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
       (if commit then GL_TRUE else GL_FALSE)
 
+    -- currently just commit the complete mipmap chain
+    -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
+    -- about offset + width must be less or equal to texture width
+    forM_ [1.. (tex^.textureLevel - 1)] $ \l -> do
+      let V3 w h d = tex^.textureDimension.whd & mapped %~ (`div` 2^l)
+      glTexPageCommitmentARB (tex^.textureTarget) (fromIntegral l)
+        0 0 0
+        (fromIntegral w) (fromIntegral h) (fromIntegral d)
+        (if commit then GL_TRUE else GL_FALSE)
+
   pagesIn.contains pageIndex .= commit
+
+syncPages :: MonadIO m => SparseTexture3D pxs -> SparseTexture3D px -> m (SparseTexture3D px)
+syncPages src dest = updateSparseTexture dest $ do
+  forM_ newCommit $ (`commitPage` True)
+  forM_ newDecommit $ (`commitPage` False)
+ where
+  newCommit = (src^.pagesIn) `difference` (dest^.pagesIn)
+  newDecommit = (dest^.pagesIn) `difference` (src^.pagesIn)
 
 instance IsRenderTarget (SparseTexture3D px) where
   getAttachments t = ([mkAttachment t], Nothing, Nothing)

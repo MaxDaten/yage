@@ -32,7 +32,7 @@ voxelizePass :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, 
 voxelizePass width height depth = do
   voxelizeScene   <- baseVoxelizePass width height depth
   unpackVoxel     <- unpackVoxelPass width height depth
-  return $ lmap (view scene) $ processPass unpackVoxel . processPass voxelizeScene
+  return $ lmap (view scene) $ unpackVoxel . processPass voxelizeScene
 
 {--
     BaseVoxelScene   <- processPass voxelizeScene    -< input^.scene
