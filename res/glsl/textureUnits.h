@@ -14,4 +14,5 @@
 #define ENVIRONMENT_UNIT  5
 #define RADIANCE_UNIT     6
 #define OPACITY_UNIT     7
+#define OPACITY_VPAGE_UNIT     8
 #endif

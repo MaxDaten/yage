@@ -27,6 +27,7 @@ import Yage.Material
 
 import Yage.Rendering.GL
 import Yage.Rendering.Resources.GL
+import Yage.Rendering.Resources.GL.SparseTexture
 import Yage.Rendering.RenderSystem
 import Yage.Rendering.RenderTarget
 
@@ -140,18 +141,24 @@ fragmentUniforms prog = do
  where
   ambientOcclusionUniform :: YageResource (UniformVar (Maybe VoxelScene))
   ambientOcclusionUniform = do
-    opacitySampl <- mkOpacityVoxelSampler
+    opacitySampl  <- mkOpacityVoxelSampler
+    pageSampl     <- mkPageMaskSampler
     sceneOpacityVoxel <- samplerUniform prog opacitySampl "SceneOpacityVoxel"
+    pageMaskUniform   <- samplerUniform prog pageSampl "PageMask"
     worldToVoxel      <- programUniform programUniformMatrix4f prog "WorldToVoxelSpace"
     ambientOcclusionMode <- programUniform programUniform1i prog "AmbientOcclusionMode"
     return $ SettableStateVar $ \case
-      Nothing -> ambientOcclusionMode $= 0
-      Just (VoxelScene voxTex bounds _voxBuff) -> do
+      Nothing -> do
+        ambientOcclusionMode  $= 0
+        sceneOpacityVoxel     $= Nothing
+        pageMaskUniform       $= Nothing
+      Just (VoxelScene voxTex bounds voxBuff) -> do
         -- | maps world coords in bounds to the -0.5 .. +0.5 range
         let Just world2Voxel = inv44 $ (bounds^.transformationMatrix) !*! scaled (point $ V3 0.5 0.5 0.5)
-        sceneOpacityVoxel   $= Just voxTex
-        worldToVoxel        $= world2Voxel
-        ambientOcclusionMode $= 1
+        sceneOpacityVoxel     $= Just voxTex
+        worldToVoxel          $= world2Voxel
+        ambientOcclusionMode  $= 1
+        pageMaskUniform       $= Just (voxBuff^.pageMask)
 
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)
@@ -201,4 +208,14 @@ mkOpacityVoxelSampler = throwWithStack $ sampler3D OPACITY_UNIT <$> do
   samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
   samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_LINEAR_MIPMAP_LINEAR
   samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_LINEAR
+  return sampler
+
+mkPageMaskSampler :: YageResource (UniformSampler3D PixelR8UI)
+mkPageMaskSampler = throwWithStack $ sampler3D OPACITY_VPAGE_UNIT <$> do
+  sampler <- glResource
+  samplerParameteri sampler GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
+  samplerParameteri sampler GL_TEXTURE_MIN_FILTER $= GL_NEAREST
+  samplerParameteri sampler GL_TEXTURE_MAG_FILTER $= GL_NEAREST
   return sampler
