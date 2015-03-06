@@ -40,6 +40,8 @@ import Data.Foldable (foldr1)
 import GHC.Real (lcm)
 import Control.Monad.State               (MonadState, execStateT, StateT)
 import Data.List (findIndex,(!!))
+import Data.MultiSet (MultiSet)
+import qualified Data.MultiSet as MS
 import Quine.GL.Texture hiding (Texture)
 import Quine.StateVar
 
@@ -57,6 +59,10 @@ data SparseTexture d px = SparseTexture
   , _pageSizes       :: V3 Int
   , _pagesIn         :: Pages
   -- ^ committed pages of the sparse texture
+  , _mipmapClaims    :: MultiSet (Int,PageIndex)
+  -- ^ multiple base level pages can claim the same mipmap page
+  -- because page sizes are not divideable.
+  -- so we have to ref counting mipmap pages
   } deriving (Show,Ord,Eq,Generic)
 
 makeLenses ''SparseTexture
@@ -84,7 +90,7 @@ genSparseTexture3D w h d l
 
   (_idx, fmt) <- selectPageFormat tex
   (mask, selectedPageSize) <- genPageMask tex fmt
-  return $ SparseTexture tex mask selectedPageSize mempty
+  return $ SparseTexture tex mask selectedPageSize mempty mempty
  where
   selectPageFormat :: (MonadIO m, ImageFormat px) => Texture3D px -> m (Int, V3 Int)
   selectPageFormat tex = do
@@ -121,9 +127,12 @@ commitPage pageIndex@(V3 x y z) commit = do
   pages <- use pagesIn
   tex   <- use sparseTexture
   V3 pageSizeX pageSizeY pageSizeZ <- use pageSizes
+  let V3 bw bh bd = tex^.textureDimension.whd
 
   when ( pages^.contains pageIndex /= commit ) $ do
     io $ printf "commit: %s - %s : %s\n" (show $ tex^.textureObject) (show pageIndex) (show commit)
+    io $ printf "\tparam: %d; %d; %d\n" (x*pageSizeX) (y*pageSizeY) (z*pageSizeZ)
+    io $ printf "\tparam: %d; %d; %d\n" (pageSizeX) (pageSizeY) (pageSizeZ)
     glTexPageCommitmentARB (tex^.textureTarget) 0
       (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
       (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
@@ -133,11 +142,24 @@ commitPage pageIndex@(V3 x y z) commit = do
     -- technically we need to sample down to 1x1x1 but I made somewere a mistake, so GL complains
     -- about offset + width must be less or equal to texture width
     forM_ [1.. (tex^.textureLevel - 1)] $ \l -> do
-      let V3 w h d = tex^.textureDimension.whd & mapped %~ (`div` 2^l)
-      glTexPageCommitmentARB (tex^.textureTarget) (fromIntegral l)
-        0 0 0
-        (fromIntegral w) (fromIntegral h) (fromIntegral d)
-        (if commit then GL_TRUE else GL_FALSE)
+      let base     = 2^l
+          V3 w h d = fromIntegral <$> V3 bw bh bd & mapped %~ (`div` base)
+          -- maxIdxs  = V3 (bw `div` pageSizeX) (bh `div` pageSizeY) (bd `div` pageSizeZ)
+          mipIdx@(_, V3 mx my mz) = (fromIntegral l, pageIndex & mapped %~ (`div` base))
+      mipmapClaims %= (if commit then MS.insert else MS.delete) mipIdx
+      mips <- use mipmapClaims
+      -- the base page possible claims or releases a mipmap page
+      -- currenty we
+      when (MS.occur mipIdx mips <= 1) $ do
+        let off@(V3 offx offy offz) = V3 (mx*pageSizeX) (my*pageSizeY) (mz*pageSizeZ)
+            V3 pw ph pd       = liftI2 min (V3 w h d) (off + V3 pageSizeX pageSizeY pageSizeZ) - off
+        io $ printf "\tmip %d: %d; %d; %d\n" l w h d
+        io $ printf "\t: %d; %d; %d\n" offx offy offz
+        io $ printf "\t: %d; %d; %d\n" pw ph pd
+        glTexPageCommitmentARB (tex^.textureTarget) (fromIntegral l)
+          (fromIntegral offx) (fromIntegral offy) (fromIntegral offz)
+          (fromIntegral pw) (fromIntegral ph) (fromIntegral pd)
+          (if commit then GL_TRUE else GL_FALSE)
 
   pagesIn.contains pageIndex .= commit
 
