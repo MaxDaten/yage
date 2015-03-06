@@ -59,7 +59,7 @@ data PassRes = PassRes
   { vao           :: VertexArray
   , pipe          :: Pipeline
   , frag          :: FragmentShader
-  , target        :: RenderTarget (Texture3D PixelRGBA8)
+  , target        :: RenderTarget (SparseTexture3D PixelRGBA8)
   }
 
 data VoxelScene = VoxelScene
@@ -86,7 +86,8 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
 
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
-    voxTarget <- mkRenderTarget =<< createTargetTexture
+    let level = 1 + (truncate $ logBase 2 $ fromIntegral width)
+    voxTarget <- mkRenderTarget =<< genSparseTexture3D width height depth level
 
     return $ PassRes vao pipeline frag voxTarget
 
@@ -112,21 +113,10 @@ unpackVoxelPass width height depth = Pass <$> passRes <*> pure runPass where
     checkPipelineError pipe
 
     sampleTexture frag $= baseBuffer^.sparseTexture
-    throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.textureDimension.whd._z)
+    throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ target^.renderTarget.sparseTexture.textureDimension.whd._z)
 
-    withTextureBound (target^.renderTarget) $ glGenerateMipmap GL_TEXTURE_3D
-    return $! VoxelScene (target^.renderTarget) bounds baseBuffer
-
-  createTargetTexture = let lvl = 1 + (truncate $ logBase 2 $ fromIntegral width) in
-    createTexture3DWithSetup GL_TEXTURE_3D (Tex3D width height depth) lvl $ \_ -> do
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_R $= GL_CLAMP_TO_EDGE
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_BASE_LEVEL $= 0
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_MAX_LEVEL  $= fromIntegral lvl
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_LINEAR
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_LINEAR
-      texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_FALSE
+    withTextureBound (target^.renderTarget.sparseTexture) $ glGenerateMipmap GL_TEXTURE_3D
+    return $! VoxelScene (target^.renderTarget.sparseTexture) bounds baseBuffer
 
 -- * Shader Interfaces
 

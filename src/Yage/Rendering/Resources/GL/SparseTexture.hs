@@ -32,6 +32,7 @@ import Yage.Lens
 import Yage.Math
 import Yage.Resources
 import Yage.Rendering.GL
+import Yage.Rendering.RenderTarget
 import Yage.Rendering.Resources.GL
 import Yage.Rendering.Resources.GL.SparseTexture.Internal as Internal
 import Data.Foldable (foldr1)
@@ -128,3 +129,9 @@ commitPage pageIndex@(V3 x y z) commit = do
       (if commit then GL_TRUE else GL_FALSE)
 
   pagesIn.contains pageIndex .= commit
+
+instance IsRenderTarget (SparseTexture3D px) where
+  getAttachments t = ([mkAttachment t], Nothing, Nothing)
+
+instance FramebufferAttachment (SparseTexture3D px) where
+  attach target s = attach target s . view sparseTexture
