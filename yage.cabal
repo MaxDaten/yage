@@ -163,7 +163,6 @@ library
     Yage.Rendering.Pipeline.Deferred.LightPass
     Yage.Rendering.Pipeline.Deferred.LuminanceFilter
     Yage.Rendering.Pipeline.Deferred.PostAmbientPass
-    Yage.Rendering.Pipeline.Deferred.Sampler
     Yage.Rendering.Pipeline.Deferred.ScreenPass
     Yage.Rendering.Pipeline.Deferred.SkyPass
     Yage.Rendering.Pipeline.Deferred.Tonemap
