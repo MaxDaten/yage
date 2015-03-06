@@ -86,7 +86,7 @@ unpackVoxelPass width height depth = runPass <$> passRes where
     Just frag <- traverse fragmentUniforms  =<< get (fragmentShader $ pipeline^.pipelineProgram)
 
     let level = (truncate $ logBase 2 $ fromIntegral width)
-    voxTarget <- mkRenderTarget =<< genSparseTexture3D width height depth level
+    voxTarget <- mkRenderTarget =<< genSparseTexture3D width height depth (level+1)
 
     return $ PassRes vao pipeline frag voxTarget
 
@@ -115,7 +115,7 @@ unpackVoxelPass width height depth = runPass <$> passRes where
 
     sampleTexture frag $= baseBuffer^.sparseTexture
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ updatedTarget^.renderTarget.sparseTexture.textureDimension.whd._z)
-
+    boundFramebuffer RWFramebuffer $= def
     withTextureBound (updatedTarget^.renderTarget.sparseTexture) $ glGenerateMipmap GL_TEXTURE_3D
     return $! (VoxelScene (updatedTarget^.renderTarget.sparseTexture) bounds baseBuffer, res{target = updatedTarget})
 
