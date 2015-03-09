@@ -25,6 +25,7 @@ uniform int DiffuseMipmapOffset;
 // 1 : Voxel Ambient Occlusion
 uniform int AmbientOcclusionMode;
 uniform vec3 CameraPosition;
+uniform float OcclusionFactor = 0.4;
 
 in vec4 ScreenPos;
 
@@ -80,6 +81,7 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
     // front to back accumulation
     // float mask = float(texture(PageMask, samplePos).r) / USE_PAGE_MARKER;
     vec4 sampleValue  = textureLod(SceneOpacityVoxel, samplePos, sampleLOD);
+    sampleValue.a *= OcclusionFactor / (0.5 * sampleLOD + 0.001);
     accum += sampleValue * (1.0 - accum.w);
     dist += sampleDiameter;
   }
@@ -95,7 +97,7 @@ float AccumulateAmbientOcclusionCones(in Surface surface, in sampler3D SceneVoxe
   origin.xyz = (origin.xyz + 1) / 2.0;
   mat3 TBN = fakeTangentSpace(surface.Normal);
 
-  const float coneRatio = 2.0;
+  const float coneRatio = 1.0;
   const float maxDist = 0.3;
   vec4 accum = vec4(0);
   accum += VoxelConeTrace(origin.xyz, TBN[2], coneRatio, maxDist);
@@ -104,7 +106,7 @@ float AccumulateAmbientOcclusionCones(in Surface surface, in sampler3D SceneVoxe
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] + TBN[1]), 1.0, maxDist);
   accum += 0.707 * VoxelConeTrace(origin.xyz, normalize(TBN[2] - TBN[1]), 1.0, maxDist);
 
-  return 1.0 - accum.a;
+  return saturate(1.0 - accum.a);
 }
 
 float AmbientOcclusion(in Surface surface, in sampler3D SceneVoxelRep, in mat4 WorldToVoxelSpace)
