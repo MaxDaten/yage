@@ -130,9 +130,9 @@ commitPage pageIndex@(V3 x y z) commit = do
   let V3 bw bh bd = tex^.textureDimension.whd
 
   when ( pages^.contains pageIndex /= commit ) $ do
-    io $ printf "commit: %s - %s : %s\n" (show $ tex^.textureObject) (show pageIndex) (show commit)
-    io $ printf "\tparam: %d; %d; %d\n" (x*pageSizeX) (y*pageSizeY) (z*pageSizeZ)
-    io $ printf "\tparam: %d; %d; %d\n" (pageSizeX) (pageSizeY) (pageSizeZ)
+    --io $ printf "commit: %s - %s : %s\n" (show $ tex^.textureObject) (show pageIndex) (show commit)
+    --io $ printf "\tparam: %d; %d; %d\n" (x*pageSizeX) (y*pageSizeY) (z*pageSizeZ)
+    --io $ printf "\tparam: %d; %d; %d\n" (pageSizeX) (pageSizeY) (pageSizeZ)
     glTexPageCommitmentARB (tex^.textureTarget) 0
       (fromIntegral $ x*pageSizeX) (fromIntegral $ y*pageSizeY) (fromIntegral $ z*pageSizeZ)
       (fromIntegral pageSizeX) (fromIntegral pageSizeY) (fromIntegral pageSizeZ)
@@ -153,9 +153,9 @@ commitPage pageIndex@(V3 x y z) commit = do
       when (MS.occur mipIdx mips <= 1) $ do
         let off@(V3 offx offy offz) = V3 (mx*pageSizeX) (my*pageSizeY) (mz*pageSizeZ)
             V3 pw ph pd       = liftI2 min (V3 w h d) (off + V3 pageSizeX pageSizeY pageSizeZ) - off
-        io $ printf "\tmip %d: %d; %d; %d\n" l w h d
-        io $ printf "\t: %d; %d; %d\n" offx offy offz
-        io $ printf "\t: %d; %d; %d\n" pw ph pd
+        --io $ printf "\tmip %d: %d; %d; %d\n" l w h d
+        --io $ printf "\t: %d; %d; %d\n" offx offy offz
+        --io $ printf "\t: %d; %d; %d\n" pw ph pd
         glTexPageCommitmentARB (tex^.textureTarget) (fromIntegral l)
           (fromIntegral offx) (fromIntegral offy) (fromIntegral offz)
           (fromIntegral pw) (fromIntegral ph) (fromIntegral pd)
