@@ -53,13 +53,14 @@ void main()
     halfVox = 0.95/vec3(maskSize);
   }
 
+  vec4 voxelColor;
 	if (isVoxelPresent(voxel))
 	{
-		f_VoxelColor = voxel;
+		voxelColor = voxel;
 	}
 	else if (RenderEmpty == 1)
 	{
-		f_VoxelColor = vec4(1, 1, 1, 0.005);
+		voxelColor = vec4(1, 1, 1, 0.005);
 	}
   else
   {
@@ -68,9 +69,12 @@ void main()
 
   const vec4 center = gl_in[0].gl_Position;
   vec4 pos = center;
+  voxelColor.a = 1.0;
 
+  // +Z
   pos.xyz = center.xyz + vec3(-1,-1,1) * halfVox;
   gl_Position =  VPMatrix * ModelMatrix * pos;
+  f_VoxelColor = voxelColor;
   EmitVertex();
 
   pos.xyz = center.xyz + vec3(1,-1,1) * halfVox;
@@ -85,8 +89,9 @@ void main()
   gl_Position =  VPMatrix * ModelMatrix * pos;
   EmitVertex();
 
-  //+X
+  // +X
   //for degenerate purpose
+  // f_VoxelColor.rgb = voxelColor.rgb;
   EmitVertex();
   //f_color = vec4( 0.2, 0.2, 0.2, 1 );
   pos.xyz = center.xyz + vec3(1,-1,1) * halfVox;
@@ -102,7 +107,8 @@ void main()
   EmitVertex();
 
 
-  //-Z
+  // -Z
+  // f_VoxelColor.rgb = 0.8 * voxelColor.rgb;
   EmitVertex(); //for degenerate purpose
 
   pos.xyz = center.xyz + vec3(-1,-1,-1) * halfVox;
@@ -117,7 +123,8 @@ void main()
   gl_Position =  VPMatrix * ModelMatrix * pos;
   EmitVertex();
 
-  //-X
+  // -X
+  // f_VoxelColor.rgb = 0.8 * voxelColor.rgb;
   EmitVertex(); //for degenerate purpose
   //f_color = vec4( 0.5, 0.5, 0.5, 1 );
   pos.xyz = center.xyz + vec3(-1,-1,-1) * halfVox;
@@ -132,7 +139,8 @@ void main()
   gl_Position =  VPMatrix * ModelMatrix * pos;
   EmitVertex();
 
-  //-Y
+  // -Y
+  // f_VoxelColor.rgb = 0.8 * voxelColor.rgb;
   EmitVertex();
 
   pos.xyz = center.xyz + vec3(-1,-1,-1) * halfVox;
@@ -147,7 +155,8 @@ void main()
   gl_Position =  VPMatrix * ModelMatrix * pos;
   EmitVertex();
 
-  //+Y
+  // +Y
+  // f_VoxelColor.rgb = voxelColor.rgb;
   EmitVertex();
   //f_color = color;
   pos.xyz = center.xyz + vec3(1,1,-1) * halfVox;
