@@ -117,7 +117,7 @@ yDeferredLighting = do
                       -< ( voxelSceneTarget
                          , fromJust mVoxelOcclusion
                          , input^.hdrCamera.camera
-                         ,  [VisualizeSceneVoxel,VisualizePageMask] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
+                         ,  [VisualizeSceneVoxel] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
                          )
         debugOverlay -< (input^.hdrCamera.hdrSensor, finalScene, Just visVoxTex)
       else returnA -< finalScene
