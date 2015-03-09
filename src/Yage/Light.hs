@@ -70,20 +70,21 @@ instance LinearInterpolatable LightType where
 
 
 -- | Creates a spotlight
-makeSpotlight :: V3 Double
-              -- ^ position in world space
-              -> V3 Double
-              -- ^ target of spotlight in world space
-              -> Double
-              -- ^ inner angle (degree) for area with max intensity
-              -> Double
-              -- ^ outer angle (degree) for cut off
-              -> V3 Double
-              -- ^ light color
-              -> Double
-              -- ^ intensity (lumen)
-              -> Light
-              -- ^ constructed spotlight
+makeSpotlight
+  :: V3 Double
+  -- ^ position in world space
+  -> V3 Double
+  -- ^ target of spotlight in world space
+  -> Double
+  -- ^ inner angle (degree) for area with max intensity
+  -> Double
+  -- ^ outer angle (degree) for cut off
+  -> V3 Double
+  -- ^ light color
+  -> Double
+  -- ^ intensity (lumen)
+  -> Light
+  -- ^ constructed spotlight
 makeSpotlight pos target innerAngle outerAngle color intensity = Light
   { _lightType  = Spotlight
     { _innerAngle = innerRad
@@ -107,14 +108,14 @@ makeSpotlight pos target innerAngle outerAngle color intensity = Light
 
 -- | Creates a global directional light
 makeDirectionalLight
-    :: V3 Double
-    -- ^ direction vector in world space (can be unnormalized)
-    -> V3 Double
-    -- ^ linear emitting color
-    -> Double
-    -- ^ intensity (lumen)
-    -> Light
-    -- ^ constructed directional light
+  :: V3 Double
+  -- ^ direction vector in world space (can be unnormalized)
+  -> V3 Double
+  -- ^ linear emitting color
+  -> Double
+  -- ^ intensity (lumen)
+  -> Light
+  -- ^ constructed directional light
 makeDirectionalLight direction color intensity = Light
     { _lightType  = DirectionalLight
     , _lightTransformation = idTransformation & orientation .~ lookAtQ worldpace (normalize direction)
