@@ -84,12 +84,6 @@ instance Monoid JoystickState where
 instance Semigroup JoystickState
 
 
-deriving instance Generic JoystickButtonState
-deriving instance Generic MouseButtonState
-deriving instance Generic KeyState
-deriving instance Generic ModifierKeys
-deriving instance Generic MouseButton
-deriving instance Generic Key
 instance NFData JoystickState       where rnf = genericRnf
 instance NFData JoystickButtonState where rnf = genericRnf
 instance NFData MouseButton         where rnf = genericRnf
