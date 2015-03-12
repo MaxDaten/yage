@@ -83,7 +83,6 @@ instance Monoid JoystickState where
 
 instance Semigroup JoystickState
 
-
 instance NFData JoystickState       where rnf = genericRnf
 instance NFData JoystickButtonState where rnf = genericRnf
 instance NFData MouseButton         where rnf = genericRnf
