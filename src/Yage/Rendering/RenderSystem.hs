@@ -171,3 +171,9 @@ instance Monad m => Profunctor (RenderSystem m) where
   dimap f g (RenderSystem sys) = RenderSystem $ \i -> do
     (o,sys') <- sys (f i)
     return (g o, dimap f g sys')
+
+instance (Monad m, Semigroup b) => Semigroup (RenderSystem m a b) where
+  sysX <> sysY = RenderSystem $ \i -> do
+    (x, sysX') <- runRenderSystem sysX i
+    (y, sysY') <- runRenderSystem sysY i
+    return (x <> y, sysX' <> sysY')
