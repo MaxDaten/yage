@@ -93,11 +93,11 @@ vec3 Fresnel( vec3 F0, float F90, float VoH )
 // [Karis 2013, "Real Shading in Unreal Engine 4"]
 float GeometricSchlick( float a, float NoV, float NoL )
 {
-    float k = a * 0.5;
+    // float k = a * 0.5;
+    float k = square( a + 1 ) / 8.0;
     float GV = NoV * (1 - k) + k;
     float GL = NoL * (1 - k) + k;
     return 0.25 / ( GV * GL );
-    // float k = square( Roughness + 1 ) / 8.0;
     // float GV = NoV / (NoV * (1 - k) + k);
     // float GL = NoL / (NoL * (1 - k) + k);
     // return GV * GL;

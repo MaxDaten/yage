@@ -83,13 +83,13 @@ instance Monoid JoystickState where
 
 instance Semigroup JoystickState
 
-instance NFData JoystickState       where rnf = genericRnf
-instance NFData JoystickButtonState where rnf = genericRnf
-instance NFData MouseButton         where rnf = genericRnf
-instance NFData Key                 where rnf = genericRnf
-instance NFData MouseEvent          where rnf = genericRnf
-instance NFData MouseButtonState    where rnf = genericRnf
-instance NFData KeyEvent            where rnf = genericRnf
-instance NFData ModifierKeys        where rnf = genericRnf
-instance NFData KeyState            where rnf = genericRnf
-instance NFData InputState          where rnf = genericRnf
+--instance NFData JoystickState       where rnf = genericRnf
+--instance NFData JoystickButtonState where rnf = genericRnf
+--instance NFData MouseButton         where rnf = genericRnf
+--instance NFData Key                 where rnf = genericRnf
+--instance NFData MouseEvent          where rnf = genericRnf
+--instance NFData MouseButtonState    where rnf = genericRnf
+--instance NFData KeyEvent            where rnf = genericRnf
+--instance NFData ModifierKeys        where rnf = genericRnf
+--instance NFData KeyState            where rnf = genericRnf
+--instance NFData InputState          where rnf = genericRnf
