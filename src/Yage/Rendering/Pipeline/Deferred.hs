@@ -94,6 +94,7 @@ yDeferredLighting = do
     post      <- processPassWithGlobalEnv postAmbient -< ( lBufferTarget
                                                          , radiance
                                                          , mVoxelOcclusion
+                                                         , input^.deferredSettings
                                                          , input^.hdrCamera.camera
                                                          , gBuffer )
 
@@ -117,7 +118,7 @@ yDeferredLighting = do
                       -< ( voxelSceneTarget
                          , fromJust mVoxelOcclusion
                          , input^.hdrCamera.camera
-                         ,  [VisualizeSceneVoxel] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
+                         ,  [VisualizePageMask] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
                          )
         debugOverlay -< (input^.hdrCamera.hdrSensor, finalScene, Just visVoxTex)
       else returnA -< finalScene
@@ -143,3 +144,65 @@ yDeferredLighting = do
 --   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAX_LEVEL 0
 --   glTexImage2D GL_TEXTURE_2D 0 GL_RGBA8 1 1 0 GL_RGBA GL_UNSIGNED_BYTE nullPtr
 
+{-
+
+yDeferredLighting
+  :: (HasScene a DeferredEntity DeferredEnvironment, HasHDRCamera a, HasDeferredSettings a, DeferredMonad m env)
+  => YageResource (RenderSystem m a (Texture2D PixelRGB8))
+yDeferredLighting = do
+  throwWithStack $ glEnable GL_FRAMEBUFFER_SRGB
+  throwWithStack $ buildNamedStrings embeddedShaders ((++) "/res/glsl/")
+  -- throwWithStack $ setupDefaultTexture
+
+  drawGBuffer    <- gPass
+  skyPass        <- drawSky
+
+  defaultRadiance <- textureRes (pure (defaultMaterialSRGB^.materialTexture) :: Cubemap (Image PixelRGB8))
+--  voxelize        <- voxelizePass 256 256 256
+--  visVoxel        <- visualizeVoxelPass
+  drawLights      <- lightPass
+  postAmbient     <- postAmbientPass
+  renderBloom     <- addBloom
+  tonemapPass     <- toneMapper
+--  debugOverlay    <- toneMapper
+
+  return $ proc input -> do
+    mainViewport  <- sysEnv viewport    -< ()
+
+    -- render surface attributes for lighting out
+    gbufferTarget <- autoResized mkGbufferTarget           -< mainViewport^.rectangle
+    gBuffer       <- processPassWithGlobalEnv drawGBuffer  -< ( gbufferTarget
+                                                              , input^.scene
+                                                              , input^.hdrCamera.camera )
+
+    -- lighting
+    lBufferTarget <- autoResized mkLightBuffer -< mainViewport^.rectangle
+    _lBuffer   <- processPassWithGlobalEnv drawLights  -< ( lBufferTarget
+                                                          , input^.scene.environment.lights
+                                                          , input^.hdrCamera.camera
+                                                          , gBuffer )
+
+    -- ambient
+    let radiance = maybe defaultRadiance (view $ materials.radianceMap.materialTexture) (input^.scene.environment.sky)
+    post      <- processPassWithGlobalEnv postAmbient -< ( lBufferTarget
+                                                         , radiance
+                                                         , Nothing
+                                                         , input^.hdrCamera.camera
+                                                         , gBuffer )
+
+    -- sky pass
+    skyTarget <- onChange  -< (post, gBuffer^.depthChannel)
+    sceneTex <- if isJust $ input^.scene.environment.sky
+      then skyPass -< ( fromJust $ input^.scene.environment.sky
+                      , input^.hdrCamera.camera
+                      , skyTarget
+                      )
+      else returnA -< post
+
+    -- bloom pass
+    bloomed   <- renderBloom -< (input^.hdrCamera.bloomSettings, sceneTex)
+
+    -- tone map from hdr (floating) to discrete Word8
+    finalScene <- tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
+    returnA -< finalScene
+-}

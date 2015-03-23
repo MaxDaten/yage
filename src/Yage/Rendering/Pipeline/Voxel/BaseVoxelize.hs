@@ -147,6 +147,7 @@ baseVoxelizePass width height depth = do
   runPass :: (MonadIO m, MonadThrow m, MonadReader PassRes m, HasBox scene, GBaseScene scene f ent i v) => SparseVoxelBuffer -> RenderSystem m scene (SparseVoxelBuffer, Box)
   runPass v = flip mkStatefulRenderPass v $ \voxelBuf scene -> do
     PassRes{pageClearData,pipe,vert,geom,frag,vao} <- ask
+    
     -- some state setting
     glDisable GL_DEPTH_TEST
     glDisable GL_BLEND
@@ -168,7 +169,7 @@ baseVoxelizePass width height depth = do
     drawEntities vert geom frag (scene^.entities)
 
     glMemoryBarrier GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-
+    
     -- map page mask
     -- and iterate over page mask and commit/decommit pages
     updatedBuffer <- updateSparseTexture voxelBuf $ do

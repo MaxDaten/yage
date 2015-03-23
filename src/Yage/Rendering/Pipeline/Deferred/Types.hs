@@ -41,6 +41,8 @@ type DeferredScene       = Scene DeferredEntity DeferredEnvironment
 data DeferredSettings = DeferredSettings
   { _activeVoxelAmbientOcclusion :: Bool
   -- ^ perform full scene voxelization and cone tracing for ambient occlusion approximation
+  , _ambientOcclusionMinDiameterFactor :: Float
+  -- ^ the min diameter factor for fine tuning TODO investigate and remove this
   , _showDebugOverlay :: Bool
   -- ^ selects a overlay for debug issues (e.g. 3d page mask of the sparse voxelization)
   } deriving (Show,Read,Ord,Eq,Data,Typeable,Generic)
@@ -50,6 +52,7 @@ makeClassy ''DeferredSettings
 instance Default DeferredSettings where
   def = DeferredSettings
     { _activeVoxelAmbientOcclusion = True
+    , _ambientOcclusionMinDiameterFactor = 4.0
     , _showDebugOverlay = False
     }
 

@@ -25,7 +25,8 @@ uniform int DiffuseMipmapOffset;
 // 1 : Voxel Ambient Occlusion
 uniform int AmbientOcclusionMode;
 uniform vec3 CameraPosition;
-uniform float OcclusionFactor = 0.4;
+uniform float OcclusionFactor = 0.6;
+uniform float MinDiameter = 0.6;
 
 in vec4 ScreenPos;
 
@@ -69,13 +70,12 @@ vec4 VoxelConeTrace(in vec3 Origin, vec3 Direction, float ConeAngleRatio, float 
   vec4 accum = vec4(0);
 
   float gridDim = float(textureSize(SceneOpacityVoxel, 0).x);
-  float minDiameter = 4 / gridDim;
 
-  float startDist = minDiameter;
+  float startDist = MinDiameter;
   float dist = startDist;
   while (dist <= MaxDist && accum.w < 1.0)
   {
-    float sampleDiameter = max(minDiameter, ConeAngleRatio * dist);
+    float sampleDiameter = max(MinDiameter, ConeAngleRatio * dist);
     float sampleLOD   = log2(sampleDiameter * gridDim);
     vec3 samplePos    = Origin + Direction * dist;
     // front to back accumulation

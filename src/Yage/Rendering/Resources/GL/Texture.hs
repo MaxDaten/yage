@@ -239,7 +239,7 @@ withMappedTexture storage access tex ma = do
   GL.boundTexture target 0 $= (tex^.textureObject)
   boundBufferAt PixelPackBuffer $= storage
   --r <- ma . flip unsafeFromForeignPtr0 len =<< liftIO . newForeignPtr_ =<< (liftM castPtr $ glMapBufferRange GL_PIXEL_UNPACK_BUFFER 0 (fromIntegral len) GL_MAP_READ_BIT)
-  glGetnTexImage target 0 fmt ty (fromIntegral 2048) nullPtr
+  glGetnTexImage target 0 fmt ty (fromIntegral bytes) nullPtr
   fptr <- liftIO $ newForeignPtr_ =<< liftM castPtr (glMapBuffer GL_PIXEL_PACK_BUFFER access)
   a <- ma (convert $ unsafeFromForeignPtr0 fptr len)
   r <- glUnmapBuffer GL_PIXEL_PACK_BUFFER

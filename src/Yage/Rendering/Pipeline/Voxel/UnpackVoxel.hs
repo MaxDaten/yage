@@ -116,6 +116,7 @@ unpackVoxelPass width height depth = runPass <$> passRes where
     sampleTexture frag $= baseBuffer^.sparseTexture
     throwWithStack $ glDrawArraysInstanced GL_TRIANGLES 0 3 (fromIntegral $ updatedTarget^.renderTarget.sparseTexture.textureDimension.whd._z)
     boundFramebuffer RWFramebuffer $= def
+    -- print "gen mipmap 3d"
     withTextureBound (updatedTarget^.renderTarget.sparseTexture) $ glGenerateMipmap GL_TEXTURE_3D
     return $! (VoxelScene (updatedTarget^.renderTarget.sparseTexture) bounds baseBuffer, res{target = updatedTarget})
 

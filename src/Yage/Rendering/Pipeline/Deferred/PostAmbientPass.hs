@@ -34,6 +34,7 @@ import Yage.Rendering.RenderTarget
 import Yage.Rendering.Pipeline.Deferred.BaseGPass
 import Yage.Rendering.Pipeline.Voxel.Base
 import Yage.Rendering.Pipeline.Deferred.Common
+import Yage.Rendering.Pipeline.Deferred.Types
 
 import Quine.GL.Uniform
 import Quine.GL.Program
@@ -56,7 +57,7 @@ data FragmentShader px = FragmentShader
   , cameraPos            :: UniformVar Vec3
   , zProjectionRatio     :: UniformVar Vec2
   , viewToWorld          :: UniformVar Mat4
-  , ambientOcclusion     :: UniformVar (Maybe VoxelScene)
+  , ambientOcclusion     :: UniformVar (Maybe (Float, VoxelScene))
   -- , sceneOpacityVoxel    :: UniformVar (Texture3D PixelRGBA8)
   -- , worldToVoxel         :: UniformVar Mat4
   }
@@ -68,7 +69,7 @@ data PassRes px = PassRes
   }
 
 type PostAmbientBuffer = Texture2D PixelRGB11_11_10F
-type PostAmbientInput px = (RenderTarget PostAmbientBuffer, (TextureCube px), Maybe VoxelScene, Camera, GBuffer)
+type PostAmbientInput px = (RenderTarget PostAmbientBuffer, (TextureCube px), Maybe VoxelScene, DeferredSettings, Camera, GBuffer)
 type PostAmbientPass m g px = PassGEnv g (PassRes px) m (PostAmbientInput px) PostAmbientBuffer
 
 -- | Writes the ambient term additive to the given RenderTarget
@@ -89,7 +90,7 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
 
   runPass :: (MonadIO m, MonadThrow m, MonadReader (PassEnv g (PassRes px)) m, HasViewport g Int, ImageFormat px)
           => RenderSystem m (PostAmbientInput px) PostAmbientBuffer
-  runPass = mkStaticRenderPass $ \(target, radianceMap, mVoxelScene, cam, gBuf) -> do
+  runPass = mkStaticRenderPass $ \(target, radianceMap, mVoxelScene, deferredSettings, cam, gBuf) -> do
     PassRes{..} <- view localEnv
     boundFramebuffer RWFramebuffer $= (target^.framebufferObj)
 
@@ -118,7 +119,7 @@ postAmbientPass = PassGEnv <$> passRes <*> pure runPass where
     gBuffer             $= gBuf
     cameraPos           $= realToFrac <$> cam^.position
     viewToWorld         $= fmap realToFrac <$> (cam^.inverseCameraMatrix)
-    ambientOcclusion    $= mVoxelScene
+    ambientOcclusion    $= ((deferredSettings^.ambientOcclusionMinDiameterFactor,) <$> mVoxelScene)
 
     -- Draw
     throwWithStack $ glDrawArrays GL_TRIANGLES 0 3
@@ -139,7 +140,7 @@ fragmentUniforms prog = do
     <*> fmap toUniformVar (programUniform programUniformMatrix4f prog "ViewToWorld")
     <*> ambientOcclusionUniform
  where
-  ambientOcclusionUniform :: YageResource (UniformVar (Maybe VoxelScene))
+  ambientOcclusionUniform :: YageResource (UniformVar (Maybe (Float, VoxelScene)))
   ambientOcclusionUniform = do
     opacitySampl  <- mkOpacityVoxelSampler
     pageSampl     <- mkPageMaskSampler
@@ -147,18 +148,20 @@ fragmentUniforms prog = do
     pageMaskUniform   <- samplerUniform prog pageSampl "PageMask"
     worldToVoxel      <- programUniform programUniformMatrix4f prog "WorldToVoxelSpace"
     ambientOcclusionMode <- programUniform programUniform1i prog "AmbientOcclusionMode"
+    minDiameter          <- programUniform programUniform1f prog "MinDiameter"
     return $ SettableStateVar $ \case
       Nothing -> do
         ambientOcclusionMode  $= 0
         sceneOpacityVoxel     $= Nothing
         pageMaskUniform       $= Nothing
-      Just (VoxelScene voxTex bounds voxBuff) -> do
+      Just (diameterFactor, VoxelScene voxTex bounds voxBuff) -> do
         -- | maps world coords in bounds to the -0.5 .. +0.5 range
         let Just world2Voxel = inv44 $ (bounds^.transformationMatrix) !*! scaled (point $ V3 0.5 0.5 0.5)
         sceneOpacityVoxel     $= Just voxTex
         worldToVoxel          $= world2Voxel
         ambientOcclusionMode  $= 1
         pageMaskUniform       $= Just (voxBuff^.pageMask)
+        minDiameter           $= diameterFactor * 1.0 / (fromIntegral $ voxTex^.textureDimension.whd._x)
 
 
 gBufferUniform :: Program -> YageResource (UniformVar GBuffer)

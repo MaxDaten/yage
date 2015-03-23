@@ -83,7 +83,8 @@ void main()
     // Surface surface = GetSurface();
     vec4 albedo = texture(AlbedoTexture, TextureCoord) * AlbedoColor;
     albedo.rgb = DebugAxis ? AxisColor : albedo.rgb;
-    imageAtomicRGBA8Avg(albedo, gridCoord, VoxelBuffer);
+    imageAtomicRGBA8Avg(albedo, gridCoord, VoxelBuffer); // on gtx 980 infinity loop
+    // imageStore(VoxelBuffer, gridCoord, uvec4(convVec4ToRGBA8(albedo),0,0,0));
   }
   else
   {
@@ -100,8 +101,10 @@ void imageAtomicRGBA8Avg( vec4 val, ivec3 coord, layout(r32ui) coherent volatile
   uint newVal = convVec4ToRGBA8( val );
   uint prev = 0;
   uint cur;
+  const int max_iteration = 1000; // just a simple sanity check :/
+  int i = 0;
 
-  while( (cur = imageAtomicCompSwap( img, coord, prev, newVal ) ) != prev )
+  while( (cur = imageAtomicCompSwap( img, coord, prev, newVal ) ) != prev && i < max_iteration )
    {
      prev = cur;
      vec4 rval = convRGBA8ToVec4( cur );
@@ -109,5 +112,6 @@ void imageAtomicRGBA8Avg( vec4 val, ivec3 coord, layout(r32ui) coherent volatile
      vec4 curVal = rval + val;
      curVal.xyz /= curVal.w;
      newVal = convVec4ToRGBA8( curVal );
+     i++;
    }
 }

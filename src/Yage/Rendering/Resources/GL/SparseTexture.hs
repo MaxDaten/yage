@@ -86,24 +86,24 @@ genSparseTexture3D w h d l
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MIN_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_MAG_FILTER $= GL_NEAREST
     texParameteri GL_TEXTURE_3D GL_TEXTURE_SPARSE_ARB $= GL_TRUE
-    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1
+    texParameteri GL_TEXTURE_3D GL_VIRTUAL_PAGE_SIZE_INDEX_ARB $= (fromIntegral $ fst fmtIdx) -- on my machine 128x128x1 - on gtx 980 32x32x16
 
   (_idx, fmt) <- selectPageFormat tex
   (mask, selectedPageSize) <- genPageMask tex fmt
   return $ SparseTexture tex mask selectedPageSize mempty mempty
  where
-  selectPageFormat :: (MonadIO m, ImageFormat px) => Texture3D px -> m (Int, V3 Int)
+  selectPageFormat :: (MonadIO m, Functor m, ImageFormat px) => Texture3D px -> m (Int, V3 Int)
   selectPageFormat tex = do
-    fmts <- virtualPageSizes3D tex
+    fmts <- traceShowId <$> virtualPageSizes3D tex
     case (findIndex  ((==) 1 . view _z)) fmts of
-      Nothing     -> error "GL_TEXTURE_3D requires a tile depth == 1, no matching format found"
+      Nothing     -> return (0,unsafeHead fmts) -- error "GL_TEXTURE_3D requires a tile depth == 1, no matching format found"
       Just fmtIdx -> return $ (fmtIdx, fmts!!fmtIdx)
 
 
 genPageMask :: forall px. ImageFormat px => Texture3D px -> V3 Int -> YageResource (PageMask3D, V3 Int)
 genPageMask baseBuff pageSize = do
   -- select the common least multiple to select cubic page sizes
-  let lcmPageSize = pure $ foldr1 lcm pageSize :: V3 Int
+  let lcmPageSize = traceShowId <$> pure $ foldr1 lcm pageSize :: V3 Int
   tex <- createTexture3DWithSetup GL_TEXTURE_3D (calcMaskSize lcmPageSize) 1 $ \_ -> do
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_S $= GL_CLAMP_TO_EDGE
     texParameteri GL_TEXTURE_3D GL_TEXTURE_WRAP_T $= GL_CLAMP_TO_EDGE

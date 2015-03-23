@@ -169,7 +169,7 @@ visualizeVoxelPass = PassGEnv <$> passRes <*> pure runPass where
     when (VisualizePageMask `oelem` visModes) $ do
       v_mode          $= VisualizePageMask
       g_mode          $= VisualizePageMask
-      renderEmpty     $= True
+      renderEmpty     $= False
 
       glDrawArrays GL_POINTS 0 (fromIntegral $ foldr1 (*) $ voxBuffer^.pageMask.textureDimension.whd )
 
