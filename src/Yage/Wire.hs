@@ -12,7 +12,7 @@ import Yage.Wire.Types        as Wire
 import Yage.Wire.Resources    as Wire
 -- import Yage.Wire.Debug        as Wire
 -- import Yage.Wire.Utils        as Wire
--- import Yage.Wire.Event        as Wire
+import Yage.Wire.Event        as Wire
 import FRP.Netwire            as Netwire
 import Control.Wire           as Netwire
 

@@ -112,13 +112,13 @@ yDeferredLighting = do
 
     -- tone map from hdr (floating) to discrete Word8
     finalScene <- tonemapPass -< (input^.hdrCamera.hdrSensor, sceneTex, Just bloomed)
-    if input^.deferredSettings.showDebugOverlay && isJust mVoxelOcclusion
+    if not (null $ input^.deferredSettings.voxelDebugModes) && isJust mVoxelOcclusion
       then do
         visVoxTex <- processPassWithGlobalEnv visVoxel
                       -< ( voxelSceneTarget
                          , fromJust mVoxelOcclusion
                          , input^.hdrCamera.camera
-                         ,  [VisualizePageMask] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
+                         , input^.deferredSettings.voxelDebugModes --[VisualizePageMask] -- [VisualizePageMask] -- [VisualizeSceneVoxel]
                          )
         debugOverlay -< (input^.hdrCamera.hdrSensor, finalScene, Just visVoxTex)
       else returnA -< finalScene

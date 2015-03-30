@@ -26,6 +26,7 @@ import Data.Data
 
 import Yage.Rendering.Pipeline.Deferred.BaseGPass (GBaseMaterial)
 import Yage.Rendering.Pipeline.Deferred.SkyPass (SkyMaterial)
+import Yage.Rendering.Pipeline.Voxel.VisualizeVoxel (VisualizeMode(..))
 
 -- | An Entity suitable for deferred shading
 type DeferredEntity      = Entity (RenderData Word32 YGMVertex) (GBaseMaterial Texture2D)
@@ -43,7 +44,7 @@ data DeferredSettings = DeferredSettings
   -- ^ perform full scene voxelization and cone tracing for ambient occlusion approximation
   , _ambientOcclusionMinDiameterFactor :: Float
   -- ^ the min diameter factor for fine tuning TODO investigate and remove this
-  , _showDebugOverlay :: Bool
+  , _voxelDebugModes :: [VisualizeMode]
   -- ^ selects a overlay for debug issues (e.g. 3d page mask of the sparse voxelization)
   } deriving (Show,Read,Ord,Eq,Data,Typeable,Generic)
 
@@ -53,7 +54,7 @@ instance Default DeferredSettings where
   def = DeferredSettings
     { _activeVoxelAmbientOcclusion = True
     , _ambientOcclusionMinDiameterFactor = 4.0
-    , _showDebugOverlay = False
+    , _voxelDebugModes = []
     }
 
 -- | The context for a 'RenderSystem' with deferred shading capabilities
