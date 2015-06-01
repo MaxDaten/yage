@@ -9,6 +9,6 @@ uniform usampler3D iTexture;
 layout(location = FRAG_COLOR) out vec4 fragColor;
 void main()
 {
-    fragColor = convRGBA8ToVec4(texelFetch( iTexture, ivec3(gl_FragCoord.xy,gl_Layer), 0 ));
+    fragColor = convRGBA8ToVec4(texelFetch( iTexture, ivec3(gl_FragCoord.xy,gl_Layer), 0 ).r);
     fragColor.rgb /= 255.0;
 }

@@ -121,7 +121,6 @@ lightPass = PassGEnv <$> passRes <*> pure runPass where
     glDepthMask GL_FALSE
     glDepthFunc GL_ALWAYS
     glFrontFace GL_CCW
-    glCullFace GL_BACK
 
     VP.globalViewport $= target^.asRectangle
     glColorMask GL_TRUE GL_TRUE GL_TRUE GL_TRUE
